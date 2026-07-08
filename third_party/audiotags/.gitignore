@@ -1,0 +1,49 @@
+# Flutter / Dart temporary files
+.dart_tool/
+.packages
+pubspec.lock
+
+# Generic build outputs
+build/
+logs/
+
+# Rust build cache
+rust/target/
+
+# Android local native build cache
+android/.cxx/
+android/build/
+
+# Example app local/generated files
+example/.dart_tool/
+example/build/
+example/.flutter-plugins
+example/.flutter-plugins-dependencies
+example/.packages
+example/ios/Flutter/ephemeral/
+example/ios/Pods/
+example/ios/.symlinks/
+example/ios/Podfile.lock
+example/macos/Flutter/ephemeral/
+example/macos/Pods/
+example/macos/.symlinks/
+example/macos/Podfile.lock
+example/android/.gradle/
+example/android/local.properties
+example/linux/flutter/ephemeral/
+example/windows/flutter/ephemeral/
+
+# Keep checked-in prebuilt artifacts that main app consumes
+!android/src/main/jniLibs/
+!android/src/main/jniLibs/**
+!ios/Frameworks/
+!ios/Frameworks/audiotags.xcframework/
+!ios/Frameworks/audiotags.xcframework/**
+!macos/Libs/
+!macos/Libs/libaudiotags.a
+!linux/
+!linux/libaudiotags.so
+!windows/
+!windows/audiotags.dll
+!windows/audiotags.dll.lib
+!windows/audiotags.pdb

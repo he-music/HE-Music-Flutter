@@ -1,0 +1,4 @@
+storePassword=your-store-password
+keyPassword=your-key-password
+keyAlias=he-music
+storeFile=keystore/he-music.jks
