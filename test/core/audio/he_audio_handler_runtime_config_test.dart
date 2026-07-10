@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
+import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
@@ -12,6 +13,8 @@ import 'package:he_music_flutter/core/audio/audio_track.dart';
 import 'package:he_music_flutter/core/audio/he_audio_handler.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
+import 'package:he_music_flutter/features/lyrics_overlay/data/overlay_message.dart';
+import 'package:he_music_flutter/features/lyrics_overlay/domain/services/overlay_channel_service.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:just_audio/just_audio.dart';
@@ -78,6 +81,51 @@ void main() {
     );
 
     expect(shouldRefreshRemotePlaybackUrl(track), isFalse);
+  });
+
+  test('自动歌词颜色只同步到对应的当前歌曲', () async {
+    final overlayService = _RecordingOverlayChannelService();
+    final handler = HeAudioHandler(
+      overlayLyricsServiceOverride: overlayService,
+      setAudioSourceOverride: (source, player) async => null,
+    );
+    addTearDown(handler.disposeHandler);
+    await handler.syncConfig(
+      apiBaseUrl: 'https://api.example.com',
+      authToken: null,
+      qualityPreference: AppOnlineAudioQuality.auto,
+      lastSelectedQualityName: null,
+      enableDesktopLyric: true,
+      enableDesktopLyricLock: false,
+      lyricHighlightMode: AppLyricHighlightMode.auto,
+      lyricHighlightPresetColorValue: AppLyricHighlightColor.sky.color
+          .toARGB32(),
+      lyricHighlightCustomColorValue: null,
+      lyricFontPresetIndex: AppLyricFontPreset.medium.index,
+      enableWordByWordLyric: true,
+    );
+    await handler.setQueueData(const <AudioTrack>[
+      AudioTrack(
+        id: 'song-1',
+        title: '歌曲一',
+        url: 'file:///tmp/song-1.mp3',
+        platform: 'local',
+      ),
+    ]);
+    overlayService.autoHighlightColorValues.clear();
+
+    await handler.syncAutoLyricHighlightColor(
+      trackId: 'song-1',
+      platform: 'local',
+      colorValue: 0xFF34D399,
+    );
+    await handler.syncAutoLyricHighlightColor(
+      trackId: 'stale-song',
+      platform: 'local',
+      colorValue: 0xFFFB7185,
+    );
+
+    expect(overlayService.autoHighlightColorValues, <int?>[0xFF34D399]);
   });
 
   test('远程歌曲即使已有 url 也应该重新获取播放链接', () async {
@@ -871,4 +919,60 @@ class _SequenceRandom implements Random {
 
   @override
   double nextDouble() => nextInt(1000000) / 1000000;
+}
+
+class _RecordingOverlayChannelService implements OverlayChannelService {
+  final List<int?> autoHighlightColorValues = <int?>[];
+
+  @override
+  Stream<OverlayMessage> get overlayToMainMessages =>
+      const Stream<OverlayMessage>.empty();
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Future<bool> isActive() async => false;
+
+  @override
+  Future<bool> isPermissionGranted() async => true;
+
+  @override
+  Future<void> lock() async {}
+
+  @override
+  Future<void> open() async {}
+
+  @override
+  Future<bool?> requestPermission() async => true;
+
+  @override
+  Future<void> sendClose() async {}
+
+  @override
+  Future<void> sendDocument(
+    LyricDocument document,
+    AppConfigState config, {
+    int? autoHighlightColorValue,
+  }) async {}
+
+  @override
+  Future<void> sendPosition(Duration position) async {}
+
+  @override
+  Future<void> sendStyleUpdate(
+    AppConfigState config, {
+    int? autoHighlightColorValue,
+  }) async {
+    autoHighlightColorValues.add(autoHighlightColorValue);
+  }
+
+  @override
+  Future<void> sendTrackChanged({
+    required String title,
+    required String artist,
+  }) async {}
+
+  @override
+  Future<void> unlock() async {}
 }

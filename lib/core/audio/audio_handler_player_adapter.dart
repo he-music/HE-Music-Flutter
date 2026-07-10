@@ -30,6 +30,18 @@ class AudioHandlerPlayerAdapter implements AudioPlayerPort {
     return _handler.syncCoverPlatforms(platforms);
   }
 
+  Future<void> syncAutoLyricHighlightColor({
+    required String trackId,
+    required String? platform,
+    required int? colorValue,
+  }) {
+    return _handler.syncAutoLyricHighlightColor(
+      trackId: trackId,
+      platform: platform,
+      colorValue: colorValue,
+    );
+  }
+
   @override
   Stream<bool> get playingStream => _handler.playingStream;
 

@@ -233,6 +233,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   int _lyricHighlightPresetColorValue = AppLyricHighlightColor.sky.color
       .toARGB32();
   int? _lyricHighlightCustomColorValue;
+  int? _autoLyricHighlightColorValue;
   int _lyricFontPresetIndex = 0;
   bool _enableWordByWordLyric = false;
   List<OnlinePlatform> _coverPlatforms = const <OnlinePlatform>[];
@@ -299,6 +300,24 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     );
   }
 
+  Future<void> syncAutoLyricHighlightColor({
+    required String trackId,
+    required String? platform,
+    required int? colorValue,
+  }) async {
+    if (_lyricHighlightMode != AppLyricHighlightMode.auto) {
+      return;
+    }
+    final currentTrack = _safeTrack(_currentIndex);
+    if (currentTrack == null ||
+        currentTrack.id.trim() != trackId.trim() ||
+        (currentTrack.platform?.trim() ?? '') != (platform?.trim() ?? '')) {
+      return;
+    }
+    _autoLyricHighlightColorValue = colorValue;
+    await _syncOverlayConfig();
+  }
+
   Future<void> setQueueData(
     List<AudioTrack> tracks, {
     int initialIndex = 0,
@@ -324,6 +343,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _broadcastMediaItem();
     _broadcastPlaybackState();
     if (_tracks.isEmpty) {
+      _autoLyricHighlightColorValue = null;
       await _player.stop();
       _duration = null;
       _clearLyricState();
@@ -502,6 +522,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (track == null) {
       return;
     }
+    // 新曲目开始加载时先清除上一首的自动取色，避免旧颜色短暂串歌。
+    _autoLyricHighlightColorValue = null;
     final requestId = ++_loadRequestId;
     // 立即更新 currentIndex 并广播，让 UI 瞬间响应切歌操作
     // 不在此处重置 _duration，否则快速切歌时旧请求被丢弃会导致
@@ -1502,6 +1524,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     await _overlayLyricsService.sendDocument(
       _currentLyricDocument,
       _overlayConfigState,
+      autoHighlightColorValue: _autoLyricHighlightColorValue,
     );
     await _overlayLyricsService.sendPosition(_player.position);
   }
@@ -1510,7 +1533,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (!_enableDesktopLyric) {
       return;
     }
-    await _overlayLyricsService.sendStyleUpdate(_overlayConfigState);
+    await _overlayLyricsService.sendStyleUpdate(
+      _overlayConfigState,
+      autoHighlightColorValue: _autoLyricHighlightColorValue,
+    );
     if (_enableDesktopLyricLock) {
       await _overlayLyricsService.lock();
     } else {

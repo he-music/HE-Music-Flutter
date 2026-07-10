@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,8 +7,7 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/config/app_lyric_highlight_mode.dart';
 import '../../../lyrics/presentation/widgets/lyric_panel.dart';
-import '../helpers/player_artwork_helper.dart';
-import 'player_backdrop.dart';
+import '../helpers/player_lyric_highlight_color_helper.dart';
 
 @visibleForTesting
 Color resolvePlayerLyricHighlightColor(
@@ -103,38 +101,9 @@ class _PlayerLyricPageState extends ConsumerState<PlayerLyricPage> {
   }
 
   Future<Color?> _loadHighlightColor() async {
-    final imageProvider = artworkProvider(
-      widget.artworkUrl,
-      widget.artworkBytes,
+    return loadPlayerLyricHighlightColor(
+      artworkUrl: widget.artworkUrl,
+      artworkBytes: widget.artworkBytes,
     );
-    if (imageProvider == null) {
-      return null;
-    }
-    final colors = await colorsFromImageProvider(
-      imageProvider,
-      decodeSize: const Size(112, 112),
-    );
-    return _pickHighlightColor(colors);
   }
-}
-
-Color? _pickHighlightColor(List<Color> colors) {
-  for (final color in colors) {
-    final hsl = HSLColor.fromColor(color);
-    if (hsl.lightness < 0.40 || hsl.saturation < 0.24) {
-      continue;
-    }
-    return hsl
-        .withLightness(math.max(hsl.lightness, 0.72))
-        .withSaturation(math.max(hsl.saturation, 0.56))
-        .toColor();
-  }
-  if (colors.isEmpty) {
-    return null;
-  }
-  final hsl = HSLColor.fromColor(colors.first);
-  return hsl
-      .withLightness(math.max(hsl.lightness, 0.70))
-      .withSaturation(math.max(hsl.saturation, 0.46))
-      .toColor();
 }

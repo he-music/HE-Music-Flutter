@@ -32,7 +32,11 @@ abstract class OverlayChannelService {
   Future<void> unlock();
 
   /// 发送歌词文档到悬浮窗。
-  Future<void> sendDocument(LyricDocument document, AppConfigState config);
+  Future<void> sendDocument(
+    LyricDocument document,
+    AppConfigState config, {
+    int? autoHighlightColorValue,
+  });
 
   /// 发送播放进度到悬浮窗。
   Future<void> sendPosition(Duration position);
@@ -44,7 +48,10 @@ abstract class OverlayChannelService {
   });
 
   /// 发送样式更新到悬浮窗。
-  Future<void> sendStyleUpdate(AppConfigState config);
+  Future<void> sendStyleUpdate(
+    AppConfigState config, {
+    int? autoHighlightColorValue,
+  });
 
   /// 发送关闭指令到悬浮窗。
   Future<void> sendClose();

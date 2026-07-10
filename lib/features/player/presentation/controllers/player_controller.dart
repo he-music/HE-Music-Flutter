@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
+import '../../../../app/config/app_lyric_highlight_mode.dart';
 import '../../../../core/audio/audio_handler_player_adapter.dart';
 import '../../../../core/audio/audio_player_port.dart';
 import '../../../../core/audio/audio_track.dart';
@@ -26,6 +27,7 @@ import '../providers/player_audio_provider.dart';
 import '../providers/player_history_provider.dart';
 import '../providers/player_progress_provider.dart';
 import '../providers/player_queue_provider.dart';
+import '../helpers/player_lyric_highlight_color_helper.dart';
 import 'player_controller_callback.dart';
 import 'player_history_manager.dart';
 import 'player_progress_manager.dart';
@@ -44,6 +46,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
 
   bool _initialized = false;
   int _trackSwitchRequestId = 0;
+  int _lyricHighlightColorRequestId = 0;
 
   @override
   PlayerPlaybackState get currentState => state;
@@ -59,7 +62,13 @@ class PlayerController extends Notifier<PlayerPlaybackState>
   PlayerPlaybackState build() {
     _audioPlayer = ref.read(audioPlayerPortProvider);
     if (_audioPlayer case final AudioHandlerPlayerAdapter adapter) {
-      unawaited(adapter.syncConfig(ref.read(appConfigProvider)));
+      unawaited(
+        _syncAudioHandlerConfig(
+          adapter,
+          ref.read(appConfigProvider),
+          syncAutoColor: true,
+        ),
+      );
       final platforms = ref.read(onlinePlatformsProvider).value;
       if (platforms != null) {
         unawaited(adapter.syncCoverPlatforms(platforms));
@@ -87,7 +96,19 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     );
     ref.listen<AppConfigState>(appConfigProvider, (previous, next) {
       if (_audioPlayer case final AudioHandlerPlayerAdapter adapter) {
-        unawaited(adapter.syncConfig(next));
+        final shouldSyncAutoColor =
+            next.enableDesktopLyric &&
+            next.lyricHighlightMode == AppLyricHighlightMode.auto &&
+            (previous == null ||
+                !previous.enableDesktopLyric ||
+                previous.lyricHighlightMode != AppLyricHighlightMode.auto);
+        unawaited(
+          _syncAudioHandlerConfig(
+            adapter,
+            next,
+            syncAutoColor: shouldSyncAutoColor,
+          ),
+        );
       }
     });
     ref.listen<AsyncValue<List<OnlinePlatform>>>(onlinePlatformsProvider, (
@@ -1005,8 +1026,48 @@ class PlayerController extends Notifier<PlayerPlaybackState>
 
   Future<void> _syncAudioHandlerConfigFromState() async {
     if (_audioPlayer case final AudioHandlerPlayerAdapter adapter) {
-      await adapter.syncConfig(ref.read(appConfigProvider));
+      await _syncAudioHandlerConfig(
+        adapter,
+        ref.read(appConfigProvider),
+        syncAutoColor: true,
+      );
     }
+  }
+
+  Future<void> _syncAudioHandlerConfig(
+    AudioHandlerPlayerAdapter adapter,
+    AppConfigState config, {
+    bool syncAutoColor = false,
+  }) async {
+    await adapter.syncConfig(config);
+    if (syncAutoColor) {
+      await _syncAutoLyricHighlightColor();
+    }
+  }
+
+  Future<void> _syncAutoLyricHighlightColor() async {
+    final requestId = ++_lyricHighlightColorRequestId;
+    final config = ref.read(appConfigProvider);
+    final track = state.currentTrack;
+    if (!config.enableDesktopLyric ||
+        config.lyricHighlightMode != AppLyricHighlightMode.auto ||
+        track == null ||
+        _audioPlayer is! AudioHandlerPlayerAdapter) {
+      return;
+    }
+    final color = await loadPlayerLyricHighlightColor(
+      artworkUrl: track.artworkUrl,
+      artworkBytes: track.artworkBytes,
+    );
+    if (requestId != _lyricHighlightColorRequestId) {
+      return;
+    }
+    final adapter = _audioPlayer as AudioHandlerPlayerAdapter;
+    await adapter.syncAutoLyricHighlightColor(
+      trackId: track.id,
+      platform: track.platform,
+      colorValue: color?.toARGB32(),
+    );
   }
 
   Future<void> _applyPlayMode(PlayerPlayMode mode) async {
@@ -1035,6 +1096,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       currentRadioPlatform: state.currentRadioPlatform,
       currentRadioPageIndex: state.currentRadioPageIndex,
     );
+    unawaited(_syncAutoLyricHighlightColor());
     await _applyPlayMode(state.playMode);
     if (restoreProgress) {
       final track = _queueManager.resolveTrack(state.queue, currentIndex);
@@ -1104,6 +1166,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       currentSelectedQualityName: selectedQualityName,
       clearError: true,
     );
+    unawaited(_syncAutoLyricHighlightColor());
     _streamManager.markFreshPositionPending();
     await _queueManager.persistQueueState(this);
     await _historyManager.recordCurrentTrackHistory(

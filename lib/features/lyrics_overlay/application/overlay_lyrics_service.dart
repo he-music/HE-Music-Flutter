@@ -95,10 +95,14 @@ class OverlayLyricsService implements OverlayChannelService {
   @override
   Future<void> sendDocument(
     LyricDocument document,
-    AppConfigState config,
-  ) async {
+    AppConfigState config, {
+    int? autoHighlightColorValue,
+  }) async {
     if (!_isSupportedPlatform) return;
-    final color = _resolveHighlightColor(config);
+    final color = resolveOverlayLyricHighlightColor(
+      config,
+      autoHighlightColorValue: autoHighlightColorValue,
+    );
     await FlutterOverlayWindow.shareData(
       OverlayLyricDocMessage(document).toJson(),
     );
@@ -138,9 +142,15 @@ class OverlayLyricsService implements OverlayChannelService {
   }
 
   @override
-  Future<void> sendStyleUpdate(AppConfigState config) async {
+  Future<void> sendStyleUpdate(
+    AppConfigState config, {
+    int? autoHighlightColorValue,
+  }) async {
     if (!_isSupportedPlatform) return;
-    final color = _resolveHighlightColor(config);
+    final color = resolveOverlayLyricHighlightColor(
+      config,
+      autoHighlightColorValue: autoHighlightColorValue,
+    );
     await FlutterOverlayWindow.shareData(
       OverlayStyleUpdateMessage(
         highlightColorValue: color,
@@ -155,15 +165,19 @@ class OverlayLyricsService implements OverlayChannelService {
     if (!_isSupportedPlatform) return;
     await FlutterOverlayWindow.shareData(const OverlayCloseMessage().toJson());
   }
+}
 
-  int _resolveHighlightColor(AppConfigState config) {
-    return switch (config.lyricHighlightMode) {
-      AppLyricHighlightMode.preset =>
-        config.lyricHighlightPreset.color.toARGB32(),
-      AppLyricHighlightMode.custom =>
-        config.lyricHighlightCustomColor ??
-            AppLyricHighlightColor.sky.color.toARGB32(),
-      AppLyricHighlightMode.auto => AppLyricHighlightColor.sky.color.toARGB32(),
-    };
-  }
+int resolveOverlayLyricHighlightColor(
+  AppConfigState config, {
+  int? autoHighlightColorValue,
+}) {
+  return switch (config.lyricHighlightMode) {
+    AppLyricHighlightMode.preset =>
+      config.lyricHighlightPreset.color.toARGB32(),
+    AppLyricHighlightMode.custom =>
+      config.lyricHighlightCustomColor ??
+          AppLyricHighlightColor.sky.color.toARGB32(),
+    AppLyricHighlightMode.auto =>
+      autoHighlightColorValue ?? AppLyricHighlightColor.sky.color.toARGB32(),
+  };
 }
