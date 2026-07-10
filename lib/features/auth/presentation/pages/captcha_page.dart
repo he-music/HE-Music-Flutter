@@ -194,6 +194,7 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
         showTheme: false,
         title: AppI18n.t(config, 'captcha.widget.rotate_title'),
         helperText: AppI18n.t(config, 'captcha.widget.rotate_helper'),
+        thumbSize: data.thumbSize.toDouble(),
       ),
       image: data.image,
       thumb: data.thumb,
