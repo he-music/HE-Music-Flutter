@@ -36,6 +36,48 @@ void main() {
     expect(state.first.id, 'song-1');
   });
 
+  test('reopening history should reload entries added after leaving', () async {
+    final dataSource = _FakeHistoryDataSource(
+      items: const <PlayerHistoryItem>[],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        playerHistoryDataSourceProvider.overrideWithValue(dataSource),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final firstSubscription = container.listen(
+      myHistoryControllerProvider,
+      (_, _) {},
+    );
+    expect(await container.read(myHistoryControllerProvider.future), isEmpty);
+
+    firstSubscription.close();
+    await container.pump();
+    dataSource.add(
+      const PlayerHistoryItem(
+        id: 'song-1',
+        title: 'Song 1',
+        artist: 'Artist 1',
+        album: 'Album 1',
+        artworkUrl: '',
+        url: 'https://example.com/1.mp3',
+        playedAt: 1,
+      ),
+    );
+
+    final secondSubscription = container.listen(
+      myHistoryControllerProvider,
+      (_, _) {},
+    );
+    final state = await container.read(myHistoryControllerProvider.future);
+    secondSubscription.close();
+
+    expect(state.map((item) => item.id), <String>['song-1']);
+    expect(dataSource.listHistoryCallCount, 2);
+  });
+
   test('clear should reset history list', () async {
     final dataSource = _FakeHistoryDataSource(
       items: const <PlayerHistoryItem>[
@@ -96,9 +138,15 @@ class _FakeHistoryDataSource extends PlayerHistoryDataSource {
 
   final List<PlayerHistoryItem> _items;
   final Object? clearError;
+  int listHistoryCallCount = 0;
+
+  void add(PlayerHistoryItem item) {
+    _items.add(item);
+  }
 
   @override
   Future<List<PlayerHistoryItem>> listHistory() async {
+    listHistoryCallCount += 1;
     return _items.toList(growable: false);
   }
 
