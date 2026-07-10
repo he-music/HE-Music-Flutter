@@ -34,6 +34,7 @@ import 'package:he_music_flutter/features/video/presentation/providers/video_pla
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:toastification/toastification.dart';
 
 void main() {
   testWidgets('video detail uses light status bar icons', (tester) async {
@@ -681,6 +682,9 @@ void main() {
     expect(find.byType(VideoDetailPage), findsNothing);
     expect(router!.state.uri.path, AppRoutes.videoPlaza);
     expect(find.text('首页'), findsNothing);
+
+    toastification.dismissAll(delayForAnimation: false);
+    await tester.pump(const Duration(milliseconds: 700));
   });
 }
 

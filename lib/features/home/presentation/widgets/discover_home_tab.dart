@@ -369,8 +369,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
         .read(homeDiscoverControllerProvider)
         .selectedPlatformId;
     if (platformId == null || platformId.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppI18n.t(config, 'home.platform_not_ready'))),
+      AppMessageService.showWarning(
+        AppI18n.t(config, 'home.platform_not_ready'),
       );
       return;
     }
@@ -680,22 +680,16 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppI18n.format(config, 'player.download.added', <String, String>{
-              'title': song.title,
-            }),
-          ),
-        ),
+      AppMessageService.showSuccess(
+        AppI18n.format(config, 'player.download.added', <String, String>{
+          'title': song.title,
+        }),
       );
     } catch (_) {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppI18n.t(config, 'player.download.failed'))),
-      );
+      AppMessageService.showError(AppI18n.t(config, 'player.download.failed'));
     }
   }
 
@@ -855,12 +849,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       platformId: platformId,
       featureFlag: PlatformFeatureSupportFlag.getCommentList,
     )) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppI18n.tByLocaleCode(localeCode, 'search.comment_unsupported'),
-          ),
-        ),
+      AppMessageService.showWarning(
+        AppI18n.tByLocaleCode(localeCode, 'search.comment_unsupported'),
       );
       return;
     }
@@ -884,10 +874,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     final localeCode = Localizations.localeOf(context).languageCode;
     final mvId = song.mvId.trim();
     if (mvId.isEmpty || mvId == '0') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppI18n.tByLocaleCode(localeCode, 'search.no_mv')),
-        ),
+      AppMessageService.showWarning(
+        AppI18n.tByLocaleCode(localeCode, 'search.no_mv'),
       );
       return;
     }
@@ -925,18 +913,14 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     final localeCode = Localizations.localeOf(context).languageCode;
     final text = value.trim();
     if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppI18n.tByLocaleCode(localeCode, 'search.copy_empty')),
-        ),
+      AppMessageService.showWarning(
+        AppI18n.tByLocaleCode(localeCode, 'search.copy_empty'),
       );
       return;
     }
     await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(successLabel)));
+    AppMessageService.showSuccess(successLabel);
   }
 
   void _openDiscoverDetailPage({
@@ -970,8 +954,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     required String? platformId,
   }) {
     if (platformId == null || platformId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppI18n.t(config, 'home.platform_not_ready'))),
+      AppMessageService.showWarning(
+        AppI18n.t(config, 'home.platform_not_ready'),
       );
       return;
     }
@@ -989,8 +973,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     required _DiscoverEntry entry,
   }) {
     if (platformId == null || platformId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppI18n.t(config, 'home.platform_not_ready'))),
+      AppMessageService.showWarning(
+        AppI18n.t(config, 'home.platform_not_ready'),
       );
       return;
     }

@@ -261,7 +261,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                               localeCode: ref
                                   .read(appConfigProvider)
                                   .localeCode,
-                              onError: _showMessage,
+                              onError: AppMessageService.showWarning,
                             );
                           },
                           onLikeSongItem: _toggleSongLike,
@@ -295,11 +295,11 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     final config = ref.read(appConfigProvider);
     final keyword = resolved.keyword;
     if (keyword.isEmpty) {
-      _showMessage(AppI18n.t(config, 'search.empty_keyword'));
+      AppMessageService.showWarning(AppI18n.t(config, 'search.empty_keyword'));
       return;
     }
     if (!_ensureSelectedPlatformValid()) {
-      _showMessage(AppI18n.t(config, 'search.no_platform'));
+      AppMessageService.showWarning(AppI18n.t(config, 'search.no_platform'));
       return;
     }
     if (resolved.fillController) {
@@ -772,7 +772,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         item: item,
         fallbackPlatformId: _selectedPlatformId,
         localeCode: config.localeCode,
-        onError: _showMessage,
+        onError: AppMessageService.showWarning,
       ),
       onViewDetail:
           canOpenSongDetail(
@@ -806,15 +806,15 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                 context: context,
                 platformId: platform,
                 artists: artists,
-                onError: _showMessage,
+                onError: AppMessageService.showWarning,
               ),
             ),
       onCopySongName: () => unawaited(
         copySearchSongName(
           item: item,
           localeCode: config.localeCode,
-          onError: _showMessage,
-          onSuccess: _showMessage,
+          onError: AppMessageService.showWarning,
+          onSuccess: AppMessageService.showSuccess,
         ),
       ),
       onCopySongShareLink: () => unawaited(
@@ -822,8 +822,8 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
           item: item,
           fallbackPlatformId: _selectedPlatformId,
           localeCode: config.localeCode,
-          onError: _showMessage,
-          onSuccess: _showMessage,
+          onError: AppMessageService.showWarning,
+          onSuccess: AppMessageService.showSuccess,
         ),
       ),
       onSearchSameName: () => unawaited(
@@ -832,15 +832,15 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
           controller: _searchController,
           onSearch: _search,
           localeCode: config.localeCode,
-          onError: _showMessage,
+          onError: AppMessageService.showWarning,
         ),
       ),
       onCopySongId: () => unawaited(
         copySearchSongId(
           item: item,
           localeCode: config.localeCode,
-          onError: _showMessage,
-          onSuccess: _showMessage,
+          onError: AppMessageService.showWarning,
+          onSuccess: AppMessageService.showSuccess,
         ),
       ),
     );
@@ -878,13 +878,13 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
             album: song.album?.name,
             artworkUrl: artworkUrl,
           );
-      _showMessage(
+      AppMessageService.showSuccess(
         AppI18n.format(config, 'player.download.added', <String, String>{
           'title': song.title,
         }),
       );
     } catch (_) {
-      _showMessage(AppI18n.t(config, 'player.download.failed'));
+      AppMessageService.showError(AppI18n.t(config, 'player.download.failed'));
     }
   }
 
@@ -938,7 +938,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   void _openCommentPage(Map<String, dynamic> item) {
     final id = text(item['id']);
     if (id == '-') {
-      _showMessage(
+      AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'search.invalid_song'),
       );
       return;
@@ -948,7 +948,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       platformId: platform,
       featureFlag: PlatformFeatureSupportFlag.getCommentList,
     )) {
-      _showMessage(
+      AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'search.comment_unsupported'),
       );
       return;
@@ -980,7 +980,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     try {
       final track = await _buildPlayerTrack(item);
       await ref.read(playerControllerProvider.notifier).insertNextTrack(track);
-      _showMessage(
+      AppMessageService.showSuccess(
         AppI18n.t(ref.read(appConfigProvider), 'search.queue.next_added'),
       );
     } catch (error) {
@@ -992,7 +992,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     try {
       final track = await _buildPlayerTrack(item);
       await ref.read(playerControllerProvider.notifier).appendTrack(track);
-      _showMessage(
+      AppMessageService.showSuccess(
         AppI18n.t(ref.read(appConfigProvider), 'search.queue.appended'),
       );
     } catch (error) {
@@ -1004,7 +1004,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     final song = searchSongInfo(item);
     final id = _safeValue(song.id);
     if (id == '-') {
-      _showMessage(
+      AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'search.invalid_song'),
       );
       return;
@@ -1063,10 +1063,6 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     }
     return text;
   }
-
-  void _showMessage(String message) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(message)));
 
   void _showErrorMessage(String message) =>
       AppMessageService.showError(message);

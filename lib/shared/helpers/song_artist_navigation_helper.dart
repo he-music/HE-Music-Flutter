@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/app_message_service.dart';
 import '../../app/i18n/app_i18n.dart';
 import '../../app/router/app_routes.dart';
 import '../models/he_music_models.dart';
@@ -22,9 +23,7 @@ Future<void> openSongArtistSelection({
       onError(message);
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    AppMessageService.showWarning(message);
     return;
   }
 

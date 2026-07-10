@@ -370,8 +370,7 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
     final text = value.trim();
     if (text.isEmpty) {
       final localeCode = Localizations.localeOf(context).languageCode;
-      _showMessage(
-        context,
+      AppMessageService.showWarning(
         AppI18n.tByLocaleCode(localeCode, 'search.copy_empty'),
       );
       return;
@@ -380,7 +379,7 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
     if (!context.mounted) {
       return;
     }
-    _showMessage(context, success);
+    AppMessageService.showSuccess(success);
   }
 
   void _openSongSearch({
@@ -410,8 +409,7 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
       platformId: platformId,
       featureFlag: PlatformFeatureSupportFlag.getCommentList,
     )) {
-      _showMessage(
-        context,
+      AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'search.comment_unsupported'),
       );
       return;
@@ -448,12 +446,6 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
       return platform.available && platform.supports(featureFlag);
     }
     return false;
-  }
-
-  void _showMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   PlayerTrack _toTrack(PlayerHistoryItem item) {

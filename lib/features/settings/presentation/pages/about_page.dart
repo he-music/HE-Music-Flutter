@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_environment.dart';
 import '../../../../app/config/app_config_state.dart';
@@ -52,7 +53,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
             if (!mounted) {
               return;
             }
-            _showMessage(
+            AppMessageService.showInfo(
               AppI18n.t(ref.read(appConfigProvider), 'settings.about.latest'),
             );
             ref.read(updateControllerProvider.notifier).resetStatus();
@@ -65,7 +66,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
             }
             final config = ref.read(appConfigProvider);
             final message = _failureMessage(config, next.errorMessage);
-            _showMessage(message);
+            AppMessageService.showError(message);
             ref.read(updateControllerProvider.notifier).resetStatus();
           });
           break;
@@ -121,12 +122,16 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     final uri = Uri.tryParse(rawUrl);
     final config = ref.read(appConfigProvider);
     if (uri == null) {
-      _showMessage(AppI18n.t(config, 'settings.about.open_failed'));
+      AppMessageService.showError(
+        AppI18n.t(config, 'settings.about.open_failed'),
+      );
       return;
     }
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
-      _showMessage(AppI18n.t(config, 'settings.about.open_failed'));
+      AppMessageService.showError(
+        AppI18n.t(config, 'settings.about.open_failed'),
+      );
     }
   }
 
@@ -137,12 +142,6 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       release: release,
       onOpenUrl: _openUrl,
     );
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

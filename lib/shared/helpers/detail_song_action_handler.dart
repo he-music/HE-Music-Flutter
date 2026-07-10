@@ -222,8 +222,7 @@ class DetailSongActionHandler {
       if (!context.mounted) {
         return false;
       }
-      _showMessage(
-        context,
+      AppMessageService.showSuccess(
         AppI18n.t(ref.read(appConfigProvider), 'search.queue.appended'),
       );
       return true;
@@ -266,8 +265,7 @@ class DetailSongActionHandler {
       if (!context.mounted) {
         return false;
       }
-      _showMessage(
-        context,
+      AppMessageService.showSuccess(
         AppI18n.t(ref.read(appConfigProvider), 'detail.batch.add_success'),
       );
       return true;
@@ -305,8 +303,7 @@ class DetailSongActionHandler {
       if (!context.mounted) {
         return false;
       }
-      _showMessage(
-        context,
+      AppMessageService.showSuccess(
         AppI18n.t(ref.read(appConfigProvider), 'detail.batch.remove_success'),
       );
       return true;
@@ -331,8 +328,7 @@ class DetailSongActionHandler {
   }) {
     final platformId = resolvePlatformId(song);
     if (platformId.isEmpty) {
-      _showMessage(
-        context,
+      AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'home.platform_not_ready'),
       );
       return;
@@ -440,7 +436,7 @@ class DetailSongActionHandler {
                 context: context,
                 platformId: platformId,
                 artists: song.artists,
-                onError: (message) => _showMessage(context, message),
+                onError: AppMessageService.showWarning,
               ),
             ),
       onCopySongName: () => unawaited(
@@ -566,8 +562,7 @@ class DetailSongActionHandler {
       if (!context.mounted) {
         return;
       }
-      _showMessage(
-        context,
+      AppMessageService.showSuccess(
         AppI18n.format(config, 'player.download.added', <String, String>{
           'title': song.title,
         }),
@@ -576,7 +571,7 @@ class DetailSongActionHandler {
       if (!context.mounted) {
         return;
       }
-      _showMessage(context, AppI18n.t(config, 'player.download.failed'));
+      AppMessageService.showError(AppI18n.t(config, 'player.download.failed'));
     }
   }
 
@@ -643,8 +638,7 @@ class DetailSongActionHandler {
       platformId: platformId,
       platforms: platforms,
     )) {
-      _showMessage(
-        context,
+      AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'search.comment_unsupported'),
       );
       return;
@@ -687,8 +681,7 @@ class DetailSongActionHandler {
   }) async {
     final text = value.trim();
     if (text.isEmpty) {
-      _showMessage(
-        context,
+      AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'search.copy_empty'),
       );
       return;
@@ -697,13 +690,7 @@ class DetailSongActionHandler {
     if (!context.mounted) {
       return;
     }
-    _showMessage(context, success);
-  }
-
-  void _showMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    AppMessageService.showSuccess(success);
   }
 
   void _showErrorMessage(String message) {

@@ -601,7 +601,6 @@ class _UserPlaylistDetailPageState
     BuildContext context,
     PlaylistDetailContent content,
   ) async {
-    final messenger = ScaffoldMessenger.of(context);
     final result = await _showEditPlaylistForm(context, content);
     if (result == null) {
       return;
@@ -620,12 +619,8 @@ class _UserPlaylistDetailPageState
       if (!mounted) {
         return;
       }
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            AppI18n.t(ref.read(appConfigProvider), 'user_playlist.updated'),
-          ),
-        ),
+      AppMessageService.showSuccess(
+        AppI18n.t(ref.read(appConfigProvider), 'user_playlist.updated'),
       );
     } catch (error) {
       AppMessageService.showError(
@@ -686,7 +681,6 @@ class _UserPlaylistDetailPageState
 
   Future<void> _confirmDelete(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -733,12 +727,8 @@ class _UserPlaylistDetailPageState
         return;
       }
       navigator.maybePop();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            AppI18n.t(ref.read(appConfigProvider), 'user_playlist.deleted'),
-          ),
-        ),
+      AppMessageService.showSuccess(
+        AppI18n.t(ref.read(appConfigProvider), 'user_playlist.deleted'),
       );
     } catch (error) {
       AppMessageService.showError(

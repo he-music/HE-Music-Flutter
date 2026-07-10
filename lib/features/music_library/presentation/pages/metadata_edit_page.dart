@@ -4,6 +4,7 @@ import 'package:audiotags/audiotags.dart' as at;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -276,10 +277,8 @@ class _MetadataEditPageState extends ConsumerState<MetadataEditPage> {
           await at.AudioTags.write(song.filePath, tag);
         } catch (_) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(AppI18n.t(config, 'local.edit.write_error')),
-              ),
+            AppMessageService.showError(
+              AppI18n.t(config, 'local.edit.write_error'),
             );
           }
         }
@@ -302,17 +301,13 @@ class _MetadataEditPageState extends ConsumerState<MetadataEditPage> {
           _saving = false;
           _hasChanges = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppI18n.t(config, 'local.edit.saved'))),
-        );
+        AppMessageService.showSuccess(AppI18n.t(config, 'local.edit.saved'));
       }
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${AppI18n.t(config, 'local.edit.write_error')}: $e'),
-          ),
+        AppMessageService.showError(
+          '${AppI18n.t(config, 'local.edit.write_error')}: $e',
         );
       }
     }

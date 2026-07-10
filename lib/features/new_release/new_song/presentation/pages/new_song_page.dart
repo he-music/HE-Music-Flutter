@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../../app/app_message_service.dart';
 import '../../../../../app/config/app_config_controller.dart';
 import '../../../../../app/i18n/app_i18n.dart';
 import '../../../../../app/router/app_routes.dart';
@@ -289,10 +290,8 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
     final localeCode = Localizations.localeOf(context).languageCode;
     final mvId = song.mvId.trim();
     if (mvId.isEmpty || mvId == '0') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppI18n.tByLocaleCode(localeCode, 'search.no_mv')),
-        ),
+      AppMessageService.showWarning(
+        AppI18n.tByLocaleCode(localeCode, 'search.no_mv'),
       );
       return;
     }

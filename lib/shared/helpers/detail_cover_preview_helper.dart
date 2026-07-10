@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:saver_gallery/saver_gallery.dart';
 
+import '../../app/app_message_service.dart';
 import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
 
@@ -19,9 +20,7 @@ Future<void> showDetailCoverPreview({
   final config = ref.read(appConfigProvider);
   final normalizedUrl = imageUrl.trim();
   if (normalizedUrl.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppI18n.t(config, 'cover.preview.empty'))),
-    );
+    AppMessageService.showWarning(AppI18n.t(config, 'cover.preview.empty'));
     return;
   }
   await showGeneralDialog<void>(
@@ -100,14 +99,8 @@ Future<void> showDetailCoverPreview({
                       if (!context.mounted) {
                         return;
                       }
-                      final messenger = ScaffoldMessenger.of(context);
-                      messenger.hideCurrentSnackBar();
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            AppI18n.t(config, 'cover.preview.saving'),
-                          ),
-                        ),
+                      AppMessageService.showInfo(
+                        AppI18n.t(config, 'cover.preview.saving'),
                       );
                       final success = await _saveCoverToGallery(
                         imageUrl: normalizedUrl,
@@ -116,19 +109,14 @@ Future<void> showDetailCoverPreview({
                       if (!context.mounted) {
                         return;
                       }
-                      messenger.hideCurrentSnackBar();
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            success
-                                ? AppI18n.t(config, 'cover.preview.saved')
-                                : AppI18n.t(
-                                    config,
-                                    'cover.preview.save_failed',
-                                  ),
-                          ),
-                        ),
-                      );
+                      final message = success
+                          ? AppI18n.t(config, 'cover.preview.saved')
+                          : AppI18n.t(config, 'cover.preview.save_failed');
+                      if (success) {
+                        AppMessageService.showSuccess(message);
+                      } else {
+                        AppMessageService.showError(message);
+                      }
                     },
                   ),
                   const SizedBox(width: 8),

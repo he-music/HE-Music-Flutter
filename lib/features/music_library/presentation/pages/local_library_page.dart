@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/database/local_music_database.dart';
@@ -378,9 +379,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
         if (!mounted) {
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppI18n.t(config, 'local.share.missing'))),
-        );
+        AppMessageService.showWarning(AppI18n.t(config, 'local.share.missing'));
       },
     );
   }
@@ -1006,14 +1005,10 @@ class _FolderManagerViewState extends ConsumerState<_FolderManagerView> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                AppI18n.tByLocaleCode(
-                  widget.localeCode,
-                  'local.folder.permission_error',
-                ),
-              ),
+          AppMessageService.showError(
+            AppI18n.tByLocaleCode(
+              widget.localeCode,
+              'local.folder.permission_error',
             ),
           );
         }

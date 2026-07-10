@@ -258,8 +258,8 @@ class _MyPageState extends ConsumerState<MyPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppI18n.t(config, 'my.playlist.create.done'))),
+      AppMessageService.showSuccess(
+        AppI18n.t(config, 'my.playlist.create.done'),
       );
     } catch (error) {
       AppMessageService.showError(

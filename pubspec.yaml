@@ -76,6 +76,7 @@ dependencies:
     git:
       url: https://github.com/serhiisdev/flutter_overlay_window
       ref: fix/communication_between_app_and_overlay
+  toastification: ^3.2.0
 
 dev_dependencies:
   flutter_test:

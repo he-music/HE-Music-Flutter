@@ -520,7 +520,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                         ),
                       );
                       if (!mounted) return;
-                      _showMessage(AppI18n.t(config, 'player.copy.share_done'));
+                      AppMessageService.showSuccess(
+                        AppI18n.t(config, 'player.copy.share_done'),
+                      );
                     },
                   ),
                 if (canOnline)
@@ -557,7 +559,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                             ClipboardData(text: track.title),
                           );
                           if (!mounted) return;
-                          _showMessage(
+                          AppMessageService.showSuccess(
                             AppI18n.t(config, 'player.copy.name_done'),
                           );
                         },
@@ -574,7 +576,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                             ClipboardData(text: track.id),
                           );
                           if (!mounted) return;
-                          _showMessage(
+                          AppMessageService.showSuccess(
                             AppI18n.t(config, 'player.copy.id_done'),
                           );
                         },
@@ -694,7 +696,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       if (!mounted) {
         return;
       }
-      _showMessage(
+      AppMessageService.showSuccess(
         AppI18n.format(config, 'player.download.added', <String, String>{
           'title': track.title,
         }),
@@ -703,7 +705,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       if (!mounted) {
         return;
       }
-      _showMessage(AppI18n.t(config, 'player.download.failed'));
+      AppMessageService.showError(AppI18n.t(config, 'player.download.failed'));
     }
   }
 
@@ -854,15 +856,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     );
   }
 
-  void _showMessage(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
   /// 关闭播放器后把详情页压入根 Navigator。
   ///
   /// 播放器和详情页都在根 navigator，使用 push 保留来源页面的返回栈。
@@ -880,7 +873,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         .where((a) => a.id.trim().isNotEmpty && a.name.trim().isNotEmpty)
         .toList();
     if (available.isEmpty) {
-      _showMessage(
+      AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'song.artist.unavailable'),
       );
       return;

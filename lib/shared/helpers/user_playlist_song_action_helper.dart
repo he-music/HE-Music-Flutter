@@ -31,12 +31,8 @@ Future<void> addSingleSongToUserPlaylist({
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          AppI18n.t(ref.read(appConfigProvider), 'detail.batch.add_success'),
-        ),
-      ),
+    AppMessageService.showSuccess(
+      AppI18n.t(ref.read(appConfigProvider), 'detail.batch.add_success'),
     );
   } catch (error) {
     AppMessageService.showError(NetworkErrorMessage.resolve(error) ?? '$error');

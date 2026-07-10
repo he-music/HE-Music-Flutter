@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -201,15 +202,11 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
           .read(deviceManagementControllerProvider.notifier)
           .batchDeleteDevices();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppI18n.format(
-                config,
-                'settings.device_management.batch_delete_done',
-                {'count': '$count'},
-              ),
-            ),
+        AppMessageService.showSuccess(
+          AppI18n.format(
+            config,
+            'settings.device_management.batch_delete_done',
+            {'count': '$count'},
           ),
         );
       }
