@@ -35,6 +35,7 @@ DerivedData/
 /build/
 **/build/
 /coverage/
+/.env
 Pods/
 **/Pods/
 

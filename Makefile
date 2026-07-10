@@ -1,5 +1,9 @@
 FLUTTER := flutter
 DART := dart
+DART_DEFINE_ARGS := $(if $(wildcard .env),--dart-define-from-file=.env)
+ifneq ($(strip $(API_BASE_URL)),)
+DART_DEFINE_ARGS += "--dart-define=API_BASE_URL=$(API_BASE_URL)"
+endif
 
 .PHONY: help get upgrade run analyze test format fix gen clean build-apk build-aab release-check
 
@@ -25,7 +29,7 @@ upgrade:
 	$(FLUTTER) pub upgrade
 
 run:
-	$(FLUTTER) run
+	$(FLUTTER) run $(DART_DEFINE_ARGS)
 
 analyze:
 	$(FLUTTER) analyze
@@ -46,9 +50,9 @@ clean:
 	$(FLUTTER) clean
 
 build-apk:
-	$(FLUTTER) build apk --release --split-per-abi
+	$(FLUTTER) build apk --release --split-per-abi $(DART_DEFINE_ARGS)
 
 build-aab:
-	$(FLUTTER) build appbundle --release
+	$(FLUTTER) build appbundle --release $(DART_DEFINE_ARGS)
 
 release-check: analyze test

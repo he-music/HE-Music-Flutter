@@ -8,7 +8,14 @@ fi
 
 echo '正在使用 Flutter 进行无签名构建'
 flutter pub get
-flutter build ios --release --no-codesign
+DART_DEFINE_ARGS=()
+if [ -f .env ]; then
+  DART_DEFINE_ARGS+=(--dart-define-from-file=.env)
+fi
+if [ -n "${API_BASE_URL:-}" ]; then
+  DART_DEFINE_ARGS+=("--dart-define=API_BASE_URL=${API_BASE_URL}")
+fi
+flutter build ios --release --no-codesign "${DART_DEFINE_ARGS[@]}"
 
 rm -rf Payload "${NAME}.ipa" Payload.zip
 mkdir -p Payload

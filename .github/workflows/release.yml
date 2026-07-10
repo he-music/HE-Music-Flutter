@@ -80,18 +80,6 @@ jobs:
             fi
           done
 
-      - name: 生成应用配置
-        env:
-          API_BASE_URL: ${{ secrets.API_BASE_URL }}
-        run: |
-          cat > assets/app_config.json <<EOF
-          {
-            "api_base_url": "${API_BASE_URL}",
-            "github_owner": "he-music",
-            "github_repo": "HE-Music-Flutter"
-          }
-          EOF
-
       - name: 安装依赖
         run: make get
 
@@ -116,6 +104,8 @@ jobs:
           EOF
 
       - name: 构建 Android APK
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: make build-apk
 
       - name: 整理 Android 发布文件名
@@ -161,7 +151,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: 生成应用配置
+      - name: 校验应用配置
         env:
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: |
@@ -169,18 +159,12 @@ jobs:
             echo "缺少必需的 GitHub Secret: API_BASE_URL" >&2
             exit 1
           fi
-          cat > assets/app_config.json <<EOF
-          {
-            "api_base_url": "${API_BASE_URL}",
-            "github_owner": "he-music",
-            "github_repo": "HE-Music-Flutter"
-          }
-          EOF
-
       - name: 安装依赖
         run: make get
 
       - name: 执行 iOS 无签名构建脚本
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: |
           chmod +x scripts/build_ios.sh
           VERSION_NAME="manual-${GITHUB_RUN_NUMBER}"

@@ -136,7 +136,15 @@ make test
 }
 ```
 
-Release 构建由 CI 使用 GitHub Secret `API_BASE_URL` 在构建前生成真实配置；不要把真实接口地址放到 GitHub Variables。本地调试时可临时修改 `assets/app_config.json`，但提交前必须还原为占位值。
+应用优先读取 Flutter 编译环境中的 `API_BASE_URL`，未传入或值为空时回退到 `assets/app_config.json`。本地调试可创建不会提交到 Git 的 `.env`：
+
+```bash
+cp .env.example .env
+```
+
+然后在 `.env` 中填写真实地址并运行 `make run`。Flutter 在构建阶段通过 `--dart-define-from-file=.env` 读取该文件，运行时不会再次读取 `.env`。
+
+Release 构建由 CI 使用 GitHub Secret `API_BASE_URL` 并通过 `--dart-define` 注入；不要把真实接口地址放到 GitHub Variables，也不要修改仓库中 `assets/app_config.json` 的占位值。
 
 不要在源码中硬编码环境相关值。新增资源后，需要同步更新 `pubspec.yaml` 中的 `flutter.assets` 声明。
 

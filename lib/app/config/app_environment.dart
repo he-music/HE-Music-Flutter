@@ -1,9 +1,14 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class AppEnvironment {
   AppEnvironment._();
+
+  static const _apiBaseUrlFromEnvironment = String.fromEnvironment(
+    'API_BASE_URL',
+  );
 
   static String _apiBaseUrl = '';
   static String _githubOwner = '';
@@ -26,7 +31,10 @@ class AppEnvironment {
     final map = decoded.map(
       (dynamic key, dynamic value) => MapEntry('$key', value),
     );
-    final apiBaseUrl = '${map['api_base_url'] ?? ''}'.trim();
+    final apiBaseUrl = selectApiBaseUrl(
+      definedApiBaseUrl: _apiBaseUrlFromEnvironment,
+      assetApiBaseUrl: '${map['api_base_url'] ?? ''}',
+    );
     if (apiBaseUrl.isEmpty) {
       throw const FormatException('assets/app_config.json 缺少 api_base_url');
     }
@@ -35,5 +43,17 @@ class AppEnvironment {
     _apiBaseUrl = apiBaseUrl;
     _githubOwner = githubOwner;
     _githubRepo = githubRepo;
+  }
+
+  @visibleForTesting
+  static String selectApiBaseUrl({
+    required String definedApiBaseUrl,
+    required String assetApiBaseUrl,
+  }) {
+    final normalizedDefinedValue = definedApiBaseUrl.trim();
+    if (normalizedDefinedValue.isNotEmpty) {
+      return normalizedDefinedValue;
+    }
+    return assetApiBaseUrl.trim();
   }
 }
