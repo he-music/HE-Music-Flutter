@@ -240,6 +240,20 @@ void main() {
       });
     });
 
+    group('logout', () {
+      test('应使用 JSON Content-Type', () async {
+        RequestOptions? capturedRequest;
+        final client = _createClient(
+          <String, dynamic>{},
+          captureRequest: (options) => capturedRequest = options,
+        );
+
+        await client.logout();
+
+        expect(capturedRequest?.contentType, Headers.jsonContentType);
+      });
+    });
+
     group('fetchPlatforms', () {
       test('应正确解析平台列表', () async {
         final client = _createClient({
@@ -261,17 +275,23 @@ void main() {
 OnlineApiClient _createClient(
   dynamic payload, {
   void Function(String method)? captureMethod,
+  void Function(RequestOptions options)? captureRequest,
 }) {
   final dio = Dio();
-  dio.httpClientAdapter = _MockAdapter(payload, captureMethod: captureMethod);
+  dio.httpClientAdapter = _MockAdapter(
+    payload,
+    captureMethod: captureMethod,
+    captureRequest: captureRequest,
+  );
   return OnlineApiClient(dio);
 }
 
 class _MockAdapter implements HttpClientAdapter {
-  _MockAdapter(this._payload, {this.captureMethod});
+  _MockAdapter(this._payload, {this.captureMethod, this.captureRequest});
 
   final dynamic _payload;
   final void Function(String method)? captureMethod;
+  final void Function(RequestOptions options)? captureRequest;
 
   @override
   Future<ResponseBody> fetch(
@@ -280,6 +300,7 @@ class _MockAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     captureMethod?.call(options.method);
+    captureRequest?.call(options);
     return ResponseBody.fromString(
       jsonEncode(_payload),
       200,

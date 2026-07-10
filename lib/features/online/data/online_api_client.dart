@@ -263,7 +263,7 @@ class OnlineApiClient {
 
   /// 登出当前设备，后端会清除对应的 refresh_token。
   Future<void> logout() async {
-    await _dio.post('/v1/auth/logout');
+    await _dio.post('/v1/auth/logout', data: const <String, dynamic>{});
   }
 
   Future<QrLoginSessionResult> createQrLoginSession({
