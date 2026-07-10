@@ -153,6 +153,10 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     _initialized = true;
   }
 
+  void resetHistoryCount() {
+    state = state.copyWith(historyCount: 0);
+  }
+
   /// 从磁盘缓存恢复本地歌曲的封面字节数据。
   ///
   /// 本地歌曲的 artworkBytes 无法被 JSON 序列化，重启后丢失。
