@@ -101,7 +101,10 @@ class _ActionHost extends ConsumerWidget {
 class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() {
-    return AppConfigState.initial.copyWith(localeCode: 'zh');
+    return AppConfigState.initial.copyWith(
+      localeCode: 'zh',
+      authToken: 'token',
+    );
   }
 }
 
