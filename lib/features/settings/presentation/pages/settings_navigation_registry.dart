@@ -4,6 +4,8 @@ import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../domain/settings_catalog.dart';
+import 'account_password_page.dart';
+import 'account_profile_page.dart';
 import 'about_page.dart';
 import 'device_management_page.dart';
 
@@ -38,5 +40,17 @@ settingsNavigationDestinations = <String, SettingsNavigationDestination>{
     titleKey: 'settings.device_management.title',
     mobileRoute: AppRoutes.settingsDevice,
     desktopBuilder: (_) => const DeviceManagementPage(embedded: true),
+  ),
+  SettingsItemIds.accountProfile: SettingsNavigationDestination(
+    itemId: SettingsItemIds.accountProfile,
+    titleKey: 'settings.profile.title',
+    mobileRoute: AppRoutes.settingsProfile,
+    desktopBuilder: (_) => const AccountProfilePage(embedded: true),
+  ),
+  SettingsItemIds.accountPassword: SettingsNavigationDestination(
+    itemId: SettingsItemIds.accountPassword,
+    titleKey: 'settings.password.title',
+    mobileRoute: AppRoutes.settingsPassword,
+    desktopBuilder: (_) => const AccountPasswordPage(embedded: true),
   ),
 };

@@ -75,7 +75,10 @@ class OnlineController extends Notifier<OnlineFeatureState> {
       // 登出接口失败不影响本地清理
     }
     ref.read(appConfigProvider.notifier).clearAuthToken();
-    // 清理业务状态，避免切换账号时旧数据闪现
+    // 同步清理帐号数据，避免退出后短暂显示上一个帐号的资料。
+    ref.read(myOverviewControllerProvider.notifier).clear();
+    ref.invalidate(myCreatedPlaylistsProvider);
+    ref.invalidate(myFavoritePlaylistsProvider);
     state = OnlineFeatureState.initial;
   }
 

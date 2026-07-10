@@ -39,6 +39,8 @@ import '../../features/radio/presentation/pages/radio_plaza_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/song/presentation/pages/song_detail_page.dart';
 import '../../features/settings/presentation/pages/about_page.dart';
+import '../../features/settings/presentation/pages/account_password_page.dart';
+import '../../features/settings/presentation/pages/account_profile_page.dart';
 import '../../features/settings/presentation/pages/device_management_page.dart';
 import '../../features/video/presentation/pages/video_detail_page.dart';
 import '../../features/video/presentation/pages/video_plaza_page.dart';
@@ -273,6 +275,16 @@ List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
     path: AppRoutes.about,
     parentNavigatorKey: rootNavigatorKey,
     builder: (context, state) => const AboutPage(),
+  ),
+  GoRoute(
+    path: AppRoutes.settingsProfile,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) => const AccountProfilePage(),
+  ),
+  GoRoute(
+    path: AppRoutes.settingsPassword,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) => const AccountPasswordPage(),
   ),
   GoRoute(
     path: AppRoutes.settingsDevice,

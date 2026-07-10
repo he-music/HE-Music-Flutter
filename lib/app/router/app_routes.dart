@@ -19,6 +19,8 @@ abstract final class AppRoutes {
   static const onlineComments = '/online/comments';
   static const settings = '/settings';
   static const about = '/settings/about';
+  static const settingsProfile = '/settings/profile';
+  static const settingsPassword = '/settings/password';
   static const settingsDevice = '/settings/device';
   static const discoverDetail = '/discover/detail';
   static const artistDetail = '/artist/detail';

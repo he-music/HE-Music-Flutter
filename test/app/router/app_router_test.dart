@@ -17,6 +17,8 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
+import 'package:he_music_flutter/features/settings/presentation/pages/account_password_page.dart';
+import 'package:he_music_flutter/features/settings/presentation/pages/account_profile_page.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
@@ -45,6 +47,26 @@ void main() {
 
     expect(find.byType(MiniPlayerBar), findsNothing);
     expect(find.text('路由测试歌曲'), findsNothing);
+  });
+
+  testWidgets('account profile route builds independent page', (tester) async {
+    await tester.pumpWidget(
+      _buildRouterTestApp(initialLocation: AppRoutes.settingsProfile),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AccountProfilePage), findsOneWidget);
+    expect(find.byType(MiniPlayerBar), findsNothing);
+  });
+
+  testWidgets('account password route builds independent page', (tester) async {
+    await tester.pumpWidget(
+      _buildRouterTestApp(initialLocation: AppRoutes.settingsPassword),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AccountPasswordPage), findsOneWidget);
+    expect(find.byType(MiniPlayerBar), findsNothing);
   });
 
   testWidgets('system back closes playlist detail action sheet before route', (

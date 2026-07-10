@@ -29,7 +29,10 @@ void main() {
     expect(find.text('本地歌曲'), findsOneWidget);
     expect(find.text('下载管理'), findsOneWidget);
     expect(find.text('我的收藏'), findsOneWidget);
-    expect(find.text('已登录'), findsOneWidget);
+    expect(find.text('Tester'), findsOneWidget);
+    expect(find.text('@tester'), findsOneWidget);
+    expect(find.text('已登录'), findsNothing);
+    expect(find.text('退出帐号'), findsNothing);
     expect(find.text('自建'), findsOneWidget);
     expect(find.text('收藏'), findsOneWidget);
     expect(find.text('当前没有歌单内容'), findsOneWidget);
@@ -69,7 +72,10 @@ void main() {
     expect(find.text('Local Songs'), findsOneWidget);
     expect(find.text('Downloads'), findsOneWidget);
     expect(find.text('Collections'), findsOneWidget);
-    expect(find.text('Signed In'), findsOneWidget);
+    expect(find.text('Tester'), findsOneWidget);
+    expect(find.text('@tester'), findsOneWidget);
+    expect(find.text('Signed In'), findsNothing);
+    expect(find.text('Sign Out'), findsNothing);
     expect(find.text('Created'), findsOneWidget);
     expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('No playlists yet'), findsOneWidget);
@@ -96,13 +102,41 @@ void main() {
     expect(find.text('Play History'), findsOneWidget);
     expect(find.text('No playlists yet'), findsOneWidget);
   });
+
+  testWidgets('signed out account card keeps sign in action', (tester) async {
+    await tester.pumpWidget(_buildTestApp(localeCode: 'zh', authToken: null));
+    await tester.pump();
+
+    expect(find.text('立即登录'), findsOneWidget);
+    expect(find.text('个人资料'), findsNothing);
+  });
+
+  testWidgets('account identity text is constrained to one line', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
+    await tester.pump();
+
+    final nickname = tester.widget<Text>(find.text('Tester'));
+    final username = tester.widget<Text>(find.text('@tester'));
+    expect(nickname.maxLines, 1);
+    expect(nickname.overflow, TextOverflow.ellipsis);
+    expect(username.maxLines, 1);
+    expect(username.overflow, TextOverflow.ellipsis);
+  });
 }
 
-Widget _buildTestApp({required String localeCode}) {
+Widget _buildTestApp({
+  required String localeCode,
+  String? authToken = 'token',
+}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(
-        () => _TestAppConfigController(localeCode: localeCode),
+        () => _TestAppConfigController(
+          localeCode: localeCode,
+          authToken: authToken,
+        ),
       ),
       myOverviewControllerProvider.overrideWith(_TestMyOverviewController.new),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
@@ -121,15 +155,17 @@ Widget _buildTestApp({required String localeCode}) {
 }
 
 class _TestAppConfigController extends AppConfigController {
-  _TestAppConfigController({required this.localeCode});
+  _TestAppConfigController({required this.localeCode, required this.authToken});
 
   final String localeCode;
+  final String? authToken;
 
   @override
   AppConfigState build() {
     return AppConfigState.initial.copyWith(
       localeCode: localeCode,
-      authToken: 'token',
+      authToken: authToken,
+      clearToken: authToken == null,
     );
   }
 }

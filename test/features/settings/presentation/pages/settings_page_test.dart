@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/config/app_player_background_style.dart';
+import 'package:he_music_flutter/app/router/app_routes.dart';
+import 'package:he_music_flutter/features/online/domain/entities/online_feature_state.dart';
+import 'package:he_music_flutter/features/online/presentation/controllers/online_controller.dart';
+import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_page.dart';
+import 'package:toastification/toastification.dart';
 
 void main() {
   testWidgets('mobile settings home shows search and four sections', (
@@ -121,14 +129,140 @@ void main() {
     expect(container.read(appConfigProvider).enableWordByWordLyric, isFalse);
   });
 
-  testWidgets('settings page does not show logout action', (tester) async {
+  testWidgets('signed out account section only shows sign in entry', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1170, 2532);
     addTearDown(tester.view.resetPhysicalSize);
 
     await tester.pumpWidget(_buildSettingsApp());
     await tester.pump();
 
-    expect(find.text('退出登录'), findsNothing);
+    await tester.tap(find.text('帐号'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('登录帐号'), findsOneWidget);
+    expect(find.text('个人资料'), findsNothing);
+    expect(find.text('修改密码'), findsNothing);
+    expect(find.text('设备管理'), findsNothing);
+    expect(find.text('退出帐号'), findsNothing);
+  });
+
+  testWidgets('signed in account section shows all management entries', (
+    tester,
+  ) async {
+    final container = _createContainer(authToken: 'token');
+    addTearDown(container.dispose);
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp(container: container));
+    await tester.pump();
+    await tester.tap(find.text('帐号'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('个人资料'), findsOneWidget);
+    expect(find.text('修改密码'), findsOneWidget);
+    expect(find.text('设备管理'), findsOneWidget);
+    expect(find.text('退出帐号'), findsOneWidget);
+    expect(find.text('登录帐号'), findsNothing);
+
+    final logoutText = tester.widget<Text>(find.text('退出帐号'));
+    expect(
+      logoutText.style?.color,
+      Theme.of(tester.element(find.text('退出帐号'))).colorScheme.error,
+    );
+  });
+
+  testWidgets('signed out search does not expose protected account entries', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp());
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('settings-search-field')),
+      '个人资料',
+    );
+    await tester.pump();
+
+    expect(find.text('帐号 / 登录帐号'), findsOneWidget);
+    expect(find.text('帐号 / 个人资料'), findsNothing);
+  });
+
+  testWidgets('logout requires confirmation and cancel keeps session', (
+    tester,
+  ) async {
+    final container = _createContainer(authToken: 'token');
+    addTearDown(container.dispose);
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp(container: container));
+    await tester.pump();
+    await tester.tap(find.text('帐号'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('退出帐号'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('退出帐号？'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+
+    final controller =
+        container.read(onlineControllerProvider.notifier)
+            as _TestOnlineController;
+    expect(controller.logoutCalls, 0);
+    expect(container.read(appConfigProvider).authToken, 'token');
+  });
+
+  testWidgets('confirmed logout clears session and returns home', (
+    tester,
+  ) async {
+    final container = _createContainer(authToken: 'token');
+    addTearDown(container.dispose);
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+    final router = GoRouter(
+      navigatorKey: rootNavigatorKey,
+      initialLocation: AppRoutes.settings,
+      routes: <GoRoute>[
+        GoRoute(
+          path: AppRoutes.home,
+          builder: (context, state) => const Scaffold(body: Text('home-page')),
+        ),
+        GoRoute(
+          path: AppRoutes.settings,
+          builder: (context, state) => const SettingsPage(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('帐号'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('退出帐号'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '退出帐号'));
+    await tester.pumpAndSettle();
+
+    final controller =
+        container.read(onlineControllerProvider.notifier)
+            as _TestOnlineController;
+    expect(controller.logoutCalls, 1);
+    expect(container.read(appConfigProvider).authToken, isNull);
+    expect(find.text('home-page'), findsOneWidget);
+    toastification.dismissAll(delayForAnimation: false);
+    await tester.pump(const Duration(milliseconds: 700));
   });
 
   testWidgets('lyric highlight color shows auto summary when mode is auto', (
@@ -214,4 +348,43 @@ Widget _buildSettingsApp({ProviderContainer? container}) {
     return ProviderScope(child: scopeChild);
   }
   return UncontrolledProviderScope(container: container, child: scopeChild);
+}
+
+ProviderContainer _createContainer({required String? authToken}) {
+  return ProviderContainer(
+    overrides: [
+      appConfigProvider.overrideWith(
+        () => _TestAppConfigController(authToken: authToken),
+      ),
+      onlineControllerProvider.overrideWith(_TestOnlineController.new),
+    ],
+  );
+}
+
+class _TestAppConfigController extends AppConfigController {
+  _TestAppConfigController({required this.authToken});
+
+  final String? authToken;
+
+  @override
+  AppConfigState build() {
+    return AppConfigState.initial.copyWith(
+      authToken: authToken,
+      clearToken: authToken == null,
+    );
+  }
+}
+
+class _TestOnlineController extends OnlineController {
+  int logoutCalls = 0;
+
+  @override
+  OnlineFeatureState build() => OnlineFeatureState.initial;
+
+  @override
+  Future<void> logout() async {
+    logoutCalls++;
+    ref.read(appConfigProvider.notifier).clearAuthToken();
+    state = OnlineFeatureState.initial;
+  }
 }

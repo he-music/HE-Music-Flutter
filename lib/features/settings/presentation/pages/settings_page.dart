@@ -15,7 +15,10 @@ import '../../../../app/config/app_player_background_style.dart';
 import '../../../../app/config/app_theme_accent.dart';
 import '../../../../app/config/app_theme_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/app_message_service.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/settings_catalog.dart';
 import '../../domain/settings_models.dart';
 import 'settings_item_presentation_registry.dart';
@@ -157,7 +160,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     required String sectionId,
     bool showSectionHeader = true,
   }) {
-    final groups = _visibleGroupsForSection(sectionId);
+    final groups = _visibleGroupsForSection(sectionId, config);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureHighlightedItemVisible();
     });
@@ -183,7 +186,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     AppConfigState config,
     SettingsGroupNode group,
   ) {
-    final items = _visibleItemsForGroup(group.id);
+    final items = _visibleItemsForGroup(group.id, config);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -326,6 +329,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ref.read(appConfigProvider.notifier).setAutoCheckUpdates(value),
         highlighted: _highlightedItemId == item.id,
       ),
+      SettingsItemIds.accountLogin => SettingsNavigationTile(
+        icon: item.icon,
+        title: AppI18n.t(config, item.titleKey),
+        subtitle: settingsItemSubtitle(item.id, config),
+        onTap: _openLogin,
+        highlighted: _highlightedItemId == item.id,
+      ),
+      SettingsItemIds.accountLogout => SettingsActionTile(
+        icon: item.icon,
+        title: AppI18n.t(config, item.titleKey),
+        subtitle: settingsItemSubtitle(item.id, config),
+        onTap: _confirmLogout,
+        destructive: true,
+        highlighted: _highlightedItemId == item.id,
+      ),
       _
           when item.kind == SettingsItemKind.navigation &&
               navigationDestination != null =>
@@ -346,7 +364,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   List<SettingsItemNode> _searchResults(AppConfigState config) {
     final query = _searchQuery.toLowerCase();
-    return _visibleSettingsItems()
+    return _visibleSettingsItems(config)
         .where((item) {
           final title = AppI18n.t(config, item.titleKey).toLowerCase();
           final section = _sectionTitle(config, item.sectionId).toLowerCase();
@@ -363,35 +381,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         .toList(growable: false);
   }
 
-  List<SettingsGroupNode> _visibleGroupsForSection(String sectionId) {
-    return groupsForSection(
-      sectionId,
-    ).where((group) => _isGroupVisible(group.id)).toList(growable: false);
-  }
-
-  List<SettingsItemNode> _visibleItemsForGroup(String groupId) {
-    return itemsForGroup(
-      groupId,
-    ).where((item) => _isItemVisible(item.id)).toList(growable: false);
-  }
-
-  List<SettingsItemNode> _visibleSettingsItems() {
-    return settingsItems
-        .where((item) => _isItemVisible(item.id))
+  List<SettingsGroupNode> _visibleGroupsForSection(
+    String sectionId,
+    AppConfigState config,
+  ) {
+    return groupsForSection(sectionId)
+        .where((group) => _isGroupVisible(group.id, config))
         .toList(growable: false);
   }
 
-  bool _isGroupVisible(String groupId) {
+  List<SettingsItemNode> _visibleItemsForGroup(
+    String groupId,
+    AppConfigState config,
+  ) {
+    return itemsForGroup(
+      groupId,
+    ).where((item) => _isItemVisible(item.id, config)).toList(growable: false);
+  }
+
+  List<SettingsItemNode> _visibleSettingsItems(AppConfigState config) {
+    return settingsItems
+        .where((item) => _isItemVisible(item.id, config))
+        .toList(growable: false);
+  }
+
+  bool _isGroupVisible(String groupId, AppConfigState config) {
     if (groupId == SettingsGroupIds.lyricsDesktop) {
       return defaultTargetPlatform == TargetPlatform.android;
     }
-    return true;
+    return _visibleItemsForGroup(groupId, config).isNotEmpty;
   }
 
-  bool _isItemVisible(String itemId) {
+  bool _isItemVisible(String itemId, AppConfigState config) {
     if (itemId == SettingsItemIds.desktopLyric ||
         itemId == SettingsItemIds.desktopLyricLock) {
       return defaultTargetPlatform == TargetPlatform.android;
+    }
+    final loggedIn = config.authToken?.trim().isNotEmpty ?? false;
+    if (itemId == SettingsItemIds.accountLogin) {
+      return !loggedIn;
+    }
+    if (itemId == SettingsItemIds.accountProfile ||
+        itemId == SettingsItemIds.accountPassword ||
+        itemId == SettingsItemIds.deviceManagement ||
+        itemId == SettingsItemIds.accountLogout) {
+      return loggedIn;
     }
     return true;
   }
@@ -484,6 +518,48 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       return;
     }
     context.push(destination.mobileRoute);
+  }
+
+  void _openLogin() {
+    context.push(
+      Uri(
+        path: AppRoutes.login,
+        queryParameters: const <String, String>{'redirect': AppRoutes.settings},
+      ).toString(),
+    );
+  }
+
+  Future<void> _confirmLogout() async {
+    final config = ref.read(appConfigProvider);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppI18n.t(config, 'settings.logout.confirm.title')),
+        content: Text(AppI18n.t(config, 'settings.logout.confirm.message')),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppI18n.t(config, 'common.cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(AppI18n.t(config, 'settings.logout')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    await ref.read(onlineControllerProvider.notifier).logout();
+    if (!mounted) {
+      return;
+    }
+    AppMessageService.showSuccess(AppI18n.t(config, 'settings.logout.done'));
+    context.go(AppRoutes.home);
   }
 
   Future<void> _openThemeModeSheet() {

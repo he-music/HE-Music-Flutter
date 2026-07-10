@@ -16,6 +16,7 @@ import 'package:he_music_flutter/features/my/presentation/providers/my_collectio
 import 'package:he_music_flutter/features/my/presentation/providers/my_overview_providers.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_playlist_shelf_providers.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
 
 void main() {
@@ -130,12 +131,42 @@ void main() {
       expect(overviewState.overview?.summary.favoriteSongCount, 2);
     },
   );
+
+  test('logout clears token and cached account overview', () async {
+    final collectionClient = _FakeMyCollectionApiClient();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        onlineApiClientProvider.overrideWithValue(_FakeOnlineApiClient()),
+        myCollectionApiClientProvider.overrideWithValue(collectionClient),
+        myOverviewRepositoryProvider.overrideWithValue(
+          _FakeMyOverviewRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(myOverviewControllerProvider.notifier).initialize();
+    await container.read(myCreatedPlaylistsProvider.future);
+    expect(container.read(myOverviewControllerProvider).overview, isNotNull);
+
+    await container.read(onlineControllerProvider.notifier).logout();
+
+    expect(container.read(appConfigProvider).authToken, isNull);
+    expect(container.read(myOverviewControllerProvider).overview, isNull);
+    expect(await container.read(myCreatedPlaylistsProvider.future), isEmpty);
+    expect(collectionClient.createdPlaylistCalls, 1);
+  });
 }
 
 class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() {
     return AppConfigState.initial.copyWith(authToken: 'token');
+  }
+
+  @override
+  void clearAuthToken() {
+    state = state.copyWith(clearToken: true, clearRefreshToken: true);
   }
 }
 
@@ -145,6 +176,14 @@ class _FakeOnlineApiClient extends OnlineApiClient {
   int favoritePlaylistCalls = 0;
   int unfavoritePlaylistCalls = 0;
   int favoriteSongCalls = 0;
+
+  @override
+  Future<List<IdPlatformInfo>> fetchFavoriteSongs({
+    int pageIndex = 1,
+    int pageSize = 1000,
+  }) async {
+    return const <IdPlatformInfo>[];
+  }
 
   @override
   Future<Map<String, dynamic>> togglePlaylistFavorite({

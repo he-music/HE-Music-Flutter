@@ -76,9 +76,6 @@ class _MyPageState extends ConsumerState<MyPage> {
       tokenSet: tokenSet,
       loading: state.loading,
       onLogin: () => _openLogin(context),
-      onLogout: tokenSet
-          ? () => ref.read(onlineControllerProvider.notifier).logout()
-          : null,
     );
     final errorCard = state.errorMessage == null
         ? null
@@ -303,7 +300,6 @@ class _AccountCard extends StatelessWidget {
     required this.tokenSet,
     required this.loading,
     required this.onLogin,
-    required this.onLogout,
   });
 
   final String localeCode;
@@ -313,7 +309,6 @@ class _AccountCard extends StatelessWidget {
   final bool tokenSet;
   final bool loading;
   final VoidCallback onLogin;
-  final VoidCallback? onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -351,6 +346,8 @@ class _AccountCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
@@ -358,43 +355,26 @@ class _AccountCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 12),
                 if (loading)
-                  const LinearProgressIndicator(minHeight: 3)
-                else
-                  Wrap(
-                    spacing: 8,
-                    children: <Widget>[
-                      FilledButton(
-                        onPressed: tokenSet ? null : onLogin,
-                        child: Text(
-                          tokenSet
-                              ? AppI18n.tByLocaleCode(
-                                  localeCode,
-                                  'my.profile.logged_in_badge',
-                                )
-                              : AppI18n.tByLocaleCode(
-                                  localeCode,
-                                  'my.profile.login_now',
-                                ),
-                        ),
-                      ),
-                      if (tokenSet && onLogout != null)
-                        OutlinedButton(
-                          onPressed: onLogout,
-                          child: Text(
-                            AppI18n.tByLocaleCode(
-                              localeCode,
-                              'settings.logout',
-                            ),
-                          ),
-                        ),
-                    ],
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  )
+                else if (!tokenSet) ...<Widget>[
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: onLogin,
+                    child: Text(
+                      AppI18n.tByLocaleCode(localeCode, 'my.profile.login_now'),
+                    ),
                   ),
+                ],
               ],
             ),
           ),

@@ -71,9 +71,24 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
       SettingsItemIds.about: SettingsItemPresentation(
         subtitleBuilder: (config) => AppI18n.t(config, 'settings.about.desc'),
       ),
+      SettingsItemIds.accountProfile: SettingsItemPresentation(
+        subtitleBuilder: (config) =>
+            AppI18n.t(config, 'settings.account.profile.desc'),
+      ),
+      SettingsItemIds.accountPassword: SettingsItemPresentation(
+        subtitleBuilder: (config) =>
+            AppI18n.t(config, 'settings.account.password.desc'),
+      ),
+      SettingsItemIds.accountLogin: SettingsItemPresentation(
+        subtitleBuilder: (config) =>
+            AppI18n.t(config, 'settings.account.login.desc'),
+      ),
       SettingsItemIds.deviceManagement: SettingsItemPresentation(
         subtitleBuilder: (config) =>
             AppI18n.t(config, 'settings.device_management.desc'),
+      ),
+      SettingsItemIds.accountLogout: SettingsItemPresentation(
+        subtitleBuilder: (config) => AppI18n.t(config, 'settings.logout.desc'),
       ),
     };
 

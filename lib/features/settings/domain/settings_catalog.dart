@@ -19,7 +19,10 @@ abstract final class SettingsGroupIds {
   static const lyricsDesktop = 'lyrics-desktop';
   static const generalPreferences = 'general-preferences';
   static const generalAbout = 'general-about';
+  static const accountProfile = 'account-profile';
+  static const accountSecurity = 'account-security';
   static const accountDevices = 'account-devices';
+  static const accountSession = 'account-session';
 }
 
 abstract final class SettingsItemIds {
@@ -36,7 +39,11 @@ abstract final class SettingsItemIds {
   static const language = 'language';
   static const autoCheckUpdates = 'auto-check-updates';
   static const about = 'about';
+  static const accountProfile = 'account-profile';
+  static const accountPassword = 'account-password';
+  static const accountLogin = 'account-login';
   static const deviceManagement = 'device-management';
+  static const accountLogout = 'account-logout';
 }
 
 const List<SettingsSectionNode> settingsSections = <SettingsSectionNode>[
@@ -109,9 +116,24 @@ const List<SettingsGroupNode> settingsGroups = <SettingsGroupNode>[
     titleKey: 'settings.group.general.about',
   ),
   SettingsGroupNode(
+    id: SettingsGroupIds.accountProfile,
+    sectionId: SettingsSectionIds.account,
+    titleKey: 'settings.group.account.profile',
+  ),
+  SettingsGroupNode(
+    id: SettingsGroupIds.accountSecurity,
+    sectionId: SettingsSectionIds.account,
+    titleKey: 'settings.group.account.security',
+  ),
+  SettingsGroupNode(
     id: SettingsGroupIds.accountDevices,
     sectionId: SettingsSectionIds.account,
     titleKey: 'settings.group.account.devices',
+  ),
+  SettingsGroupNode(
+    id: SettingsGroupIds.accountSession,
+    sectionId: SettingsSectionIds.account,
+    titleKey: 'settings.group.account.session',
   ),
 ];
 
@@ -234,6 +256,33 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     keywords: <String>['关于', '版本', '更新'],
   ),
   SettingsItemNode(
+    id: SettingsItemIds.accountProfile,
+    sectionId: SettingsSectionIds.account,
+    groupId: SettingsGroupIds.accountProfile,
+    titleKey: 'settings.account.profile',
+    kind: SettingsItemKind.navigation,
+    icon: Icons.badge_outlined,
+    keywords: <String>['个人资料', '昵称', '头像', 'profile'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.accountLogin,
+    sectionId: SettingsSectionIds.account,
+    groupId: SettingsGroupIds.accountProfile,
+    titleKey: 'settings.account.login',
+    kind: SettingsItemKind.navigation,
+    icon: Icons.login_rounded,
+    keywords: <String>['登录', '帐号', 'login'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.accountPassword,
+    sectionId: SettingsSectionIds.account,
+    groupId: SettingsGroupIds.accountSecurity,
+    titleKey: 'settings.account.password',
+    kind: SettingsItemKind.navigation,
+    icon: Icons.password_rounded,
+    keywords: <String>['密码', '安全', 'password'],
+  ),
+  SettingsItemNode(
     id: SettingsItemIds.deviceManagement,
     sectionId: SettingsSectionIds.account,
     groupId: SettingsGroupIds.accountDevices,
@@ -241,6 +290,15 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.navigation,
     icon: Icons.devices_outlined,
     keywords: <String>['设备', '管理', '登录', 'device'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.accountLogout,
+    sectionId: SettingsSectionIds.account,
+    groupId: SettingsGroupIds.accountSession,
+    titleKey: 'settings.logout',
+    kind: SettingsItemKind.navigation,
+    icon: Icons.logout_rounded,
+    keywords: <String>['退出', '帐号', '登录', 'logout'],
   ),
 ];
 

@@ -155,6 +155,44 @@ class SettingsNavigationTile extends StatelessWidget {
   }
 }
 
+class SettingsActionTile extends StatelessWidget {
+  const SettingsActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.destructive = false,
+    this.highlighted = false,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool destructive;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = destructive
+        ? Theme.of(context).colorScheme.error
+        : Theme.of(context).colorScheme.onSurface;
+    return _SettingsTileShell(
+      highlighted: highlighted,
+      child: ListTile(
+        leading: SizedBox(
+          width: 24,
+          child: Center(child: Icon(icon, color: foreground)),
+        ),
+        title: Text(title, style: TextStyle(color: foreground)),
+        subtitle: Text(subtitle),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
 class SettingsSearchResultTile extends StatelessWidget {
   const SettingsSearchResultTile({
     required this.title,
