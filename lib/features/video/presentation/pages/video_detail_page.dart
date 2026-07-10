@@ -49,6 +49,11 @@ class VideoDetailPage extends ConsumerStatefulWidget {
 
 class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
     with WidgetsBindingObserver {
+  static const SystemUiOverlayStyle _videoOverlayStyle = SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+  );
   static const double _commentsExpandedVideoFraction = 0.38;
   static const Duration _commentsTransitionDuration = Duration(
     milliseconds: 320,
@@ -135,16 +140,19 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
   Widget build(BuildContext context) {
     final feedState = ref.watch(videoFeedControllerProvider);
 
-    return PopScope(
-      canPop: !_showingComments,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        unawaited(_handleSystemBack());
-      },
-      child: DetailPageShell(
-        child: Scaffold(
-          backgroundColor: Colors.black,
-          body: _buildContent(feedState),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _videoOverlayStyle,
+      child: PopScope(
+        canPop: !_showingComments,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          unawaited(_handleSystemBack());
+        },
+        child: DetailPageShell(
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: _buildContent(feedState),
+          ),
         ),
       ),
     );

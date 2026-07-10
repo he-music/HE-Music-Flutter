@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -35,6 +36,29 @@ import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 void main() {
+  testWidgets('video detail uses light status bar icons', (tester) async {
+    final repository = _FakeVideoDetailRepository(
+      detail: _buildDetail(id: 'mv-1', url: 'https://example.com/mv-1.mp4'),
+    );
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        repository: repository,
+        factory: _FakeVideoPlaybackSurfaceFactory(),
+      ),
+    );
+
+    final overlayStyle = tester
+        .widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+          find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+        )
+        .single
+        .value;
+    expect(overlayStyle.statusBarIconBrightness, Brightness.light);
+    expect(overlayStyle.statusBarBrightness, Brightness.dark);
+    expect(overlayStyle.statusBarColor, Colors.transparent);
+  });
+
   testWidgets('video detail progress drag delegates seekTo to session', (
     tester,
   ) async {
