@@ -27,6 +27,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(MiniPlayerBar), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(MiniPlayerBar),
+        matching: find.byType(SafeArea),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('路由测试歌曲'), findsOneWidget);
   });
 

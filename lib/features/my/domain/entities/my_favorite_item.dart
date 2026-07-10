@@ -61,15 +61,12 @@ class MyFavoriteItem {
         .map((item) => item.name.trim())
         .where((item) => item.isNotEmpty)
         .join('/');
-    final subtitle = artistNames.isEmpty
-        ? album.platform
-        : '${album.platform} · $artistNames';
     return MyFavoriteItem(
       id: album.id,
       platform: album.platform,
       type: type,
       title: album.name.isEmpty ? 'ID: ${album.id}' : album.name,
-      subtitle: subtitle,
+      subtitle: artistNames,
       coverUrl: album.cover,
     );
   }
@@ -78,15 +75,12 @@ class MyFavoriteItem {
     required ArtistInfo artist,
     required MyFavoriteType type,
   }) {
-    final subtitle = artist.alias.trim().isEmpty
-        ? artist.platform
-        : '${artist.platform} · ${artist.alias}';
     return MyFavoriteItem(
       id: artist.id,
       platform: artist.platform,
       type: type,
       title: artist.name.isEmpty ? 'ID: ${artist.id}' : artist.name,
-      subtitle: subtitle,
+      subtitle: artist.alias.trim(),
       coverUrl: artist.cover,
     );
   }

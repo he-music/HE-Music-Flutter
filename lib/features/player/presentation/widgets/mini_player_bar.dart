@@ -13,9 +13,14 @@ import '../../../../shared/widgets/app_network_image.dart';
 import 'player_queue_sheet.dart';
 
 class MiniPlayerBar extends ConsumerStatefulWidget {
-  const MiniPlayerBar({required this.onOpenFullPlayer, super.key});
+  const MiniPlayerBar({
+    required this.onOpenFullPlayer,
+    this.bottomSafeArea = false,
+    super.key,
+  });
 
   final VoidCallback onOpenFullPlayer;
+  final bool bottomSafeArea;
 
   @override
   ConsumerState<MiniPlayerBar> createState() => _MiniPlayerBarState();
@@ -57,7 +62,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
       return const SizedBox.shrink();
     }
     final theme = Theme.of(context);
-    return LayoutBuilder(
+    final bar = LayoutBuilder(
       builder: (context, constraints) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
@@ -125,6 +130,10 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
         );
       },
     );
+    if (!widget.bottomSafeArea) {
+      return bar;
+    }
+    return SafeArea(top: false, child: bar);
   }
 
   PlayerTrack? _previewTrackAt({

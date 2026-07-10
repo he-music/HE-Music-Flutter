@@ -214,6 +214,33 @@ class _CollectionList extends ConsumerWidget {
           );
         }
         return ListTile(
+          onTap: switch (selectedType) {
+            MyFavoriteType.artists => () {
+              context.push(
+                Uri(
+                  path: AppRoutes.artistDetail,
+                  queryParameters: <String, String>{
+                    'id': item.id,
+                    'platform': item.platform,
+                    'title': item.title,
+                  },
+                ).toString(),
+              );
+            },
+            MyFavoriteType.albums => () {
+              context.push(
+                Uri(
+                  path: AppRoutes.albumDetail,
+                  queryParameters: <String, String>{
+                    'id': item.id,
+                    'platform': item.platform,
+                    'title': item.title,
+                  },
+                ).toString(),
+              );
+            },
+            _ => null,
+          },
           leading: _CoverAvatar(coverUrl: item.coverUrl),
           title: Text(item.title),
           subtitle: Text(item.subtitle),

@@ -59,11 +59,10 @@ class _RootContentRouteShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: <Widget>[
-          Expanded(child: child),
-          MiniPlayerBar(onOpenFullPlayer: () => context.push(AppRoutes.player)),
-        ],
+      body: child,
+      bottomNavigationBar: MiniPlayerBar(
+        bottomSafeArea: true,
+        onOpenFullPlayer: () => context.push(AppRoutes.player),
       ),
     );
   }
