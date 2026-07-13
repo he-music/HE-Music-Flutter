@@ -5,6 +5,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_play_mod
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_queue_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
+import 'package:he_music_flutter/features/player/presentation/controllers/player_controller_callback.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_queue_manager.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_quality_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,6 +44,7 @@ PlayerPlaybackState _state({
   String? radioPlatform,
   int? radioPageIndex,
   PlayerPlayMode? previousPlayMode,
+  Duration duration = Duration.zero,
 }) {
   return PlayerPlaybackState(
     queue: queue,
@@ -51,7 +53,7 @@ PlayerPlaybackState _state({
     isPlaying: false,
     isLoading: false,
     position: Duration.zero,
-    duration: Duration.zero,
+    duration: duration,
     volume: 1.0,
     speed: 1.0,
     playMode: playMode,
@@ -339,5 +341,35 @@ void main() {
         expect(snapshot.playMode, PlayerPlayMode.sequence);
       });
     });
+
+    group('hydrateQueue', () {
+      test('恢复非空队列时不覆盖音频流已写入的时长', () async {
+        await manager.persistQueueState(_FakeCallback(_state(currentIndex: 1)));
+        final callback = _FakeCallback(
+          _state(queue: const [], duration: const Duration(minutes: 2)),
+        );
+
+        final snapshot = await manager.hydrateQueue(callback);
+
+        expect(snapshot?.currentIndex, 1);
+        expect(callback.currentState.duration, const Duration(minutes: 2));
+      });
+    });
   });
+}
+
+class _FakeCallback implements PlayerControllerCallback {
+  _FakeCallback(this._state);
+
+  PlayerPlaybackState _state;
+
+  @override
+  PlayerPlaybackState get currentState => _state;
+
+  @override
+  void updateState(
+    PlayerPlaybackState Function(PlayerPlaybackState current) updater,
+  ) {
+    _state = updater(_state);
+  }
 }

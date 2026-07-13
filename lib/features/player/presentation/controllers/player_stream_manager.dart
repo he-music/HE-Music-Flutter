@@ -108,11 +108,11 @@ class PlayerStreamManager {
     }, onError: _handleStreamError);
 
     _durationSubscription = audioPlayer.durationStream.listen((duration) {
-      final normalized = duration ?? Duration.zero;
-      callback.updateState((s) => s.copyWith(duration: normalized));
-      if (normalized > Duration.zero) {
-        _onDurationChanged(normalized);
+      if (duration == null || duration <= Duration.zero) {
+        return;
       }
+      callback.updateState((s) => s.copyWith(duration: duration));
+      _onDurationChanged(duration);
     }, onError: _handleStreamError);
 
     if (audioPlayer is! AudioHandlerPlayerAdapter) {

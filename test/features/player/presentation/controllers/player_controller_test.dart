@@ -113,6 +113,8 @@ void main() {
       startIndex: 0,
       autoplay: false,
     );
+    audioPlayer.emitDuration(const Duration(minutes: 2));
+    await Future<void>.delayed(Duration.zero);
     final pendingLoad = Completer<void>();
     audioPlayer.setQueueCompleter = pendingLoad;
 
@@ -122,11 +124,60 @@ void main() {
     expect(container.read(playerControllerProvider).currentIndex, 0);
     expect(container.read(playerControllerProvider).currentTrack?.id, 'song-1');
 
+    audioPlayer.emitDuration(null);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(playerControllerProvider).duration,
+      const Duration(minutes: 2),
+    );
+
+    audioPlayer.emitPlaying(true);
+    audioPlayer.emitDuration(const Duration(minutes: 3));
+    await Future<void>.delayed(Duration.zero);
+
     pendingLoad.complete();
     await switching;
 
-    expect(container.read(playerControllerProvider).currentIndex, 1);
-    expect(container.read(playerControllerProvider).currentTrack?.id, 'song-2');
+    final state = container.read(playerControllerProvider);
+    expect(state.currentIndex, 1);
+    expect(state.currentTrack?.id, 'song-2');
+    expect(state.isPlaying, isTrue);
+    expect(state.duration, const Duration(minutes: 3));
+  });
+
+  test('currentIndex 切换时保留时长直到音频流报告新值', () async {
+    final audioPlayer = _FakeAudioPlayerPort();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(audioPlayer),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(playerControllerProvider.notifier);
+    await controller.replaceQueue(
+      _buildQueue(),
+      startIndex: 0,
+      autoplay: false,
+    );
+    audioPlayer.emitCurrentIndex(0);
+    audioPlayer.emitDuration(const Duration(minutes: 2));
+    await Future<void>.delayed(Duration.zero);
+
+    audioPlayer.emitCurrentIndex(1);
+    audioPlayer.emitDuration(null);
+    audioPlayer.emitDuration(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    var state = container.read(playerControllerProvider);
+    expect(state.currentIndex, 1);
+    expect(state.duration, const Duration(minutes: 2));
+
+    audioPlayer.emitDuration(const Duration(minutes: 3));
+    await Future<void>.delayed(Duration.zero);
+    state = container.read(playerControllerProvider);
+    expect(state.duration, const Duration(minutes: 3));
   });
 
   test('切换音质时应委托音频层刷新 source，而不是在 controller 重新请求链接', () async {
@@ -676,6 +727,14 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
 
   void emitCurrentIndex(int? index) {
     _currentIndexController.add(index);
+  }
+
+  void emitPlaying(bool value) {
+    _playingController.add(value);
+  }
+
+  void emitDuration(Duration? value) {
+    _durationController.add(value);
   }
 }
 

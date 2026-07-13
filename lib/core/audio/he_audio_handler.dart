@@ -507,8 +507,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Stream<bool> get playingStream =>
       playbackState.map((state) => state.playing).distinct();
 
-  Stream<Duration?> get durationStream =>
-      mediaItem.map((item) => item?.duration).distinct();
+  Stream<Duration?> get durationStream => _player.durationStream;
 
   Stream<Duration> get positionStream => _player.createPositionStream(
     minPeriod: _positionStreamPeriod,

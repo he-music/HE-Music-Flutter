@@ -249,7 +249,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               queue: queue,
               currentIndex: startIndex,
               position: Duration.zero,
-              duration: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               playMode: nextPlayMode,
@@ -316,7 +315,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               currentIndex: targetIndex,
               playMode: snapshot.playMode,
               position: Duration.zero,
-              duration: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               queueSource: snapshot.source,
@@ -393,7 +391,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
             return state.copyWith(
               currentIndex: index,
               position: Duration.zero,
-              duration: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               clearError: true,
@@ -457,7 +454,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               queue: nextQueue,
               currentIndex: targetIndex,
               position: Duration.zero,
-              duration: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               playMode: nextPlayMode,
@@ -558,7 +554,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               queue: nextQueue,
               currentIndex: targetIndex,
               position: Duration.zero,
-              duration: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               playMode: nextPlayMode,
@@ -737,7 +732,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     );
     state = state.copyWith(
       position: Duration.zero,
-      duration: Duration.zero,
       currentSelectedQualityName: matchedOption.name,
       clearError: true,
     );
@@ -868,7 +862,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     final selectedQualityName = _qualityManager.resolveSelectedQualityName(
       availableQualities: availableQualities,
     );
-    final nextState = buildState(
+    final playbackContext = buildState(
       availableQualities: availableQualities,
       selectedQualityName: selectedQualityName,
     );
@@ -877,12 +871,23 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       queue: queue,
       index: targetIndex,
       autoplay: autoplay,
-      playbackContext: nextState,
+      playbackContext: playbackContext,
     );
     if (resolution == null) {
       return;
     }
-    state = nextState;
+    final liveState = state;
+    final committedState = buildState(
+      availableQualities: availableQualities,
+      selectedQualityName: selectedQualityName,
+    );
+    // 装载期间播放流可能已更新，提交业务上下文时不能用旧快照覆盖。
+    state = committedState.copyWith(
+      isPlaying: liveState.isPlaying,
+      isLoading: liveState.isLoading,
+      position: liveState.position,
+      duration: liveState.duration,
+    );
     applyResolvedState(resolution);
     unawaited(_syncAutoLyricHighlightColor());
     await _queueManager.persistQueueState(this);
@@ -1180,7 +1185,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     state = state.copyWith(
       currentIndex: safeIndex,
       position: Duration.zero,
-      duration: Duration.zero,
       currentAvailableQualities: availableQualities,
       currentSelectedQualityName: selectedQualityName,
       clearError: true,

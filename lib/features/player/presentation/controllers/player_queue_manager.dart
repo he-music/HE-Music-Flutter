@@ -293,7 +293,6 @@ class PlayerQueueManager {
           currentIndex: snapshot.currentIndex,
           playMode: snapshot.playMode,
           position: Duration.zero,
-          duration: Duration.zero,
           currentAvailableQualities: availableQualities,
           currentSelectedQualityName: selectedQualityName,
           queueSource: snapshot.source,

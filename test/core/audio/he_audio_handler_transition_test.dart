@@ -320,6 +320,21 @@ void main() {
     expect(handler.mediaItem.value?.id, 'song-1');
     expect(playCompleter.isCompleted, isFalse);
   });
+
+  test('play 请求应立即把 just_audio playing 状态广播给 AudioService', () async {
+    final player = AudioPlayer();
+    final handler = HeAudioHandler(player: player);
+    addTearDown(handler.disposeHandler);
+    final playing = handler.playingStream.firstWhere((value) => value);
+
+    await handler.play();
+
+    await expectLater(
+      playing.timeout(const Duration(milliseconds: 200)),
+      completion(isTrue),
+    );
+    expect(handler.playbackState.value.playing, isTrue);
+  });
 }
 
 HeAudioHandler _buildLocalHandler({
