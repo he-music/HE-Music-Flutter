@@ -205,7 +205,12 @@ class OnlinePlatformsController extends AsyncNotifier<List<OnlinePlatform>> {
 
   @override
   Future<List<OnlinePlatform>> build() async {
-    return _fetchPlatforms();
+    _loading = true;
+    try {
+      return await _fetchPlatforms();
+    } finally {
+      _loading = false;
+    }
   }
 
   Future<List<OnlinePlatform>> ensureLoaded({bool forceRefresh = false}) async {
@@ -213,7 +218,7 @@ class OnlinePlatformsController extends AsyncNotifier<List<OnlinePlatform>> {
     if (!forceRefresh && current != null && current.isNotEmpty) {
       return current;
     }
-    if (_loading) {
+    if (_loading || state.isLoading) {
       return future;
     }
     state = forceRefresh ? const AsyncLoading() : state;

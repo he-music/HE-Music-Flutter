@@ -10,6 +10,7 @@ import '../providers/home_discover_providers.dart';
 
 class HomeDiscoverController extends Notifier<HomeDiscoverState> {
   bool _initialized = false;
+  Future<void>? _initializing;
   final Map<String, List<HomeDiscoverSection>> _discoverCacheByPlatform =
       <String, List<HomeDiscoverSection>>{};
 
@@ -18,12 +19,26 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
     return HomeDiscoverState.initial;
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
     if (_initialized) {
-      return;
+      return Future<void>.value();
     }
-    await _loadInitialData();
-    _initialized = state.errorMessage == null && state.platforms.isNotEmpty;
+    final initializing = _initializing;
+    if (initializing != null) {
+      return initializing;
+    }
+    final future = _initialize();
+    _initializing = future;
+    return future;
+  }
+
+  Future<void> _initialize() async {
+    try {
+      await _loadInitialData();
+      _initialized = state.errorMessage == null && state.platforms.isNotEmpty;
+    } finally {
+      _initializing = null;
+    }
   }
 
   Future<void> retry() async {
@@ -123,9 +138,7 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
       return cached;
     }
     try {
-      return await ref
-          .read(onlinePlatformsProvider.notifier)
-          .ensureLoaded(forceRefresh: true);
+      return await ref.read(onlinePlatformsProvider.notifier).ensureLoaded();
     } catch (_) {
       return const <OnlinePlatform>[];
     }
