@@ -13,7 +13,6 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
-import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../online/presentation/pages/online_comments_page.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/video_detail_content.dart';
@@ -148,11 +147,9 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
           if (didPop) return;
           unawaited(_handleSystemBack());
         },
-        child: DetailPageShell(
-          child: Scaffold(
-            backgroundColor: Colors.black,
-            body: _buildContent(feedState),
-          ),
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: _buildContent(feedState),
         ),
       ),
     );
@@ -994,10 +991,6 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
 
   Future<bool> _handleSystemBack() async {
     if (_showingComments) {
-      if (_commentsFullscreen) {
-        _toggleCommentsFullscreen();
-        return true;
-      }
       _hideComments();
       return true;
     }

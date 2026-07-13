@@ -617,6 +617,82 @@ void main() {
     expect(find.text('home page'), findsNothing);
   });
 
+  testWidgets('system back closes comments before leaving video detail', (
+    tester,
+  ) async {
+    final repository = _FakeVideoDetailRepository(
+      detail: _buildDetail(id: 'mv-1', url: 'https://example.com/mv-1.mp4'),
+    );
+    final router = _buildVideoBackRouter();
+
+    await tester.pumpWidget(
+      _buildRouterTestApp(
+        repository: repository,
+        factory: _FakeVideoPlaybackSurfaceFactory(),
+        router: router,
+      ),
+    );
+
+    await tester.tap(find.text('video plaza page'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.comment_outlined));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('video-detail-comments-panel')),
+      findsOneWidget,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VideoDetailPage), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('video-detail-comments-panel')),
+      findsNothing,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('video plaza page'), findsOneWidget);
+  });
+
+  testWidgets('system back closes fullscreen comments before video detail', (
+    tester,
+  ) async {
+    final repository = _FakeVideoDetailRepository(
+      detail: _buildDetail(id: 'mv-1', url: 'https://example.com/mv-1.mp4'),
+    );
+    final router = _buildVideoBackRouter();
+
+    await tester.pumpWidget(
+      _buildRouterTestApp(
+        repository: repository,
+        factory: _FakeVideoPlaybackSurfaceFactory(),
+        router: router,
+      ),
+    );
+
+    await tester.tap(find.text('video plaza page'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.comment_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.fullscreen_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VideoDetailPage), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('video-detail-comments-panel')),
+      findsNothing,
+    );
+  });
+
   testWidgets('app router system back keeps video detail push stack', (
     tester,
   ) async {
