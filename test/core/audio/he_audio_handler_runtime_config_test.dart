@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -303,7 +304,7 @@ void main() {
 
     expect(requestedSongIds, <String>['song-1', 'song-2']);
     await handler.skipToNext();
-    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
 
     expect(requestedSongIds.where((id) => id == 'song-2'), hasLength(1));
     expect(loadedUrls.last, 'https://fresh.example.com/song-2-2.mp3');
@@ -313,6 +314,7 @@ void main() {
         .length;
     now = now.add(const Duration(minutes: 9));
     await handler.skipToPrevious();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
 
     expect(
       requestedSongIds.where((id) => id == 'song-1'),
@@ -381,6 +383,7 @@ void main() {
     expect(queueEvents.last['previousPreviewIndex'], 2);
     expect(queueEvents.last['nextPreviewIndex'], 1);
     await handler.skipToNext();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
 
     expect(handler.mediaItem.value?.id, 'song-2');
     expect(requestedSongIds.where((id) => id == 'song-2'), hasLength(1));
@@ -400,7 +403,15 @@ void main() {
           }) async {
             requestedSongIds.add(songId);
             if (songId == 'song-2') {
-              throw Exception('network error');
+              final request = RequestOptions(path: '/v1/song/url');
+              throw DioException(
+                requestOptions: request,
+                response: Response<dynamic>(
+                  requestOptions: request,
+                  statusCode: 404,
+                ),
+                type: DioExceptionType.badResponse,
+              );
             }
             return <String, dynamic>{
               'url': 'https://fresh.example.com/$songId.mp3',
@@ -437,6 +448,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     await handler.skipToNext();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
 
     expect(requestedSongIds, containsAllInOrder(<String>['song-2', 'song-3']));
     expect(handler.mediaItem.value?.id, 'song-3');
@@ -678,6 +690,7 @@ void main() {
     );
 
     await handler.skipToNext();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
 
     expect(queueEvents, isNotEmpty);
     final lastQueueEvent = queueEvents.last;
@@ -789,7 +802,7 @@ void main() {
               (track) =>
                   track is Map<String, dynamic> &&
                   track['id'] == 'radio-song-3' &&
-                  track['url'] == 'https://fresh.example.com/radio-song-3.mp3',
+                  track['url'] == '',
             );
       }).length,
       1,
@@ -892,6 +905,7 @@ void main() {
     );
 
     await handler.skipToNext();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
 
     final lastQueueEvent = queueEvents.last;
     final tracks = lastQueueEvent['tracks'] as List<dynamic>;

@@ -87,6 +87,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                   Expanded(
                     child: _TrackPageView(
                       track: track,
+                      queue: queue,
+                      currentIndex: currentIndex,
                       previousTrack: _previewTrackAt(
                         queue: queue,
                         currentIndex: currentIndex,
@@ -101,6 +103,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                         isPrevious: false,
                         allowLinearFallback: playMode != PlayerPlayMode.shuffle,
                       ),
+                      usesLinearOrder: playMode != PlayerPlayMode.shuffle,
                       isRadioMode: isRadioMode,
                       onTap: widget.onOpenFullPlayer,
                       onPrevious: controller.playPrevious,
@@ -174,8 +177,11 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
 class _TrackPageView extends StatefulWidget {
   const _TrackPageView({
     required this.track,
+    required this.queue,
+    required this.currentIndex,
     required this.previousTrack,
     required this.nextTrack,
+    required this.usesLinearOrder,
     required this.isRadioMode,
     required this.onTap,
     required this.onPrevious,
@@ -183,8 +189,11 @@ class _TrackPageView extends StatefulWidget {
   });
 
   final PlayerTrack track;
+  final List<PlayerTrack> queue;
+  final int currentIndex;
   final PlayerTrack? previousTrack;
   final PlayerTrack? nextTrack;
+  final bool usesLinearOrder;
   final bool isRadioMode;
   final VoidCallback onTap;
   final VoidCallback onPrevious;
@@ -280,6 +289,10 @@ class _TrackPageViewState extends State<_TrackPageView> {
     final delta = page - _anchorPage;
     if (delta == 0) {
       return (track: widget.track, isCurrent: true);
+    }
+    if (widget.usesLinearOrder && widget.queue.isNotEmpty) {
+      final index = (widget.currentIndex + delta) % widget.queue.length;
+      return (track: widget.queue[index], isCurrent: false);
     }
     if (delta < 0) {
       return (track: widget.previousTrack, isCurrent: false);

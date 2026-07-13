@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
@@ -73,6 +74,7 @@ typedef HeAudioHandlerSetAudioSource =
 typedef HeAudioHandlerPlay = Future<void> Function(AudioPlayer player);
 typedef HeAudioHandlerDispose = Future<void> Function(AudioPlayer player);
 typedef HeAudioHandlerNow = DateTime Function();
+typedef HeAudioHandlerLog = void Function(String message);
 
 typedef HeAudioHandlerFetchRadioSongs =
     Future<List<SongInfo>> Function({
@@ -138,6 +140,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     HeAudioHandlerPlay? playOverride,
     HeAudioHandlerDispose? disposeOverride,
     HeAudioHandlerNow? nowOverride,
+    HeAudioHandlerLog? logOverride,
     Random? randomOverride,
     OverlayChannelService? overlayLyricsServiceOverride,
   }) : _player = player ?? createHeAudioPlayer(),
@@ -148,6 +151,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
        _playOverride = playOverride,
        _disposeOverride = disposeOverride,
        _now = nowOverride ?? DateTime.now,
+       _logOverride = logOverride,
        _random = randomOverride ?? Random(),
        _overlayLyricsService =
            overlayLyricsServiceOverride ?? OverlayLyricsService() {
@@ -177,7 +181,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       if (state.processingState != ProcessingState.completed) {
         return;
       }
-      unawaited(_handlePlaybackCompleted());
+      final generation = _sourceGeneration;
+      unawaited(_handlePlaybackCompleted(generation));
     });
   }
 
@@ -187,6 +192,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   static const int _radioFetchMaxAttempts = 3;
   static const Duration _radioFetchBaseDelay = Duration(seconds: 5);
   static const Duration _preloadedPlaybackUrlTtl = Duration(minutes: 8);
+  static const Duration _manualSkipDebounce = Duration(milliseconds: 150);
+  static const Duration _manualSkipMaxBatch = Duration(milliseconds: 500);
   // 熄屏场景下缩短超时，快速失败以便重试
   static const Duration _radioConnectTimeout = Duration(seconds: 10);
   static const Duration _radioReceiveTimeout = Duration(seconds: 15);
@@ -200,25 +207,41 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final HeAudioHandlerPlay? _playOverride;
   final HeAudioHandlerDispose? _disposeOverride;
   final HeAudioHandlerNow _now;
+  final HeAudioHandlerLog? _logOverride;
   final OverlayChannelService _overlayLyricsService;
   final Random _random;
   late final AppLifecycleListener _appLifecycleListener;
 
   List<AudioTrack> _tracks = const <AudioTrack>[];
-  final Map<String, DateTime> _resolvedPlaybackUrlAtByKey =
-      <String, DateTime>{};
+  final Map<String, _ResolvedPlaybackUrl> _resolvedPlaybackUrls =
+      <String, _ResolvedPlaybackUrl>{};
+  final Map<String, _InFlightPlaybackUrl> _inFlightPlaybackUrls =
+      <String, _InFlightPlaybackUrl>{};
+  final Map<String, int> _playbackUrlVersions = <String, int>{};
   List<int> _shuffleOrder = const <int>[];
   int _shuffleCursor = 0;
-  int _currentIndex = 0;
+  int _committedIndex = 0;
+  int? _desiredIndex;
+  int? _pendingIndex;
+  List<int>? _pendingShuffleOrder;
+  int? _pendingShuffleCursor;
+  int _sourceGeneration = 0;
+  int? _armedSourceGeneration;
+  int? _handledCompletionGeneration;
+  int _transitionId = 0;
+  Timer? _manualSkipDebounceTimer;
+  Timer? _manualSkipMaxBatchTimer;
+  List<int>? _desiredShuffleOrder;
+  int? _desiredShuffleCursor;
+  int _desiredDirection = 1;
   Duration? _duration;
   bool _shuffleEnabled = false;
   bool _singleLoopEnabled = false;
-  bool _handlingCompletion = false;
   bool _isRadioMode = false;
-  bool _isLoadingRadioNextPage = false;
+  Future<bool>? _radioNextPageFuture;
+  String? _radioNextPageRequestKey;
   bool _configRecovered = false;
   Future<void>? _recoveringConfigFuture;
-  int _loadRequestId = 0;
   String? _currentRadioId;
   String? _currentRadioPlatform;
   int? _currentRadioPageIndex;
@@ -308,7 +331,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (_lyricHighlightMode != AppLyricHighlightMode.auto) {
       return;
     }
-    final currentTrack = _safeTrack(_currentIndex);
+    final currentTrack = _safeTrack(_committedIndex);
     if (currentTrack == null ||
         currentTrack.id.trim() != trackId.trim() ||
         (currentTrack.platform?.trim() ?? '') != (platform?.trim() ?? '')) {
@@ -327,44 +350,68 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     String? currentRadioPlatform,
     int? currentRadioPageIndex,
   }) async {
-    final previousIndex = _currentIndex;
-    final previousCurrent = _safeTrack(_currentIndex);
-    _tracks = List<AudioTrack>.unmodifiable(tracks);
-    _isRadioMode = isRadioMode;
-    _currentRadioId = _normalizeValue(currentRadioId);
-    _currentRadioPlatform = _normalizeValue(currentRadioPlatform);
-    _currentRadioPageIndex = _normalizePageIndex(currentRadioPageIndex);
-    _currentIndex = tracks.isEmpty
+    final transitionId = _beginTransition();
+    final previousIndex = _committedIndex;
+    final previousCurrent = _safeTrack(_committedIndex);
+    final stagedTracks = List<AudioTrack>.unmodifiable(tracks);
+    final targetIndex = tracks.isEmpty
         ? 0
         : initialIndex.clamp(0, tracks.length - 1).toInt();
-    _syncShuffleCursor(_currentIndex, forceRebuild: true);
-    queue.add(_tracks.map(_toMediaItem).toList(growable: false));
-    _broadcastQueueState();
-    _broadcastMediaItem();
-    _broadcastPlaybackState();
-    if (_tracks.isEmpty) {
+    final queueContext = _QueueContext(
+      isRadioMode: isRadioMode,
+      radioId: _normalizeValue(currentRadioId),
+      radioPlatform: _normalizeValue(currentRadioPlatform),
+      radioPageIndex: _normalizePageIndex(currentRadioPageIndex),
+    );
+    if (stagedTracks.isEmpty) {
+      _guardTransition(transitionId);
+      _tracks = const <AudioTrack>[];
+      _committedIndex = 0;
+      _applyQueueContext(queueContext);
+      _syncShuffleCursor(0, forceRebuild: true);
       _autoLyricHighlightColorValue = null;
       await _player.stop();
       _duration = null;
       _clearLyricState();
-      return;
-    }
-    final nextCurrent = _safeTrack(_currentIndex);
-    final sameCurrentTrack =
-        previousCurrent != null &&
-        nextCurrent != null &&
-        _isSameTrack(previousCurrent, nextCurrent);
-    if (sameCurrentTrack &&
-        previousIndex == _currentIndex &&
-        !forceReloadCurrent &&
-        _player.audioSource != null &&
-        _player.processingState != ProcessingState.idle) {
-      await _loadLyricsForCurrentTrack(force: false);
+      queue.add(const <MediaItem>[]);
+      _broadcastQueueState();
       _broadcastMediaItem();
       _broadcastPlaybackState();
       return;
     }
-    await _prepareCurrentTrackIfNeeded(forceReload: forceReloadCurrent);
+    final nextCurrent = stagedTracks[targetIndex];
+    final sameCurrentTrack =
+        previousCurrent != null && _isSameTrack(previousCurrent, nextCurrent);
+    if (sameCurrentTrack &&
+        previousIndex == targetIndex &&
+        !forceReloadCurrent &&
+        _player.audioSource != null &&
+        _player.processingState != ProcessingState.idle) {
+      _guardTransition(transitionId);
+      _tracks = stagedTracks;
+      _committedIndex = targetIndex;
+      _applyQueueContext(queueContext);
+      _syncShuffleCursor(_committedIndex, forceRebuild: true);
+      queue.add(_tracks.map(_toMediaItem).toList(growable: false));
+      _broadcastQueueState();
+      _broadcastMediaItem();
+      _broadcastPlaybackState();
+      await _loadLyricsForCurrentTrack(force: false);
+      return;
+    }
+    try {
+      await _loadTrackAt(
+        targetIndex,
+        autoplay: false,
+        transitionId: transitionId,
+        sourceTracks: stagedTracks,
+        queueContext: queueContext,
+        forceShuffleRebuild: true,
+        forceUrlRefresh: forceReloadCurrent,
+      );
+    } on _StaleTransitionException {
+      return;
+    }
   }
 
   Future<void> replaceCurrentTrack(AudioTrack track) async {
@@ -372,19 +419,32 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       await setQueueData(<AudioTrack>[track], initialIndex: 0);
       return;
     }
+    final transitionId = _beginTransition();
     final next = <AudioTrack>[..._tracks];
-    next[_currentIndex] = track;
-    _tracks = List<AudioTrack>.unmodifiable(next);
-    queue.add(_tracks.map(_toMediaItem).toList(growable: false));
-    _broadcastQueueState();
+    next[_committedIndex] = track;
     final resumePosition = _player.position;
     final wasPlaying = _player.playing;
-    await _loadTrackAt(_currentIndex, autoplay: false);
+    try {
+      await _loadTrackAt(
+        _committedIndex,
+        autoplay: false,
+        transitionId: transitionId,
+        sourceTracks: List<AudioTrack>.unmodifiable(next),
+        forceUrlRefresh: true,
+      );
+    } on _StaleTransitionException {
+      return;
+    }
+    try {
+      _guardTransition(transitionId);
+    } on _StaleTransitionException {
+      return;
+    }
     if (resumePosition > Duration.zero) {
       await _player.seek(resumePosition);
     }
     if (wasPlaying) {
-      await _player.play();
+      _requestPlay(transitionId);
     }
   }
 
@@ -392,10 +452,19 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (_tracks.isEmpty) {
       return;
     }
+    final transitionId = _beginTransition();
     await _ensureRadioNextPageIfNeeded(targetIndex: index);
-    _currentIndex = index.clamp(0, _tracks.length - 1).toInt();
-    _syncShuffleCursor(_currentIndex);
-    await _loadTrackAt(_currentIndex, autoplay: true);
+    try {
+      _guardTransition(transitionId);
+      final targetIndex = index.clamp(0, _tracks.length - 1).toInt();
+      await _loadTrackAt(
+        targetIndex,
+        autoplay: true,
+        transitionId: transitionId,
+      );
+    } on _StaleTransitionException {
+      return;
+    }
   }
 
   Future<void> setSingleLoopMode(bool enabled) async {
@@ -406,7 +475,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   Future<void> setShuffleModeEnabled(bool enabled) async {
     _shuffleEnabled = enabled;
-    _syncShuffleCursor(_currentIndex, forceRebuild: true);
+    _syncShuffleCursor(_committedIndex, forceRebuild: true);
     _broadcastQueueState();
     _broadcastPlaybackState();
   }
@@ -447,13 +516,16 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   );
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() async {
+    _requestPlay(_transitionId);
+  }
 
   @override
   Future<void> pause() => _player.pause();
 
   @override
   Future<void> stop() async {
+    _beginTransition();
     await _player.stop();
     _broadcastPlaybackState();
   }
@@ -466,19 +538,12 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (_tracks.isEmpty) {
       return;
     }
-    final currentIndex = _currentIndex;
-    if (_isRadioMode && currentIndex >= _tracks.length - 1) {
-      try {
-        final appended = await _ensureRadioNextPageAppended();
-        if (appended && _tracks.length > currentIndex + 1) {
-          await playIndex(currentIndex + 1);
-          return;
-        }
-      } catch (_) {
-        // 网络失败时继续跳到下一首已有歌曲
-      }
+    if (_isRadioMode && _committedIndex >= _tracks.length - 1) {
+      final transitionId = _beginTransition();
+      unawaited(_playNextRadioTrack(transitionId));
+      return;
     }
-    await _playNextAvailableFrom(currentIndex);
+    _scheduleManualSkip(1);
   }
 
   @override
@@ -486,14 +551,163 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (_tracks.isEmpty) {
       return;
     }
-    final previousIndex = _resolvePreviousTrackIndex(_currentIndex);
-    await playIndex(previousIndex);
+    _scheduleManualSkip(-1);
   }
 
   @override
   Future<void> skipToQueueItem(int index) => playIndex(index);
 
+  void _scheduleManualSkip(int direction) {
+    final transitionId = _beginTransition(
+      cancelManualIntent: false,
+      preservePending: true,
+    );
+    _desiredDirection = direction;
+    if (_shuffleEnabled) {
+      _advanceDesiredShuffle(direction);
+    } else {
+      final baseIndex = _desiredIndex ?? _pendingIndex ?? _committedIndex;
+      _desiredIndex = direction > 0
+          ? (baseIndex + 1) % _tracks.length
+          : (baseIndex - 1 + _tracks.length) % _tracks.length;
+    }
+    _pendingIndex = null;
+    _pendingShuffleOrder = null;
+    _pendingShuffleCursor = null;
+    _manualSkipDebounceTimer?.cancel();
+    _manualSkipDebounceTimer = Timer(
+      _manualSkipDebounce,
+      () => _flushManualIntent(transitionId),
+    );
+    _manualSkipMaxBatchTimer ??= Timer(
+      _manualSkipMaxBatch,
+      () => _flushManualIntent(_transitionId),
+    );
+    _logTransition('manual.intent', transitionId);
+  }
+
+  void _advanceDesiredShuffle(int direction) {
+    if (_desiredShuffleOrder == null || _desiredShuffleCursor == null) {
+      if (_pendingShuffleOrder != null && _pendingShuffleCursor != null) {
+        _desiredShuffleOrder = <int>[..._pendingShuffleOrder!];
+        _desiredShuffleCursor = _pendingShuffleCursor;
+      } else {
+        _syncShuffleCursor(_committedIndex);
+        _desiredShuffleOrder = <int>[..._shuffleOrder];
+        _desiredShuffleCursor = _shuffleCursor;
+      }
+    }
+    var order = _desiredShuffleOrder!;
+    var cursor = _desiredShuffleCursor!;
+    if (direction > 0) {
+      if (cursor >= order.length - 1) {
+        order = _createShuffleOrder(order[cursor]);
+        cursor = order.length <= 1 ? 0 : 1;
+      } else {
+        cursor += 1;
+      }
+    } else {
+      cursor = cursor <= 0 ? order.length - 1 : cursor - 1;
+    }
+    _desiredShuffleOrder = order;
+    _desiredShuffleCursor = cursor;
+    _desiredIndex = order[cursor];
+  }
+
+  void _flushManualIntent(int transitionId) {
+    if (transitionId != _transitionId || _desiredIndex == null) {
+      return;
+    }
+    _manualSkipDebounceTimer?.cancel();
+    _manualSkipMaxBatchTimer?.cancel();
+    _manualSkipDebounceTimer = null;
+    _manualSkipMaxBatchTimer = null;
+    final targetIndex = _desiredIndex!;
+    final shuffleOrder = _desiredShuffleOrder == null
+        ? null
+        : <int>[..._desiredShuffleOrder!];
+    final shuffleCursor = _desiredShuffleCursor;
+    final direction = _desiredDirection;
+    unawaited(
+      _executeManualIntent(
+        targetIndex,
+        transitionId: transitionId,
+        direction: direction,
+        shuffleOrder: shuffleOrder,
+        shuffleCursor: shuffleCursor,
+      ),
+    );
+  }
+
+  Future<void> _executeManualIntent(
+    int targetIndex, {
+    required int transitionId,
+    required int direction,
+    required List<int>? shuffleOrder,
+    required int? shuffleCursor,
+  }) async {
+    try {
+      await _loadTrackAt(
+        targetIndex,
+        autoplay: true,
+        transitionId: transitionId,
+        shuffleOrder: shuffleOrder,
+        shuffleCursor: shuffleCursor,
+      );
+    } on _StaleTransitionException {
+      return;
+    } catch (error) {
+      if (direction > 0 &&
+          _classifyPlaybackError(error) ==
+              _PlaybackFailureCategory.trackUnavailable) {
+        try {
+          await _playNextAvailableFrom(targetIndex, transitionId);
+          return;
+        } on _StaleTransitionException {
+          return;
+        } catch (nextError) {
+          _broadcastTransitionError(nextError, transitionId);
+          return;
+        }
+      }
+      _broadcastTransitionError(error, transitionId);
+    }
+  }
+
+  void _cancelManualIntent({required bool clearDesired}) {
+    _manualSkipDebounceTimer?.cancel();
+    _manualSkipMaxBatchTimer?.cancel();
+    _manualSkipDebounceTimer = null;
+    _manualSkipMaxBatchTimer = null;
+    if (clearDesired) {
+      _desiredIndex = null;
+      _desiredShuffleOrder = null;
+      _desiredShuffleCursor = null;
+    }
+  }
+
+  Future<void> _playNextRadioTrack(int transitionId) async {
+    try {
+      final sourceIndex = _committedIndex;
+      final appended = await _ensureRadioNextPageAppended();
+      _guardTransition(transitionId);
+      if (!appended || _tracks.length <= sourceIndex + 1) {
+        return;
+      }
+      await _loadTrackAt(
+        sourceIndex + 1,
+        autoplay: true,
+        transitionId: transitionId,
+      );
+    } on _StaleTransitionException {
+      return;
+    } catch (error) {
+      _broadcastTransitionError(error, transitionId);
+    }
+  }
+
   Future<void> disposeHandler() async {
+    _beginTransition();
     _appLifecycleListener.dispose();
     final override = _disposeOverride;
     if (override != null) {
@@ -503,108 +717,177 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     await _player.dispose();
   }
 
-  Future<void> _prepareCurrentTrackIfNeeded({bool forceReload = false}) async {
-    final current = _safeTrack(_currentIndex);
-    if (current == null) {
-      return;
-    }
-    if (!forceReload &&
-        _player.audioSource != null &&
-        mediaItem.value?.id == current.id &&
-        _player.processingState != ProcessingState.idle) {
-      return;
-    }
-    await _loadTrackAt(_currentIndex, autoplay: false);
-  }
-
-  Future<void> _loadTrackAt(int index, {required bool autoplay}) async {
-    final track = _safeTrack(index);
+  Future<void> _loadTrackAt(
+    int index, {
+    required bool autoplay,
+    required int transitionId,
+    List<AudioTrack>? sourceTracks,
+    _QueueContext? queueContext,
+    List<int>? shuffleOrder,
+    int? shuffleCursor,
+    bool forceShuffleRebuild = false,
+    bool forceUrlRefresh = false,
+  }) async {
+    final candidateTracks = sourceTracks ?? _tracks;
+    final track = index < 0 || index >= candidateTracks.length
+        ? null
+        : candidateTracks[index];
     if (track == null) {
       return;
     }
-    // 新曲目开始加载时先清除上一首的自动取色，避免旧颜色短暂串歌。
-    _autoLyricHighlightColorValue = null;
-    final requestId = ++_loadRequestId;
-    // 立即更新 currentIndex 并广播，让 UI 瞬间响应切歌操作
-    // 不在此处重置 _duration，否则快速切歌时旧请求被丢弃会导致
-    // duration 广播为 null，而实际音频仍在播放旧歌曲，UI 显示时长为 0。
-    // _duration 会在 _applyResolvedTrackAt 中音频源真正切换前重置。
-    _currentIndex = index;
-    _broadcastMediaItem();
-    _broadcastQueueState();
-    AudioTrack resolved;
+    _guardTransition(transitionId);
+    _pendingIndex = index;
+    _pendingShuffleOrder = shuffleOrder == null ? null : <int>[...shuffleOrder];
+    _pendingShuffleCursor = shuffleCursor;
+    _logTransition('load.resolve.start', transitionId, track: track);
     try {
-      resolved = await _resolveTrack(track);
-      _guardLoadRequest(requestId);
-    } on _StaleLoadRequestException {
-      return;
-    }
-    Object? lastError;
-    for (var attempt = 1; attempt <= _setSourceMaxAttempts; attempt += 1) {
-      try {
-        await _applyResolvedTrackAt(
-          index,
-          resolved,
-          autoplay: autoplay,
-          requestId: requestId,
-        );
-        return;
-      } on _StaleLoadRequestException {
-        return;
-      } catch (error) {
-        lastError = error;
-        final shouldRetry =
-            shouldRefreshRemotePlaybackUrl(track) &&
-            attempt < _setSourceMaxAttempts;
-        if (!shouldRetry) {
+      var resolved = await _resolveTrack(track, forceRefresh: forceUrlRefresh);
+      _guardTransition(transitionId);
+      Object? lastError;
+      for (var attempt = 1; attempt <= _setSourceMaxAttempts; attempt += 1) {
+        try {
+          final generation = ++_sourceGeneration;
+          _logTransition(
+            'load.source.start',
+            transitionId,
+            generation: generation,
+            track: track,
+          );
+          final initialDuration = await _setAudioSource(_buildSource(resolved));
+          _guardTransition(transitionId);
+          _commitLoadedTrack(
+            index: index,
+            resolved: resolved,
+            sourceTracks: candidateTracks,
+            queueContext: queueContext,
+            generation: generation,
+            initialDuration: initialDuration,
+            shuffleOrder: shuffleOrder,
+            shuffleCursor: shuffleCursor,
+            forceShuffleRebuild: forceShuffleRebuild,
+          );
+          _logTransition(
+            'load.source.success',
+            transitionId,
+            generation: generation,
+            track: track,
+          );
+          await _notifyTrackChanged(resolved);
+          unawaited(_loadLyricsForCurrentTrack(force: true));
+          unawaited(_preloadNextTrackUrl(index));
+          if (autoplay) {
+            _requestPlay(transitionId);
+          }
+          return;
+        } on _StaleTransitionException {
           rethrow;
+        } on PlayerInterruptedException {
+          throw const _StaleTransitionException();
+        } catch (error) {
+          lastError = error;
+          final shouldRetry =
+              shouldRefreshRemotePlaybackUrl(track) &&
+              attempt < _setSourceMaxAttempts;
+          if (!shouldRetry) {
+            rethrow;
+          }
+          final failedUrl = resolved.url.trim();
+          resolved = await _resolveTrack(track, forceRefresh: true);
+          _guardTransition(transitionId);
+          if (resolved.url.trim() == failedUrl) {
+            throw _UnchangedPlaybackUrlException(track.id);
+          }
         }
-        resolved = await _resolveTrack(track);
-        _guardLoadRequest(requestId);
+      }
+      throw lastError ?? StateError('Failed to load track.');
+    } finally {
+      if (transitionId == _transitionId && _pendingIndex == index) {
+        _pendingIndex = null;
+        _pendingShuffleOrder = null;
+        _pendingShuffleCursor = null;
       }
     }
-    throw lastError ?? StateError('Failed to load track.');
   }
 
-  Future<void> _applyResolvedTrackAt(
-    int index,
-    AudioTrack resolved, {
-    required bool autoplay,
-    required int requestId,
-  }) async {
-    _guardLoadRequest(requestId);
-    final next = <AudioTrack>[..._tracks];
+  void _commitLoadedTrack({
+    required int index,
+    required AudioTrack resolved,
+    required List<AudioTrack> sourceTracks,
+    required int generation,
+    required Duration? initialDuration,
+    _QueueContext? queueContext,
+    List<int>? shuffleOrder,
+    int? shuffleCursor,
+    bool forceShuffleRebuild = false,
+  }) {
+    final next = <AudioTrack>[...sourceTracks];
     next[index] = resolved;
     _tracks = List<AudioTrack>.unmodifiable(next);
+    _committedIndex = index;
+    if (queueContext != null) {
+      _applyQueueContext(queueContext);
+    }
+    if (_shuffleEnabled && shuffleOrder != null && shuffleCursor != null) {
+      _shuffleOrder = List<int>.unmodifiable(shuffleOrder);
+      _shuffleCursor = shuffleCursor;
+    } else {
+      _syncShuffleCursor(index, forceRebuild: forceShuffleRebuild);
+    }
+    _duration = initialDuration ?? _player.duration;
+    _autoLyricHighlightColorValue = null;
+    _pendingIndex = null;
+    _pendingShuffleOrder = null;
+    _pendingShuffleCursor = null;
+    _desiredIndex = null;
+    _desiredShuffleOrder = null;
+    _desiredShuffleCursor = null;
+    _armedSourceGeneration = generation;
+    _handledCompletionGeneration = null;
     queue.add(_tracks.map(_toMediaItem).toList(growable: false));
     _broadcastQueueState();
-    _currentIndex = index;
-    _duration = null;
-    // 先广播媒体信息，让 UI 立即显示新歌标题、封面，不等音频加载
     _broadcastMediaItem();
     _broadcastPlaybackState();
-    final initialDuration = await _setAudioSource(_buildSource(resolved));
-    _guardLoadRequest(requestId);
-    _refreshDuration(initialDuration ?? _player.duration);
-    await _notifyTrackChanged(resolved);
-    // 歌词后台加载，不阻塞播放流程
-    unawaited(_loadLyricsForCurrentTrack(force: true));
-    // 后台提前解析下一首播放链接，降低熄屏自动切歌时才发起请求的失败概率。
-    unawaited(_preloadNextTrackUrl(index));
-    if (autoplay) {
-      final playOverride = _playOverride;
-      if (playOverride != null) {
-        await playOverride(_player);
-      } else {
-        await _player.play();
-      }
+  }
+
+  int _beginTransition({
+    bool cancelManualIntent = true,
+    bool preservePending = false,
+  }) {
+    _transitionId += 1;
+    if (!preservePending) {
+      _pendingIndex = null;
+      _pendingShuffleOrder = null;
+      _pendingShuffleCursor = null;
+    }
+    if (cancelManualIntent) {
+      _cancelManualIntent(clearDesired: true);
+    }
+    return _transitionId;
+  }
+
+  void _guardTransition(int transitionId) {
+    if (transitionId != _transitionId) {
+      throw const _StaleTransitionException();
     }
   }
 
-  void _guardLoadRequest(int requestId) {
-    if (requestId != _loadRequestId) {
-      throw const _StaleLoadRequestException();
-    }
+  void _applyQueueContext(_QueueContext context) {
+    _isRadioMode = context.isRadioMode;
+    _currentRadioId = context.radioId;
+    _currentRadioPlatform = context.radioPlatform;
+    _currentRadioPageIndex = context.radioPageIndex;
+  }
+
+  void _requestPlay(int transitionId) {
+    final override = _playOverride;
+    final future = override == null ? _player.play() : override(_player);
+    unawaited(
+      future.catchError((Object error, StackTrace stackTrace) {
+        if (transitionId == _transitionId) {
+          _broadcastTransitionError(error, transitionId);
+        }
+      }),
+    );
   }
 
   void _onAppLifecycleChanged(AppLifecycleState state) {
@@ -626,7 +909,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _broadcastPlaybackState();
   }
 
-  Future<AudioTrack> _resolveTrack(AudioTrack track) async {
+  Future<AudioTrack> _resolveTrack(
+    AudioTrack track, {
+    bool forceRefresh = false,
+  }) async {
     await _ensureConfigRecovered();
     final localPath = track.path?.trim() ?? '';
     if (localPath.isNotEmpty) {
@@ -665,25 +951,29 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       }
       return track;
     }
-    if (_hasFreshResolvedPlaybackUrl(track)) {
-      return track;
-    }
     final matchedQuality = _resolvePreferredLink(track.links);
     final platform = track.platform?.trim() ?? '';
     if (platform.isEmpty) {
       return track;
     }
-    final payload = await _fetchSongUrlWithRetry(
+    final quality = _requestQuality(matchedQuality);
+    final format = _requestFormat(matchedQuality);
+    final cacheKey = _playbackUrlCacheKey(
+      track,
+      quality: quality,
+      format: format,
+    );
+    if (forceRefresh) {
+      _invalidatePlaybackUrl(cacheKey);
+    }
+    final url = await _resolvePlaybackUrl(
+      cacheKey: cacheKey,
       songId: track.id,
       platform: platform,
-      quality: _requestQuality(matchedQuality),
-      format: _requestFormat(matchedQuality),
+      quality: quality,
+      format: format,
     );
-    final url = '${payload['url'] ?? ''}'.trim();
-    if (url.isEmpty) {
-      return track;
-    }
-    final resolved = AudioTrack(
+    return AudioTrack(
       id: track.id,
       title: track.title,
       url: url,
@@ -695,8 +985,6 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       artworkUrl: track.artworkUrl,
       platform: track.platform,
     );
-    _markResolvedPlaybackUrl(resolved);
-    return resolved;
   }
 
   Future<void> _preloadNextTrackUrl(int sourceIndex) async {
@@ -713,40 +1001,89 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       return;
     }
     try {
-      final resolved = await _resolveTrack(track);
-      if (resolved.url.trim().isEmpty || _safeTrack(nextIndex) != track) {
-        return;
-      }
-      final next = <AudioTrack>[..._tracks];
-      next[nextIndex] = resolved;
-      _tracks = List<AudioTrack>.unmodifiable(next);
-      queue.add(_tracks.map(_toMediaItem).toList(growable: false));
-      _broadcastQueueState();
-    } catch (_) {
+      await _resolveTrack(track);
+    } catch (error) {
       // 预加载失败不能影响当前播放；真正切歌时仍会按正常链路重试。
+      _logTransition('url.preload.failure', _transitionId, track: track);
     }
   }
 
   bool _hasFreshResolvedPlaybackUrl(AudioTrack track) {
-    if (track.url.trim().isEmpty) {
+    final cacheKey = _playbackUrlCacheKey(track);
+    final cached = _resolvedPlaybackUrls[cacheKey];
+    if (cached == null) {
       return false;
     }
-    final resolvedAt = _resolvedPlaybackUrlAtByKey[_playbackUrlCacheKey(track)];
-    if (resolvedAt == null) {
-      return false;
+    return _now().difference(cached.resolvedAt) < _preloadedPlaybackUrlTtl;
+  }
+
+  Future<String> _resolvePlaybackUrl({
+    required String cacheKey,
+    required String songId,
+    required String platform,
+    required int? quality,
+    required String? format,
+  }) async {
+    final version = _playbackUrlVersions[cacheKey] ?? 0;
+    final cached = _resolvedPlaybackUrls[cacheKey];
+    if (cached != null &&
+        cached.version == version &&
+        _now().difference(cached.resolvedAt) < _preloadedPlaybackUrlTtl) {
+      _logTransition('url.cache.hit', _transitionId);
+      return cached.url;
     }
-    return _now().difference(resolvedAt) < _preloadedPlaybackUrlTtl;
+    final pending = _inFlightPlaybackUrls[cacheKey];
+    if (pending != null && pending.version == version) {
+      _logTransition('url.inflight.join', _transitionId);
+      return pending.future;
+    }
+    _logTransition('url.fetch.start', _transitionId);
+    final future =
+        _fetchSongUrlWithRetry(
+          songId: songId,
+          platform: platform,
+          quality: quality,
+          format: format,
+        ).then((payload) {
+          final url = '${payload['url'] ?? ''}'.trim();
+          if (url.isEmpty) {
+            throw _TrackUnavailableException(songId);
+          }
+          if ((_playbackUrlVersions[cacheKey] ?? 0) == version) {
+            _resolvedPlaybackUrls[cacheKey] = _ResolvedPlaybackUrl(
+              url: url,
+              resolvedAt: _now(),
+              version: version,
+            );
+          }
+          return url;
+        });
+    final inFlight = _InFlightPlaybackUrl(version: version, future: future);
+    _inFlightPlaybackUrls[cacheKey] = inFlight;
+    try {
+      return await future;
+    } finally {
+      if (identical(_inFlightPlaybackUrls[cacheKey], inFlight)) {
+        _inFlightPlaybackUrls.remove(cacheKey);
+      }
+    }
   }
 
-  void _markResolvedPlaybackUrl(AudioTrack track) {
-    _resolvedPlaybackUrlAtByKey[_playbackUrlCacheKey(track)] = _now();
+  void _invalidatePlaybackUrl(String cacheKey) {
+    _resolvedPlaybackUrls.remove(cacheKey);
+    _playbackUrlVersions[cacheKey] = (_playbackUrlVersions[cacheKey] ?? 0) + 1;
+    _logTransition('url.cache.invalidated', _transitionId);
   }
 
-  String _playbackUrlCacheKey(AudioTrack track) {
+  String _playbackUrlCacheKey(
+    AudioTrack track, {
+    int? quality,
+    String? format,
+  }) {
     final selectedQuality = _resolvePreferredLink(track.links);
-    final quality = _requestQuality(selectedQuality) ?? 320;
-    final format = _requestFormat(selectedQuality) ?? 'mp3';
-    return '${track.platform ?? ''}|${track.id}|$quality|$format|${track.url}';
+    final resolvedQuality = quality ?? _requestQuality(selectedQuality) ?? 320;
+    final resolvedFormat = format ?? _requestFormat(selectedQuality) ?? 'mp3';
+    return '${track.platform ?? ''}|${track.id}|$resolvedQuality|$resolvedFormat';
   }
 
   Future<void> _ensureConfigRecovered() async {
@@ -868,7 +1205,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         if (url.isNotEmpty) {
           return payload;
         }
-        lastError = StateError('Missing playback url in response.');
+        throw _TrackUnavailableException(songId);
       } catch (error) {
         lastError = error;
         if (!_isRetryableFetchError(error) ||
@@ -942,37 +1279,157 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     return _player.setAudioSource(source);
   }
 
-  Future<void> _handlePlaybackCompleted() async {
-    if (_handlingCompletion || _tracks.isEmpty || _singleLoopEnabled) {
+  Future<void> _handlePlaybackCompleted(int generation) async {
+    if (_tracks.isEmpty ||
+        _singleLoopEnabled ||
+        _pendingIndex != null ||
+        _desiredIndex != null ||
+        generation != _armedSourceGeneration ||
+        generation == _handledCompletionGeneration) {
+      _logTransition(
+        'completion.ignored',
+        _transitionId,
+        generation: generation,
+      );
       return;
     }
-    _handlingCompletion = true;
+    _handledCompletionGeneration = generation;
+    final transitionId = _beginTransition();
+    _logTransition('completion.accepted', transitionId, generation: generation);
     try {
-      await skipToNext();
-    } finally {
-      _handlingCompletion = false;
+      if (_isRadioMode && _committedIndex >= _tracks.length - 1) {
+        await _playNextRadioTrack(transitionId);
+        return;
+      }
+      await _playNextAvailableFrom(_committedIndex, transitionId);
+    } on _StaleTransitionException {
+      return;
+    } catch (error) {
+      _broadcastTransitionError(error, transitionId);
     }
   }
 
-  Future<void> _playNextAvailableFrom(int sourceIndex) async {
+  @visibleForTesting
+  Future<void> handlePlaybackCompletedForTesting() {
+    return _handlePlaybackCompleted(_sourceGeneration);
+  }
+
+  Future<void> _playNextAvailableFrom(int sourceIndex, int transitionId) async {
     final attemptedIndexes = <int>{};
     var cursorIndex = sourceIndex;
+    var draftOrder = <int>[..._shuffleOrder];
+    var draftCursor = _shuffleCursor;
     Object? lastError;
     final candidateCount = _tracks.length == 1 ? 1 : _tracks.length - 1;
     for (var attempt = 0; attempt < candidateCount; attempt += 1) {
-      final nextIndex = _resolveNextTrackIndex(cursorIndex, advance: true);
+      _guardTransition(transitionId);
+      late final int nextIndex;
+      if (_shuffleEnabled) {
+        if (draftOrder.isEmpty || !draftOrder.contains(cursorIndex)) {
+          draftOrder = _createShuffleOrder(cursorIndex);
+          draftCursor = 0;
+        } else {
+          draftCursor = draftOrder.indexOf(cursorIndex);
+        }
+        if (draftOrder.length <= 1) {
+          nextIndex = cursorIndex;
+        } else if (draftCursor >= draftOrder.length - 1) {
+          draftOrder = _createShuffleOrder(cursorIndex);
+          draftCursor = 1;
+          nextIndex = draftOrder[draftCursor];
+        } else {
+          draftCursor += 1;
+          nextIndex = draftOrder[draftCursor];
+        }
+      } else {
+        nextIndex = (cursorIndex + 1) % _tracks.length;
+      }
       if (!attemptedIndexes.add(nextIndex)) {
         break;
       }
       try {
-        await playIndex(nextIndex);
+        await _loadTrackAt(
+          nextIndex,
+          autoplay: true,
+          transitionId: transitionId,
+          shuffleOrder: _shuffleEnabled ? draftOrder : null,
+          shuffleCursor: _shuffleEnabled ? draftCursor : null,
+        );
         return;
       } catch (error) {
         lastError = error;
+        if (_classifyPlaybackError(error) !=
+            _PlaybackFailureCategory.trackUnavailable) {
+          rethrow;
+        }
         cursorIndex = nextIndex;
       }
     }
-    throw lastError ?? StateError('No playable next track available.');
+    throw lastError ?? const _NoPlayableTrackException();
+  }
+
+  _PlaybackFailureCategory _classifyPlaybackError(Object error) {
+    if (error is _StaleTransitionException ||
+        error is PlayerInterruptedException) {
+      return _PlaybackFailureCategory.cancelled;
+    }
+    if (error is _TrackUnavailableException) {
+      return _PlaybackFailureCategory.trackUnavailable;
+    }
+    if (error is DioException) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode == 404 || statusCode == 410) {
+        return _PlaybackFailureCategory.trackUnavailable;
+      }
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.connectionError ||
+          statusCode == 401 ||
+          statusCode == 403 ||
+          (statusCode ?? 0) >= 500) {
+        return _PlaybackFailureCategory.globalTransient;
+      }
+    }
+    return _PlaybackFailureCategory.unknown;
+  }
+
+  void _broadcastTransitionError(Object error, int transitionId) {
+    if (transitionId != _transitionId ||
+        _classifyPlaybackError(error) == _PlaybackFailureCategory.cancelled) {
+      return;
+    }
+    final category = _classifyPlaybackError(error);
+    _logTransition(
+      'transition.failure',
+      transitionId,
+      failureCategory: category,
+    );
+    customEvent.add(<String, dynamic>{
+      'type': 'playbackTransitionError',
+      'code': category.name,
+      'retryable': category != _PlaybackFailureCategory.trackUnavailable,
+    });
+  }
+
+  void _logTransition(
+    String event,
+    int transitionId, {
+    int? generation,
+    AudioTrack? track,
+    _PlaybackFailureCategory? failureCategory,
+  }) {
+    final message =
+        '$event transitionId=$transitionId '
+        'sourceGeneration=${generation ?? _sourceGeneration} '
+        'track=${track == null ? '-' : _trackCacheKey(track)} '
+        'failure=${failureCategory?.name ?? '-'}';
+    final override = _logOverride;
+    if (override != null) {
+      override(message);
+      return;
+    }
+    developer.log(message, name: 'HeAudioHandler');
   }
 
   MediaItem _toMediaItem(AudioTrack track) {
@@ -983,7 +1440,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       artist: track.artist,
       album: track.album,
       artUri: artwork.isEmpty ? null : _localPathToUri(artwork),
-      duration: _safeTrack(_currentIndex)?.id == track.id ? _duration : null,
+      duration: _safeTrack(_committedIndex)?.id == track.id ? _duration : null,
     );
   }
 
@@ -1010,16 +1467,16 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   void _broadcastMediaItem() {
-    final current = _safeTrack(_currentIndex);
+    final current = _safeTrack(_committedIndex);
     mediaItem.add(current == null ? null : _toMediaItem(current));
   }
 
   void _broadcastQueueState() {
-    final previewIndexes = _resolvePreviewTrackIndexes(_currentIndex);
+    final previewIndexes = _resolvePreviewTrackIndexes(_committedIndex);
     customEvent.add(<String, dynamic>{
       'type': 'queueState',
       'tracks': _tracks.map(_serializeTrack).toList(growable: false),
-      'currentIndex': _currentIndex,
+      'currentIndex': _committedIndex,
       'previousPreviewIndex': previewIndexes.previous,
       'nextPreviewIndex': previewIndexes.next,
       'isRadioMode': _isRadioMode,
@@ -1048,7 +1505,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         updatePosition: _player.position,
         bufferedPosition: _player.bufferedPosition,
         speed: _player.speed,
-        queueIndex: _tracks.isEmpty ? 0 : _currentIndex,
+        queueIndex: _tracks.isEmpty ? 0 : _committedIndex,
         repeatMode: _singleLoopEnabled
             ? AudioServiceRepeatMode.one
             : AudioServiceRepeatMode.none,
@@ -1107,23 +1564,6 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     return _shuffleOrder[nextCursor];
   }
 
-  int _resolvePreviousTrackIndex(int sourceIndex) {
-    if (_tracks.isEmpty) {
-      return 0;
-    }
-    if (!_shuffleEnabled) {
-      return (sourceIndex - 1 + _tracks.length) % _tracks.length;
-    }
-    _syncShuffleCursor(sourceIndex);
-    if (_shuffleOrder.length <= 1) {
-      return sourceIndex.clamp(0, _tracks.length - 1).toInt();
-    }
-    _shuffleCursor = _shuffleCursor <= 0
-        ? _shuffleOrder.length - 1
-        : _shuffleCursor - 1;
-    return _shuffleOrder[_shuffleCursor];
-  }
-
   int _peekPreviousTrackIndex(int sourceIndex) {
     if (_tracks.isEmpty) {
       return 0;
@@ -1171,6 +1611,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _shuffleCursor = 0;
       return;
     }
+    _shuffleOrder = List<int>.unmodifiable(_createShuffleOrder(currentIndex));
+    _shuffleCursor = 0;
+  }
+
+  List<int> _createShuffleOrder(int currentIndex) {
     final safeIndex = currentIndex.clamp(0, _tracks.length - 1).toInt();
     final order = List<int>.generate(_tracks.length, (index) => index);
     for (var index = order.length - 1; index > 0; index -= 1) {
@@ -1181,8 +1626,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
     order.remove(safeIndex);
     order.insert(0, safeIndex);
-    _shuffleOrder = List<int>.unmodifiable(order);
-    _shuffleCursor = 0;
+    return order;
   }
 
   bool _isSameTrack(AudioTrack left, AudioTrack right) {
@@ -1213,7 +1657,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<void> _loadLyricsForCurrentTrack({required bool force}) async {
-    final track = _safeTrack(_currentIndex);
+    final track = _safeTrack(_committedIndex);
     if (track == null) {
       _clearLyricState();
       return;
@@ -1298,65 +1742,83 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<bool> _ensureRadioNextPageAppended() async {
-    if (_isLoadingRadioNextPage ||
-        !_isRadioMode ||
+    final requestKey =
+        '$_currentRadioPlatform|$_currentRadioId|$_currentRadioPageIndex';
+    final pending = _radioNextPageFuture;
+    if (pending != null && _radioNextPageRequestKey == requestKey) {
+      return pending;
+    }
+    if (!_isRadioMode ||
         _currentRadioId == null ||
         _currentRadioPlatform == null ||
         _currentRadioPageIndex == null) {
       return false;
     }
-    _isLoadingRadioNextPage = true;
+    final future = _loadRadioNextPage();
+    _radioNextPageFuture = future;
+    _radioNextPageRequestKey = requestKey;
     try {
-      final nextPageIndex = _currentRadioPageIndex! + 1;
-      // 熄屏场景下网络容易失败，添加重试机制
-      List<SongInfo> songs = const <SongInfo>[];
-      Object? lastError;
-      for (var attempt = 1; attempt <= _radioFetchMaxAttempts; attempt += 1) {
-        try {
-          songs = await _fetchRadioSongs(
-            id: _currentRadioId!,
-            platform: _currentRadioPlatform!,
-            pageIndex: nextPageIndex,
-          );
-          lastError = null;
-          break;
-        } catch (error) {
-          lastError = error;
-          if (attempt < _radioFetchMaxAttempts) {
-            // 指数退避：第1次失败等5s，第2次等10s
-            await Future<void>.delayed(_radioFetchBaseDelay * attempt);
-          }
+      return await future;
+    } finally {
+      if (identical(_radioNextPageFuture, future)) {
+        _radioNextPageFuture = null;
+        _radioNextPageRequestKey = null;
+      }
+    }
+  }
+
+  Future<bool> _loadRadioNextPage() async {
+    final radioId = _currentRadioId!;
+    final radioPlatform = _currentRadioPlatform!;
+    final sourcePageIndex = _currentRadioPageIndex!;
+    final nextPageIndex = _currentRadioPageIndex! + 1;
+    // 熄屏场景下网络容易失败，添加重试机制。
+    List<SongInfo> songs = const <SongInfo>[];
+    Object? lastError;
+    for (var attempt = 1; attempt <= _radioFetchMaxAttempts; attempt += 1) {
+      try {
+        songs = await _fetchRadioSongs(
+          id: radioId,
+          platform: radioPlatform,
+          pageIndex: nextPageIndex,
+        );
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt < _radioFetchMaxAttempts) {
+          // 指数退避：第1次失败等5s，第2次等10s。
+          await Future<void>.delayed(_radioFetchBaseDelay * attempt);
         }
       }
-      if (lastError != null) {
-        return false;
-      }
-      if (songs.isEmpty) {
-        return false;
-      }
-      final existingKeys = _tracks.map(_trackCacheKey).toSet();
-      final appended = songs
-          .map(_songToAudioTrack)
-          .where((track) => !existingKeys.contains(_trackCacheKey(track)))
-          .toList(growable: false);
-      _currentRadioPageIndex = nextPageIndex;
-      if (appended.isEmpty) {
-        _broadcastQueueState();
-        return false;
-      }
-      var merged = <AudioTrack>[..._tracks, ...appended];
-      if (merged.length > _radioQueueCap) {
-        final excess = merged.length - _radioQueueCap;
-        merged = merged.sublist(excess);
-        _currentIndex = (_currentIndex - excess).clamp(0, merged.length - 1);
-      }
-      _tracks = List<AudioTrack>.unmodifiable(merged);
-      queue.add(_tracks.map(_toMediaItem).toList(growable: false));
-      _broadcastQueueState();
-      return true;
-    } finally {
-      _isLoadingRadioNextPage = false;
     }
+    if (lastError != null ||
+        songs.isEmpty ||
+        _currentRadioId != radioId ||
+        _currentRadioPlatform != radioPlatform ||
+        _currentRadioPageIndex != sourcePageIndex) {
+      return false;
+    }
+    final existingKeys = _tracks.map(_trackCacheKey).toSet();
+    final appended = songs
+        .map(_songToAudioTrack)
+        .where((track) => !existingKeys.contains(_trackCacheKey(track)))
+        .toList(growable: false);
+    _currentRadioPageIndex = nextPageIndex;
+    if (appended.isEmpty) {
+      _broadcastQueueState();
+      return false;
+    }
+    var merged = <AudioTrack>[..._tracks, ...appended];
+    if (merged.length > _radioQueueCap) {
+      final excess = merged.length - _radioQueueCap;
+      merged = merged.sublist(excess);
+      _committedIndex = (_committedIndex - excess).clamp(0, merged.length - 1);
+    }
+    _tracks = List<AudioTrack>.unmodifiable(merged);
+    queue.add(_tracks.map(_toMediaItem).toList(growable: false));
+    _broadcastQueueState();
+    return true;
   }
 
   AudioTrack _songToAudioTrack(SongInfo song) {
@@ -1514,7 +1976,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       return;
     }
     await _syncOverlayConfig();
-    final track = _safeTrack(_currentIndex);
+    final track = _safeTrack(_committedIndex);
     if (track != null) {
       await _overlayLyricsService.sendTrackChanged(
         title: track.title,
@@ -1629,8 +2091,64 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 }
 
-class _StaleLoadRequestException implements Exception {
-  const _StaleLoadRequestException();
+enum _PlaybackFailureCategory {
+  cancelled,
+  globalTransient,
+  trackUnavailable,
+  unknown,
+}
+
+class _ResolvedPlaybackUrl {
+  const _ResolvedPlaybackUrl({
+    required this.url,
+    required this.resolvedAt,
+    required this.version,
+  });
+
+  final String url;
+  final DateTime resolvedAt;
+  final int version;
+}
+
+class _InFlightPlaybackUrl {
+  const _InFlightPlaybackUrl({required this.version, required this.future});
+
+  final int version;
+  final Future<String> future;
+}
+
+class _QueueContext {
+  const _QueueContext({
+    required this.isRadioMode,
+    required this.radioId,
+    required this.radioPlatform,
+    required this.radioPageIndex,
+  });
+
+  final bool isRadioMode;
+  final String? radioId;
+  final String? radioPlatform;
+  final int? radioPageIndex;
+}
+
+class _StaleTransitionException implements Exception {
+  const _StaleTransitionException();
+}
+
+class _TrackUnavailableException implements Exception {
+  const _TrackUnavailableException(this.trackId);
+
+  final String trackId;
+}
+
+class _UnchangedPlaybackUrlException implements Exception {
+  const _UnchangedPlaybackUrlException(this.trackId);
+
+  final String trackId;
+}
+
+class _NoPlayableTrackException implements Exception {
+  const _NoPlayableTrackException();
 }
 
 late final HeAudioHandler globalHeAudioHandler;

@@ -42,7 +42,7 @@ void main() {
     expect(find.byIcon(Icons.radio_rounded), findsOneWidget);
   });
 
-  testWidgets('mini player uses repeated page swipes to play next', (
+  testWidgets('mini player previews each target during repeated next swipes', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 960));
@@ -61,16 +61,25 @@ void main() {
     await tester.pump();
 
     expect(find.byType(PageView), findsOneWidget);
+    expect(find.text('歌曲 A').hitTestable(), findsOneWidget);
 
     await tester.fling(find.byType(PageView), const Offset(-900, 0), 1500);
     await tester.pumpAndSettle();
 
     expect(controller.nextCalls, 1);
+    expect(find.text('歌曲 B').hitTestable(), findsOneWidget);
 
     await tester.fling(find.byType(PageView), const Offset(-900, 0), 1500);
     await tester.pumpAndSettle();
 
     expect(controller.nextCalls, 2);
+    expect(find.text('歌曲 C').hitTestable(), findsOneWidget);
+
+    await tester.fling(find.byType(PageView), const Offset(-900, 0), 1500);
+    await tester.pumpAndSettle();
+
+    expect(controller.nextCalls, 3);
+    expect(find.text('歌曲 D').hitTestable(), findsOneWidget);
   });
 }
 
@@ -154,10 +163,12 @@ class _TestSwipeMiniPlayerController extends PlayerController {
   @override
   PlayerPlaybackState build() {
     return PlayerPlaybackState.initial(const <PlayerTrack>[
-      PlayerTrack(id: 'song-1', title: '上一首', artist: '测试歌手'),
-      PlayerTrack(id: 'song-2', title: '当前歌曲', artist: '测试歌手'),
-      PlayerTrack(id: 'song-3', title: '下一首', artist: '测试歌手'),
-    ]).copyWith(currentIndex: 1, previousPreviewIndex: 0, nextPreviewIndex: 2);
+      PlayerTrack(id: 'song-a', title: '歌曲 A', artist: '测试歌手'),
+      PlayerTrack(id: 'song-b', title: '歌曲 B', artist: '测试歌手'),
+      PlayerTrack(id: 'song-c', title: '歌曲 C', artist: '测试歌手'),
+      PlayerTrack(id: 'song-d', title: '歌曲 D', artist: '测试歌手'),
+      PlayerTrack(id: 'song-e', title: '歌曲 E', artist: '测试歌手'),
+    ]).copyWith(currentIndex: 0, previousPreviewIndex: 4, nextPreviewIndex: 1);
   }
 
   @override

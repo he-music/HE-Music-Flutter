@@ -98,6 +98,37 @@ void main() {
     expect(audioPlayer.lastQueueTracks.first.url, isEmpty);
   });
 
+  test('playAt 在底层队列装载成功前保留正式 currentIndex', () async {
+    final audioPlayer = _FakeAudioPlayerPort();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(audioPlayer),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(playerControllerProvider.notifier);
+    await controller.replaceQueue(
+      _buildQueue(),
+      startIndex: 0,
+      autoplay: false,
+    );
+    final pendingLoad = Completer<void>();
+    audioPlayer.setQueueCompleter = pendingLoad;
+
+    final switching = controller.playAt(1);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(playerControllerProvider).currentIndex, 0);
+    expect(container.read(playerControllerProvider).currentTrack?.id, 'song-1');
+
+    pendingLoad.complete();
+    await switching;
+
+    expect(container.read(playerControllerProvider).currentIndex, 1);
+    expect(container.read(playerControllerProvider).currentTrack?.id, 'song-2');
+  });
+
   test('切换音质时应委托音频层刷新 source，而不是在 controller 重新请求链接', () async {
     final apiClient = _FakeOnlineApiClient(
       handlers: <String, _SongUrlHandler>{},
@@ -538,6 +569,7 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   String? lastSetQueueRadioId;
   String? lastSetQueueRadioPlatform;
   int? lastSetQueueRadioPageIndex;
+  Completer<void>? setQueueCompleter;
 
   @override
   Stream<bool> get playingStream => _playingController.stream;
@@ -581,6 +613,7 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
     lastSetQueueRadioId = currentRadioId;
     lastSetQueueRadioPlatform = currentRadioPlatform;
     lastSetQueueRadioPageIndex = currentRadioPageIndex;
+    await setQueueCompleter?.future;
   }
 
   @override

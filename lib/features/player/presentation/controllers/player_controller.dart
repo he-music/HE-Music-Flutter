@@ -788,8 +788,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       state = state.copyWith(
         isPlaying: false,
         isLoading: false,
-        position: Duration.zero,
-        duration: Duration.zero,
         clearError: true,
       );
     });
@@ -814,15 +812,15 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     }
   }
 
-  Future<void> _reloadQueueAt({
+  Future<TrackPlaybackResolution?> _reloadQueueAt({
     required List<PlayerTrack> queue,
     required int index,
     required bool autoplay,
-    required void Function(TrackPlaybackResolution resolution)
-    applyResolvedState,
+    required PlayerPlaybackState playbackContext,
     String? forcedQualityName,
   }) async {
     final requestId = _beginTrackSwitchRequest();
+    TrackPlaybackResolution? result;
     await _execute(() async {
       _guardTrackSwitchRequest(requestId);
       final resolution = await _qualityManager.resolveTrackForPlayback(
@@ -831,15 +829,17 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         forcedQualityName: forcedQualityName,
       );
       _guardTrackSwitchRequest(requestId);
-      applyResolvedState(resolution);
-      _guardTrackSwitchRequest(requestId);
       await _syncQueueToAudioPlayer(
         queue: resolution.updatedQueue,
         currentIndex: index,
         autoplay: autoplay,
         restoreProgress: false,
+        playbackContext: playbackContext,
       );
+      _guardTrackSwitchRequest(requestId);
+      result = resolution;
     }, trackSwitchRequestId: requestId);
+    return result;
   }
 
   Future<void> _switchCurrentPlaybackContext({
@@ -868,17 +868,23 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     final selectedQualityName = _qualityManager.resolveSelectedQualityName(
       availableQualities: availableQualities,
     );
-    state = buildState(
+    final nextState = buildState(
       availableQualities: availableQualities,
       selectedQualityName: selectedQualityName,
     );
     _streamManager.markFreshPositionPending();
-    await _reloadQueueAt(
+    final resolution = await _reloadQueueAt(
       queue: queue,
       index: targetIndex,
       autoplay: autoplay,
-      applyResolvedState: applyResolvedState,
+      playbackContext: nextState,
     );
+    if (resolution == null) {
+      return;
+    }
+    state = nextState;
+    applyResolvedState(resolution);
+    unawaited(_syncAutoLyricHighlightColor());
     await _queueManager.persistQueueState(this);
   }
 
@@ -947,6 +953,15 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       return;
     }
     final type = '${event['type'] ?? ''}'.trim();
+    if (type == 'playbackTransitionError') {
+      final code = '${event['code'] ?? ''}'.trim();
+      state = state.copyWith(
+        errorMessage: code == 'trackUnavailable'
+            ? '播放失败，当前歌曲暂无可用音源'
+            : '播放失败，请检查网络后重试',
+      );
+      return;
+    }
     if (type != 'queueState') {
       return;
     }
@@ -1085,26 +1100,27 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     required int currentIndex,
     required bool autoplay,
     required bool restoreProgress,
+    PlayerPlaybackState? playbackContext,
   }) async {
+    final context = playbackContext ?? state;
     _streamManager.suppressNextCurrentIndexEvent(currentIndex);
     await _audioPlayer.setQueue(
       queue.map(_toAudioTrack).toList(growable: false),
       initialIndex: currentIndex,
       forceReloadCurrent: true,
-      isRadioMode: state.isRadioMode,
-      currentRadioId: state.currentRadioId,
-      currentRadioPlatform: state.currentRadioPlatform,
-      currentRadioPageIndex: state.currentRadioPageIndex,
+      isRadioMode: context.isRadioMode,
+      currentRadioId: context.currentRadioId,
+      currentRadioPlatform: context.currentRadioPlatform,
+      currentRadioPageIndex: context.currentRadioPageIndex,
     );
-    unawaited(_syncAutoLyricHighlightColor());
-    await _applyPlayMode(state.playMode);
+    await _applyPlayMode(context.playMode);
     if (restoreProgress) {
-      final track = _queueManager.resolveTrack(state.queue, currentIndex);
+      final track = _queueManager.resolveTrack(queue, currentIndex);
       if (track != null) {
         final restoredPosition = await _progressManager.restoreTrackProgress(
           callback: this,
           track: track,
-          currentDuration: state.duration,
+          currentDuration: context.duration,
         );
         if (restoredPosition != null) {
           await _audioPlayer.seek(restoredPosition);
@@ -1116,24 +1132,27 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       await _audioPlayer.play();
       await _historyManager.recordCurrentTrackHistory(
         callback: this,
-        track: _queueManager.resolveTrack(state.queue, currentIndex),
-        isRadioMode: state.isRadioMode,
-        currentRadioId: state.currentRadioId,
-        currentRadioPlatform: state.currentRadioPlatform,
-        currentRadioPageIndex: state.currentRadioPageIndex,
-        previousPlayModeBeforeRadio: state.previousPlayModeBeforeRadio,
+        track: _queueManager.resolveTrack(queue, currentIndex),
+        isRadioMode: context.isRadioMode,
+        currentRadioId: context.currentRadioId,
+        currentRadioPlatform: context.currentRadioPlatform,
+        currentRadioPageIndex: context.currentRadioPageIndex,
+        previousPlayModeBeforeRadio: context.previousPlayModeBeforeRadio,
       );
     }
   }
 
   Future<void> _handleCurrentIndexChanged(int? nextIndex) async {
-    if (nextIndex == null || state.queue.isEmpty) {
+    if (nextIndex == null) {
+      return;
+    }
+    if (_streamManager.checkAndClearSuppressedIndex(nextIndex)) {
+      return;
+    }
+    if (state.queue.isEmpty) {
       return;
     }
     final safeIndex = nextIndex.clamp(0, state.queue.length - 1);
-    if (_streamManager.checkAndClearSuppressedIndex(safeIndex)) {
-      return;
-    }
     final previousTrack = state.currentTrack;
     final previousTrackKey = previousTrack == null
         ? null
