@@ -699,17 +699,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final platformsAsync = ref.read(onlinePlatformsProvider);
     final shouldReload =
         platformsAsync.hasError || (platformsAsync.value?.isEmpty ?? true);
-    if (!shouldReload) {
-      ref.invalidate(appStartupProvider);
-      return;
-    }
-    ref.invalidate(appStartupProvider);
-    await ref.read(onlinePlatformsProvider.notifier).refresh();
-    final loaded = ref.read(onlinePlatformsProvider).value;
-    if (loaded == null || loaded.isEmpty) {
-      ref.invalidate(appStartupProvider);
+    if (shouldReload) {
       await ref.read(onlinePlatformsProvider.notifier).refresh();
     }
+    ref.invalidate(appStartupProvider);
   }
 
   void _handleBack() {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
+import '../../../../app/config/app_config_controller.dart';
 import '../../data/providers/online_providers.dart';
 import '../../domain/entities/online_feature_state.dart';
 import '../../domain/entities/online_platform.dart';
@@ -201,16 +202,13 @@ final searchHotKeywordsCacheProvider =
     >(SearchHotKeywordsCacheController.new);
 
 class OnlinePlatformsController extends AsyncNotifier<List<OnlinePlatform>> {
-  bool _loading = false;
+  Future<List<OnlinePlatform>>? _inFlight;
 
   @override
   Future<List<OnlinePlatform>> build() async {
-    _loading = true;
-    try {
-      return await _fetchPlatforms();
-    } finally {
-      _loading = false;
-    }
+    // Router 可能在 startup gate 展示期间提前构建首页，控制器自身也必须守住水合边界。
+    await ref.read(appConfigProvider.notifier).waitUntilHydrated();
+    return _startFetch();
   }
 
   Future<List<OnlinePlatform>> ensureLoaded({bool forceRefresh = false}) async {
@@ -218,8 +216,9 @@ class OnlinePlatformsController extends AsyncNotifier<List<OnlinePlatform>> {
     if (!forceRefresh && current != null && current.isNotEmpty) {
       return current;
     }
-    if (_loading || state.isLoading) {
-      return future;
+    final inFlight = _inFlight;
+    if (inFlight != null) {
+      return inFlight;
     }
     state = forceRefresh ? const AsyncLoading() : state;
     final next = await _guardFetch();
@@ -231,16 +230,25 @@ class OnlinePlatformsController extends AsyncNotifier<List<OnlinePlatform>> {
   }
 
   Future<List<OnlinePlatform>> _guardFetch() async {
-    _loading = true;
     try {
-      final next = await _fetchPlatforms();
+      final next = await _startFetch();
       state = AsyncData(next);
       return next;
     } catch (error, stackTrace) {
       state = AsyncError(error, stackTrace);
       rethrow;
+    }
+  }
+
+  Future<List<OnlinePlatform>> _startFetch() {
+    return _inFlight ??= _runFetch();
+  }
+
+  Future<List<OnlinePlatform>> _runFetch() async {
+    try {
+      return await _fetchPlatforms();
     } finally {
-      _loading = false;
+      _inFlight = null;
     }
   }
 
@@ -270,4 +278,5 @@ class OnlinePlatformsController extends AsyncNotifier<List<OnlinePlatform>> {
 final onlinePlatformsProvider =
     AsyncNotifierProvider<OnlinePlatformsController, List<OnlinePlatform>>(
       OnlinePlatformsController.new,
+      retry: (_, _) => null,
     );

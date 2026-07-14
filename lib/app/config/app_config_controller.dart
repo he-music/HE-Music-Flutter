@@ -12,13 +12,16 @@ import 'app_theme_accent.dart';
 import 'app_theme_mode.dart';
 
 class AppConfigController extends Notifier<AppConfigState> {
-  bool _hydrated = false;
+  late final Future<void> _hydrationFuture;
 
   @override
   AppConfigState build() {
-    _hydrate();
+    _hydrationFuture = _hydrate();
     return AppConfigState.initial;
   }
+
+  /// 等待本地配置和 token 完成一次性水合。
+  Future<void> waitUntilHydrated() => _hydrationFuture;
 
   void cycleThemeMode() {
     final next = switch (state.themeMode) {
@@ -145,44 +148,35 @@ class AppConfigController extends Notifier<AppConfigState> {
     _persist(next);
   }
 
-  void _hydrate() {
-    if (_hydrated) {
-      return;
-    }
-    _hydrated = true;
-    Future.microtask(() async {
-      final loaded = await ref.read(appConfigDataSourceProvider).load();
-      // 如果 globalTokenHolder 已经被 TokenRefreshInterceptor 更新为新 token，
-      // 优先使用新值，避免 _hydrate() 从 SharedPreferences 读到旧 token 后
-      // 通过 apiDioProvider 重建覆盖 globalTokenHolder，导致后续请求循环 401。
-      final liveAccessToken = globalTokenHolder.accessToken;
-      final liveRefreshToken = globalTokenHolder.refreshToken;
-      state = state.copyWith(
-        themeMode: loaded.themeMode,
-        themeAccent: loaded.themeAccent,
-        isMonochrome: loaded.isMonochrome,
-        localeCode: loaded.localeCode,
-        onlineAudioQualityPreference: loaded.onlineAudioQualityPreference,
-        autoCheckUpdates: loaded.autoCheckUpdates,
-        playerBackgroundStyle: loaded.playerBackgroundStyle,
-        lyricHighlightMode: loaded.lyricHighlightMode,
-        lyricHighlightPreset: loaded.lyricHighlightPreset,
-        lyricHighlightCustomColor: loaded.lyricHighlightCustomColor,
-        clearLyricHighlightCustomColor:
-            loaded.lyricHighlightCustomColor == null,
-        lyricFontPreset: loaded.lyricFontPreset,
-        enableWordByWordLyric: loaded.enableWordByWordLyric,
-        enableDesktopLyric: loaded.enableDesktopLyric,
-        enableDesktopLyricLock: loaded.enableDesktopLyricLock,
-        lastSelectedOnlineAudioQualityName:
-            loaded.lastSelectedOnlineAudioQualityName,
-        authToken: liveAccessToken ?? loaded.authToken,
-        clearToken: loaded.authToken == null,
-        refreshToken: liveRefreshToken ?? loaded.refreshToken,
-        clearRefreshToken: loaded.refreshToken == null,
-        tokenExpiresAt: loaded.tokenExpiresAt,
-      );
-    });
+  Future<void> _hydrate() async {
+    final loaded = await ref.read(appConfigDataSourceProvider).load();
+    // 刷新拦截器可能已更新全局 token，水合时必须优先保留实时值。
+    final accessToken = globalTokenHolder.accessToken ?? loaded.authToken;
+    final refreshToken = globalTokenHolder.refreshToken ?? loaded.refreshToken;
+    state = state.copyWith(
+      themeMode: loaded.themeMode,
+      themeAccent: loaded.themeAccent,
+      isMonochrome: loaded.isMonochrome,
+      localeCode: loaded.localeCode,
+      onlineAudioQualityPreference: loaded.onlineAudioQualityPreference,
+      autoCheckUpdates: loaded.autoCheckUpdates,
+      playerBackgroundStyle: loaded.playerBackgroundStyle,
+      lyricHighlightMode: loaded.lyricHighlightMode,
+      lyricHighlightPreset: loaded.lyricHighlightPreset,
+      lyricHighlightCustomColor: loaded.lyricHighlightCustomColor,
+      clearLyricHighlightCustomColor: loaded.lyricHighlightCustomColor == null,
+      lyricFontPreset: loaded.lyricFontPreset,
+      enableWordByWordLyric: loaded.enableWordByWordLyric,
+      enableDesktopLyric: loaded.enableDesktopLyric,
+      enableDesktopLyricLock: loaded.enableDesktopLyricLock,
+      lastSelectedOnlineAudioQualityName:
+          loaded.lastSelectedOnlineAudioQualityName,
+      authToken: accessToken,
+      clearToken: accessToken == null,
+      refreshToken: refreshToken,
+      clearRefreshToken: refreshToken == null,
+      tokenExpiresAt: loaded.tokenExpiresAt,
+    );
   }
 
   void _persist(AppConfigState value) {

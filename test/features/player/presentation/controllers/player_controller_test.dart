@@ -21,6 +21,8 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });

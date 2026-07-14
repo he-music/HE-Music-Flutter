@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/app_navigation_service.dart';
 import '../../app/config/app_config_controller.dart';
 import '../../app/router/app_router.dart';
 import '../../app/router/app_routes.dart';
@@ -61,7 +62,8 @@ final apiDioProvider = Provider<Dio>((ref) {
         // 仅持久化，不更新 Riverpod state，避免触发 Dio 重建。
         configController.persistTokens(newAccess, newRefresh, expiresAt);
       },
-      getDeviceInfo: () => deviceInfoAsync.whenOrNull(data: (d) => d.toApiMap()),
+      getDeviceInfo: () =>
+          deviceInfoAsync.whenOrNull(data: (d) => d.toApiMap()),
     ),
   );
   dio.interceptors.add(
@@ -79,18 +81,15 @@ final apiDioProvider = Provider<Dio>((ref) {
         if (_isAuthRelatedRoute(currentLocation)) {
           return;
         }
-        final normalizedRedirect = redirectLocation.trim();
-        final loginLocation = Uri(
-          path: AppRoutes.login,
-          queryParameters:
-              normalizedRedirect.isEmpty ||
-                  normalizedRedirect.startsWith(AppRoutes.login)
-              ? null
-              : <String, String>{'redirect': normalizedRedirect},
-        ).toString();
+        // 启动遮罩期间根 Navigator 尚未挂载，最终 401 交由 startup gate 接管。
+        if (rootNavigatorKey.currentState == null) {
+          return;
+        }
+        final loginLocation = buildLoginLocation(redirectLocation);
         Future.microtask(() {
           final latestLocation = _safeCurrentRoute(router);
-          if (_isAuthRelatedRoute(latestLocation)) {
+          if (_isAuthRelatedRoute(latestLocation) ||
+              rootNavigatorKey.currentState == null) {
             return;
           }
           router.go(loginLocation);

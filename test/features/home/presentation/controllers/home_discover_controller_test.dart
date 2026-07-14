@@ -10,6 +10,34 @@ import 'package:he_music_flutter/features/online/domain/entities/online_platform
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 
 void main() {
+  test('发现页内容加载期间应立即暴露已预加载的平台', () async {
+    final apiClient = _DelayedHomeDiscoverApiClient();
+    final container = ProviderContainer(
+      overrides: [
+        homeDiscoverApiClientProvider.overrideWithValue(apiClient),
+        onlinePlatformsProvider.overrideWith(
+          _TestOnlinePlatformsController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(onlinePlatformsProvider.future);
+
+    final initialize = container
+        .read(homeDiscoverControllerProvider.notifier)
+        .initialize();
+    await apiClient.requestStarted.future;
+
+    final loadingState = container.read(homeDiscoverControllerProvider);
+    expect(loadingState.loading, isTrue);
+    expect(loadingState.platforms, hasLength(1));
+    expect(loadingState.selectedPlatformId, 'qq');
+    expect(apiClient.fetchPlatformsCallCount, 0);
+
+    apiClient.complete();
+    await initialize;
+  });
+
   test('并发初始化应复用同一个首页加载流程', () async {
     final apiClient = _DelayedHomeDiscoverApiClient();
     final container = ProviderContainer(
@@ -59,6 +87,7 @@ class _DelayedHomeDiscoverApiClient extends HomeDiscoverApiClient {
   final requestStarted = Completer<void>();
   final _response = Completer<List<HomeDiscoverSection>>();
   int fetchDiscoverCallCount = 0;
+  int fetchPlatformsCallCount = 0;
 
   @override
   Future<List<HomeDiscoverSection>> fetchDiscoverSections(String platformId) {
@@ -71,6 +100,7 @@ class _DelayedHomeDiscoverApiClient extends HomeDiscoverApiClient {
 
   @override
   Future<List<HomePlatform>> fetchPlatforms() async {
+    fetchPlatformsCallCount += 1;
     return const <HomePlatform>[];
   }
 

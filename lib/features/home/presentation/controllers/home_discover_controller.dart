@@ -81,7 +81,13 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
     String platformId,
     List<HomePlatform> platforms,
   ) async {
-    state = state.copyWith(loading: true, clearError: true);
+    // 平台列表已由 startup 预加载，发现页内容请求期间也应立即展示平台标签。
+    state = state.copyWith(
+      loading: true,
+      platforms: platforms,
+      selectedPlatformId: platformId,
+      clearError: true,
+    );
     try {
       final sections = await _apiClient.fetchDiscoverSections(platformId);
       _discoverCacheByPlatform[platformId] = sections;

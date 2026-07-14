@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 
+import 'app_navigation_service.dart';
 import 'app_scroll_behavior.dart';
 import 'config/app_config_controller.dart';
 import 'config/app_config_state.dart';
@@ -20,7 +21,9 @@ import 'startup/app_auto_update_gate.dart';
 import 'theme/app_theme.dart';
 
 class HeMusicApp extends ConsumerWidget {
-  const HeMusicApp({super.key});
+  const HeMusicApp({super.key, this.enableStartupGateInTests = false});
+
+  final bool enableStartupGateInTests;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -47,11 +50,15 @@ class HeMusicApp extends ConsumerWidget {
       routerConfig: appRouter,
       builder: (context, child) {
         final content = child ?? const SizedBox.shrink();
+        final startupGated = _AppStartupGate(
+          appConfig: appConfig,
+          child: content,
+        );
         final gated = isTestBinding
-            ? content
-            : AppAutoUpdateGate(
-                child: _AppStartupGate(appConfig: appConfig, child: content),
-              );
+            ? enableStartupGateInTests
+                  ? startupGated
+                  : content
+            : AppAutoUpdateGate(child: startupGated);
         final overlayChild = AnnotatedRegion<SystemUiOverlayStyle>(
           value: AppTheme.systemOverlayStyleForBrightness(
             Theme.of(context).brightness,
@@ -133,8 +140,11 @@ class _AppStartupGate extends ConsumerWidget {
         );
       },
       error: (error, _) {
-        if (bypassStartupGate || _isUnauthorizedError(error)) {
+        if (bypassStartupGate) {
           return child;
+        }
+        if (_isUnauthorizedError(error)) {
+          return _StartupUnauthorizedHandoff(child: child);
         }
         return _StartupScaffold(
           title: AppI18n.t(config, 'startup.failed'),
@@ -144,8 +154,12 @@ class _AppStartupGate extends ConsumerWidget {
             children: <Widget>[
               FilledButton(
                 onPressed: () async {
-                  await ref.read(onlinePlatformsProvider.notifier).refresh();
-                  ref.invalidate(appStartupProvider);
+                  try {
+                    await ref.read(onlinePlatformsProvider.notifier).refresh();
+                    ref.invalidate(appStartupProvider);
+                  } catch (_) {
+                    // 平台 Provider 已保存最新错误，失败页保持可重试状态。
+                  }
                 },
                 child: Text(AppI18n.t(config, 'common.retry')),
               ),
@@ -204,6 +218,62 @@ class _AppStartupGate extends ConsumerWidget {
       };
     }
     return AppI18n.t(config, 'startup.init_failed');
+  }
+}
+
+class _StartupUnauthorizedHandoff extends ConsumerStatefulWidget {
+  const _StartupUnauthorizedHandoff({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_StartupUnauthorizedHandoff> createState() =>
+      _StartupUnauthorizedHandoffState();
+}
+
+class _StartupUnauthorizedHandoffState
+    extends ConsumerState<_StartupUnauthorizedHandoff> {
+  bool _loginPushed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pushLoginWhenReady());
+  }
+
+  void _pushLoginWhenReady() {
+    if (!mounted || _loginPushed) {
+      return;
+    }
+    if (rootNavigatorKey.currentState == null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _pushLoginWhenReady(),
+      );
+      return;
+    }
+    final router = ref.read(appRouterProvider);
+    final currentLocation = _safeRouterLocation(router);
+    if (_isAuthRelatedLocation(currentLocation)) {
+      return;
+    }
+    _loginPushed = true;
+    router.push(buildLoginLocation(AppRoutes.home));
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+bool _isAuthRelatedLocation(String location) {
+  return location.startsWith(AppRoutes.login) ||
+      location.startsWith(AppRoutes.captcha);
+}
+
+String _safeRouterLocation(GoRouter router) {
+  try {
+    return router.state.uri.toString();
+  } catch (_) {
+    return AppRoutes.home;
   }
 }
 
