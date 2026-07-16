@@ -26,7 +26,7 @@
 当前历史中可见的提交格式是 Conventional Commits 风格，例如 `feat: init`；后续继续使用简短前缀，如 `feat:`、`fix:`、`refactor:`、`docs:`。PR 说明应写清改动范围、列出已执行命令，并关联相关 issue。涉及 UI 的改动应附截图或录屏；涉及配置或资源调整时，请明确说明如 `assets/app_config.json` 或 `env/` 的变化。
 
 ## 配置提示
-不要在源码中硬编码环境相关值。新增资源后要同步更新 `pubspec.yaml` 中的 assets 声明。涉及 Retrofit 或 JSON 模型生成代码的改动，通常都需要执行 `make gen`。
+不要在源码中硬编码环境相关值。执行 `flutter run` 时必须传入参数 `--dart-define-from-file=.env`。新增资源后要同步更新 `pubspec.yaml` 中的 assets 声明。涉及 Retrofit 或 JSON 模型生成代码的改动，通常都需要执行 `make gen`。生成图片时，使用 `openai-image-api` 这个 skill。
 
 <!-- TRELLIS:START -->
 # Trellis Instructions
