@@ -13,6 +13,7 @@ import 'package:he_music_flutter/app/config/app_theme_mode.dart';
 import 'package:he_music_flutter/app/router/app_router.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/startup/app_startup_provider.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 
 void main() {
@@ -69,6 +70,22 @@ void main() {
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
 
     expect(app.locale, isNull);
+  });
+
+  testWidgets('app installs one fixed skin background below route content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildApp(themeMode: AppThemeMode.light));
+    await tester.pump();
+
+    expect(find.byType(AppSkinBackgroundLayer), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byType(AppSkinBackgroundLayer),
+        matching: find.byType(Stack),
+      ),
+      findsWidgets,
+    );
   });
 
   testWidgets('startup 401 pushes login and system back returns home', (

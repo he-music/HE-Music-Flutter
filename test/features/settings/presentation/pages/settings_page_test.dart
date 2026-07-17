@@ -8,6 +8,7 @@ import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/config/app_player_background_style.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_feature_state.dart';
 import 'package:he_music_flutter/features/online/presentation/controllers/online_controller.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -67,8 +68,42 @@ void main() {
     expect(find.text('显示效果'), findsOneWidget);
     expect(find.text('主题'), findsOneWidget);
     expect(find.text('主题色'), findsOneWidget);
+    expect(find.text('皮肤'), findsOneWidget);
+    expect(find.text('皮肤动画'), findsOneWidget);
     expect(find.text('黑白模式'), findsOneWidget);
     expect(find.text('播放器背景样式'), findsOneWidget);
+  });
+
+  testWidgets('immersive skin disables manual accent and shows skin state', (
+    tester,
+  ) async {
+    final container = _createContainer(
+      authToken: null,
+      skinId: AppSkinRegistry.citySoundCreatorId,
+    );
+    addTearDown(container.dispose);
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp(container: container));
+    await tester.pump();
+    await tester.tap(find.text('外观'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('跟随皮肤'), findsWidgets);
+    expect(find.text('城市声场创作者'), findsOneWidget);
+    final accentTile = tester.widget<ListTile>(
+      find.ancestor(of: find.text('主题色'), matching: find.byType(ListTile)),
+    );
+    expect(accentTile.onTap, isNull);
+    expect(accentTile.enabled, isFalse);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('settings-item-theme-accent')),
+        matching: find.byIcon(Icons.chevron_right_rounded),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('wide settings keeps mobile section list', (tester) async {
@@ -350,11 +385,14 @@ Widget _buildSettingsApp({ProviderContainer? container}) {
   return UncontrolledProviderScope(container: container, child: scopeChild);
 }
 
-ProviderContainer _createContainer({required String? authToken}) {
+ProviderContainer _createContainer({
+  required String? authToken,
+  String skinId = AppSkinRegistry.classicId,
+}) {
   return ProviderContainer(
     overrides: [
       appConfigProvider.overrideWith(
-        () => _TestAppConfigController(authToken: authToken),
+        () => _TestAppConfigController(authToken: authToken, skinId: skinId),
       ),
       onlineControllerProvider.overrideWith(_TestOnlineController.new),
     ],
@@ -362,14 +400,16 @@ ProviderContainer _createContainer({required String? authToken}) {
 }
 
 class _TestAppConfigController extends AppConfigController {
-  _TestAppConfigController({required this.authToken});
+  _TestAppConfigController({required this.authToken, required this.skinId});
 
   final String? authToken;
+  final String skinId;
 
   @override
   AppConfigState build() {
     return AppConfigState.initial.copyWith(
       authToken: authToken,
+      skinId: skinId,
       clearToken: authToken == null,
     );
   }

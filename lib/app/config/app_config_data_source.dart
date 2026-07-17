@@ -9,9 +9,12 @@ import 'app_online_audio_quality.dart';
 import 'app_player_background_style.dart';
 import 'app_theme_accent.dart';
 import 'app_theme_mode.dart';
+import '../theme/skin/app_skin_registry.dart';
 
 const _themeModeKey = 'app_config.theme_mode';
 const _themeAccentKey = 'app_config.theme_accent';
+const _skinIdKey = 'app_config.skin_id';
+const _skinAnimationEnabledKey = 'app_config.skin_animation_enabled';
 const _monochromeKey = 'app_config.monochrome';
 const _localeKey = 'app_config.locale';
 const _onlineAudioQualityPreferenceKey =
@@ -47,9 +50,18 @@ class AppConfigDataSource {
     );
     final tokenExpiresAt = prefs.getInt(_tokenExpiresAtKey);
     final lyricHighlightMode = _readLyricHighlightMode(prefs);
+    final skinId = _readSkinId(prefs.getString(_skinIdKey));
+    if (prefs.containsKey(_skinIdKey) &&
+        prefs.getString(_skinIdKey) != skinId) {
+      await prefs.setString(_skinIdKey, skinId);
+    }
     return AppConfigState.initial.copyWith(
       themeMode: _readThemeMode(prefs.getString(_themeModeKey)),
       themeAccent: AppThemeAccent.fromValue(prefs.getString(_themeAccentKey)),
+      skinId: skinId,
+      enableSkinAnimation:
+          prefs.getBool(_skinAnimationEnabledKey) ??
+          AppConfigState.initial.enableSkinAnimation,
       isMonochrome: prefs.getBool(_monochromeKey) ?? false,
       localeCode: _readLocaleCode(prefs.getString(_localeKey)),
       onlineAudioQualityPreference: AppOnlineAudioQuality.fromValue(
@@ -90,6 +102,8 @@ class AppConfigDataSource {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_themeModeKey, state.themeMode.name);
     await prefs.setString(_themeAccentKey, state.themeAccent.value);
+    await prefs.setString(_skinIdKey, state.skinId);
+    await prefs.setBool(_skinAnimationEnabledKey, state.enableSkinAnimation);
     await prefs.setBool(_monochromeKey, state.isMonochrome);
     await prefs.setString(_localeKey, state.localeCode);
     await prefs.setString(
@@ -180,6 +194,12 @@ class AppConfigDataSource {
       }
     }
     return AppConfigState.initial.themeMode;
+  }
+
+  String _readSkinId(String? value) {
+    return AppSkinRegistry.builtInIds.contains(value)
+        ? value!
+        : AppSkinRegistry.classicId;
   }
 
   String _readLocaleCode(String? value) {

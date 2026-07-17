@@ -5,7 +5,7 @@ ifneq ($(strip $(API_BASE_URL)),)
 DART_DEFINE_ARGS += "--dart-define=API_BASE_URL=$(API_BASE_URL)"
 endif
 
-.PHONY: help get upgrade run analyze test format fix gen clean build-apk build-aab release-check
+.PHONY: help get upgrade run analyze test format fix gen skin-previews clean build-apk build-aab release-check
 
 help:
 	@printf "\n常用命令:\n"
@@ -17,6 +17,7 @@ help:
 	@printf "  make format         格式化 Dart 代码\n"
 	@printf "  make fix            自动应用 Dart 可修复项\n"
 	@printf "  make gen            执行代码生成\n"
+	@printf "  make skin-previews  更新内置皮肤真实 UI 预览\n"
 	@printf "  make clean          清理构建产物\n"
 	@printf "  make build-apk      构建 Android release APK（按 ABI 拆分）\n"
 	@printf "  make build-aab      构建 Android release AAB\n"
@@ -45,6 +46,9 @@ fix:
 
 gen:
 	$(DART) run build_runner build --delete-conflicting-outputs
+
+skin-previews:
+	$(FLUTTER) test --update-goldens test/app/theme/skin_preview_golden_test.dart
 
 clean:
 	$(FLUTTER) clean

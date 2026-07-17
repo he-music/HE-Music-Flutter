@@ -36,10 +36,8 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final config = ref.watch(appConfigProvider);
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: Text(AppI18n.t(config, 'captcha.title')),
         actions: <Widget>[

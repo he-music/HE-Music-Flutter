@@ -5,6 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../app/config/app_config_controller.dart';
 import '../../../app/i18n/app_i18n.dart';
 import '../../../app/router/app_routes.dart';
+import '../../../app/theme/skin/app_skin_icon.dart';
+import '../../../app/theme/skin/app_skin_models.dart';
+import '../../../app/theme/skin/app_skin_surface.dart';
+import '../../../app/theme/skin/app_skin_theme.dart';
 import '../../../features/player/presentation/widgets/mini_player_bar.dart';
 
 /// 应用级 Shell：所有窗口尺寸统一使用手机端布局。
@@ -41,15 +45,11 @@ class _MobileLayout extends ConsumerWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            elevation: 4,
-            borderRadius: BorderRadius.circular(20),
-            shadowColor: Colors.black.withValues(alpha: 0.06),
+          child: AppSkinSurface(
+            role: AppSkinSurfaceRole.navigation,
             child: NavigationBar(
               selectedIndex: navigationShell.currentIndex == _myIndex ? 1 : 0,
               backgroundColor: Colors.transparent,
-              indicatorColor: Theme.of(context).colorScheme.primaryContainer,
               onDestinationSelected: (index) {
                 final branchIndex = index == 0 ? _homeIndex : _myIndex;
                 navigationShell.goBranch(
@@ -62,19 +62,73 @@ class _MobileLayout extends ConsumerWidget {
               },
               destinations: <NavigationDestination>[
                 NavigationDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home_rounded),
+                  icon: const _NavigationIcon(
+                    role: AppSkinIconRole.navigationHome,
+                    selected: false,
+                  ),
+                  selectedIcon: const _NavigationIcon(
+                    role: AppSkinIconRole.navigationHomeSelected,
+                    selected: true,
+                  ),
                   label: AppI18n.t(config, 'tab.home'),
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.account_circle_outlined),
-                  selectedIcon: const Icon(Icons.account_circle_rounded),
+                  icon: const _NavigationIcon(
+                    role: AppSkinIconRole.navigationMy,
+                    selected: false,
+                  ),
+                  selectedIcon: const _NavigationIcon(
+                    role: AppSkinIconRole.navigationMySelected,
+                    selected: true,
+                  ),
                   label: AppI18n.t(config, 'tab.my'),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _NavigationIcon extends StatelessWidget {
+  const _NavigationIcon({required this.role, required this.selected});
+
+  final AppSkinIconRole role;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final skinTheme = Theme.of(context).extension<AppSkinTheme>();
+    final showLine =
+        selected &&
+        skinTheme != null &&
+        !skinTheme.config.geometry.showNavigationIndicatorPill;
+    return SizedBox(
+      width: 30,
+      height: 32,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          AppSkinIcon(role: role),
+          if (showLine)
+            Positioned(
+              left: 5,
+              right: 5,
+              bottom: 0,
+              child: DecoratedBox(
+                key: const ValueKey<String>(
+                  'app-skin-navigation-selection-indicator',
+                ),
+                decoration: BoxDecoration(
+                  color: skinTheme.config.colors.selectionIndicator,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: const SizedBox(height: 2),
+              ),
+            ),
+        ],
       ),
     );
   }

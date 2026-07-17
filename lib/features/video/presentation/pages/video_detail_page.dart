@@ -148,7 +148,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
           unawaited(_handleSystemBack());
         },
         child: Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: Colors.transparent,
           body: _buildContent(feedState),
         ),
       ),
@@ -165,15 +165,19 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
             )
           : _buildLoadingView();
       // feed 为空时也需要返回按钮，避免加载失败后无法退出
-      return Stack(
-        children: <Widget>[
-          body,
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 8,
-            left: 8,
-            child: _BackButton(onTap: _handleBack),
-          ),
-        ],
+      return ColoredBox(
+        key: const ValueKey<String>('video-detail-exclusive-media-surface'),
+        color: Colors.black,
+        child: Stack(
+          children: <Widget>[
+            body,
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 8,
+              left: 8,
+              child: _BackButton(onTap: _handleBack),
+            ),
+          ],
+        ),
       );
     }
     return _buildPageView(feedState);

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
+import '../../app/theme/skin/app_skin_surface.dart';
 import 'animated_skeleton.dart';
 
 class SongListComponent extends ConsumerStatefulWidget {
@@ -144,41 +145,44 @@ class _SongSkeletonItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const SkeletonBox(width: 52, height: 52, radius: 8),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return AppSkinContentSurface(
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const SkeletonBox(width: 52, height: 52, radius: 8),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const SkeletonBox(
+                    width: double.infinity,
+                    height: 13,
+                    radius: 4,
+                  ),
+                  const SizedBox(height: 6),
+                  const SkeletonBox(width: 180, height: 11, radius: 4),
+                  const SizedBox(height: 6),
+                  const SkeletonBox(width: 120, height: 10, radius: 4),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                const SkeletonBox(
-                  width: double.infinity,
-                  height: 13,
-                  radius: 4,
-                ),
-                const SizedBox(height: 6),
-                const SkeletonBox(width: 180, height: 11, radius: 4),
-                const SizedBox(height: 6),
-                const SkeletonBox(width: 120, height: 10, radius: 4),
+                const SkeletonBox(width: 18, height: 18, radius: 999),
+                const SizedBox(width: 6),
+                const SkeletonBox(width: 18, height: 18, radius: 999),
+                const SizedBox(width: 6),
+                const SkeletonBox(width: 18, height: 18, radius: 999),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const SkeletonBox(width: 18, height: 18, radius: 999),
-              const SizedBox(width: 6),
-              const SkeletonBox(width: 18, height: 18, radius: 999),
-              const SizedBox(width: 6),
-              const SkeletonBox(width: 18, height: 18, radius: 999),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

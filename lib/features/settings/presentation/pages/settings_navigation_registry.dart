@@ -8,6 +8,7 @@ import 'account_password_page.dart';
 import 'account_profile_page.dart';
 import 'about_page.dart';
 import 'device_management_page.dart';
+import 'skin_selection_page.dart';
 
 class SettingsNavigationDestination {
   const SettingsNavigationDestination({
@@ -29,6 +30,12 @@ class SettingsNavigationDestination {
 
 final Map<String, SettingsNavigationDestination>
 settingsNavigationDestinations = <String, SettingsNavigationDestination>{
+  SettingsItemIds.skin: SettingsNavigationDestination(
+    itemId: SettingsItemIds.skin,
+    titleKey: 'settings.skin.selection.title',
+    mobileRoute: AppRoutes.settingsSkin,
+    desktopBuilder: (_) => const SkinSelectionPage(embedded: true),
+  ),
   SettingsItemIds.about: SettingsNavigationDestination(
     itemId: SettingsItemIds.about,
     titleKey: 'settings.about.title',

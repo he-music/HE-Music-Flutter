@@ -19,6 +19,8 @@ import 'router/app_routes.dart';
 import 'startup/app_startup_provider.dart';
 import 'startup/app_auto_update_gate.dart';
 import 'theme/app_theme.dart';
+import 'theme/skin/app_skin_background.dart';
+import 'theme/skin/app_skin_registry.dart';
 
 class HeMusicApp extends ConsumerWidget {
   const HeMusicApp({super.key, this.enableStartupGateInTests = false});
@@ -33,13 +35,16 @@ class HeMusicApp extends ConsumerWidget {
     if (!isTestBinding) ref.watch(overlayLyricsBindingProvider);
     final appRouter = ref.watch(appRouterProvider);
     final appConfig = ref.watch(appConfigProvider);
+    final skin = AppSkinRegistry.builtIn(
+      appConfig.themeAccent,
+    ).resolve(appConfig.skinId);
     return MaterialApp.router(
       title: AppI18n.t(appConfig, 'app.title'),
       debugShowCheckedModeBanner: false,
       scrollBehavior: const AppScrollBehavior(),
       themeMode: _toThemeMode(appConfig.themeMode),
-      theme: AppTheme.light(appConfig.themeAccent),
-      darkTheme: AppTheme.dark(appConfig.themeAccent),
+      theme: AppTheme.light(skin),
+      darkTheme: AppTheme.dark(skin),
       locale: _resolveLocale(appConfig.localeCode),
       supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
@@ -59,11 +64,21 @@ class HeMusicApp extends ConsumerWidget {
                   ? startupGated
                   : content
             : AppAutoUpdateGate(child: startupGated);
+        final skinned = Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            AppSkinBackgroundLayer(
+              skin: skin,
+              enableAnimation: appConfig.enableSkinAnimation,
+            ),
+            gated,
+          ],
+        );
         final overlayChild = AnnotatedRegion<SystemUiOverlayStyle>(
           value: AppTheme.systemOverlayStyleForBrightness(
             Theme.of(context).brightness,
           ),
-          child: gated,
+          child: skinned,
         );
         if (!appConfig.isMonochrome) return overlayChild;
         return ColorFiltered(

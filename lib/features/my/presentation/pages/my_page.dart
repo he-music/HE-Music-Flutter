@@ -7,6 +7,10 @@ import '../../../../core/network/network_error_message.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/skin/app_skin_background.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/app_network_image.dart';
@@ -88,7 +92,7 @@ class _MyPageState extends ConsumerState<MyPage> {
           );
     final quickEntryCards = <Widget>[
       _EntryCard(
-        icon: Icons.history_rounded,
+        iconRole: AppSkinIconRole.myHistory,
         title: AppI18n.t(config, 'my.entry.history'),
         subtitle: historyCount > 0
             ? AppI18n.format(config, 'playlist.track_count', <String, String>{
@@ -99,20 +103,20 @@ class _MyPageState extends ConsumerState<MyPage> {
       ),
       const SizedBox(height: 10),
       _EntryCard(
-        icon: Icons.library_music_rounded,
+        iconRole: AppSkinIconRole.myLocalMusic,
         title: AppI18n.t(config, 'local.title'),
         onTap: () => context.push(AppRoutes.library),
       ),
       const SizedBox(height: 10),
       _EntryCard(
-        icon: Icons.download_rounded,
+        iconRole: AppSkinIconRole.myDownloads,
         title: AppI18n.t(config, 'my.download'),
         onTap: () => context.push(AppRoutes.downloads),
       ),
       if (tokenSet) ...<Widget>[
         const SizedBox(height: 10),
         _EntryCard(
-          icon: Icons.favorite_border_rounded,
+          iconRole: AppSkinIconRole.myCollection,
           title: AppI18n.t(config, 'my.collection'),
           onTap: () => context.push(AppRoutes.myCollection),
         ),
@@ -273,17 +277,19 @@ class _MyBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              theme.colorScheme.primaryContainer.withValues(alpha: 0.10),
-              theme.colorScheme.surface.withValues(alpha: 0.98),
-              theme.scaffoldBackgroundColor,
-            ],
+    return AppSkinLegacyPageBackground(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                theme.colorScheme.primaryContainer.withValues(alpha: 0.10),
+                theme.colorScheme.surface.withValues(alpha: 0.98),
+                theme.scaffoldBackgroundColor,
+              ],
+            ),
           ),
         ),
       ),
@@ -386,13 +392,13 @@ class _AccountCard extends StatelessWidget {
 
 class _EntryCard extends StatelessWidget {
   const _EntryCard({
-    required this.icon,
+    required this.iconRole,
     required this.title,
     required this.onTap,
     this.subtitle,
   });
 
-  final IconData icon;
+  final AppSkinIconRole iconRole;
   final String title;
   final String? subtitle;
   final VoidCallback onTap;
@@ -401,57 +407,63 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Material(
-      color: colorScheme.surface.withValues(alpha: 0.78),
+    return AppSkinSurface(
+      role: AppSkinSurfaceRole.scrollingContent,
       borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          child: Row(
-            children: <Widget>[
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.64,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: colorScheme.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Text(
-                      title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.64,
                     ),
-                    if ((subtitle ?? '').trim().isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 4),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: AppSkinIcon(
+                    role: iconRole,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
                       Text(
-                        subtitle!.trim(),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                        title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
+                      if ((subtitle ?? '').trim().isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!.trim(),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ],
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),

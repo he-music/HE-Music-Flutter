@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_i18n.dart';
+import '../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../app/theme/skin/app_skin_icon.dart';
+import '../../app/theme/skin/app_skin_models.dart';
 import '../utils/platform_utils.dart';
 import 'adaptive_action_menu.dart';
 import 'app_network_image.dart';
@@ -91,23 +94,23 @@ Future<void> showSongActionsSheet({
       AdaptiveActionMenuItem<VoidCallback>(
         value: onPlay,
         label: resolvedPlayActionLabel,
-        icon: Icons.play_arrow_rounded,
+        iconRole: AppSkinIconRole.songPlay,
       ),
       AdaptiveActionMenuItem<VoidCallback>(
         value: onPlayNext,
         label: AppI18n.tByLocaleCode(localeCode, 'song.action.play_next'),
-        icon: Icons.skip_next_rounded,
+        iconRole: AppSkinIconRole.songPlayNext,
       ),
       AdaptiveActionMenuItem<VoidCallback>(
         value: onAddToPlaylist,
         label: AppI18n.tByLocaleCode(localeCode, 'song.action.add_to_queue'),
-        icon: Icons.playlist_add_rounded,
+        iconRole: AppSkinIconRole.songAddToQueue,
       ),
       if (onDownload != null)
         AdaptiveActionMenuItem<VoidCallback>(
           value: onDownload,
           label: AppI18n.tByLocaleCode(localeCode, 'player.action.download'),
-          icon: Icons.download_rounded,
+          iconRole: AppSkinIconRole.songDownload,
         ),
       if (onAddToUserPlaylist != null)
         AdaptiveActionMenuItem<VoidCallback>(
@@ -116,7 +119,7 @@ Future<void> showSongActionsSheet({
             localeCode,
             'detail.batch.add_to_playlist',
           ),
-          icon: Icons.library_add_rounded,
+          iconRole: AppSkinIconRole.songAddToPlaylist,
         ),
       if (onRemoveFromPlaylist != null)
         AdaptiveActionMenuItem<VoidCallback>(
@@ -125,19 +128,19 @@ Future<void> showSongActionsSheet({
             localeCode,
             'detail.batch.remove_from_playlist',
           ),
-          icon: Icons.playlist_remove_rounded,
+          iconRole: AppSkinIconRole.songRemove,
         ),
       AdaptiveActionMenuItem<VoidCallback>(
         value: onWatchMv,
         label: AppI18n.tByLocaleCode(localeCode, 'player.action.watch_mv'),
-        icon: Icons.ondemand_video_rounded,
+        iconRole: AppSkinIconRole.songWatchVideo,
         enabled: hasMv,
       ),
       if (onViewDetail != null)
         AdaptiveActionMenuItem<VoidCallback>(
           value: onViewDetail,
           label: AppI18n.tByLocaleCode(localeCode, 'song.action.view_detail'),
-          icon: Icons.info_outline_rounded,
+          iconRole: AppSkinIconRole.songDetails,
         ),
       if (onViewComment != null)
         AdaptiveActionMenuItem<VoidCallback>(
@@ -146,41 +149,41 @@ Future<void> showSongActionsSheet({
             localeCode,
             'player.action.view_comments',
           ),
-          icon: Icons.forum_rounded,
+          iconRole: AppSkinIconRole.songComments,
         ),
       if (albumActionLabel != null && onViewAlbum != null)
         AdaptiveActionMenuItem<VoidCallback>(
           value: onViewAlbum,
           label: albumActionLabel,
-          icon: Icons.album_outlined,
+          iconRole: AppSkinIconRole.songAlbum,
         ),
       if (artistActionLabel != null && onViewArtists != null)
         AdaptiveActionMenuItem<VoidCallback>(
           value: onViewArtists,
           label: artistActionLabel,
-          icon: Icons.person_outline_rounded,
+          iconRole: AppSkinIconRole.songArtist,
         ),
       AdaptiveActionMenuItem<VoidCallback>(
         value: onCopySongName,
         label: AppI18n.tByLocaleCode(localeCode, 'song.action.copy_name'),
-        icon: Icons.drive_file_rename_outline_rounded,
+        iconRole: AppSkinIconRole.songCopyName,
       ),
       AdaptiveActionMenuItem<VoidCallback>(
         value: onCopySongId,
         label: AppI18n.tByLocaleCode(localeCode, 'song.action.copy_id'),
-        icon: Icons.copy_rounded,
+        iconRole: AppSkinIconRole.songCopyId,
       ),
       if (onCopySongShareLink != null)
         AdaptiveActionMenuItem<VoidCallback>(
           value: onCopySongShareLink,
           label: AppI18n.tByLocaleCode(localeCode, 'player.action.copy_share'),
-          icon: Icons.share_rounded,
+          iconRole: AppSkinIconRole.songShare,
         ),
       if (onSearchSameName != null)
         AdaptiveActionMenuItem<VoidCallback>(
           value: onSearchSameName,
           label: AppI18n.tByLocaleCode(localeCode, 'player.action.search_same'),
-          icon: Icons.search_rounded,
+          iconRole: AppSkinIconRole.songSearchSameName,
         ),
     ];
     final navigator = Navigator.of(context);
@@ -198,11 +201,10 @@ Future<void> showSongActionsSheet({
       callback?.call();
     });
   }
-  return showModalBottomSheet<void>(
+  return showAppThemedBottomSheet<void>(
     context: context,
     useRootNavigator: useRootNavigator,
     isScrollControlled: true,
-    showDragHandle: true,
     builder: (sheetContext) {
       return _TrackedSongActionsSheetBody(
         child: _SongActionsSheetBody(
@@ -339,7 +341,7 @@ class _SongActionsSheetBody extends StatelessWidget {
             _SongHeader(coverUrl: coverUrl, title: title, subtitle: subtitle),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.play_arrow_rounded),
+              leading: const AppSkinIcon(role: AppSkinIconRole.songPlay),
               title: Text(resolvedPlayActionLabel),
               onTap: () {
                 Navigator.of(context).pop();
@@ -347,7 +349,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.skip_next_rounded),
+              leading: const AppSkinIcon(role: AppSkinIconRole.songPlayNext),
               title: Text(
                 AppI18n.tByLocaleCode(localeCode, 'song.action.play_next'),
               ),
@@ -357,7 +359,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.playlist_add_rounded),
+              leading: const AppSkinIcon(role: AppSkinIconRole.songAddToQueue),
               title: Text(
                 AppI18n.tByLocaleCode(localeCode, 'song.action.add_to_queue'),
               ),
@@ -368,7 +370,7 @@ class _SongActionsSheetBody extends StatelessWidget {
             ),
             if (onDownload != null)
               ListTile(
-                leading: const Icon(Icons.download_rounded),
+                leading: const AppSkinIcon(role: AppSkinIconRole.songDownload),
                 title: Text(
                   AppI18n.tByLocaleCode(localeCode, 'player.action.download'),
                 ),
@@ -379,7 +381,9 @@ class _SongActionsSheetBody extends StatelessWidget {
               ),
             if (onAddToUserPlaylist != null)
               ListTile(
-                leading: const Icon(Icons.library_add_rounded),
+                leading: const AppSkinIcon(
+                  role: AppSkinIconRole.songAddToPlaylist,
+                ),
                 title: Text(
                   AppI18n.tByLocaleCode(
                     localeCode,
@@ -393,7 +397,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               ),
             if (onRemoveFromPlaylist != null)
               ListTile(
-                leading: const Icon(Icons.playlist_remove_rounded),
+                leading: const AppSkinIcon(role: AppSkinIconRole.songRemove),
                 title: Text(
                   AppI18n.tByLocaleCode(
                     localeCode,
@@ -406,7 +410,7 @@ class _SongActionsSheetBody extends StatelessWidget {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.ondemand_video_rounded),
+              leading: const AppSkinIcon(role: AppSkinIconRole.songWatchVideo),
               title: Text(
                 AppI18n.tByLocaleCode(localeCode, 'player.action.watch_mv'),
               ),
@@ -420,7 +424,7 @@ class _SongActionsSheetBody extends StatelessWidget {
             ),
             if (onViewDetail != null)
               ListTile(
-                leading: const Icon(Icons.info_outline_rounded),
+                leading: const AppSkinIcon(role: AppSkinIconRole.songDetails),
                 title: Text(
                   AppI18n.tByLocaleCode(localeCode, 'song.action.view_detail'),
                 ),
@@ -431,7 +435,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               ),
             if (onViewComment != null)
               ListTile(
-                leading: const Icon(Icons.forum_rounded),
+                leading: const AppSkinIcon(role: AppSkinIconRole.songComments),
                 title: Text(
                   AppI18n.tByLocaleCode(
                     localeCode,
@@ -445,7 +449,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               ),
             if (albumActionLabel != null && onViewAlbum != null)
               ListTile(
-                leading: const Icon(Icons.album_outlined),
+                leading: const AppSkinIcon(role: AppSkinIconRole.songAlbum),
                 title: Text(albumActionLabel!),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -454,7 +458,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               ),
             if (artistActionLabel != null && onViewArtists != null)
               ListTile(
-                leading: const Icon(Icons.person_outline_rounded),
+                leading: const AppSkinIcon(role: AppSkinIconRole.songArtist),
                 title: Text(artistActionLabel!),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -462,7 +466,7 @@ class _SongActionsSheetBody extends StatelessWidget {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.drive_file_rename_outline_rounded),
+              leading: const AppSkinIcon(role: AppSkinIconRole.songCopyName),
               title: Text(
                 AppI18n.tByLocaleCode(localeCode, 'song.action.copy_name'),
               ),
@@ -472,7 +476,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.copy_rounded),
+              leading: const AppSkinIcon(role: AppSkinIconRole.songCopyId),
               title: Text(
                 AppI18n.tByLocaleCode(localeCode, 'song.action.copy_id'),
               ),
@@ -483,7 +487,7 @@ class _SongActionsSheetBody extends StatelessWidget {
             ),
             if (onCopySongShareLink != null)
               ListTile(
-                leading: const Icon(Icons.share_rounded),
+                leading: const AppSkinIcon(role: AppSkinIconRole.songShare),
                 title: Text(
                   AppI18n.tByLocaleCode(localeCode, 'player.action.copy_share'),
                 ),
@@ -494,7 +498,9 @@ class _SongActionsSheetBody extends StatelessWidget {
               ),
             if (onSearchSameName != null)
               ListTile(
-                leading: const Icon(Icons.search_rounded),
+                leading: const AppSkinIcon(
+                  role: AppSkinIconRole.songSearchSameName,
+                ),
                 title: Text(
                   AppI18n.tByLocaleCode(
                     localeCode,

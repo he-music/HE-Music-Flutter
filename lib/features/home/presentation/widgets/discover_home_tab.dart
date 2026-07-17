@@ -10,6 +10,9 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/skin/app_skin_background.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/helpers/song_artist_navigation_helper.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
@@ -40,27 +43,27 @@ import 'home_search_field.dart';
 const _entries = <_DiscoverEntry>[
   _DiscoverEntry(
     type: _DiscoverEntryType.ranking,
-    icon: Icons.leaderboard_rounded,
+    iconRole: AppSkinIconRole.homeRanking,
     titleKey: 'home.entry.ranking',
   ),
   _DiscoverEntry(
     type: _DiscoverEntryType.playlist,
-    icon: Icons.queue_music_rounded,
+    iconRole: AppSkinIconRole.homePlaylist,
     titleKey: 'home.entry.playlist',
   ),
   _DiscoverEntry(
     type: _DiscoverEntryType.artist,
-    icon: Icons.person_search_rounded,
+    iconRole: AppSkinIconRole.homeArtist,
     titleKey: 'home.entry.artist',
   ),
   _DiscoverEntry(
     type: _DiscoverEntryType.video,
-    icon: Icons.ondemand_video_rounded,
+    iconRole: AppSkinIconRole.homeVideo,
     titleKey: 'home.entry.video',
   ),
   _DiscoverEntry(
     type: _DiscoverEntryType.radio,
-    icon: Icons.radio_rounded,
+    iconRole: AppSkinIconRole.homeRadio,
     titleKey: 'home.entry.radio',
   ),
 ];
@@ -1086,7 +1089,7 @@ class _EntryRow extends StatelessWidget {
                   right: entry.key == _entries.length - 1 ? 0 : 8,
                 ),
                 child: _EntryTile(
-                  icon: entry.value.icon,
+                  iconRole: entry.value.iconRole,
                   title: AppI18n.t(config, entry.value.titleKey),
                   onTap: () => onTapEntry(entry.value),
                 ),
@@ -1099,9 +1102,9 @@ class _EntryRow extends StatelessWidget {
 }
 
 class _EntryTile extends StatelessWidget {
-  const _EntryTile({required this.icon, required this.title, this.onTap});
+  const _EntryTile({required this.iconRole, required this.title, this.onTap});
 
-  final IconData icon;
+  final AppSkinIconRole iconRole;
   final String title;
   final VoidCallback? onTap;
 
@@ -1122,7 +1125,11 @@ class _EntryTile extends StatelessWidget {
                 color: theme.colorScheme.surface.withValues(alpha: 0.78),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: theme.colorScheme.primary, size: 20),
+              child: AppSkinIcon(
+                role: iconRole,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1147,17 +1154,19 @@ class _HomeBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              theme.colorScheme.primaryContainer.withValues(alpha: 0.10),
-              theme.colorScheme.surface.withValues(alpha: 0.98),
-              theme.scaffoldBackgroundColor,
-            ],
+    return AppSkinLegacyPageBackground(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                theme.colorScheme.primaryContainer.withValues(alpha: 0.10),
+                theme.colorScheme.surface.withValues(alpha: 0.98),
+                theme.scaffoldBackgroundColor,
+              ],
+            ),
           ),
         ),
       ),
@@ -1233,11 +1242,11 @@ class _PlatformChipData {
 class _DiscoverEntry {
   const _DiscoverEntry({
     required this.type,
-    required this.icon,
+    required this.iconRole,
     required this.titleKey,
   });
 
   final _DiscoverEntryType type;
-  final IconData icon;
+  final AppSkinIconRole iconRole;
   final String titleKey;
 }

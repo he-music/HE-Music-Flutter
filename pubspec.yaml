@@ -107,6 +107,11 @@ flutter:
     - assets/icons/logo.png
     - assets/icons/favicon-512x512.png
     - assets/icons/auth/
+    - assets/skins/city_sound_creator/wallpaper_light.png
+    - assets/skins/city_sound_creator/wallpaper_dark.png
+    - assets/skins/city_sound_creator/preview_light.png
+    - assets/skins/city_sound_creator/preview_dark.png
+    - assets/skins/city_sound_creator/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

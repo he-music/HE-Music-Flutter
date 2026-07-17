@@ -18,6 +18,7 @@ abstract final class AppRoutes {
   static const parseSourceUrl = '/online/parse';
   static const onlineComments = '/online/comments';
   static const settings = '/settings';
+  static const settingsSkin = '/settings/skin';
   static const about = '/settings/about';
   static const settingsProfile = '/settings/profile';
   static const settingsPassword = '/settings/password';

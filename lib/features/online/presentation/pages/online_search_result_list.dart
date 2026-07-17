@@ -14,6 +14,7 @@ import '../../../../shared/utils/cover_resolver.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../domain/entities/online_platform.dart';
 import '../providers/online_providers.dart';
 import 'online_search_models.dart';
@@ -322,12 +323,17 @@ class _SearchResultSkeletonList extends StatelessWidget {
       itemCount: 8,
       separatorBuilder: (context, index) => const SizedBox(height: 2),
       itemBuilder: (context, index) {
-        return switch (type) {
-          SearchType.playlist => const _PlaylistSkeletonItem(),
-          SearchType.album => const _AlbumSkeletonItem(),
-          SearchType.artist => const _ArtistSkeletonItem(),
-          _ => const SizedBox.shrink(),
-        };
+        return AppSkinContentSurface(
+          borderRadius: BorderRadius.circular(
+            type == SearchType.artist ? 18 : 16,
+          ),
+          child: switch (type) {
+            SearchType.playlist => const _PlaylistSkeletonItem(),
+            SearchType.album => const _AlbumSkeletonItem(),
+            SearchType.artist => const _ArtistSkeletonItem(),
+            _ => const SizedBox.shrink(),
+          },
+        );
       },
     );
   }

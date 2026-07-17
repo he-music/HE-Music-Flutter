@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
+
 class SettingsSectionTile extends StatelessWidget {
   const SettingsSectionTile({
     required this.icon,
+    required this.iconRole,
     required this.title,
     required this.onTap,
     super.key,
   });
 
   final IconData icon;
+  final AppSkinIconRole iconRole;
   final String title;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -18,9 +23,10 @@ class SettingsSectionTile extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: ListTile(
+        enabled: onTap != null,
         leading: SizedBox(
           width: 24,
-          child: Center(child: Icon(icon)),
+          child: Center(child: AppSkinIcon(role: iconRole)),
         ),
         title: Text(title),
         trailing: const Icon(Icons.chevron_right_rounded),
@@ -33,6 +39,7 @@ class SettingsSectionTile extends StatelessWidget {
 class SettingsSelectTile extends StatelessWidget {
   const SettingsSelectTile({
     required this.icon,
+    required this.iconRole,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -43,9 +50,10 @@ class SettingsSelectTile extends StatelessWidget {
   });
 
   final IconData icon;
+  final AppSkinIconRole iconRole;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final String? trailingText;
   final Widget? leadingTrailing;
   final bool highlighted;
@@ -55,9 +63,10 @@ class SettingsSelectTile extends StatelessWidget {
     return _SettingsTileShell(
       highlighted: highlighted,
       child: ListTile(
+        enabled: onTap != null,
         leading: SizedBox(
           width: 24,
-          child: Center(child: Icon(icon)),
+          child: Center(child: AppSkinIcon(role: iconRole)),
         ),
         title: Text(title),
         subtitle: Text(subtitle),
@@ -75,8 +84,10 @@ class SettingsSelectTile extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded),
+            if (onTap != null) ...<Widget>[
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right_rounded),
+            ],
           ],
         ),
         onTap: onTap,
@@ -88,6 +99,7 @@ class SettingsSelectTile extends StatelessWidget {
 class SettingsSwitchTile extends StatelessWidget {
   const SettingsSwitchTile({
     required this.icon,
+    required this.iconRole,
     required this.title,
     required this.subtitle,
     required this.value,
@@ -98,6 +110,7 @@ class SettingsSwitchTile extends StatelessWidget {
   });
 
   final IconData icon;
+  final AppSkinIconRole iconRole;
   final String title;
   final String subtitle;
   final bool value;
@@ -112,7 +125,7 @@ class SettingsSwitchTile extends StatelessWidget {
       child: SwitchListTile.adaptive(
         value: value,
         onChanged: enabled ? onChanged : null,
-        secondary: Icon(icon),
+        secondary: AppSkinIcon(role: iconRole),
         title: Text(title),
         subtitle: Text(subtitle),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
@@ -124,6 +137,7 @@ class SettingsSwitchTile extends StatelessWidget {
 class SettingsNavigationTile extends StatelessWidget {
   const SettingsNavigationTile({
     required this.icon,
+    required this.iconRole,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -132,6 +146,7 @@ class SettingsNavigationTile extends StatelessWidget {
   });
 
   final IconData icon;
+  final AppSkinIconRole iconRole;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -144,7 +159,7 @@ class SettingsNavigationTile extends StatelessWidget {
       child: ListTile(
         leading: SizedBox(
           width: 24,
-          child: Center(child: Icon(icon)),
+          child: Center(child: AppSkinIcon(role: iconRole)),
         ),
         title: Text(title),
         subtitle: Text(subtitle),
@@ -158,6 +173,7 @@ class SettingsNavigationTile extends StatelessWidget {
 class SettingsActionTile extends StatelessWidget {
   const SettingsActionTile({
     required this.icon,
+    required this.iconRole,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -167,6 +183,7 @@ class SettingsActionTile extends StatelessWidget {
   });
 
   final IconData icon;
+  final AppSkinIconRole iconRole;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -183,7 +200,9 @@ class SettingsActionTile extends StatelessWidget {
       child: ListTile(
         leading: SizedBox(
           width: 24,
-          child: Center(child: Icon(icon, color: foreground)),
+          child: Center(
+            child: AppSkinIcon(role: iconRole, color: foreground),
+          ),
         ),
         title: Text(title, style: TextStyle(color: foreground)),
         subtitle: Text(subtitle),
@@ -208,7 +227,7 @@ class SettingsSearchResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: const Icon(Icons.search_rounded),
+      leading: const AppSkinIcon(role: AppSkinIconRole.search),
       title: Text(title),
       subtitle: Text(subtitle),
       onTap: onTap,

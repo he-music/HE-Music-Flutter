@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/skin/app_skin_surface.dart';
 import 'adaptive_action_menu.dart';
 import 'app_network_image.dart';
 import '../constants/layout_tokens.dart';
@@ -137,84 +138,87 @@ class SongListItem extends StatelessWidget {
     final backgroundColor = isCurrent || isSelected
         ? theme.colorScheme.primary.withValues(alpha: isCurrent ? 0.07 : 0.05)
         : Colors.transparent;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: InkWell(
-        onTap: effectiveOnTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: LayoutTokens.listItemInnerGutter,
-            vertical: 11,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              if (selectable) ...<Widget>[
-                _SelectIndicator(selected: selected),
+    return AppSkinContentSurface(
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: InkWell(
+          onTap: effectiveOnTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: LayoutTokens.listItemInnerGutter,
+              vertical: 11,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                if (selectable) ...<Widget>[
+                  _SelectIndicator(selected: selected),
+                  const SizedBox(width: 12),
+                ],
+                _SongCover(
+                  url: data.coverUrl,
+                  bytes: data.coverBytes,
+                  isCurrent: isCurrent,
+                ),
                 const SizedBox(width: 12),
-              ],
-              _SongCover(
-                url: data.coverUrl,
-                bytes: data.coverBytes,
-                isCurrent: isCurrent,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      data.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        height: 1.12,
-                        color: isCurrent
-                            ? theme.colorScheme.primary
-                            : theme.textTheme.titleSmall?.color,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        data.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          height: 1.12,
+                          color: isCurrent
+                              ? theme.colorScheme.primary
+                              : theme.textTheme.titleSmall?.color,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    _ArtistAlbumLine(
-                      tags: data.tags,
-                      artistAlbum: data.artistAlbumText,
-                      isCurrent: isCurrent,
-                    ),
-                    if (data.subtitleText.trim().isNotEmpty ||
-                        data.showMoreVersionButton) ...<Widget>[
-                      const SizedBox(height: 3),
-                      _BottomMetaLine(
-                        subtitle: data.subtitleText,
-                        showMoreVersionButton: data.showMoreVersionButton,
-                        onMoreVersionTap: onMoreVersionTap,
-                        moreVersionLabel: moreVersionLabel,
+                      const SizedBox(height: 5),
+                      _ArtistAlbumLine(
+                        tags: data.tags,
+                        artistAlbum: data.artistAlbumText,
                         isCurrent: isCurrent,
                       ),
+                      if (data.subtitleText.trim().isNotEmpty ||
+                          data.showMoreVersionButton) ...<Widget>[
+                        const SizedBox(height: 3),
+                        _BottomMetaLine(
+                          subtitle: data.subtitleText,
+                          showMoreVersionButton: data.showMoreVersionButton,
+                          onMoreVersionTap: onMoreVersionTap,
+                          moreVersionLabel: moreVersionLabel,
+                          isCurrent: isCurrent,
+                        ),
+                      ],
+                      if (data.subtitleText.trim().isEmpty &&
+                          !data.showMoreVersionButton)
+                        const SizedBox(height: 2),
+                      if (data.subtitleText.trim().isNotEmpty ||
+                          data.showMoreVersionButton)
+                        const SizedBox(height: 1),
                     ],
-                    if (data.subtitleText.trim().isEmpty &&
-                        !data.showMoreVersionButton)
-                      const SizedBox(height: 2),
-                    if (data.subtitleText.trim().isNotEmpty ||
-                        data.showMoreVersionButton)
-                      const SizedBox(height: 1),
-                  ],
+                  ),
                 ),
-              ),
-              if (showActions) ...<Widget>[
-                const SizedBox(width: 4),
-                _ActionButtons(
-                  liked: isLiked,
-                  onLikeTap: onLikeTap,
-                  onMoreTap: onMoreTap,
-                ),
+                if (showActions) ...<Widget>[
+                  const SizedBox(width: 4),
+                  _ActionButtons(
+                    liked: isLiked,
+                    onLikeTap: onLikeTap,
+                    onMoreTap: onMoreTap,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
+import '../../app/theme/skin/app_skin_surface.dart';
 import 'app_network_image.dart';
 import '../utils/compact_number_formatter.dart';
 
@@ -117,48 +118,51 @@ class VideoGridItem extends ConsumerWidget {
     final author = (creator ?? '').trim().isEmpty
         ? AppI18n.t(config, 'common.unknown_author')
         : creator!;
-    return Material(
-      color: Colors.transparent,
+    return AppSkinContentSurface(
       borderRadius: BorderRadius.circular(_videoCardRadius + 4),
-      child: InkWell(
-        onTap: onTap,
+      child: Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(_videoCardRadius + 4),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: _VideoCover(
-                  url: coverUrl,
-                  duration: duration,
-                  playCount: playCount,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(_videoCardRadius + 4),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _VideoCover(
+                    url: coverUrl,
+                    duration: duration,
+                    playCount: playCount,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  height: 1.15,
+                const SizedBox(height: 6),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.15,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                author,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontSize: 12,
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.1,
+                const SizedBox(height: 3),
+                Text(
+                  author,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.1,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

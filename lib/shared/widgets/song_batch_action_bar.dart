@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_i18n.dart';
+import '../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../app/theme/skin/app_skin_icon.dart';
+import '../../app/theme/skin/app_skin_models.dart';
 import '../utils/platform_utils.dart';
 import 'adaptive_action_menu.dart';
 
@@ -74,11 +77,10 @@ class SongBatchActionBar extends StatelessWidget {
         callback?.call();
       });
     }
-    return showModalBottomSheet<void>(
+    return showAppThemedBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (sheetContext) {
         final maxHeight = MediaQuery.of(sheetContext).size.height * 0.60;
         final items = _buildActions(localeCode);
@@ -91,7 +93,11 @@ class SongBatchActionBar extends StatelessWidget {
                 for (final item in items)
                   ListTile(
                     key: item.key,
-                    leading: item.icon == null ? null : Icon(item.icon),
+                    leading: item.iconRole != null
+                        ? AppSkinIcon(role: item.iconRole!)
+                        : item.icon == null
+                        ? null
+                        : Icon(item.icon),
                     enabled: item.enabled,
                     title: Text(item.label),
                     onTap: item.enabled
@@ -114,13 +120,13 @@ class SongBatchActionBar extends StatelessWidget {
       AdaptiveActionMenuItem<VoidCallback>(
         value: onPlayPressed ?? () {},
         label: AppI18n.tByLocaleCode(localeCode, 'song.action.play'),
-        icon: Icons.play_arrow_rounded,
+        iconRole: AppSkinIconRole.batchPlay,
         enabled: onPlayPressed != null,
       ),
       AdaptiveActionMenuItem<VoidCallback>(
         value: onAddToQueuePressed ?? () {},
         label: AppI18n.tByLocaleCode(localeCode, 'song.action.add_to_queue'),
-        icon: Icons.queue_music_rounded,
+        iconRole: AppSkinIconRole.songAddToQueue,
         enabled: onAddToQueuePressed != null,
       ),
       AdaptiveActionMenuItem<VoidCallback>(
@@ -129,7 +135,7 @@ class SongBatchActionBar extends StatelessWidget {
           localeCode,
           'detail.batch.add_to_playlist',
         ),
-        icon: Icons.playlist_add_rounded,
+        iconRole: AppSkinIconRole.batchAddToPlaylist,
         enabled: onAddToPlaylistPressed != null,
       ),
       if (onRemoveFromPlaylistPressed != null)
@@ -139,7 +145,7 @@ class SongBatchActionBar extends StatelessWidget {
             localeCode,
             'detail.batch.remove_from_playlist',
           ),
-          icon: Icons.playlist_remove_rounded,
+          iconRole: AppSkinIconRole.songRemove,
         ),
     ];
   }

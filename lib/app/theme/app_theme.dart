@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../config/app_theme_accent.dart';
+import 'skin/app_skin_models.dart';
+import 'skin/app_skin_theme.dart';
 
 abstract final class AppTheme {
-  static ThemeData light(AppThemeAccent accent) =>
-      _buildTheme(brightness: Brightness.light, seedColor: accent.lightSeed);
+  static final PageTransitionsTheme _immersivePageTransitionsTheme =
+      PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          ...const PageTransitionsTheme().builders,
+          TargetPlatform.android: const FadeForwardsPageTransitionsBuilder(
+            backgroundColor: Colors.transparent,
+          ),
+        },
+      );
 
-  static ThemeData dark(AppThemeAccent accent) =>
-      _buildTheme(brightness: Brightness.dark, seedColor: accent.darkSeed);
+  static ThemeData light(AppSkinPackage skin) =>
+      _buildTheme(config: skin.light, icons: skin.icons);
+
+  static ThemeData dark(AppSkinPackage skin) =>
+      _buildTheme(config: skin.dark, icons: skin.icons);
 
   static SystemUiOverlayStyle systemOverlayStyleForBrightness(
     Brightness brightness,
@@ -23,42 +34,13 @@ abstract final class AppTheme {
   }
 
   static ThemeData _buildTheme({
-    required Brightness brightness,
-    required Color seedColor,
+    required AppSkinBrightnessConfig config,
+    required AppSkinIconCatalog icons,
   }) {
-    final baseScheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
-      brightness: brightness,
-    );
-    final isDark = brightness == Brightness.dark;
-    final colorScheme = baseScheme.copyWith(
-      surface: _tint(baseScheme.surface, seedColor, isDark ? 0.06 : 0.025),
-      surfaceContainer: _tint(
-        baseScheme.surfaceContainer,
-        seedColor,
-        isDark ? 0.08 : 0.035,
-      ),
-      surfaceContainerHigh: _tint(
-        baseScheme.surfaceContainerHigh,
-        seedColor,
-        isDark ? 0.1 : 0.04,
-      ),
-      surfaceContainerHighest: _tint(
-        baseScheme.surfaceContainerHighest,
-        seedColor,
-        isDark ? 0.12 : 0.05,
-      ),
-      primaryContainer: _tint(
-        baseScheme.primaryContainer,
-        seedColor,
-        isDark ? 0.12 : 0.04,
-      ),
-      secondaryContainer: _tint(
-        baseScheme.secondaryContainer,
-        seedColor,
-        isDark ? 0.08 : 0.03,
-      ),
-    );
+    final brightness = config.colorScheme.brightness;
+    final colorScheme = config.colorScheme;
+    final colors = config.colors;
+    final geometry = config.geometry;
     final baseTextTheme = ThemeData(
       brightness: brightness,
       useMaterial3: true,
@@ -99,12 +81,15 @@ abstract final class AppTheme {
       brightness: brightness,
       colorScheme: colorScheme,
       textTheme: textTheme,
-      scaffoldBackgroundColor: _tint(
-        colorScheme.surface,
-        seedColor,
-        isDark ? 0.08 : 0.035,
-      ),
-      canvasColor: Colors.transparent,
+      scaffoldBackgroundColor: colors.scaffoldBackground,
+      canvasColor: colors.canvasBackground,
+      // Android 默认转场会绘制不透明 surface，透明页面需让根壁纸持续可见。
+      pageTransitionsTheme: colors.scaffoldBackground.a == 0
+          ? _immersivePageTransitionsTheme
+          : const PageTransitionsTheme(),
+      extensions: <ThemeExtension<dynamic>>[
+        AppSkinTheme(config: config, icons: icons),
+      ],
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
@@ -119,10 +104,10 @@ abstract final class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
-        color: colorScheme.surfaceContainerHigh.withValues(
-          alpha: isDark ? 0.82 : 0.9,
+        color: colors.cardBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(geometry.cardRadius),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         surfaceTintColor: Colors.transparent,
       ),
       listTileTheme: ListTileThemeData(
@@ -132,9 +117,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceContainerHighest.withValues(
-          alpha: isDark ? 0.74 : 0.92,
-        ),
+        fillColor: colors.inputBackground,
         hintStyle: textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),
@@ -143,23 +126,23 @@ abstract final class AppTheme {
           vertical: 16,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(geometry.controlRadius),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(geometry.controlRadius),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(geometry.controlRadius),
           borderSide: BorderSide(color: colorScheme.primary, width: 1.2),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: colorScheme.surface.withValues(
-          alpha: isDark ? 0.94 : 0.96,
-        ),
-        indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.9),
+        backgroundColor: colors.navigationBackground,
+        indicatorColor: geometry.showNavigationIndicatorPill
+            ? colors.navigationIndicator
+            : Colors.transparent,
         height: 72,
         elevation: 0,
         labelTextStyle: WidgetStatePropertyAll(
@@ -202,29 +185,20 @@ abstract final class AppTheme {
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: colorScheme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        backgroundColor: colors.bottomSheetBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(geometry.bottomSheetRadius),
+          ),
         ),
       ),
+      dialogTheme: DialogThemeData(backgroundColor: colors.dialogBackground),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: _tint(
-          isDark
-              ? colorScheme.surfaceContainerHighest
-              : colorScheme.inverseSurface,
-          seedColor,
-          isDark ? 0.12 : 0.06,
-        ),
+        backgroundColor: colors.snackBarBackground,
         contentTextStyle: const TextStyle(color: Colors.white),
       ),
-      dividerTheme: DividerThemeData(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-      ),
+      dividerTheme: DividerThemeData(color: colors.divider),
     );
-  }
-
-  static Color _tint(Color base, Color seed, double opacity) {
-    return Color.alphaBlend(seed.withValues(alpha: opacity), base);
   }
 }

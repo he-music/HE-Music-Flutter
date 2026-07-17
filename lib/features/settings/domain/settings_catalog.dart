@@ -28,6 +28,8 @@ abstract final class SettingsGroupIds {
 abstract final class SettingsItemIds {
   static const themeMode = 'theme-mode';
   static const themeAccent = 'theme-accent';
+  static const skin = 'skin';
+  static const skinAnimation = 'skin-animation';
   static const monochrome = 'monochrome';
   static const playerBackgroundStyle = 'player-background-style';
   static const onlineAudioQuality = 'online-audio-quality';
@@ -155,6 +157,24 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.select,
     icon: Icons.color_lens_outlined,
     keywords: <String>['主题色', '颜色', '外观'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.skin,
+    sectionId: SettingsSectionIds.appearance,
+    groupId: SettingsGroupIds.appearanceTheme,
+    titleKey: 'settings.skin',
+    kind: SettingsItemKind.navigation,
+    icon: Icons.wallpaper_rounded,
+    keywords: <String>['皮肤', '壁纸', '外观', 'skin'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.skinAnimation,
+    sectionId: SettingsSectionIds.appearance,
+    groupId: SettingsGroupIds.appearanceTheme,
+    titleKey: 'settings.skin.animation',
+    kind: SettingsItemKind.toggle,
+    icon: Icons.animation_rounded,
+    keywords: <String>['皮肤', '动画', '动态', 'animation'],
   ),
   SettingsItemNode(
     id: SettingsItemIds.monochrome,

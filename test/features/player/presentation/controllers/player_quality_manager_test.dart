@@ -21,6 +21,8 @@ AppConfigState _config({
     apiBaseUrl: 'https://api.test',
     themeMode: AppThemeMode.dark,
     themeAccent: AppThemeAccent.cobalt,
+    skinId: 'classic',
+    enableSkinAnimation: true,
     isMonochrome: false,
     localeCode: 'zh',
     onlineAudioQualityPreference: preference,

@@ -10,6 +10,7 @@ import 'app_online_audio_quality.dart';
 import 'app_player_background_style.dart';
 import 'app_theme_accent.dart';
 import 'app_theme_mode.dart';
+import '../theme/skin/app_skin_registry.dart';
 
 class AppConfigController extends Notifier<AppConfigState> {
   late final Future<void> _hydrationFuture;
@@ -38,6 +39,17 @@ class AppConfigController extends Notifier<AppConfigState> {
 
   void setThemeAccent(AppThemeAccent accent) {
     _update(state.copyWith(themeAccent: accent));
+  }
+
+  void setSkinId(String skinId) {
+    final normalized = AppSkinRegistry.builtInIds.contains(skinId)
+        ? skinId
+        : AppSkinRegistry.classicId;
+    _update(state.copyWith(skinId: normalized));
+  }
+
+  void setEnableSkinAnimation(bool value) {
+    _update(state.copyWith(enableSkinAnimation: value));
   }
 
   void toggleMonochrome() {
@@ -156,6 +168,8 @@ class AppConfigController extends Notifier<AppConfigState> {
     state = state.copyWith(
       themeMode: loaded.themeMode,
       themeAccent: loaded.themeAccent,
+      skinId: loaded.skinId,
+      enableSkinAnimation: loaded.enableSkinAnimation,
       isMonochrome: loaded.isMonochrome,
       localeCode: loaded.localeCode,
       onlineAudioQualityPreference: loaded.onlineAudioQualityPreference,

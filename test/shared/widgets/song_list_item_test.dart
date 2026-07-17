@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/config/app_theme_accent.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_item.dart';
 
 void main() {
@@ -169,6 +173,28 @@ void main() {
       await tester.pumpWidget(_wrap(SongListItem(data: data)));
 
       expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
+    });
+
+    testWidgets('沉浸式皮肤使用共享滚动内容表面且不增加模糊', (tester) async {
+      final skin = AppSkinRegistry.builtIn(
+        AppThemeAccent.forest,
+      ).resolve(AppSkinRegistry.citySoundCreatorId);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(skin),
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 80,
+              child: SongListItem(data: basicData),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(AppSkinSurface), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsNothing);
     });
   });
 }

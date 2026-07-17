@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../app/theme/skin/app_skin_icon.dart';
+import '../../app/theme/skin/app_skin_models.dart';
 import '../utils/platform_utils.dart';
 
 enum AdaptiveActionMenuMobileDensity { regular, compact }
@@ -42,6 +45,7 @@ class AdaptiveActionMenuItem<T> {
     required this.label,
     this.key,
     this.icon,
+    this.iconRole,
     this.enabled = true,
     this.destructive = false,
     this.startsNewSection = false,
@@ -51,6 +55,7 @@ class AdaptiveActionMenuItem<T> {
   final String label;
   final Key? key;
   final IconData? icon;
+  final AppSkinIconRole? iconRole;
   final bool enabled;
   final bool destructive;
   final bool startsNewSection;
@@ -144,14 +149,9 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
   }
 
   Future<T?> _showBottomSheet(BuildContext context) {
-    final theme = Theme.of(context);
-    final backgroundColor = theme.colorScheme.surface;
-    return showModalBottomSheet<T>(
+    return showAppThemedBottomSheet<T>(
       context: context,
       useRootNavigator: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      backgroundColor: backgroundColor,
       builder: (bottomSheetContext) => _AdaptiveActionMenuBottomSheetBody<T>(
         items: widget.items,
         onSelected: (value) => Navigator.of(bottomSheetContext).pop(value),
@@ -226,14 +226,9 @@ Future<T?> showAdaptiveActionMenu<T>({
           .toList(growable: false),
     );
   }
-  final theme = Theme.of(context);
-  final backgroundColor = theme.colorScheme.surface;
-  return showModalBottomSheet<T>(
+  return showAppThemedBottomSheet<T>(
     context: context,
     useRootNavigator: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    backgroundColor: backgroundColor,
     builder: (bottomSheetContext) => _AdaptiveActionMenuBottomSheetBody<T>(
       items: items,
       onSelected: (value) => Navigator.of(bottomSheetContext).pop(value),
@@ -263,15 +258,15 @@ class _ActionMenuLabel<T> extends StatelessWidget {
           ? foregroundColor
           : colorScheme.onSurface.withValues(alpha: 0.38),
     );
-    if (compact || item.icon == null) {
+    if (compact || (item.icon == null && item.iconRole == null)) {
       return Text(item.label, style: textStyle);
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Icon(
-          item.icon,
-          size: compact ? 18 : 18,
+        _ActionMenuIcon<T>(
+          item: item,
+          size: 18,
           color: item.enabled
               ? foregroundColor
               : colorScheme.onSurface.withValues(alpha: 0.38),
@@ -372,9 +367,9 @@ class _AdaptiveActionMenuBottomSheetBody<T> extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            if (item.icon != null) ...<Widget>[
-              Icon(
-                item.icon,
+            if (item.icon != null || item.iconRole != null) ...<Widget>[
+              _ActionMenuIcon<T>(
+                item: item,
                 size: isCompact ? 18 : 20,
                 color: item.enabled
                     ? (item.destructive
@@ -413,5 +408,26 @@ class _AdaptiveActionMenuBottomSheetBody<T> extends StatelessWidget {
         tile,
       ],
     );
+  }
+}
+
+class _ActionMenuIcon<T> extends StatelessWidget {
+  const _ActionMenuIcon({
+    required this.item,
+    required this.size,
+    required this.color,
+  });
+
+  final AdaptiveActionMenuItem<T> item;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = item.iconRole;
+    if (role != null) {
+      return AppSkinIcon(role: role, size: size, color: color);
+    }
+    return Icon(item.icon, size: size, color: color);
   }
 }

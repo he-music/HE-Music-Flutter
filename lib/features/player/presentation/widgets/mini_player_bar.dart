@@ -6,6 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../domain/entities/player_play_mode.dart';
 import '../../domain/entities/player_track.dart';
 import '../providers/player_providers.dart';
@@ -61,16 +65,12 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
     if (!hasQueue || track == null) {
       return const SizedBox.shrink();
     }
-    final theme = Theme.of(context);
     final bar = LayoutBuilder(
       builder: (context, constraints) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-          child: Material(
-            color: theme.colorScheme.surface,
-            elevation: 3,
-            shadowColor: Colors.black.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(20),
+          child: AppSkinSurface(
+            role: AppSkinSurfaceRole.miniPlayer,
             child: SizedBox(
               height: 58,
               child: Row(
@@ -112,17 +112,19 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                   ),
                   IconButton(
                     onPressed: controller.togglePlayPause,
-                    icon: Icon(
-                      isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
+                    icon: AppSkinIcon(
+                      role: isPlaying
+                          ? AppSkinIconRole.miniPlayerPause
+                          : AppSkinIconRole.miniPlayerPlay,
                     ),
                     tooltip: AppI18n.t(config, 'player.full'),
                   ),
                   if (!isRadioMode)
                     IconButton(
                       onPressed: () => _openQueueSheet(context),
-                      icon: const Icon(Icons.queue_music_rounded),
+                      icon: const AppSkinIcon(
+                        role: AppSkinIconRole.miniPlayerQueue,
+                      ),
                       tooltip: AppI18n.t(config, 'player.queue'),
                     ),
                   const SizedBox(width: 2),
@@ -165,10 +167,9 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
   }
 
   void _openQueueSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showAppThemedBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (context) => const PlayerQueueSheet(),
     );
   }

@@ -12,6 +12,8 @@ class AppConfigState {
     required this.apiBaseUrl,
     required this.themeMode,
     required this.themeAccent,
+    required this.skinId,
+    required this.enableSkinAnimation,
     required this.isMonochrome,
     required this.localeCode,
     required this.onlineAudioQualityPreference,
@@ -33,6 +35,8 @@ class AppConfigState {
   final String apiBaseUrl;
   final AppThemeMode themeMode;
   final AppThemeAccent themeAccent;
+  final String skinId;
+  final bool enableSkinAnimation;
   final bool isMonochrome;
   final String localeCode;
   final AppOnlineAudioQuality onlineAudioQualityPreference;
@@ -54,6 +58,8 @@ class AppConfigState {
     String? apiBaseUrl,
     AppThemeMode? themeMode,
     AppThemeAccent? themeAccent,
+    String? skinId,
+    bool? enableSkinAnimation,
     bool? isMonochrome,
     String? localeCode,
     AppOnlineAudioQuality? onlineAudioQualityPreference,
@@ -79,6 +85,8 @@ class AppConfigState {
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
       themeMode: themeMode ?? this.themeMode,
       themeAccent: themeAccent ?? this.themeAccent,
+      skinId: skinId ?? this.skinId,
+      enableSkinAnimation: enableSkinAnimation ?? this.enableSkinAnimation,
       isMonochrome: isMonochrome ?? this.isMonochrome,
       localeCode: localeCode ?? this.localeCode,
       onlineAudioQualityPreference:
@@ -114,6 +122,8 @@ class AppConfigState {
   static final initial = AppConfigState(
     themeMode: AppThemeMode.system,
     themeAccent: AppThemeAccent.forest,
+    skinId: 'classic',
+    enableSkinAnimation: true,
     isMonochrome: false,
     localeCode: 'zh',
     onlineAudioQualityPreference: AppOnlineAudioQuality.auto,

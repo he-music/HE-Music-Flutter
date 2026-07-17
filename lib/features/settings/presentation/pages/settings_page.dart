@@ -17,6 +17,9 @@ import '../../../../app/config/app_theme_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
+import '../../../../app/theme/skin/app_skin_registry.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/settings_catalog.dart';
@@ -106,6 +109,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           for (final section in settingsSections) ...<Widget>[
             SettingsSectionTile(
               icon: section.icon,
+              iconRole: settingsSectionIconRole(section.id),
               title: _sectionTitle(config, section.id),
               onTap: () => _openSection(section.id),
             ),
@@ -121,7 +125,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       key: const ValueKey<String>('settings-search-field'),
       controller: _searchController,
       decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.search_rounded),
+        prefixIcon: const AppSkinIcon(role: AppSkinIconRole.search),
         hintText: AppI18n.t(config, 'settings.search.hint'),
         border: const OutlineInputBorder(),
         isDense: true,
@@ -215,9 +219,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Widget _buildItemTile(AppConfigState config, SettingsItemNode item) {
     final navigationDestination = settingsNavigationDestinations[item.id];
+    late final currentSkin = AppSkinRegistry.builtIn(
+      config.themeAccent,
+    ).resolve(config.skinId);
+    late final supportsSkinAnimation =
+        currentSkin.light.background.animation
+            is AppSkinRiveAnimationDescriptor ||
+        currentSkin.dark.background.animation is AppSkinRiveAnimationDescriptor;
     final tile = switch (item.id) {
       SettingsItemIds.themeMode => SettingsSelectTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: _themeModeLabel(config.themeMode, config),
@@ -226,15 +238,46 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.themeAccent => SettingsSelectTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
-        trailingText: config.themeAccent.label,
-        leadingTrailing: SettingsColorDot(color: _accentPreviewColor(config)),
-        onTap: _openThemeAccentSheet,
+        trailingText: currentSkin.metadata.allowsManualAccent
+            ? config.themeAccent.label
+            : AppI18n.t(config, 'settings.theme_accent.follows_skin'),
+        leadingTrailing: currentSkin.metadata.allowsManualAccent
+            ? SettingsColorDot(color: _accentPreviewColor(config))
+            : null,
+        onTap: currentSkin.metadata.allowsManualAccent
+            ? _openThemeAccentSheet
+            : null,
+        highlighted: _highlightedItemId == item.id,
+      ),
+      SettingsItemIds.skin => SettingsSelectTile(
+        icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
+        title: AppI18n.t(config, item.titleKey),
+        subtitle: settingsItemSubtitle(item.id, config),
+        trailingText: AppI18n.t(config, currentSkin.metadata.nameKey),
+        onTap: () => _openNavigationItem(item.id),
+        highlighted: _highlightedItemId == item.id,
+      ),
+      SettingsItemIds.skinAnimation => SettingsSwitchTile(
+        icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
+        title: AppI18n.t(config, item.titleKey),
+        subtitle: settingsItemSubtitle(item.id, config),
+        value: config.enableSkinAnimation,
+        enabled: supportsSkinAnimation,
+        onChanged: supportsSkinAnimation
+            ? (value) => ref
+                  .read(appConfigProvider.notifier)
+                  .setEnableSkinAnimation(value)
+            : null,
         highlighted: _highlightedItemId == item.id,
       ),
       SettingsItemIds.monochrome => SettingsSwitchTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         value: config.isMonochrome,
@@ -244,6 +287,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.playerBackgroundStyle => SettingsSelectTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: _playerBackgroundStyleLabel(
@@ -255,6 +299,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.onlineAudioQuality => SettingsSelectTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: config.onlineAudioQualityPreference.label,
@@ -263,6 +308,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.lyricHighlightColor => SettingsSelectTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: _lyricHighlightSummary(config),
@@ -274,6 +320,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.lyricFontPreset => SettingsSelectTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: config.lyricFontPreset.label,
@@ -282,6 +329,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.wordByWordLyric => SettingsSwitchTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         value: config.enableWordByWordLyric,
@@ -292,6 +340,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.desktopLyric => SettingsSwitchTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         value: config.enableDesktopLyric,
@@ -301,6 +350,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.desktopLyricLock => SettingsSwitchTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         value: config.enableDesktopLyricLock,
@@ -314,6 +364,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.language => SettingsSelectTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: _languageLabel(config.localeCode, config),
@@ -322,6 +373,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.autoCheckUpdates => SettingsSwitchTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         value: config.autoCheckUpdates,
@@ -331,6 +383,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.accountLogin => SettingsNavigationTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         onTap: _openLogin,
@@ -338,6 +391,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       SettingsItemIds.accountLogout => SettingsActionTile(
         icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         onTap: _confirmLogout,
@@ -349,6 +403,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               navigationDestination != null =>
         SettingsNavigationTile(
           icon: item.icon,
+          iconRole: settingsItemIconRole(item.id),
           title: AppI18n.t(config, item.titleKey),
           subtitle: settingsItemSubtitle(item.id, config),
           onTap: () => _openNavigationItem(item.id),

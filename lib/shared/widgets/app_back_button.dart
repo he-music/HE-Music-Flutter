@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
 import '../../app/router/app_routes.dart';
+import '../../app/theme/skin/app_skin_icon.dart';
+import '../../app/theme/skin/app_skin_models.dart';
 import 'song_actions_sheet.dart';
 
 extension AppBackNavigation on BuildContext {
@@ -24,7 +26,8 @@ class AppBackButton extends StatelessWidget {
   const AppBackButton({
     this.onPressed,
     this.fallbackLocation = AppRoutes.home,
-    this.icon = Icons.arrow_back_rounded,
+    this.icon,
+    this.iconRole = AppSkinIconRole.back,
     this.iconColor,
     this.backgroundColor,
     this.iconSize,
@@ -38,7 +41,8 @@ class AppBackButton extends StatelessWidget {
 
   final VoidCallback? onPressed;
   final String fallbackLocation;
-  final IconData icon;
+  final IconData? icon;
+  final AppSkinIconRole iconRole;
   final Color? iconColor;
   final Color? backgroundColor;
   final double? iconSize;
@@ -58,7 +62,9 @@ class AppBackButton extends StatelessWidget {
     return IconButton(
       onPressed: onPressed ?? () => context.appPopOrGo(fallbackLocation),
       tooltip: tooltip ?? _resolveBackTooltip(context),
-      icon: Icon(icon, size: iconSize),
+      icon: icon == null
+          ? AppSkinIcon(role: iconRole, size: iconSize, color: foregroundColor)
+          : Icon(icon, size: iconSize),
       style: buttonStyle,
       visualDensity: visualDensity,
       constraints: constraints,

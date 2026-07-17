@@ -34,6 +34,7 @@ class _QrLoginScanPageState extends ConsumerState<QrLoginScanPage> {
         fit: StackFit.expand,
         children: <Widget>[
           MobileScanner(
+            key: const ValueKey<String>('qr-scan-exclusive-camera-surface'),
             onDetect: (capture) {
               final code = capture.barcodes.firstOrNull?.rawValue?.trim() ?? '';
               if (code.isEmpty || _handlingDetection) {

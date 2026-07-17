@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_discover_item.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_discover_section.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_discover_state.dart';
@@ -64,6 +65,13 @@ void main() {
     );
 
     expect(find.text('更多'), findsNWidgets(2));
+    expect(
+      find.ancestor(
+        of: find.text('新歌速递'),
+        matching: find.byType(AppSkinContentSurface),
+      ),
+      findsNothing,
+    );
 
     await tester.tap(find.text('更多').first);
     await tester.pump();

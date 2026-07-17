@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../app_navigation_service.dart';
 import '../config/app_config_controller.dart';
 import '../i18n/app_i18n.dart';
+import '../theme/skin/app_player_theme_boundary.dart';
 import '../../features/album/presentation/pages/album_detail_page.dart';
 import '../../features/artist/presentation/pages/artist_detail_page.dart';
 import '../../features/artist/presentation/pages/artist_plaza_page.dart';
@@ -37,6 +38,7 @@ import '../../features/ranking/presentation/pages/ranking_detail_page.dart';
 import '../../features/ranking/presentation/pages/ranking_list_page.dart';
 import '../../features/radio/presentation/pages/radio_plaza_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/settings/presentation/pages/skin_selection_page.dart';
 import '../../features/song/presentation/pages/song_detail_page.dart';
 import '../../features/settings/presentation/pages/about_page.dart';
 import '../../features/settings/presentation/pages/account_password_page.dart';
@@ -277,6 +279,11 @@ List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
     builder: (context, state) => const AboutPage(),
   ),
   GoRoute(
+    path: AppRoutes.settingsSkin,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) => const SkinSelectionPage(),
+  ),
+  GoRoute(
     path: AppRoutes.settingsProfile,
     parentNavigatorKey: rootNavigatorKey,
     builder: (context, state) => const AccountProfilePage(),
@@ -368,7 +375,7 @@ GoRouter createAppRouter([String? initialLocation]) {
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => CustomTransitionPage<void>(
           key: state.pageKey,
-          child: const PlayerPage(),
+          child: const AppPlayerThemeBoundary(child: PlayerPage()),
           transitionDuration: const Duration(milliseconds: 260),
           reverseTransitionDuration: const Duration(milliseconds: 220),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
