@@ -176,6 +176,38 @@ void main() {
         find.byIcon(Icons.favorite_border_rounded).first,
       );
       expect(IconTheme.of(iconElement).color, Colors.white);
+      expect(
+        _nearestOpacity(
+          tester,
+          const ValueKey<String>('artist-detail-expanded-title'),
+        ),
+        1,
+      );
+      expect(
+        _nearestOpacity(
+          tester,
+          const ValueKey<String>('artist-detail-collapsed-title'),
+        ),
+        0,
+      );
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
+      await tester.pump();
+
+      expect(
+        _nearestOpacity(
+          tester,
+          const ValueKey<String>('artist-detail-expanded-title'),
+        ),
+        0,
+      );
+      expect(
+        _nearestOpacity(
+          tester,
+          const ValueKey<String>('artist-detail-collapsed-title'),
+        ),
+        greaterThan(0),
+      );
 
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -320));
       await tester.pumpAndSettle();
@@ -233,6 +265,20 @@ void main() {
 
     expect(find.text('已选 1 首'), findsNothing);
   });
+}
+
+double _nearestOpacity(WidgetTester tester, Key key) {
+  final element = tester.element(find.byKey(key));
+  double? opacity;
+  element.visitAncestorElements((ancestor) {
+    final widget = ancestor.widget;
+    if (widget is Opacity) {
+      opacity = widget.opacity;
+      return false;
+    }
+    return true;
+  });
+  return opacity!;
 }
 
 class _TestAppConfigController extends AppConfigController {

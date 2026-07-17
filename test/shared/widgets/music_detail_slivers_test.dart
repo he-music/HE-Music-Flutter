@@ -89,6 +89,38 @@ void main() {
         _iconThemeColor(tester, Icons.favorite_border_rounded)?.toARGB32(),
         Colors.white.toARGB32(),
       );
+      expect(
+        _nearestOpacity(
+          tester,
+          const ValueKey<String>('music-detail-expanded-title'),
+        ),
+        1,
+      );
+      expect(
+        _nearestOpacity(
+          tester,
+          const ValueKey<String>('music-detail-collapsed-title'),
+        ),
+        0,
+      );
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -165));
+      await tester.pump();
+
+      expect(
+        _nearestOpacity(
+          tester,
+          const ValueKey<String>('music-detail-expanded-title'),
+        ),
+        0,
+      );
+      expect(
+        _nearestOpacity(
+          tester,
+          const ValueKey<String>('music-detail-collapsed-title'),
+        ),
+        greaterThan(0),
+      );
 
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
       await tester.pumpAndSettle();
@@ -115,4 +147,18 @@ void main() {
 Color? _iconThemeColor(WidgetTester tester, IconData icon) {
   final element = tester.element(find.byIcon(icon));
   return IconTheme.of(element).color;
+}
+
+double _nearestOpacity(WidgetTester tester, Key key) {
+  final element = tester.element(find.byKey(key));
+  double? opacity;
+  element.visitAncestorElements((ancestor) {
+    final widget = ancestor.widget;
+    if (widget is Opacity) {
+      opacity = widget.opacity;
+      return false;
+    }
+    return true;
+  });
+  return opacity!;
 }

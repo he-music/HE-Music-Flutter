@@ -54,8 +54,8 @@ class MusicDetailSliverAppBar extends StatelessWidget {
           // 0: expanded, 1: collapsed
           final fade = (1.0 - t).clamp(0.0, 1.0);
 
-          // 标题只做淡入，不做“从底部滑上来”的位移动画。
-          final titleOpacity = ((fade - 0.35) / 0.65).clamp(0.0, 1.0);
+          // 展开标题完全淡出后再显示工具栏标题，避免折叠末段两行标题重叠。
+          final collapsedTitleOpacity = ((fade - 0.62) / 0.28).clamp(0.0, 1.0);
 
           // 背景尽快不透明，避免列表内容在 AppBar 下方“穿模”。
           // 使用轻量的 easeOutQuad：1 - (1 - t)^2，避免 pow 带来的额外开销。
@@ -119,10 +119,13 @@ class MusicDetailSliverAppBar extends StatelessWidget {
                             ),
                             Expanded(
                               child: IgnorePointer(
-                                ignoring: titleOpacity <= 0,
+                                ignoring: collapsedTitleOpacity <= 0,
                                 child: Opacity(
-                                  opacity: titleOpacity,
+                                  opacity: collapsedTitleOpacity,
                                   child: Text(
+                                    key: const ValueKey<String>(
+                                      'music-detail-collapsed-title',
+                                    ),
                                     title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -530,6 +533,7 @@ class _HeroMeta extends StatelessWidget {
     final normalizedMetaItems = metaItems
         .where((item) => item.label.trim().isNotEmpty)
         .toList(growable: false);
+    final titleOpacity = ((0.58 - fade) / 0.20).clamp(0.0, 1.0);
     final subtitleOpacity = ((0.96 - fade) / 0.36).clamp(0.0, 1.0);
     final metaOpacity = ((0.86 - fade) / 0.40).clamp(0.0, 1.0);
     final descriptionOpacity = ((0.70 - fade) / 0.34).clamp(0.0, 1.0);
@@ -544,13 +548,17 @@ class _HeroMeta extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: textColor,
+          Opacity(
+            opacity: titleOpacity,
+            child: Text(
+              key: const ValueKey<String>('music-detail-expanded-title'),
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: textColor,
+              ),
             ),
           ),
           if (showSubtitle) ...<Widget>[

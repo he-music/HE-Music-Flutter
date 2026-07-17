@@ -761,7 +761,15 @@ class _ArtistSliverHeader extends StatelessWidget {
                       (expandedHeight - minHeight))
                   .clamp(0.0, 1.0);
           final collapse = (1.0 - progress).clamp(0.0, 1.0);
-          final toolbarOpacity = (collapse - 0.2).clamp(0.0, 1.0);
+          // 展开标题先淡出，折叠标题再淡入，避免临近吸顶时两者重叠。
+          final expandedTitleOpacity = ((0.58 - collapse) / 0.20).clamp(
+            0.0,
+            1.0,
+          );
+          final collapsedTitleOpacity = ((collapse - 0.62) / 0.28).clamp(
+            0.0,
+            1.0,
+          );
           final backgroundOpacity = 1.0 - (1.0 - collapse) * (1.0 - collapse);
           final toolbarBg = Color.lerp(
             Colors.transparent,
@@ -771,17 +779,17 @@ class _ArtistSliverHeader extends StatelessWidget {
           final iconColor = Color.lerp(
             Colors.white,
             theme.iconTheme.color ?? Colors.black,
-            toolbarOpacity,
+            collapse,
           )!;
           final titleColor = Color.lerp(
             Colors.white,
             theme.textTheme.titleMedium?.color ?? Colors.black,
-            toolbarOpacity,
+            collapse,
           )!;
           final collapsedOverlayStyle =
               AppTheme.systemOverlayStyleForBrightness(theme.brightness);
           final overlayStyle =
-              (toolbarOpacity > 0.58
+              (collapse > 0.58
                       ? collapsedOverlayStyle
                       : SystemUiOverlayStyle.light)
                   .copyWith(statusBarColor: Colors.transparent);
@@ -850,7 +858,7 @@ class _ArtistSliverHeader extends StatelessWidget {
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
                           child: Opacity(
-                            opacity: progress,
+                            opacity: expandedTitleOpacity,
                             child: _ArtistHeaderMeta(
                               title: title,
                               subtitle: subtitle,
@@ -884,8 +892,11 @@ class _ArtistSliverHeader extends StatelessWidget {
                             ),
                             Expanded(
                               child: Opacity(
-                                opacity: toolbarOpacity,
+                                opacity: collapsedTitleOpacity,
                                 child: Text(
+                                  key: const ValueKey<String>(
+                                    'artist-detail-collapsed-title',
+                                  ),
                                   title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -953,6 +964,7 @@ class _ArtistHeaderMeta extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           Text(
+            key: const ValueKey<String>('artist-detail-expanded-title'),
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
