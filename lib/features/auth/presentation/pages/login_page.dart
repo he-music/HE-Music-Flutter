@@ -13,6 +13,7 @@ import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/startup/app_startup_provider.dart';
+import '../../../../app/theme/skin/app_skin_background.dart';
 import '../../../../core/device/device_info_provider.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -78,115 +79,130 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         title: Text(AppI18n.t(config, 'auth.login.title')),
         leading: AppBackButton(onPressed: _handleBack),
       ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              theme.colorScheme.surface,
-              theme.colorScheme.primaryContainer.withValues(alpha: 0.52),
-              theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.92),
-            ],
-          ),
-        ),
-        child: SizedBox.expand(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          if (isDesktopQr) ...<Widget>[
-                            _DesktopLoginTabs(
-                              config: config,
-                              currentTab: _desktopLoginTab,
-                              onTabChanged: _switchDesktopLoginTab,
-                            ),
-                            const SizedBox(height: 18),
-                          ],
-                          if (!isDesktopQr ||
-                              _desktopLoginTab == _DesktopLoginTab.password)
-                            ..._buildPasswordLoginSection(config, theme),
-                          if (isDesktopQr &&
-                              _desktopLoginTab == _DesktopLoginTab.qr)
-                            _DesktopQrLoginSection(
-                              config: config,
-                              state: qrState,
-                              onRefresh: _refreshDesktopQrLogin,
-                            ),
-                        ],
-                      ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          AppSkinLegacyPageBackground(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[
+                    theme.colorScheme.surface,
+                    theme.colorScheme.primaryContainer.withValues(alpha: 0.52),
+                    theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.92,
                     ),
-                    if (oauthStatusText.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 14),
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface.withValues(
-                            alpha: 0.88,
-                          ),
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                Expanded(
-                                  child: Text(
-                                    _oauthProvider == null
-                                        ? AppI18n.t(config, 'auth.oauth.title')
-                                        : '${AppI18n.t(config, 'auth.oauth.title')} · ${_oauthProvider!}',
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                if (_oauthBusy)
-                                  const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(oauthStatusText),
-                            if (_oauthBusy) ...<Widget>[
-                              const SizedBox(height: 10),
-                              TextButton(
-                                onPressed: _cancelOAuthFlow,
-                                child: Text(
-                                  AppI18n.t(config, 'auth.oauth.cancel'),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
           ),
-        ),
+          SizedBox.expand(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Container(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface.withValues(
+                            alpha: 0.9,
+                          ),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            if (isDesktopQr) ...<Widget>[
+                              _DesktopLoginTabs(
+                                config: config,
+                                currentTab: _desktopLoginTab,
+                                onTabChanged: _switchDesktopLoginTab,
+                              ),
+                              const SizedBox(height: 18),
+                            ],
+                            if (!isDesktopQr ||
+                                _desktopLoginTab == _DesktopLoginTab.password)
+                              ..._buildPasswordLoginSection(config, theme),
+                            if (isDesktopQr &&
+                                _desktopLoginTab == _DesktopLoginTab.qr)
+                              _DesktopQrLoginSection(
+                                config: config,
+                                state: qrState,
+                                onRefresh: _refreshDesktopQrLogin,
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (oauthStatusText.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 14),
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface.withValues(
+                              alpha: 0.88,
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Text(
+                                      _oauthProvider == null
+                                          ? AppI18n.t(
+                                              config,
+                                              'auth.oauth.title',
+                                            )
+                                          : '${AppI18n.t(config, 'auth.oauth.title')} · ${_oauthProvider!}',
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                  ),
+                                  if (_oauthBusy)
+                                    const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(oauthStatusText),
+                              if (_oauthBusy) ...<Widget>[
+                                const SizedBox(height: 10),
+                                TextButton(
+                                  onPressed: _cancelOAuthFlow,
+                                  child: Text(
+                                    AppI18n.t(config, 'auth.oauth.cancel'),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

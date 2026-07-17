@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_theme_accent.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/core/device/device_info_provider.dart';
 import 'package:he_music_flutter/features/auth/presentation/pages/login_page.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -146,11 +149,38 @@ void main() {
     expect(find.text('扫一扫登录设备'), findsNothing);
     expect(find.text('二维码登录'), findsNothing);
   });
+
+  testWidgets('沉浸式皮肤下登录页保留内容但不渲染旧渐变', (tester) async {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.forest,
+    ).resolve(AppSkinRegistry.citySoundCreatorId);
+
+    await tester.pumpWidget(
+      _buildApp(
+        platform: TargetPlatform.android,
+        client: _LoginPageTestClient.mobile(),
+        theme: AppTheme.light(skin),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('登录'), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).gradient is LinearGradient,
+      ),
+      findsNothing,
+    );
+  });
 }
 
 Widget _buildApp({
   required TargetPlatform platform,
   required OnlineApiClient client,
+  ThemeData? theme,
 }) {
   return ProviderScope(
     overrides: [
@@ -159,7 +189,7 @@ Widget _buildApp({
       deviceInfoProvider.overrideWithValue(AsyncData(_testDeviceInfo)),
     ],
     child: MaterialApp(
-      theme: ThemeData(platform: platform),
+      theme: (theme ?? ThemeData()).copyWith(platform: platform),
       home: const LoginPage(redirectLocation: null),
     ),
   );
