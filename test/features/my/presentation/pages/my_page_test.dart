@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ import 'package:he_music_flutter/features/my/presentation/controllers/my_overvie
 import 'package:he_music_flutter/features/my/presentation/pages/my_page.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_overview_providers.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_playlist_shelf_providers.dart';
+import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
@@ -124,11 +126,41 @@ void main() {
     expect(username.maxLines, 1);
     expect(username.overflow, TextOverflow.ellipsis);
   });
+
+  testWidgets('创建歌单弹窗点击取消后应无异常', (tester) async {
+    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('创建歌单'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('创建歌单弹窗点击确定后应提交名称且无异常', (tester) async {
+    final apiClient = _TestOnlineApiClient();
+    await tester.pumpWidget(
+      _buildTestApp(localeCode: 'zh', onlineApiClient: apiClient),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('创建歌单'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '旅行');
+    await tester.tap(find.widgetWithText(FilledButton, '创建'));
+    await tester.pumpAndSettle();
+
+    expect(apiClient.createdPlaylistNames, <String>['旅行']);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Widget _buildTestApp({
   required String localeCode,
   String? authToken = 'token',
+  OnlineApiClient? onlineApiClient,
 }) {
   return ProviderScope(
     overrides: [
@@ -146,12 +178,26 @@ Widget _buildTestApp({
       myFavoritePlaylistsProvider.overrideWith(
         (ref) async => const <MyFavoriteItem>[],
       ),
+      if (onlineApiClient != null)
+        onlineApiClientProvider.overrideWithValue(onlineApiClient),
     ],
     child: MaterialApp(
       theme: ThemeData(platform: TargetPlatform.android),
       home: const Scaffold(body: MyPage()),
     ),
   );
+}
+
+class _TestOnlineApiClient extends OnlineApiClient {
+  _TestOnlineApiClient() : super(Dio());
+
+  final List<String> createdPlaylistNames = <String>[];
+
+  @override
+  Future<Map<String, dynamic>> createPlaylist(String name) async {
+    createdPlaylistNames.add(name);
+    return const <String, dynamic>{};
+  }
 }
 
 class _TestAppConfigController extends AppConfigController {

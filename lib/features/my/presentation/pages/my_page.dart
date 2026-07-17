@@ -214,19 +214,21 @@ class _MyPageState extends ConsumerState<MyPage> {
 
   Future<void> _createPlaylist() async {
     final config = ref.read(appConfigProvider);
-    final controller = TextEditingController();
+    var playlistName = '';
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(AppI18n.t(config, 'my.playlist.create.title')),
           content: TextField(
-            controller: controller,
             autofocus: true,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               hintText: AppI18n.t(config, 'my.playlist.create.hint'),
             ),
+            onChanged: (value) {
+              playlistName = value;
+            },
             onSubmitted: (value) {
               Navigator.of(dialogContext).pop(value.trim());
             },
@@ -238,14 +240,13 @@ class _MyPageState extends ConsumerState<MyPage> {
             ),
             FilledButton(
               onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text.trim()),
+                  Navigator.of(dialogContext).pop(playlistName.trim()),
               child: Text(AppI18n.t(config, 'my.playlist.create.submit')),
             ),
           ],
         );
       },
     );
-    controller.dispose();
     final normalized = (name ?? '').trim();
     if (normalized.isEmpty) {
       return;
