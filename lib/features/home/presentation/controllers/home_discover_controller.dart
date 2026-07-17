@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers/home_discover_providers.dart';
@@ -16,6 +18,16 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
 
   @override
   HomeDiscoverState build() {
+    ref.listen(onlinePlatformsProvider, (previous, next) {
+      final platforms = next.value;
+      if (platforms == null ||
+          platforms.isEmpty ||
+          state.errorMessage == null ||
+          _initialized) {
+        return;
+      }
+      unawaited(initialize());
+    });
     return HomeDiscoverState.initial;
   }
 

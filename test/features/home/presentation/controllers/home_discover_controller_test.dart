@@ -64,6 +64,44 @@ void main() {
 
     expect(apiClient.fetchDiscoverCallCount, 1);
   });
+
+  test('平台数据从错误恢复后应自动重试首页内容', () async {
+    final apiClient = _DelayedHomeDiscoverApiClient();
+    final container = ProviderContainer(
+      overrides: [
+        homeDiscoverApiClientProvider.overrideWithValue(apiClient),
+        onlinePlatformsProvider.overrideWith(
+          _RecoveringOnlinePlatformsController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final homeController = container.read(
+      homeDiscoverControllerProvider.notifier,
+    );
+    await homeController.initialize();
+
+    expect(
+      container.read(homeDiscoverControllerProvider).errorMessage,
+      isNotNull,
+    );
+    expect(apiClient.fetchDiscoverCallCount, 0);
+
+    final platformsController =
+        container.read(onlinePlatformsProvider.notifier)
+            as _RecoveringOnlinePlatformsController;
+    platformsController.recover();
+    await apiClient.requestStarted.future;
+    apiClient.complete();
+    await container.pump();
+
+    final recoveredState = container.read(homeDiscoverControllerProvider);
+    expect(recoveredState.errorMessage, isNull);
+    expect(recoveredState.platforms, hasLength(1));
+    expect(recoveredState.selectedPlatformId, 'qq');
+    expect(apiClient.fetchDiscoverCallCount, 1);
+  });
 }
 
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
@@ -78,6 +116,38 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
         featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
       ),
     ];
+  }
+}
+
+class _RecoveringOnlinePlatformsController extends OnlinePlatformsController {
+  static final _platforms = <OnlinePlatform>[
+    OnlinePlatform(
+      id: 'qq',
+      name: 'QQ',
+      shortName: 'QQ',
+      status: 1,
+      featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
+    ),
+  ];
+
+  var _recovered = false;
+
+  @override
+  Future<List<OnlinePlatform>> build() async {
+    throw StateError('Unauthorized');
+  }
+
+  @override
+  Future<List<OnlinePlatform>> ensureLoaded({bool forceRefresh = false}) async {
+    if (!_recovered) {
+      throw StateError('Unauthorized');
+    }
+    return _platforms;
+  }
+
+  void recover() {
+    _recovered = true;
+    state = AsyncData(_platforms);
   }
 }
 
