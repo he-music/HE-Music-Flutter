@@ -195,6 +195,18 @@ void main() {
 
       expect(find.byType(AppSkinSurface), findsOneWidget);
       expect(find.byType(BackdropFilter), findsNothing);
+      final surfaceDecoration = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.byType(AppSkinSurface),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      expect(
+        (surfaceDecoration.decoration as BoxDecoration).borderRadius,
+        BorderRadius.circular(skin.light.geometry.cardRadius),
+      );
     });
   });
 }

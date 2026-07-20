@@ -410,11 +410,9 @@ class _EntryCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return AppSkinSurface(
       role: AppSkinSurfaceRole.scrollingContent,
-      borderRadius: BorderRadius.circular(16),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),

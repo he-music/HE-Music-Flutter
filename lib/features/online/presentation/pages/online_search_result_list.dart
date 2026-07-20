@@ -324,9 +324,6 @@ class _SearchResultSkeletonList extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 2),
       itemBuilder: (context, index) {
         return AppSkinContentSurface(
-          borderRadius: BorderRadius.circular(
-            type == SearchType.artist ? 18 : 16,
-          ),
           child: switch (type) {
             SearchType.playlist => const _PlaylistSkeletonItem(),
             SearchType.album => const _AlbumSkeletonItem(),

@@ -32,8 +32,14 @@ class AppSkinSurface extends StatelessWidget {
     }
     final config = skinTheme.config;
     final geometry = config.geometry;
-    final radius =
-        borderRadius ?? BorderRadius.circular(geometry.controlRadius);
+    final configuredRadius = switch (role) {
+      AppSkinSurfaceRole.search ||
+      AppSkinSurfaceRole.miniPlayer ||
+      AppSkinSurfaceRole.navigation => geometry.controlRadius,
+      AppSkinSurfaceRole.scrollingContent => geometry.cardRadius,
+      AppSkinSurfaceRole.bottomSheet => geometry.bottomSheetRadius,
+    };
+    final radius = borderRadius ?? BorderRadius.circular(configuredRadius);
     final baseColor = switch (role) {
       AppSkinSurfaceRole.search ||
       AppSkinSurfaceRole.miniPlayer ||
@@ -67,15 +73,15 @@ class AppSkinSurface extends StatelessWidget {
                 color: config.colors.border,
                 width: geometry.borderWidth,
               ),
-        boxShadow: geometry.shadowOpacity == 0
+        boxShadow: geometry.shadowOpacity == 0 || opacity == 0
             ? const <BoxShadow>[]
             : <BoxShadow>[
                 BoxShadow(
                   color: config.colors.shadow.withValues(
                     alpha: geometry.shadowOpacity,
                   ),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  blurRadius: geometry.shadowBlurRadius,
+                  offset: geometry.shadowOffset,
                 ),
               ],
       ),
@@ -96,15 +102,9 @@ class AppSkinSurface extends StatelessWidget {
 
 /// 仅在透明页面露出全局壁纸时，为滚动内容提供稳定的可读性表面。
 class AppSkinContentSurface extends StatelessWidget {
-  const AppSkinContentSurface({
-    required this.child,
-    this.borderRadius,
-    this.padding,
-    super.key,
-  });
+  const AppSkinContentSurface({required this.child, this.padding, super.key});
 
   final Widget child;
-  final BorderRadius? borderRadius;
   final EdgeInsetsGeometry? padding;
 
   @override
@@ -116,7 +116,6 @@ class AppSkinContentSurface extends StatelessWidget {
     }
     return AppSkinSurface(
       role: AppSkinSurfaceRole.scrollingContent,
-      borderRadius: borderRadius,
       child: padding == null ? child : Padding(padding: padding!, child: child),
     );
   }

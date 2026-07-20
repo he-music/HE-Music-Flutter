@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_skin_asset_resolver.dart';
 import 'app_skin_models.dart';
+import 'app_skin_rive_animation.dart';
 import 'app_skin_theme.dart';
 
 /// 保留 classic 的页面装饰；透明页面由根背景层统一承载视觉。
@@ -62,6 +63,7 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
   Widget build(BuildContext context) {
     final config = widget.skin.configFor(Theme.of(context).brightness);
     final descriptor = config.background.wallpaper.descriptor;
+    final animation = config.background.animation;
     _synchronizeWallpaper(descriptor);
     return ExcludeSemantics(
       child: IgnorePointer(
@@ -93,7 +95,16 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
                   },
                 ),
               if (config.background.overlayColor.a > 0)
-                ColoredBox(color: config.background.overlayColor),
+                ColoredBox(
+                  key: const ValueKey<String>('app-skin-background-overlay'),
+                  color: config.background.overlayColor,
+                ),
+              if (animation case AppSkinRiveAnimationDescriptor())
+                AppSkinRiveAnimation(
+                  descriptor: animation,
+                  assetResolver: _assetResolver,
+                  enabled: widget.enableAnimation,
+                ),
             ],
           ),
         ),

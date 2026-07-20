@@ -34,6 +34,19 @@ AppSkinPackage citySoundCreatorSkin() {
 
 const _iconDirectory = 'assets/skins/city_sound_creator/icons';
 const _iconSourceColor = Color(0xFFE85D52);
+const _backgroundFit = BoxFit.cover;
+const _backgroundAlignment = Alignment(0.36, -0.12);
+const _ambientAnimation = AppSkinAnimationDescriptor.rive(
+  asset: AppSkinAssetDescriptor(
+    path: 'assets/skins/city_sound_creator/ambient.riv',
+    type: AppSkinAssetType.rive,
+  ),
+  artboard: 'CitySoundAmbient',
+  stateMachine: 'AmbientLoop',
+  fit: _backgroundFit,
+  alignment: _backgroundAlignment,
+  opacity: 0.92,
+);
 
 const _iconAssetNames = <AppSkinIconRole, String>{
   AppSkinIconRole.navigationHome: 'navigation_home.svg',
@@ -118,7 +131,11 @@ AppSkinIconCatalog _iconCatalog(AppSkinIconCatalog fallback) {
             AppSkinAssetDescriptor(
               path: '$_iconDirectory/${entry.value}',
               type: AppSkinAssetType.svg,
-              themeColorSource: _iconSourceColor,
+              themeColorSource:
+                  entry.key == AppSkinIconRole.back ||
+                      entry.key == AppSkinIconRole.forward
+                  ? null
+                  : _iconSourceColor,
             ),
           ),
         ),
@@ -138,7 +155,7 @@ AppSkinBrightnessConfig _brightnessConfig({required Brightness brightness}) {
   final scrollingSurface = isDark
       ? const Color(0xFF252B29)
       : const Color(0xFFF4F6F4);
-  final overlay = isDark ? const Color(0x42111615) : const Color(0x38FFFFFF);
+  final overlay = isDark ? const Color(0x42111615) : const Color(0x7AFFFFFF);
   return AppSkinBrightnessConfig(
     colorScheme: scheme,
     colors: AppSkinColors(
@@ -146,7 +163,7 @@ AppSkinBrightnessConfig _brightnessConfig({required Brightness brightness}) {
       canvasBackground: Colors.transparent,
       wallpaperFallback: wallpaperFallback,
       backgroundOverlay: overlay,
-      cardBackground: scrollingSurface.withValues(alpha: isDark ? 0.82 : 0.86),
+      cardBackground: scrollingSurface.withValues(alpha: 0),
       inputBackground: fixedSurface.withValues(alpha: isDark ? 0.82 : 0.84),
       navigationBackground: fixedSurface.withValues(alpha: isDark ? 0.88 : 0.9),
       navigationIndicator: const Color(0xFFE85D52).withValues(alpha: 0.18),
@@ -170,7 +187,7 @@ AppSkinBrightnessConfig _brightnessConfig({required Brightness brightness}) {
       searchOpacity: isDark ? 0.82 : 0.84,
       miniPlayerOpacity: isDark ? 0.88 : 0.9,
       navigationOpacity: isDark ? 0.88 : 0.9,
-      scrollingContentOpacity: isDark ? 0.82 : 0.86,
+      scrollingContentOpacity: 0,
       bottomSheetOpacity: isDark ? 0.96 : 0.97,
     ),
     geometry: const AppSkinGeometry(
@@ -180,6 +197,8 @@ AppSkinBrightnessConfig _brightnessConfig({required Brightness brightness}) {
       blurSigma: 8,
       borderWidth: 0.8,
       shadowOpacity: 0.12,
+      shadowBlurRadius: 12,
+      shadowOffset: Offset(0, 4),
       showNavigationIndicatorPill: false,
     ),
     background: AppSkinBackgroundConfig(
@@ -191,9 +210,9 @@ AppSkinBrightnessConfig _brightnessConfig({required Brightness brightness}) {
           type: AppSkinAssetType.rasterImage,
         ),
       ),
-      animation: const AppSkinAnimationDescriptor.none(),
-      fit: BoxFit.cover,
-      alignment: const Alignment(0.36, -0.12),
+      animation: _ambientAnimation,
+      fit: _backgroundFit,
+      alignment: _backgroundAlignment,
       overlayColor: overlay,
     ),
   );

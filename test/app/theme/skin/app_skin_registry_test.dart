@@ -65,13 +65,28 @@ void main() {
 
   test('registry rejects non-finite geometry values', () {
     final classic = classicSkinForAccent(AppThemeAccent.forest);
-    final invalid = classic.copyWith(
+    final invalidBlur = classic.copyWith(
       light: classic.light.copyWith(
         geometry: classic.light.geometry.copyWith(blurSigma: double.infinity),
       ),
     );
+    final invalidShadow = classic.copyWith(
+      light: classic.light.copyWith(
+        geometry: classic.light.geometry.copyWith(
+          shadowBlurRadius: -1,
+          shadowOffset: const Offset(double.nan, 0),
+        ),
+      ),
+    );
 
-    expect(() => AppSkinRegistry(<AppSkinPackage>[invalid]), throwsStateError);
+    expect(
+      () => AppSkinRegistry(<AppSkinPackage>[invalidBlur]),
+      throwsStateError,
+    );
+    expect(
+      () => AppSkinRegistry(<AppSkinPackage>[invalidShadow]),
+      throwsStateError,
+    );
   });
 
   test('registry rejects incomplete icon catalogs', () {

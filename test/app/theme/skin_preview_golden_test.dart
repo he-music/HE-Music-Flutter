@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +30,9 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 const _previewSize = Size(360, 640);
 const _previewKey = ValueKey<String>('skin-preview-golden-root');
+const _previewFontFamily = 'PreviewRoboto';
+const _previewCjkFontFamily = 'PreviewCjk';
+const _previewFontFallback = <String>[_previewCjkFontFamily];
 
 void main() {
   testWidgets('city sound creator previews match the real home scene', (
@@ -93,13 +97,17 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness) {
   final baseTheme = brightness == Brightness.light
       ? AppTheme.light(skin)
       : AppTheme.dark(skin);
-  final textTheme = baseTheme.textTheme.apply(fontFamily: 'PreviewRoboto');
+  final textTheme = baseTheme.textTheme.apply(
+    fontFamily: _previewFontFamily,
+    fontFamilyFallback: _previewFontFallback,
+  );
   final navigationLabelTextStyle = baseTheme.navigationBarTheme.labelTextStyle;
   final theme = baseTheme.copyWith(
     platform: TargetPlatform.android,
     textTheme: textTheme,
     primaryTextTheme: baseTheme.primaryTextTheme.apply(
-      fontFamily: 'PreviewRoboto',
+      fontFamily: _previewFontFamily,
+      fontFamilyFallback: _previewFontFallback,
     ),
     navigationBarTheme: baseTheme.navigationBarTheme.copyWith(
       labelTextStyle: navigationLabelTextStyle == null
@@ -107,7 +115,10 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness) {
           : WidgetStateProperty.resolveWith(
               (states) => navigationLabelTextStyle
                   .resolve(states)
-                  ?.copyWith(fontFamily: 'PreviewRoboto'),
+                  ?.copyWith(
+                    fontFamily: _previewFontFamily,
+                    fontFamilyFallback: _previewFontFallback,
+                  ),
             ),
     ),
   );
@@ -131,7 +142,13 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness) {
     child: MaterialApp.router(
       debugShowCheckedModeBanner: false,
       theme: theme,
-      locale: const Locale('en'),
+      locale: const Locale('zh'),
+      supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       routerConfig: router,
       builder: (context, child) => RepaintBoundary(
         key: _previewKey,
@@ -148,13 +165,21 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness) {
 }
 
 Future<void> _loadPreviewFonts() async {
-  final textLoader = FontLoader('PreviewRoboto')
+  final textLoader = FontLoader(_previewFontFamily)
     ..addFont(_fontData('test/assets/fonts/Roboto-Regular.ttf'))
     ..addFont(_fontData('test/assets/fonts/Roboto-Medium.ttf'))
     ..addFont(_fontData('test/assets/fonts/Roboto-Bold.ttf'));
+  final cjkLoader = FontLoader(_previewCjkFontFamily)
+    ..addFont(
+      _fontData('test/assets/fonts/DroidSansFallback-PreviewSubset.ttf'),
+    );
   final iconLoader = FontLoader('MaterialIcons')
     ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-  await Future.wait(<Future<void>>[textLoader.load(), iconLoader.load()]);
+  await Future.wait(<Future<void>>[
+    textLoader.load(),
+    cjkLoader.load(),
+    iconLoader.load(),
+  ]);
 }
 
 Future<ByteData> _fontData(String path) async {
@@ -175,7 +200,7 @@ class _PreviewAppConfigController extends AppConfigController {
           : AppThemeMode.dark,
       skinId: AppSkinRegistry.citySoundCreatorId,
       enableSkinAnimation: false,
-      localeCode: 'en',
+      localeCode: 'zh',
     );
   }
 }
@@ -186,10 +211,10 @@ class _PreviewPlayerController extends PlayerController {
     return PlayerPlaybackState.initial(const <PlayerTrack>[
       PlayerTrack(
         id: 'preview-track',
-        title: 'City Echoes',
-        artist: 'Nova Lin',
-        album: 'Signal Room',
-        platform: 'qq',
+        title: '城市回声',
+        artist: '林诺',
+        album: '信号房间',
+        platform: 'platform-1',
       ),
     ]).copyWith(
       isPlaying: true,
@@ -209,30 +234,30 @@ class _PreviewHomeDiscoverController extends HomeDiscoverController {
       loading: false,
       platforms: <HomePlatform>[
         HomePlatform(
-          id: 'qq',
-          name: 'QQ Music',
-          shortName: 'QQ',
+          id: 'platform-1',
+          name: '平台1',
+          shortName: '平台1',
           status: 1,
           featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
         ),
         HomePlatform(
-          id: 'netease',
-          name: 'NetEase Cloud Music',
-          shortName: 'NetEase',
+          id: 'platform-2',
+          name: '平台2',
+          shortName: '平台2',
           status: 1,
           featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
         ),
       ],
-      selectedPlatformId: 'qq',
+      selectedPlatformId: 'platform-1',
       sections: <HomeDiscoverSection>[
         HomeDiscoverSection(
           key: 'new-song',
           titleKey: 'home.section.new_song',
           type: HomeDiscoverItemType.song,
           songs: <SongInfo>[
-            _song('track-1', 'Morning Sample', 'Nova Lin', 'Signal Room'),
-            _song('track-2', 'Glass Rooftop', 'River Zhou', 'City Fragments'),
-            _song('track-3', 'Low Frequency Hall', 'Mori', 'After Hours'),
+            _song('track-1', '城市回声', '林诺', '信号房间'),
+            _song('track-2', '玻璃天台', '周河', '城市碎片'),
+            _song('track-3', '低频大厅', '森', '凌晨之后'),
           ],
         ),
       ],
@@ -245,16 +270,16 @@ class _PreviewOnlinePlatformsController extends OnlinePlatformsController {
   Future<List<OnlinePlatform>> build() async {
     return <OnlinePlatform>[
       OnlinePlatform(
-        id: 'qq',
-        name: 'QQ Music',
-        shortName: 'QQ',
+        id: 'platform-1',
+        name: '平台1',
+        shortName: '平台1',
         status: 1,
         featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
       ),
       OnlinePlatform(
-        id: 'netease',
-        name: 'NetEase Cloud Music',
-        shortName: 'NetEase',
+        id: 'platform-2',
+        name: '平台2',
+        shortName: '平台2',
         status: 1,
         featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
       ),
@@ -282,7 +307,7 @@ SongInfo _song(String id, String title, String artist, String album) {
       SongInfoArtistInfo(name: artist, id: 'artist-$id'),
     ],
     links: const <LinkInfo>[],
-    platform: 'qq',
+    platform: 'platform-1',
     cover: '',
     sublist: const <SongInfo>[],
     originalType: 0,

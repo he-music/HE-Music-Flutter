@@ -45,13 +45,11 @@ class MediaGridCard extends StatelessWidget {
     );
     final selectedBorder = theme.colorScheme.primary.withValues(alpha: 0.4);
     return AppSkinContentSurface(
-      borderRadius: BorderRadius.circular(_mediaGridCardRadius + 6),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
           color: selected ? selectedBackground : Colors.transparent,
-          borderRadius: BorderRadius.circular(_mediaGridCardRadius + 6),
           border: selected
               ? Border.all(color: selectedBorder)
               : Border.all(color: Colors.transparent),
@@ -60,7 +58,6 @@ class MediaGridCard extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(_mediaGridCardRadius + 6),
             child: Padding(
               padding: const EdgeInsets.all(_mediaGridCardPadding),
               child: LayoutBuilder(

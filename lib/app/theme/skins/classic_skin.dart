@@ -129,6 +129,8 @@ AppSkinBrightnessConfig _classicBrightnessConfig({
       blurSigma: 0,
       borderWidth: 0,
       shadowOpacity: 0.06,
+      shadowBlurRadius: 12,
+      shadowOffset: Offset(0, 4),
       showNavigationIndicatorPill: true,
     ),
     background: const AppSkinBackgroundConfig(

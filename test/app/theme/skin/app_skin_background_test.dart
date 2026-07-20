@@ -8,6 +8,7 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_asset_resolver.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_rive_animation.dart';
 import 'package:he_music_flutter/app/theme/skins/classic_skin.dart';
 
 void main() {
@@ -177,6 +178,39 @@ void main() {
       find.byKey(const ValueKey<String>('legacy-page-decoration')),
       findsNothing,
     );
+  });
+
+  testWidgets('readability overlay is rendered below the Rive animation', (
+    tester,
+  ) async {
+    final immersive = AppSkinRegistry.builtIn(
+      AppThemeAccent.forest,
+    ).resolve(AppSkinRegistry.citySoundCreatorId);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(immersive),
+        home: AppSkinBackgroundLayer(
+          skin: immersive,
+          enableAnimation: false,
+          assetResolver: const _FailingResolver(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final stack = tester.widget<Stack>(
+      find.byKey(const ValueKey<String>('app-skin-background')),
+    );
+    final overlayIndex = stack.children.indexWhere(
+      (child) =>
+          child.key == const ValueKey<String>('app-skin-background-overlay'),
+    );
+    final riveIndex = stack.children.indexWhere(
+      (child) => child is AppSkinRiveAnimation,
+    );
+    expect(overlayIndex, greaterThanOrEqualTo(0));
+    expect(riveIndex, greaterThan(overlayIndex));
   });
 }
 

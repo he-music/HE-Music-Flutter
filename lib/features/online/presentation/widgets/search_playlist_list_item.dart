@@ -24,12 +24,10 @@ class SearchPlaylistListItem extends StatelessWidget {
     final theme = Theme.of(context);
     final metaText = _joinMetaText(subtitle, songCountText ?? '');
     return AppSkinContentSurface(
-      borderRadius: BorderRadius.circular(16),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
             child: Row(

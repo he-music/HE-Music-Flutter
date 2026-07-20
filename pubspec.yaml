@@ -77,6 +77,7 @@ dependencies:
       url: https://github.com/serhiisdev/flutter_overlay_window
       ref: fix/communication_between_app_and_overlay
   toastification: ^3.2.0
+  rive: ^0.14.9
 
 dev_dependencies:
   flutter_test:
@@ -111,6 +112,7 @@ flutter:
     - assets/skins/city_sound_creator/wallpaper_dark.png
     - assets/skins/city_sound_creator/preview_light.png
     - assets/skins/city_sound_creator/preview_dark.png
+    - assets/skins/city_sound_creator/ambient.riv
     - assets/skins/city_sound_creator/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see

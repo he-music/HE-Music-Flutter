@@ -146,7 +146,6 @@ class _SongSkeletonItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppSkinContentSurface(
-      borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
         child: Row(

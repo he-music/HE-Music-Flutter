@@ -31,16 +31,19 @@ const _dark = _WallpaperContract(
 
 const _lightPreview = _PreviewContract(
   path: 'assets/skins/city_sound_creator/preview_light.png',
-  hash: '73647d7cee0fd0d8753e921b3f782fe53cb575925a1c54852aceffd392e7a438',
+  hash: 'f0066e0b0c4e979e46bf63e6ff0fbb0390802d6dde65f61cb788a958fee8d637',
 );
 
 const _darkPreview = _PreviewContract(
   path: 'assets/skins/city_sound_creator/preview_dark.png',
-  hash: 'afbde82aad22cad3d7c5b041335eede125ba1ec4147867cac187fc273a5d36a4',
+  hash: '77136963c91d9bbfdef548a9f12436678899e91a5957d20abe354288801e1b11',
 );
 
 const _iconDirectory = 'assets/skins/city_sound_creator/icons';
 const _iconSourceColorValue = 0xFFE85D52;
+const _ambientPath = 'assets/skins/city_sound_creator/ambient.riv';
+const _ambientHash =
+    '0c40df781b4f6d0125a9d1054cb7080a6e67ef2c7ad1bafbb308de546761d218';
 
 void main() {
   test('production wallpapers match approved provenance', () async {
@@ -105,7 +108,12 @@ void main() {
       final descriptor = skin.icons[role]!.asset.descriptor;
       expect(descriptor, isNotNull, reason: '$role must use a themed SVG');
       expect(descriptor!.type, AppSkinAssetType.svg);
-      expect(descriptor.themeColorSource?.toARGB32(), _iconSourceColorValue);
+      final preservesOriginalColors =
+          role == AppSkinIconRole.back || role == AppSkinIconRole.forward;
+      expect(
+        descriptor.themeColorSource?.toARGB32(),
+        preservesOriginalColors ? null : _iconSourceColorValue,
+      );
       expect(descriptor.path, startsWith('$_iconDirectory/'));
 
       final file = File(descriptor.path);
@@ -145,6 +153,44 @@ void main() {
     expect(provenance, contains('71 semantic roles'));
     expect(provenance, contains('53 unique `24x24` SVG files'));
     expect(provenance, contains('approved the complete V2 icon catalog'));
+  });
+
+  test('Rive ambient asset matches the approved runtime contract', () async {
+    final bytes = await File(_ambientPath).readAsBytes();
+    expect(bytes, hasLength(8603));
+    expect(bytes.take(4), <int>[0x52, 0x49, 0x56, 0x45]);
+    expect(sha256.convert(bytes).toString(), _ambientHash);
+
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.graphite,
+    ).resolve('city_sound_creator');
+    for (final config in <AppSkinBrightnessConfig>[skin.light, skin.dark]) {
+      final animation = config.background.animation;
+      expect(animation, isA<AppSkinRiveAnimationDescriptor>());
+      final riveAnimation = animation as AppSkinRiveAnimationDescriptor;
+      expect(
+        riveAnimation.asset,
+        const AppSkinAssetDescriptor(
+          path: _ambientPath,
+          type: AppSkinAssetType.rive,
+        ),
+      );
+      expect(riveAnimation.artboard, 'CitySoundAmbient');
+      expect(riveAnimation.stateMachine, 'AmbientLoop');
+      expect(riveAnimation.fit, config.background.fit);
+      expect(riveAnimation.alignment, config.background.alignment);
+      expect(riveAnimation.opacity, 0.92);
+    }
+
+    final pubspec = await File('pubspec.yaml').readAsString();
+    expect(pubspec, contains('    - $_ambientPath'));
+    expect(pubspec, contains('  rive: ^0.14.9'));
+    final provenance = await File(
+      'assets/skins/city_sound_creator/LICENSES.md',
+    ).readAsString();
+    expect(provenance, contains(_ambientPath));
+    expect(provenance, contains(_ambientHash));
+    expect(provenance, contains('approved V2 for an in-App trial'));
   });
 
   test('real UI previews match metadata and provenance', () async {

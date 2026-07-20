@@ -29,12 +29,10 @@ class SearchArtistListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AppSkinContentSurface(
-      borderRadius: BorderRadius.circular(18),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
             child: Row(

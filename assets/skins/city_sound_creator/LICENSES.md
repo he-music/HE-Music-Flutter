@@ -93,23 +93,51 @@ The 2x derivatives were inspected at full frame and in local detail crops on 202
 
 - Generator: `make skin-previews`, which runs `flutter test --update-goldens test/app/theme/skin_preview_golden_test.dart`.
 - Render contract: actual `MaterialApp.router`, `AppTheme`, `AppSkinBackgroundLayer`, home route, discover entries, song list, mini player, bottom navigation, production wallpapers, and production SVG catalog at a fixed `360x640` logical-pixel viewport.
-- Data contract: deterministic Riverpod overrides provide fixed English UI content; no image model redraws or synthesizes application text.
-- Test fonts: Roboto Regular, Medium, and Bold under Apache License 2.0; the files and license are retained under `test/assets/fonts/` and are not declared as runtime assets.
+- Data contract: deterministic Riverpod overrides provide fixed Chinese UI content; no image model redraws or synthesizes application text.
+- Test fonts: Roboto Regular, Medium, and Bold plus a 14 KB Chinese glyph subset derived from Android Open Source Project's Droid Sans Fallback, all under Apache License 2.0. The files, subset glyph manifest, provenance, and license are retained under `test/assets/fonts/` and are not declared as runtime assets.
 - Material fallback icons: loaded from the Material Icons font already declared by Flutter's `uses-material-design` contract.
-- Technical inspection: both previews show the decoded production wallpaper, readable text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The 2026-07-17 contrast revision adds zero-blur scrolling content surfaces and a stronger light overlay; the later home-section revision removes the background surface from section title rows.
+- Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
 - Approval: the user approved the original real-UI preview stage on 2026-07-17; the later contrast revision remains pending visual confirmation.
 
 ### Light real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `73647d7cee0fd0d8753e921b3f782fe53cb575925a1c54852aceffd392e7a438`.
+- SHA-256: `f0066e0b0c4e979e46bf63e6ff0fbb0390802d6dde65f61cb788a958fee8d637`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `afbde82aad22cad3d7c5b041335eede125ba1ec4147867cac187fc273a5d36a4`.
+- SHA-256: `77136963c91d9bbfdef548a9f12436678899e91a5957d20abe354288801e1b11`.
+
+## Rive ambient animation
+
+- Runtime path: `assets/skins/city_sound_creator/ambient.riv`.
+- Review source: `outputs/city_sound_creator_rive_v1/`, including
+  `ambient_source.svg`, `build_scene.mjs`, and the deterministic `scene.json`.
+- Authorship: project-original vector shapes and motion authored for this skin;
+  no third-party image, font, audio, script, or external file is embedded.
+- Generator: unofficial `rive-mcp-server` `0.3.0`, repository commit
+  `db7462eaee30dad0c3c1ec37c2bdfdcd47b37365`.
+- Generator license: source-available freeware; its license permits personal
+  and commercial use and unrestricted use, modification, and distribution of
+  generated `.riv` files. The generator itself is not bundled with the App.
+- File size: `8603` bytes.
+- SHA-256: `0c40df781b4f6d0125a9d1054cb7080a6e67ef2c7ad1bafbb308de546761d218`.
+- Runtime contract: Artboard `CitySoundAmbient`, Animation `ambient_loop`,
+  State Machine `AmbientLoop`, no inputs, transparent `360x640` artboard,
+  8-second 30 fps loop.
+- Composition: wallpaper, light/dark readability overlay, sparse device-bound
+  Rive animation, then App content. Wallpaper and Rive share the same fit and
+  alignment so their device coordinates remain attached on tall screens.
+- Validation: `rive-mcp` `riv_lint` returned no findings; the official Rive Web
+  runtime loaded and rendered 120 preview frames and entered `ambient_loop`;
+  the Flutter runtime integration tests load the bundled bytes and named State
+  Machine.
+- Approval: the user approved V2 for an in-App trial on 2026-07-20. Final
+  Android visual, lifecycle, frame pacing, GPU, and memory acceptance remains
+  pending.
 
 ## Usage note
 

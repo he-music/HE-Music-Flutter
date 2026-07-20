@@ -139,16 +139,11 @@ class SongListItem extends StatelessWidget {
         ? theme.colorScheme.primary.withValues(alpha: isCurrent ? 0.07 : 0.05)
         : Colors.transparent;
     return AppSkinContentSurface(
-      borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(14),
-        ),
+        decoration: BoxDecoration(color: backgroundColor),
         child: InkWell(
           onTap: effectiveOnTap,
-          borderRadius: BorderRadius.circular(14),
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: LayoutTokens.listItemInnerGutter,

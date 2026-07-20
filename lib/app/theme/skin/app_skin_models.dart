@@ -541,6 +541,8 @@ class AppSkinGeometry {
     required this.blurSigma,
     required this.borderWidth,
     required this.shadowOpacity,
+    required this.shadowBlurRadius,
+    required this.shadowOffset,
     required this.showNavigationIndicatorPill,
   });
 
@@ -550,6 +552,8 @@ class AppSkinGeometry {
   final double blurSigma;
   final double borderWidth;
   final double shadowOpacity;
+  final double shadowBlurRadius;
+  final Offset shadowOffset;
   final bool showNavigationIndicatorPill;
 
   bool get isValid =>
@@ -558,7 +562,10 @@ class AppSkinGeometry {
       _isNonNegativeFinite(bottomSheetRadius) &&
       _isNonNegativeFinite(blurSigma) &&
       _isNonNegativeFinite(borderWidth) &&
-      _isOpacity(shadowOpacity);
+      _isOpacity(shadowOpacity) &&
+      _isNonNegativeFinite(shadowBlurRadius) &&
+      shadowOffset.dx.isFinite &&
+      shadowOffset.dy.isFinite;
 
   AppSkinGeometry copyWith({
     double? controlRadius,
@@ -567,6 +574,8 @@ class AppSkinGeometry {
     double? blurSigma,
     double? borderWidth,
     double? shadowOpacity,
+    double? shadowBlurRadius,
+    Offset? shadowOffset,
     bool? showNavigationIndicatorPill,
   }) {
     return AppSkinGeometry(
@@ -576,6 +585,8 @@ class AppSkinGeometry {
       blurSigma: blurSigma ?? this.blurSigma,
       borderWidth: borderWidth ?? this.borderWidth,
       shadowOpacity: shadowOpacity ?? this.shadowOpacity,
+      shadowBlurRadius: shadowBlurRadius ?? this.shadowBlurRadius,
+      shadowOffset: shadowOffset ?? this.shadowOffset,
       showNavigationIndicatorPill:
           showNavigationIndicatorPill ?? this.showNavigationIndicatorPill,
     );
@@ -593,6 +604,8 @@ class AppSkinGeometry {
       blurSigma: _lerpDouble(a.blurSigma, b.blurSigma, t),
       borderWidth: _lerpDouble(a.borderWidth, b.borderWidth, t),
       shadowOpacity: _lerpDouble(a.shadowOpacity, b.shadowOpacity, t),
+      shadowBlurRadius: _lerpDouble(a.shadowBlurRadius, b.shadowBlurRadius, t),
+      shadowOffset: Offset.lerp(a.shadowOffset, b.shadowOffset, t)!,
       showNavigationIndicatorPill: t < 0.5
           ? a.showNavigationIndicatorPill
           : b.showNavigationIndicatorPill,
@@ -608,6 +621,8 @@ class AppSkinGeometry {
         other.blurSigma == blurSigma &&
         other.borderWidth == borderWidth &&
         other.shadowOpacity == shadowOpacity &&
+        other.shadowBlurRadius == shadowBlurRadius &&
+        other.shadowOffset == shadowOffset &&
         other.showNavigationIndicatorPill == showNavigationIndicatorPill;
   }
 
@@ -619,6 +634,8 @@ class AppSkinGeometry {
     blurSigma,
     borderWidth,
     shadowOpacity,
+    shadowBlurRadius,
+    shadowOffset,
     showNavigationIndicatorPill,
   );
 }

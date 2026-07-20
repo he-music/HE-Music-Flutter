@@ -119,13 +119,10 @@ class VideoGridItem extends ConsumerWidget {
         ? AppI18n.t(config, 'common.unknown_author')
         : creator!;
     return AppSkinContentSurface(
-      borderRadius: BorderRadius.circular(_videoCardRadius + 4),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(_videoCardRadius + 4),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(_videoCardRadius + 4),
           child: Padding(
             padding: const EdgeInsets.all(4),
             child: Column(

@@ -111,7 +111,9 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
       ),
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(geometry.cardRadius),
+        ),
         iconColor: colorScheme.primary,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
