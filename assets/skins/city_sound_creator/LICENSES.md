@@ -79,15 +79,14 @@ The 2x derivatives were inspected at full frame and in local detail crops on 202
 ## Semantic icon catalog
 
 - Production path: `assets/skins/city_sound_creator/icons/`.
-- Review source: `outputs/city_sound_creator_icons_v2/`.
-- Review manifest SHA-256: `6b7f2aa9162637585e1a319ecc8ffe1250cc25099f67bfdf5866165b11804d68`.
+- Approved review manifest SHA-256: `6b7f2aa9162637585e1a319ecc8ffe1250cc25099f67bfdf5866165b11804d68`.
 - Scope: 71 semantic roles mapped to 53 unique `24x24` SVG files; 18 strictly synonymous roles intentionally reuse an existing asset.
 - Authorship: project-original vector paths authored for this skin; no third-party icon set, stock vector, font glyph, embedded image, or generated raster source is bundled.
-- Promotion: the 53 approved SVG files were copied from the V2 review source with no tracing, conversion, recoloring, or optimization pass; trailing blank lines were normalized to one EOF newline for repository whitespace compliance.
+- Promotion: the 53 approved V2 SVG files were promoted with no tracing, conversion, recoloring, or optimization pass; trailing blank lines were normalized to one EOF newline for repository whitespace compliance.
 - Runtime color contract: `#E85D52` is the exact replaceable source color; device teal `#138F87`, beat yellow `#E7B93E`, and other authored identity colors remain fixed.
 - Technical inspection: XML parsing, `viewBox="0 0 24 24"`, 20px/24px rendering, light/dark surfaces, forbidden embedded elements, and role-to-asset completeness passed on 2026-07-17.
 - Approval: the user approved the complete V2 icon catalog on 2026-07-17.
-- Runtime packaging: `pubspec.yaml` declares only the production `icons/` directory; the review HTML, manifest, and preview PNG files remain outside the app bundle.
+- Runtime packaging: `pubspec.yaml` declares only the production `icons/` directory; temporary review HTML, manifest, and preview files were discarded after approval.
 
 ## Real UI skin previews
 
@@ -114,8 +113,8 @@ The 2x derivatives were inspected at full frame and in local detail crops on 202
 ## Rive ambient animation
 
 - Runtime path: `assets/skins/city_sound_creator/ambient.riv`.
-- Review source: `outputs/city_sound_creator_rive_v1/`, including
-  `ambient_source.svg`, `build_scene.mjs`, and the deterministic `scene.json`.
+- Temporary generation inputs and review renders were discarded after the
+  approved runtime asset and its provenance were promoted.
 - Authorship: project-original vector shapes and motion authored for this skin;
   no third-party image, font, audio, script, or external file is embedded.
 - Generator: unofficial `rive-mcp-server` `0.3.0`, repository commit
