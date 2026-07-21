@@ -44,6 +44,7 @@ class NewSongPageState {
     int? pageIndex,
     String? tabsErrorMessage,
     String? songsErrorMessage,
+    bool clearSelectedTab = false,
     bool clearTabsError = false,
     bool clearSongsError = false,
   }) {
@@ -54,7 +55,9 @@ class NewSongPageState {
       songsLoading: songsLoading ?? this.songsLoading,
       loadingMore: loadingMore ?? this.loadingMore,
       tabs: tabs ?? this.tabs,
-      selectedTabId: selectedTabId ?? this.selectedTabId,
+      selectedTabId: clearSelectedTab
+          ? null
+          : selectedTabId ?? this.selectedTabId,
       songs: songs ?? this.songs,
       hasMore: hasMore ?? this.hasMore,
       pageIndex: pageIndex ?? this.pageIndex,
@@ -70,8 +73,8 @@ class NewSongPageState {
   static const initial = NewSongPageState(
     platforms: <OnlinePlatform>[],
     selectedPlatformId: null,
-    tabsLoading: false,
-    songsLoading: false,
+    tabsLoading: true,
+    songsLoading: true,
     loadingMore: false,
     tabs: <NewReleaseTab>[],
     selectedTabId: null,

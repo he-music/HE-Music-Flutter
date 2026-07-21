@@ -13,6 +13,7 @@ import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
+import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../../online/presentation/widgets/search_playlist_list_item.dart';
@@ -46,6 +47,8 @@ class _MyPageState extends ConsumerState<MyPage> {
     );
     final tokenSet = config.authToken != null && config.authToken!.isNotEmpty;
     final overview = state.overview;
+    final profileLoading =
+        tokenSet && overview == null && state.errorMessage == null;
     final showQrScanEntry =
         platform == TargetPlatform.android || platform == TargetPlatform.iOS;
     _syncOverviewLoading(tokenSet, state);
@@ -72,15 +75,17 @@ class _MyPageState extends ConsumerState<MyPage> {
         ),
       ],
     );
-    final accountCard = _AccountCard(
-      localeCode: config.localeCode,
-      nickname: overview?.profile.nickname,
-      username: overview?.profile.username,
-      avatarUrl: overview?.profile.avatarUrl,
-      tokenSet: tokenSet,
-      loading: state.loading,
-      onLogin: () => _openLogin(context),
-    );
+    final Widget accountCard = profileLoading
+        ? const _AccountCardLoadingSkeleton()
+        : _AccountCard(
+            localeCode: config.localeCode,
+            nickname: overview?.profile.nickname,
+            username: overview?.profile.username,
+            avatarUrl: overview?.profile.avatarUrl,
+            tokenSet: tokenSet,
+            loading: state.loading && overview != null,
+            onLogin: () => _openLogin(context),
+          );
     final errorCard = state.errorMessage == null
         ? null
         : _ErrorCard(
@@ -390,6 +395,39 @@ class _AccountCard extends StatelessWidget {
   }
 }
 
+class _AccountCardLoadingSkeleton extends StatelessWidget {
+  const _AccountCardLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey<String>('my-account-loading-skeleton'),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: const Row(
+        children: <Widget>[
+          SkeletonBox(width: 60, height: 60, radius: 30),
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SkeletonBox(width: 148, height: 22, radius: 10),
+                SizedBox(height: 8),
+                SkeletonBox(width: 108, height: 14, radius: 7),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EntryCard extends StatelessWidget {
   const _EntryCard({
     required this.iconRole,
@@ -559,10 +597,7 @@ class _PlaylistShelfSection extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         if (activeState.isLoading && items.isEmpty)
-          const SizedBox(
-            height: 180,
-            child: Center(child: CircularProgressIndicator()),
-          )
+          const _PlaylistShelfLoadingSkeleton()
         else if (activeState.hasError && items.isEmpty)
           _InlineRetryCard(
             message: AppI18n.tByLocaleCode(
@@ -592,6 +627,52 @@ class _PlaylistShelfSection extends ConsumerWidget {
             onToggleExpanded: onToggleExpanded,
           ),
       ],
+    );
+  }
+}
+
+class _PlaylistShelfLoadingSkeleton extends StatelessWidget {
+  const _PlaylistShelfLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      key: ValueKey<String>('my-playlist-shelf-loading-skeleton'),
+      height: 180,
+      child: Column(
+        children: <Widget>[
+          _PlaylistShelfRowSkeleton(),
+          SizedBox(height: 8),
+          _PlaylistShelfRowSkeleton(),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaylistShelfRowSkeleton extends StatelessWidget {
+  const _PlaylistShelfRowSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: <Widget>[
+          SkeletonBox(width: 64, height: 64, radius: 14),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SkeletonBox(width: double.infinity, height: 15, radius: 7),
+                SizedBox(height: 9),
+                SkeletonBox(width: 132, height: 12, radius: 6),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

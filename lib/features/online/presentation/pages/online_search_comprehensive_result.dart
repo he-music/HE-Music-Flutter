@@ -5,6 +5,7 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/video_item.dart';
 import '../../../../shared/widgets/online_song_list_item.dart';
 import '../../../../shared/utils/cover_resolver.dart';
@@ -15,6 +16,93 @@ import '../widgets/search_album_list_item.dart';
 import '../widgets/search_artist_list_item.dart';
 import '../widgets/search_playlist_list_item.dart';
 import 'online_search_models.dart';
+
+class OnlineSearchComprehensiveSkeleton extends StatelessWidget {
+  const OnlineSearchComprehensiveSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: const <Widget>[
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: 14),
+            child: _ComprehensiveSkeletonSection(titleWidth: 108, itemCount: 1),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: _ComprehensiveSkeletonSection(titleWidth: 64, itemCount: 3),
+        ),
+        SliverToBoxAdapter(child: SizedBox(height: 14)),
+        SliverToBoxAdapter(
+          child: _ComprehensiveSkeletonSection(titleWidth: 76, itemCount: 2),
+        ),
+        SliverToBoxAdapter(child: SizedBox(height: 12)),
+      ],
+    );
+  }
+}
+
+class _ComprehensiveSkeletonSection extends StatelessWidget {
+  const _ComprehensiveSkeletonSection({
+    required this.titleWidth,
+    required this.itemCount,
+  });
+
+  final double titleWidth;
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: SkeletonBox(width: titleWidth, height: 18, radius: 8),
+        ),
+        const SizedBox(height: 8),
+        ...List<Widget>.generate(
+          itemCount,
+          (index) => const Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: _ComprehensiveSkeletonRow(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ComprehensiveSkeletonRow extends StatelessWidget {
+  const _ComprehensiveSkeletonRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: 58,
+      child: Row(
+        children: <Widget>[
+          SkeletonBox(width: 50, height: 50, radius: 10),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                SkeletonBox(width: 164, height: 15, radius: 7),
+                SizedBox(height: 8),
+                SkeletonBox(width: 112, height: 12, radius: 6),
+              ],
+            ),
+          ),
+          SizedBox(width: 8),
+          SkeletonBox(width: 28, height: 28, radius: 14),
+        ],
+      ),
+    );
+  }
+}
 
 class OnlineSearchComprehensiveResult extends ConsumerWidget {
   const OnlineSearchComprehensiveResult({

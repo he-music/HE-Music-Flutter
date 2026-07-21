@@ -17,13 +17,41 @@ class NewAlbumPageController extends Notifier<NewAlbumPageState> {
     String? preferredPlatformId,
     String? preferredTabId,
   }) async {
-    final platforms = await _loadPlatforms();
-    final platformId = _resolvePlatformId(platforms, preferredPlatformId);
-    if (platformId == null) {
-      state = state.copyWith(platforms: platforms);
-      return;
+    state = state.copyWith(
+      tabsLoading: true,
+      albumsLoading: true,
+      tabs: const [],
+      albums: const [],
+      hasMore: false,
+      pageIndex: 1,
+      clearSelectedTab: true,
+      clearTabsError: true,
+      clearAlbumsError: true,
+    );
+    try {
+      final platforms = await _loadPlatforms();
+      final platformId = _resolvePlatformId(platforms, preferredPlatformId);
+      if (platformId == null) {
+        state = state.copyWith(
+          platforms: platforms,
+          tabsLoading: false,
+          albumsLoading: false,
+        );
+        return;
+      }
+      await _loadPlatform(
+        platformId: platformId,
+        preferredTabId: preferredTabId,
+        availablePlatforms: platforms,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        tabsLoading: false,
+        albumsLoading: false,
+        tabsErrorMessage: '$error',
+        albumsErrorMessage: '$error',
+      );
     }
-    await _loadPlatform(platformId: platformId, preferredTabId: preferredTabId);
   }
 
   Future<void> selectPlatform(String platformId) async {
@@ -137,22 +165,23 @@ class NewAlbumPageController extends Notifier<NewAlbumPageState> {
   Future<void> _loadPlatform({
     required String platformId,
     String? preferredTabId,
+    List<OnlinePlatform>? availablePlatforms,
   }) async {
-    final platforms = await _loadPlatforms();
     state = state.copyWith(
-      platforms: platforms,
       selectedPlatformId: platformId,
       tabsLoading: true,
       albumsLoading: true,
       tabs: const [],
-      selectedTabId: null,
       albums: const [],
       hasMore: false,
       pageIndex: 1,
+      clearSelectedTab: true,
       clearTabsError: true,
       clearAlbumsError: true,
     );
     try {
+      final platforms = availablePlatforms ?? await _loadPlatforms();
+      state = state.copyWith(platforms: platforms);
       final tabs = await _apiClient.fetchTabs(platform: platformId);
       final selectedTabId = _resolveTabId(tabs, preferredTabId);
       state = state.copyWith(

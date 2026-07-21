@@ -108,7 +108,7 @@ class OnlineSearchResultPage extends StatelessWidget {
       );
     }
     if (initialLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const OnlineSearchComprehensiveSkeleton();
     }
     final result = comprehensiveResult;
     if (result == null) {

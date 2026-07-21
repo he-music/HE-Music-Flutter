@@ -9,6 +9,7 @@ import '../../../../../shared/widgets/app_back_button.dart';
 import '../../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../../shared/widgets/media_grid_card.dart';
 import '../../../../../shared/widgets/online_platform_tabs.dart';
+import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../online/domain/entities/online_platform.dart';
 import '../../../../../shared/widgets/underline_tab.dart';
 import '../../domain/entities/new_album_page_state.dart';
@@ -65,21 +66,29 @@ class _NewAlbumPageState extends ConsumerState<NewAlbumPage> {
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: OnlinePlatformTabs(
-                platforms: state.platforms,
-                selectedId: state.selectedPlatformId,
-                requiredFeatureFlag: PlatformFeatureSupportFlag.getNewAlbumList,
-                onSelected: controller.selectPlatform,
-              ),
+              child: state.tabsLoading && state.platforms.isEmpty
+                  ? const PlazaPlatformTabsSkeleton()
+                  : OnlinePlatformTabs(
+                      platforms: state.platforms,
+                      selectedId: state.selectedPlatformId,
+                      requiredFeatureFlag:
+                          PlatformFeatureSupportFlag.getNewAlbumList,
+                      onSelected: controller.selectPlatform,
+                    ),
             ),
             const Divider(height: 1),
-            _ReleaseTabBar(
-              labels: state.tabs
-                  .map((item) => _ReleaseTabData(id: item.id, name: item.name))
-                  .toList(growable: false),
-              selectedId: state.selectedTabId,
-              onSelected: controller.selectTab,
-            ),
+            if (state.tabsLoading && state.tabs.isEmpty)
+              const UnderlineTabsSkeleton()
+            else
+              _ReleaseTabBar(
+                labels: state.tabs
+                    .map(
+                      (item) => _ReleaseTabData(id: item.id, name: item.name),
+                    )
+                    .toList(growable: false),
+                selectedId: state.selectedTabId,
+                onSelected: controller.selectTab,
+              ),
             const Divider(height: 1),
             Expanded(
               child: _NewAlbumBody(
@@ -121,13 +130,13 @@ class _NewAlbumBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     if (state.tabsLoading && state.tabs.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const PlazaGridSkeleton();
     }
     if (state.albumsErrorMessage != null && state.albums.isEmpty) {
       return _RetryBody(message: state.albumsErrorMessage!, onRetry: onRetry);
     }
     if (state.albumsLoading && state.albums.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const PlazaGridSkeleton();
     }
     if (state.albums.isEmpty) {
       return Center(child: Text(AppI18n.t(config, 'new_album.empty')));

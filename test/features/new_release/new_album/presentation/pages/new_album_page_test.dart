@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,8 +16,37 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 
 void main() {
+  testWidgets('new album page shows all skeleton regions on first load', (
+    tester,
+  ) async {
+    final platformsCompleter = Completer<List<OnlinePlatform>>();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          playerControllerProvider.overrideWith(_TestPlayerController.new),
+          newAlbumApiClientProvider.overrideWithValue(_FakeNewAlbumApiClient()),
+          onlinePlatformsProvider.overrideWith(
+            () => _TestOnlinePlatformsController(platformsCompleter.future),
+          ),
+        ],
+        child: const MaterialApp(home: NewAlbumPage(initialPlatform: 'qq')),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(PlazaPlatformTabsSkeleton), findsOneWidget);
+    expect(find.byType(UnderlineTabsSkeleton), findsOneWidget);
+    expect(find.byType(PlazaGridSkeleton), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    platformsCompleter.complete(const <OnlinePlatform>[]);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('new album page renders album grid items', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -63,19 +94,24 @@ class _FakeNewAlbumApiClient extends NewAlbumApiClient {
 }
 
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
+  _TestOnlinePlatformsController([this.platformsFuture]);
+
+  final Future<List<OnlinePlatform>>? platformsFuture;
+
   @override
   Future<List<OnlinePlatform>> build() async {
-    return <OnlinePlatform>[
-      OnlinePlatform(
-        id: 'qq',
-        name: 'QQ Music',
-        shortName: 'QQ',
-        status: 1,
-        featureSupportFlag:
-            PlatformFeatureSupportFlag.getNewAlbumTabList |
-            PlatformFeatureSupportFlag.getNewAlbumList,
-      ),
-    ];
+    return platformsFuture ??
+        <OnlinePlatform>[
+          OnlinePlatform(
+            id: 'qq',
+            name: 'QQ Music',
+            shortName: 'QQ',
+            status: 1,
+            featureSupportFlag:
+                PlatformFeatureSupportFlag.getNewAlbumTabList |
+                PlatformFeatureSupportFlag.getNewAlbumList,
+          ),
+        ];
   }
 }
 

@@ -51,7 +51,8 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
+    // 骨架动画会持续运行，只推进页面切换动画所需的固定时长。
+    await tester.pump(const Duration(milliseconds: 500));
 
     final listViewTopLeft = tester.getTopLeft(
       find.descendant(of: find.byType(MyPage), matching: find.byType(ListView)),

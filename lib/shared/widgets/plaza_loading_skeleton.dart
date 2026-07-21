@@ -43,6 +43,33 @@ class PlazaPlatformTabsSkeleton extends StatelessWidget {
   }
 }
 
+class UnderlineTabsSkeleton extends StatelessWidget {
+  const UnderlineTabsSkeleton({
+    this.itemWidths = const <double>[48, 64, 52, 60],
+    super.key,
+  });
+
+  final List<double> itemWidths;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: itemWidths.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 20),
+        itemBuilder: (context, index) {
+          return Center(
+            child: SkeletonBox(width: itemWidths[index], height: 16, radius: 8),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class PlazaFilterPanelSkeleton extends StatelessWidget {
   const PlazaFilterPanelSkeleton({
     this.rowCount = 2,

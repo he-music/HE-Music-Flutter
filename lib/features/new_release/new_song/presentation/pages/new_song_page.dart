@@ -15,6 +15,7 @@ import '../../../../../shared/utils/favorite_song_key.dart';
 import '../../../../../shared/widgets/app_back_button.dart';
 import '../../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../../shared/widgets/online_platform_tabs.dart';
+import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../../shared/widgets/song_info_list_section.dart';
 import '../../../../../shared/widgets/underline_tab.dart';
@@ -94,21 +95,29 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: OnlinePlatformTabs(
-                platforms: state.platforms,
-                selectedId: state.selectedPlatformId,
-                requiredFeatureFlag: PlatformFeatureSupportFlag.getNewSongList,
-                onSelected: controller.selectPlatform,
-              ),
+              child: state.tabsLoading && state.platforms.isEmpty
+                  ? const PlazaPlatformTabsSkeleton()
+                  : OnlinePlatformTabs(
+                      platforms: state.platforms,
+                      selectedId: state.selectedPlatformId,
+                      requiredFeatureFlag:
+                          PlatformFeatureSupportFlag.getNewSongList,
+                      onSelected: controller.selectPlatform,
+                    ),
             ),
             const Divider(height: 1),
-            _ReleaseTabBar(
-              labels: state.tabs
-                  .map((item) => _ReleaseTabData(id: item.id, name: item.name))
-                  .toList(growable: false),
-              selectedId: state.selectedTabId,
-              onSelected: controller.selectTab,
-            ),
+            if (state.tabsLoading && state.tabs.isEmpty)
+              const UnderlineTabsSkeleton()
+            else
+              _ReleaseTabBar(
+                labels: state.tabs
+                    .map(
+                      (item) => _ReleaseTabData(id: item.id, name: item.name),
+                    )
+                    .toList(growable: false),
+                selectedId: state.selectedTabId,
+                onSelected: controller.selectTab,
+              ),
             const Divider(height: 1),
             Expanded(
               child: SongInfoListSection(
@@ -138,9 +147,9 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
                   song: song,
                   coverUrl: coverUrl,
                 ),
-                initialLoading: state.tabsLoading && state.tabs.isEmpty
-                    ? false
-                    : state.songsLoading && state.songs.isEmpty,
+                initialLoading:
+                    state.songs.isEmpty &&
+                    (state.tabsLoading || state.songsLoading),
                 errorMessage: state.songsErrorMessage,
                 onRetry: controller.retry,
                 enablePaging: true,

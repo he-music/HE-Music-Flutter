@@ -44,6 +44,7 @@ class NewAlbumPageState {
     int? pageIndex,
     String? tabsErrorMessage,
     String? albumsErrorMessage,
+    bool clearSelectedTab = false,
     bool clearTabsError = false,
     bool clearAlbumsError = false,
   }) {
@@ -54,7 +55,9 @@ class NewAlbumPageState {
       albumsLoading: albumsLoading ?? this.albumsLoading,
       loadingMore: loadingMore ?? this.loadingMore,
       tabs: tabs ?? this.tabs,
-      selectedTabId: selectedTabId ?? this.selectedTabId,
+      selectedTabId: clearSelectedTab
+          ? null
+          : selectedTabId ?? this.selectedTabId,
       albums: albums ?? this.albums,
       hasMore: hasMore ?? this.hasMore,
       pageIndex: pageIndex ?? this.pageIndex,
@@ -70,8 +73,8 @@ class NewAlbumPageState {
   static const initial = NewAlbumPageState(
     platforms: <OnlinePlatform>[],
     selectedPlatformId: null,
-    tabsLoading: false,
-    albumsLoading: false,
+    tabsLoading: true,
+    albumsLoading: true,
     loadingMore: false,
     tabs: <NewReleaseTab>[],
     selectedTabId: null,

@@ -22,6 +22,22 @@ void main() {
     });
   });
 
+  group('UnderlineTabsSkeleton', () {
+    testWidgets('应按配置渲染标签骨架且窄屏不溢出', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const SizedBox(
+            width: 240,
+            child: UnderlineTabsSkeleton(itemWidths: <double>[48, 64, 52, 60]),
+          ),
+        ),
+      );
+
+      expect(find.byType(SkeletonBox), findsNWidgets(4));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('PlazaFilterPanelSkeleton', () {
     testWidgets('默认应渲染 2 行', (tester) async {
       await tester.pumpWidget(

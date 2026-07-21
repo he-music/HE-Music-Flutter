@@ -47,7 +47,7 @@ class MyCollectionState {
   }
 
   static const initial = MyCollectionState(
-    loading: false,
+    loading: true,
     selectedType: MyFavoriteType.playlists,
     playlists: <MyFavoriteItem>[],
     artists: <MyFavoriteItem>[],

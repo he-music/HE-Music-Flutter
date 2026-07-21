@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
 import '../../domain/entities/online_platform.dart';
+import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import 'online_search_models.dart';
 
@@ -181,18 +182,8 @@ class SearchPlatformBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 6),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
+    if (loading && platforms.isEmpty) {
+      return const PlazaPlatformTabsSkeleton();
     }
     return Align(
       alignment: Alignment.centerLeft,

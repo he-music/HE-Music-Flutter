@@ -5,10 +5,77 @@ import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_comprehensive_result.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_bars.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_page.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 
 void main() {
+  testWidgets(
+    'comprehensive initial load shows section and platform skeletons',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          child: OnlineSearchResultPage(
+            localeCode: 'en',
+            selectedType: SearchType.comprehensive,
+            onTypeChanged: (_) {},
+            loadingPlatforms: true,
+            platforms: const <SearchPlatform>[],
+            selectedPlatformId: '',
+            onPlatformChanged: (_) {},
+            availableTypes: const <SearchType>[SearchType.comprehensive],
+            loading: true,
+            results: const <Map<String, dynamic>>[],
+            comprehensiveResult: null,
+            error: null,
+            initialLoading: true,
+            likedSongKeys: const <String>{},
+            onTapItem: (_, _) {},
+            onLikeSongItem: (_) async {},
+            onMoreSongItem: (_) {},
+            onMoreSection: (_) {},
+            onLoadMore: () async {},
+            loadingMore: false,
+            hasMore: false,
+          ),
+        ),
+      );
+
+      expect(find.byType(PlazaPlatformTabsSkeleton), findsOneWidget);
+      expect(find.byType(OnlineSearchComprehensiveSkeleton), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('platform refresh keeps the loaded platform tabs visible', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        child: SearchPlatformBar(
+          loading: true,
+          platforms: <SearchPlatform>[
+            SearchPlatform(
+              id: 'qq',
+              label: 'QQ',
+              available: true,
+              featureSupportFlag: BigInt.one,
+            ),
+          ],
+          requiredFeatureFlag: BigInt.one,
+          selectedPlatformId: 'qq',
+          onChanged: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('QQ'), findsOneWidget);
+    expect(find.byType(PlazaPlatformTabsSkeleton), findsNothing);
+  });
+
   testWidgets('comprehensive result renders sections in fixed order', (
     tester,
   ) async {

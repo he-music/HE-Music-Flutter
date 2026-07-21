@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,6 +67,38 @@ void main() {
       'qq|latest|1',
     ]);
   });
+
+  test('selectPlatform clears the previous tab while new tabs load', () async {
+    final client = _FakeNewAlbumApiClient();
+    final container = ProviderContainer(
+      overrides: [
+        newAlbumApiClientProvider.overrideWithValue(client),
+        onlinePlatformsProvider.overrideWith(
+          _TestOnlinePlatformsController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(newAlbumPageControllerProvider.notifier);
+    await controller.initialize(preferredPlatformId: 'qq');
+    final tabsCompleter = Completer<List<NewReleaseTab>>();
+    client.delayedTabs = tabsCompleter;
+
+    final selection = controller.selectPlatform('kg');
+    final loadingState = container.read(newAlbumPageControllerProvider);
+    expect(loadingState.selectedPlatformId, 'kg');
+    expect(loadingState.selectedTabId, isNull);
+    expect(loadingState.tabs, isEmpty);
+    expect(loadingState.albums, isEmpty);
+    expect(loadingState.tabsLoading, isTrue);
+    expect(loadingState.albumsLoading, isTrue);
+
+    tabsCompleter.complete(<NewReleaseTab>[
+      const NewReleaseTab(id: 'recommend', name: '推荐', platform: 'kg'),
+    ]);
+    await selection;
+  });
 }
 
 class _FakeNewAlbumApiClient extends NewAlbumApiClient {
@@ -72,10 +106,14 @@ class _FakeNewAlbumApiClient extends NewAlbumApiClient {
 
   final List<String> fetchTabsCalls = <String>[];
   final List<String> fetchAlbumsCalls = <String>[];
+  Completer<List<NewReleaseTab>>? delayedTabs;
 
   @override
   Future<List<NewReleaseTab>> fetchTabs({required String platform}) async {
     fetchTabsCalls.add(platform);
+    if (platform == 'kg' && delayedTabs != null) {
+      return delayedTabs!.future;
+    }
     return <NewReleaseTab>[
       NewReleaseTab(id: 'recommend', name: '推荐', platform: platform),
       NewReleaseTab(id: 'latest', name: '最新', platform: platform),

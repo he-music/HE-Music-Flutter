@@ -8,6 +8,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
+import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
@@ -300,18 +301,17 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
         oldWidget.platform != widget.platform;
     if (changed) {
       _requestedInitialLoad = false;
+      setState(() {
+        _loading = true;
+        _loadingMore = false;
+        _hasMore = true;
+        _pageIndex = 1;
+        _lastId = '';
+        _error = null;
+        _comments.clear();
+      });
       if (widget.isActive) {
         _scheduleInitialLoadIfNeeded(force: true);
-      } else {
-        setState(() {
-          _loading = true;
-          _loadingMore = false;
-          _hasMore = true;
-          _pageIndex = 1;
-          _lastId = '';
-          _error = null;
-          _comments.clear();
-        });
       }
       return;
     }
@@ -332,13 +332,7 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
   Widget build(BuildContext context) {
     super.build(context);
     if (_loading && _comments.isEmpty) {
-      return const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
-      );
+      return const _CommentListLoadingSkeleton();
     }
     if (_error != null && _comments.isEmpty) {
       return ListView(
@@ -420,7 +414,6 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
       _pageIndex = 1;
       _lastId = '';
       _error = null;
-      _comments.clear();
     });
     await _loadPage(reset: true);
   }
@@ -469,7 +462,13 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
           .map<Map<String, dynamic>>(_normalizeComment)
           .toList(growable: false);
       setState(() {
-        _comments.addAll(next);
+        if (reset) {
+          _comments
+            ..clear()
+            ..addAll(next);
+        } else {
+          _comments.addAll(next);
+        }
         _hasMore = result.hasMore;
         _lastId = result.lastId;
         _pageIndex += 1;
@@ -563,6 +562,94 @@ class _CommentEmptyView extends StatelessWidget {
               context,
             ).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommentListLoadingSkeleton extends StatelessWidget {
+  const _CommentListLoadingSkeleton({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      key: ValueKey<String>(
+        compact
+            ? 'comment-replies-loading-skeleton'
+            : 'comments-loading-skeleton',
+      ),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(12, compact ? 10 : 8, 12, 12),
+      itemCount: compact ? 4 : 5,
+      separatorBuilder: (_, _) => SizedBox(height: compact ? 8 : 10),
+      itemBuilder: (context, index) => _CommentRowLoadingSkeleton(
+        compact: compact,
+        showReplyPreview: !compact && index == 0,
+      ),
+    );
+  }
+}
+
+class _CommentRowLoadingSkeleton extends StatelessWidget {
+  const _CommentRowLoadingSkeleton({
+    required this.compact,
+    required this.showReplyPreview,
+  });
+
+  final bool compact;
+  final bool showReplyPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarSide = compact ? 28.0 : 36.0;
+    return Container(
+      padding: EdgeInsets.all(compact ? 10 : 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(compact ? 10 : 12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              SkeletonBox(
+                width: avatarSide,
+                height: avatarSide,
+                radius: avatarSide / 2,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    SkeletonBox(width: 112, height: 14, radius: 7),
+                    SizedBox(height: 6),
+                    SkeletonBox(width: 82, height: 11, radius: 6),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 8 : 10),
+          const SkeletonBox(width: double.infinity, height: 14, radius: 7),
+          const SizedBox(height: 7),
+          const SkeletonBox(width: 196, height: 14, radius: 7),
+          const SizedBox(height: 10),
+          const Row(
+            children: <Widget>[
+              SkeletonBox(width: 42, height: 12, radius: 6),
+              SizedBox(width: 14),
+              SkeletonBox(width: 42, height: 12, radius: 6),
+            ],
+          ),
+          if (showReplyPreview) ...<Widget>[
+            const SizedBox(height: 10),
+            const SkeletonBox(width: double.infinity, height: 48, radius: 10),
+          ],
         ],
       ),
     );
@@ -936,13 +1023,7 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
 
   Widget _buildReplyList(BuildContext context) {
     if (_loading && _replies.isEmpty) {
-      return const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
-      );
+      return const _CommentListLoadingSkeleton(compact: true);
     }
     if (_error != null && _replies.isEmpty) {
       return ListView(
@@ -1023,7 +1104,6 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
       _pageIndex = 1;
       _lastId = '';
       _error = null;
-      _replies.clear();
     });
     await _loadPage(reset: true);
   }
@@ -1067,7 +1147,13 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
           .map<Map<String, dynamic>>(_normalizeComment)
           .toList(growable: false);
       setState(() {
-        _replies.addAll(next);
+        if (reset) {
+          _replies
+            ..clear()
+            ..addAll(next);
+        } else {
+          _replies.addAll(next);
+        }
         _hasMore = result.hasMore;
         _lastId = result.lastId;
         _pageIndex += 1;

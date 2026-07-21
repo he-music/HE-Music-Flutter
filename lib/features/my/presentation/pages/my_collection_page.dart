@@ -65,7 +65,8 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage> {
                   .read(myCollectionControllerProvider.notifier)
                   .selectType,
             ),
-            if (state.loading) const LinearProgressIndicator(),
+            if (state.loading && state.selectedItems.isNotEmpty)
+              const LinearProgressIndicator(),
             if (state.errorMessage != null)
               _ErrorPanel(
                 message: state.errorMessage!,
@@ -79,6 +80,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage> {
                 config: config,
                 selectedType: state.selectedType,
                 items: state.selectedItems,
+                initialLoading: state.loading && state.selectedItems.isEmpty,
                 emptyText: AppI18n.t(config, 'my.collection.empty'),
                 onRemove: (item) => _confirmRemove(context, config, item),
               ),
@@ -170,6 +172,7 @@ class _CollectionList extends ConsumerWidget {
     required this.config,
     required this.selectedType,
     required this.items,
+    required this.initialLoading,
     required this.emptyText,
     required this.onRemove,
   });
@@ -177,16 +180,18 @@ class _CollectionList extends ConsumerWidget {
   final AppConfigState config;
   final MyFavoriteType selectedType;
   final List<MyFavoriteItem> items;
+  final bool initialLoading;
   final String emptyText;
   final ValueChanged<MyFavoriteItem> onRemove;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (items.isEmpty) {
+    if (items.isEmpty && !initialLoading) {
       return Center(child: Text(emptyText));
     }
     return SongListComponent(
       itemCount: items.length,
+      initialLoading: initialLoading,
       enablePaging: false,
       itemBuilder: (context, index) {
         final item = items[index];

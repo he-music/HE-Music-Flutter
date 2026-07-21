@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -113,6 +115,36 @@ void main() {
     expect(find.text('个人资料'), findsNothing);
   });
 
+  testWidgets('my page shows account and playlist skeletons while loading', (
+    tester,
+  ) async {
+    final playlistsCompleter = Completer<List<MyFavoriteItem>>();
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        localeCode: 'zh',
+        overviewLoading: true,
+        playlistsFuture: playlistsCompleter.future,
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('my-account-loading-skeleton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('my-playlist-shelf-loading-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.text('访客'), findsNothing);
+    expect(find.text('播放历史'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    playlistsCompleter.complete(const <MyFavoriteItem>[]);
+    await tester.pump();
+  });
+
   testWidgets('account identity text is constrained to one line', (
     tester,
   ) async {
@@ -163,6 +195,8 @@ Widget _buildTestApp({
   required String localeCode,
   String? authToken = 'token',
   OnlineApiClient? onlineApiClient,
+  bool overviewLoading = false,
+  Future<List<MyFavoriteItem>>? playlistsFuture,
 }) {
   return ProviderScope(
     overrides: [
@@ -172,13 +206,17 @@ Widget _buildTestApp({
           authToken: authToken,
         ),
       ),
-      myOverviewControllerProvider.overrideWith(_TestMyOverviewController.new),
+      myOverviewControllerProvider.overrideWith(
+        overviewLoading
+            ? _LoadingMyOverviewController.new
+            : _TestMyOverviewController.new,
+      ),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
       myCreatedPlaylistsProvider.overrideWith(
-        (ref) async => const <MyFavoriteItem>[],
+        (ref) => playlistsFuture ?? Future.value(const <MyFavoriteItem>[]),
       ),
       myFavoritePlaylistsProvider.overrideWith(
-        (ref) async => const <MyFavoriteItem>[],
+        (ref) => playlistsFuture ?? Future.value(const <MyFavoriteItem>[]),
       ),
       if (onlineApiClient != null)
         onlineApiClientProvider.overrideWithValue(onlineApiClient),
@@ -242,6 +280,16 @@ class _TestMyOverviewController extends MyOverviewController {
       ),
     );
   }
+}
+
+class _LoadingMyOverviewController extends MyOverviewController {
+  @override
+  MyOverviewState build() {
+    return MyOverviewState.initial;
+  }
+
+  @override
+  Future<void> refresh() async {}
 }
 
 class _TestPlayerController extends PlayerController {

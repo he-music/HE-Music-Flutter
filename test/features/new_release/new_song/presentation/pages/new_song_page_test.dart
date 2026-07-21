@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,8 +25,34 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
+import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
+import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 
 void main() {
+  testWidgets('new song page shows all skeleton regions on first load', (
+    tester,
+  ) async {
+    final platformsCompleter = Completer<List<OnlinePlatform>>();
+
+    await tester.pumpWidget(
+      _buildTestApp(platformsFuture: platformsCompleter.future),
+    );
+    await tester.pump();
+
+    expect(find.byType(PlazaPlatformTabsSkeleton), findsOneWidget);
+    expect(find.byType(UnderlineTabsSkeleton), findsOneWidget);
+    expect(
+      tester
+          .widget<SongListComponent>(find.byType(SongListComponent))
+          .initialLoading,
+      isTrue,
+    );
+    expect(find.text('暂无新歌'), findsNothing);
+
+    platformsCompleter.complete(const <OnlinePlatform>[]);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets(
     'new song page shows english title and empty text for en locale',
     (tester) async {
@@ -103,6 +131,7 @@ Widget _buildTestApp({
   _TestOnlineController? onlineController,
   NewSongApiClient? apiClient,
   String localeCode = 'zh',
+  Future<List<OnlinePlatform>>? platformsFuture,
 }) {
   return ProviderScope(
     overrides: [
@@ -121,7 +150,9 @@ Widget _buildTestApp({
       newSongApiClientProvider.overrideWithValue(
         apiClient ?? _FakeNewSongApiClient(),
       ),
-      onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
+      onlinePlatformsProvider.overrideWith(
+        () => _TestOnlinePlatformsController(platformsFuture),
+      ),
     ],
     child: MaterialApp(
       theme: ThemeData(platform: TargetPlatform.android),
@@ -185,20 +216,25 @@ class _FakeEmptyNewSongApiClient extends _FakeNewSongApiClient {
 }
 
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
+  _TestOnlinePlatformsController([this.platformsFuture]);
+
+  final Future<List<OnlinePlatform>>? platformsFuture;
+
   @override
   Future<List<OnlinePlatform>> build() async {
-    return <OnlinePlatform>[
-      OnlinePlatform(
-        id: 'qq',
-        name: 'QQ Music',
-        shortName: 'QQ',
-        status: 1,
-        featureSupportFlag:
-            PlatformFeatureSupportFlag.getNewSongTabList |
-            PlatformFeatureSupportFlag.getNewSongList |
-            PlatformFeatureSupportFlag.getCommentList,
-      ),
-    ];
+    return platformsFuture ??
+        <OnlinePlatform>[
+          OnlinePlatform(
+            id: 'qq',
+            name: 'QQ Music',
+            shortName: 'QQ',
+            status: 1,
+            featureSupportFlag:
+                PlatformFeatureSupportFlag.getNewSongTabList |
+                PlatformFeatureSupportFlag.getNewSongList |
+                PlatformFeatureSupportFlag.getCommentList,
+          ),
+        ];
   }
 }
 
