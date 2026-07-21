@@ -5,7 +5,7 @@ import '../controllers/artist_detail_controller.dart';
 
 export '../../data/providers/artist_detail_providers.dart';
 
-final artistDetailControllerProvider =
-    NotifierProvider<ArtistDetailController, ArtistDetailState>(
-      ArtistDetailController.new,
+final artistDetailControllerProvider = NotifierProvider.autoDispose
+    .family<ArtistDetailController, ArtistDetailState, String>(
+      (_) => ArtistDetailController(),
     );

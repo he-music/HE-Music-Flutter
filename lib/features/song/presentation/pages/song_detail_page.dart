@@ -78,15 +78,17 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
       ),
     );
     Future.microtask(
-      () =>
-          ref.read(songDetailControllerProvider.notifier).initialize(_request),
+      () => ref
+          .read(songDetailControllerProvider(_request.cacheKey).notifier)
+          .initialize(_request),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(songDetailControllerProvider);
-    final controller = ref.read(songDetailControllerProvider.notifier);
+    final provider = songDetailControllerProvider(_request.cacheKey);
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
     final content = state.content;
 
     if (content == null) {

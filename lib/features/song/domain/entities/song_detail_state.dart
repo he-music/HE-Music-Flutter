@@ -43,7 +43,7 @@ class SongDetailState {
   }
 
   static const initial = SongDetailState(
-    loading: false,
+    loading: true,
     relationsLoading: false,
   );
 }

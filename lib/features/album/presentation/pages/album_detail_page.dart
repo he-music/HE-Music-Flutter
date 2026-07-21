@@ -74,14 +74,17 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
       ),
     );
     Future.microtask(() {
-      ref.read(albumDetailControllerProvider.notifier).initialize(_request);
+      ref
+          .read(albumDetailControllerProvider(_request.cacheKey).notifier)
+          .initialize(_request);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(albumDetailControllerProvider);
-    final controller = ref.read(albumDetailControllerProvider.notifier);
+    final provider = albumDetailControllerProvider(_request.cacheKey);
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
     final content = state.content;
 
     if (content == null) {

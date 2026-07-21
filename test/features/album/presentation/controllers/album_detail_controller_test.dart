@@ -23,15 +23,14 @@ void main() {
         platform: 'qq',
         title: '测试专辑',
       );
+      final provider = albumDetailControllerProvider(request.cacheKey);
+      final subscription = container.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
 
-      await container
-          .read(albumDetailControllerProvider.notifier)
-          .initialize(request);
-      await container
-          .read(albumDetailControllerProvider.notifier)
-          .initialize(request);
+      await container.read(provider.notifier).initialize(request);
+      await container.read(provider.notifier).initialize(request);
 
-      final state = container.read(albumDetailControllerProvider);
+      final state = container.read(provider);
 
       expect(repository.fetchDetailCallCount, 1);
       expect(state.content?.title, '测试专辑');

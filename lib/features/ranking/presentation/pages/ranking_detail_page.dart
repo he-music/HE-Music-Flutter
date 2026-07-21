@@ -23,11 +23,7 @@ import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/ranking_detail_request.dart';
 import '../../domain/entities/ranking_song.dart';
 import '../controllers/ranking_detail_controller.dart';
-
-final rankingDetailControllerProvider =
-    NotifierProvider<RankingDetailController, RankingDetailState>(
-      RankingDetailController.new,
-    );
+import '../providers/ranking_providers.dart';
 
 class RankingDetailPage extends ConsumerStatefulWidget {
   const RankingDetailPage({
@@ -75,14 +71,17 @@ class _RankingDetailPageState extends ConsumerState<RankingDetailPage> {
       ),
     );
     Future.microtask(() {
-      ref.read(rankingDetailControllerProvider.notifier).initialize(_request);
+      ref
+          .read(rankingDetailControllerProvider(_request.cacheKey).notifier)
+          .initialize(_request);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(rankingDetailControllerProvider);
-    final controller = ref.read(rankingDetailControllerProvider.notifier);
+    final provider = rankingDetailControllerProvider(_request.cacheKey);
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
     final config = ref.watch(appConfigProvider);
     final title =
         state.detail?.info.name ??

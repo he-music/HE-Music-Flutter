@@ -24,5 +24,5 @@ class AlbumDetailState {
     );
   }
 
-  static const initial = AlbumDetailState(loading: false);
+  static const initial = AlbumDetailState(loading: true);
 }

@@ -4,8 +4,14 @@ import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../data/providers/ranking_providers.dart';
 import '../../domain/entities/ranking_group.dart';
+import '../controllers/ranking_detail_controller.dart';
 
 export '../../data/providers/ranking_providers.dart';
+
+final rankingDetailControllerProvider = NotifierProvider.autoDispose
+    .family<RankingDetailController, RankingDetailState, String>(
+      (_) => RankingDetailController(),
+    );
 
 final rankingPlatformsProvider = FutureProvider<List<OnlinePlatform>>((
   ref,

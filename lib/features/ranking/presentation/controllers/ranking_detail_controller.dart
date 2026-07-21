@@ -4,7 +4,7 @@ import '../../domain/entities/ranking_detail.dart';
 import '../../domain/entities/ranking_detail_request.dart';
 import '../../domain/entities/ranking_song.dart';
 import '../../domain/repositories/ranking_repository.dart';
-import '../providers/ranking_providers.dart';
+import '../../data/providers/ranking_providers.dart';
 
 class RankingDetailState {
   const RankingDetailState({
@@ -47,7 +47,7 @@ class RankingDetailState {
   }
 
   static const initial = RankingDetailState(
-    loading: false,
+    loading: true,
     loadingMore: false,
     detail: null,
     songs: <RankingSong>[],
@@ -78,6 +78,9 @@ class RankingDetailController extends Notifier<RankingDetailState> {
   }
 
   Future<void> loadMore(RankingDetailRequest request) async {
+    if (!ref.mounted) {
+      return;
+    }
     final detail = state.detail;
     if (detail == null || !state.hasMore || state.loadingMore) {
       return;
@@ -91,6 +94,9 @@ class RankingDetailController extends Notifier<RankingDetailState> {
         pageIndex: nextPage,
         lastId: detail.lastId,
       );
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(
         loadingMore: false,
         detail: next,
@@ -100,11 +106,17 @@ class RankingDetailController extends Notifier<RankingDetailState> {
         clearError: true,
       );
     } catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(loadingMore: false, errorMessage: '$error');
     }
   }
 
   Future<void> _loadFirst(RankingDetailRequest request) async {
+    if (!ref.mounted) {
+      return;
+    }
     state = state.copyWith(
       loading: true,
       loadingMore: false,
@@ -118,6 +130,9 @@ class RankingDetailController extends Notifier<RankingDetailState> {
         platform: request.platform,
         pageIndex: 1,
       );
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         detail: detail,
@@ -127,6 +142,9 @@ class RankingDetailController extends Notifier<RankingDetailState> {
         clearError: true,
       );
     } catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(loading: false, errorMessage: '$error');
     }
   }

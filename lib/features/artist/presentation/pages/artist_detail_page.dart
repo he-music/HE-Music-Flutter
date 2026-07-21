@@ -105,9 +105,14 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
       ..addListener(_handleTabChanged);
     Future.microtask(() async {
       await ref
-          .read(artistDetailControllerProvider.notifier)
+          .read(artistDetailControllerProvider(_request.cacheKey).notifier)
           .initialize(_request);
-      final content = ref.read(artistDetailControllerProvider).content;
+      if (!mounted) {
+        return;
+      }
+      final content = ref
+          .read(artistDetailControllerProvider(_request.cacheKey))
+          .content;
       if (content != null && content.songs.isNotEmpty) {
         if (!mounted) {
           return;
@@ -135,11 +140,12 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(artistDetailControllerProvider);
+    final provider = artistDetailControllerProvider(_request.cacheKey);
+    final state = ref.watch(provider);
     final currentTrack = ref.watch(
       playerControllerProvider.select((player) => player.currentTrack),
     );
-    final controller = ref.read(artistDetailControllerProvider.notifier);
+    final controller = ref.read(provider.notifier);
     final content = state.content;
     final platforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];

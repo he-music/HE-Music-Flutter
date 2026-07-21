@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/playlist_detail_request.dart';
 import '../../domain/entities/playlist_detail_state.dart';
 import '../../domain/repositories/playlist_detail_repository.dart';
-import '../providers/playlist_detail_providers.dart';
+import '../../data/providers/playlist_detail_providers.dart';
 
 class PlaylistDetailController extends Notifier<PlaylistDetailState> {
   String _lastRequestKey = '';
@@ -26,15 +26,24 @@ class PlaylistDetailController extends Notifier<PlaylistDetailState> {
   }
 
   Future<void> _load(PlaylistDetailRequest request) async {
+    if (!ref.mounted) {
+      return;
+    }
     state = state.copyWith(loading: true, clearError: true);
     try {
       final content = await _repository.fetchDetail(request);
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         content: content,
         clearError: true,
       );
     } catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(loading: false, errorMessage: '$error');
     }
   }

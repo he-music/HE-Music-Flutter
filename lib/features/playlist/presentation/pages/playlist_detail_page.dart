@@ -75,14 +75,17 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       ),
     );
     Future.microtask(() {
-      ref.read(playlistDetailControllerProvider.notifier).initialize(_request);
+      ref
+          .read(playlistDetailControllerProvider(_request.cacheKey).notifier)
+          .initialize(_request);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(playlistDetailControllerProvider);
-    final controller = ref.read(playlistDetailControllerProvider.notifier);
+    final provider = playlistDetailControllerProvider(_request.cacheKey);
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
     final content = state.content;
 
     if (content == null) {

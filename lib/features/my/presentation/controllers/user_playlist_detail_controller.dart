@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/he_music_models.dart';
 import '../../../playlist/domain/entities/playlist_detail_state.dart';
+import '../../data/providers/user_playlist_detail_providers.dart';
 import '../../domain/entities/user_playlist_detail_request.dart';
 import '../../domain/repositories/user_playlist_detail_repository.dart';
 import '../providers/favorite_song_status_providers.dart';
-import '../providers/user_playlist_detail_providers.dart';
 
 class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
   String _lastRequestKey = '';
@@ -44,6 +44,9 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
       cover: cover,
       description: description,
     );
+    if (!ref.mounted) {
+      return;
+    }
     await _load(request);
   }
 
@@ -57,26 +60,40 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
     required List<IdPlatformInfo> songs,
     bool isDefaultPlaylist = false,
   }) async {
+    final favoriteStatus = isDefaultPlaylist
+        ? ref.read(favoriteSongStatusProvider.notifier)
+        : null;
     await _repository.removeSongs(playlistId: request.id, songs: songs);
-    if (isDefaultPlaylist) {
-      final favoriteStatus = ref.read(favoriteSongStatusProvider.notifier);
+    if (favoriteStatus != null) {
       for (final song in songs) {
         favoriteStatus.removeSong(songId: song.id, platform: song.platform);
       }
+    }
+    if (!ref.mounted) {
+      return;
     }
     await _load(request);
   }
 
   Future<void> _load(UserPlaylistDetailRequest request) async {
+    if (!ref.mounted) {
+      return;
+    }
     state = state.copyWith(loading: true, clearError: true);
     try {
       final content = await _repository.fetchDetail(request);
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         content: content,
         clearError: true,
       );
     } catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(loading: false, errorMessage: '$error');
     }
   }

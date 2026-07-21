@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +22,7 @@ import 'package:he_music_flutter/features/playlist/presentation/pages/playlist_d
 import 'package:he_music_flutter/features/playlist/presentation/providers/playlist_detail_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
+import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 
 void main() {
   testWidgets('playlist detail favorite icon uses error color when liked', (
@@ -59,6 +62,70 @@ void main() {
     final context = tester.element(find.byType(PlaylistDetailPage));
 
     expect(icon.color, Theme.of(context).colorScheme.error);
+  });
+
+  testWidgets('switching playlists never shows the previous content', (
+    tester,
+  ) async {
+    final repository = _ControlledPlaylistDetailRepository();
+    var currentRequest = const PlaylistDetailRequest(
+      id: 'playlist-a',
+      platform: 'qq',
+      title: '歌单 A',
+    );
+    late StateSetter updateHost;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          playerControllerProvider.overrideWith(_TestPlayerController.new),
+          onlinePlatformsProvider.overrideWith(
+            _TestOnlinePlatformsController.new,
+          ),
+          playlistDetailRepositoryProvider.overrideWithValue(repository),
+          favoriteSongStatusProvider.overrideWith(
+            _TestFavoriteSongStatusController.new,
+          ),
+          favoriteCollectionStatusProvider.overrideWith(
+            _LikedPlaylistCollectionStatusController.new,
+          ),
+        ],
+        child: MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              updateHost = setState;
+              return PlaylistDetailPage(
+                key: ValueKey(currentRequest.cacheKey),
+                id: currentRequest.id,
+                platform: currentRequest.platform,
+                title: currentRequest.title,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    repository.complete(currentRequest);
+    await tester.pump();
+    expect(find.text('歌单 A'), findsWidgets);
+
+    const requestB = PlaylistDetailRequest(
+      id: 'playlist-b',
+      platform: 'qq',
+      title: '歌单 B',
+    );
+    updateHost(() => currentRequest = requestB);
+    await tester.pump();
+
+    expect(find.byType(DetailLoadingBody), findsOneWidget);
+    expect(find.text('歌单 A'), findsNothing);
+
+    repository.complete(requestB);
+    await tester.pump();
+    expect(find.text('歌单 B'), findsWidgets);
   });
 }
 
@@ -135,6 +202,36 @@ class _FakePlaylistDetailRepository implements PlaylistDetailRepository {
         description: '测试描述',
       ),
       songs: const <SongInfo>[],
+    );
+  }
+}
+
+class _ControlledPlaylistDetailRepository implements PlaylistDetailRepository {
+  final Map<String, Completer<PlaylistDetailContent>> _completers = {};
+
+  @override
+  Future<PlaylistDetailContent> fetchDetail(PlaylistDetailRequest request) {
+    return (_completers[request.cacheKey] ??=
+            Completer<PlaylistDetailContent>())
+        .future;
+  }
+
+  void complete(PlaylistDetailRequest request) {
+    _completers[request.cacheKey]!.complete(
+      PlaylistDetailContent(
+        info: PlaylistInfo(
+          name: request.title,
+          id: request.id,
+          cover: '',
+          creator: '',
+          songCount: '0',
+          playCount: '0',
+          songs: const <SongInfo>[],
+          platform: request.platform,
+          description: '',
+        ),
+        songs: const <SongInfo>[],
+      ),
     );
   }
 }

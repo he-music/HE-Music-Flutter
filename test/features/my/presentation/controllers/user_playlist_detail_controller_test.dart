@@ -19,12 +19,14 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    final controller = container.read(
-      userPlaylistDetailControllerProvider.notifier,
-    );
+    const request = UserPlaylistDetailRequest(id: 'playlist-1', title: 'T');
+    final provider = userPlaylistDetailControllerProvider(request.cacheKey);
+    final subscription = container.listen(provider, (_, _) {});
+    addTearDown(subscription.close);
+    final controller = container.read(provider.notifier);
 
     await controller.removeSongs(
-      request: const UserPlaylistDetailRequest(id: 'playlist-1', title: 'T'),
+      request: request,
       songs: const <IdPlatformInfo>[
         IdPlatformInfo(id: 'song-1', platform: 'qq'),
       ],

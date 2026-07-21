@@ -24,5 +24,5 @@ class ArtistDetailState {
     );
   }
 
-  static const initial = ArtistDetailState(loading: false);
+  static const initial = ArtistDetailState(loading: true);
 }

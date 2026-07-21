@@ -24,5 +24,5 @@ class PlaylistDetailState {
     );
   }
 
-  static const initial = PlaylistDetailState(loading: false);
+  static const initial = PlaylistDetailState(loading: true);
 }

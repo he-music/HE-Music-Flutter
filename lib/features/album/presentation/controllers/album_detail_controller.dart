@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/album_detail_request.dart';
 import '../../domain/entities/album_detail_state.dart';
 import '../../domain/repositories/album_detail_repository.dart';
-import '../providers/album_detail_providers.dart';
+import '../../data/providers/album_detail_providers.dart';
 
 class AlbumDetailController extends Notifier<AlbumDetailState> {
   String _lastRequestKey = '';
@@ -26,15 +26,24 @@ class AlbumDetailController extends Notifier<AlbumDetailState> {
   }
 
   Future<void> _load(AlbumDetailRequest request) async {
+    if (!ref.mounted) {
+      return;
+    }
     state = state.copyWith(loading: true, clearError: true);
     try {
       final content = await _repository.fetchDetail(request);
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         content: content,
         clearError: true,
       );
     } catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(loading: false, errorMessage: '$error');
     }
   }

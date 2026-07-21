@@ -5,7 +5,7 @@ import '../controllers/song_detail_controller.dart';
 
 export '../../data/providers/song_detail_providers.dart';
 
-final songDetailControllerProvider =
-    NotifierProvider<SongDetailController, SongDetailState>(
-      SongDetailController.new,
+final songDetailControllerProvider = NotifierProvider.autoDispose
+    .family<SongDetailController, SongDetailState, String>(
+      (_) => SongDetailController(),
     );

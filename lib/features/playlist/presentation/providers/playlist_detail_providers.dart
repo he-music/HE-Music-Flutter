@@ -5,7 +5,7 @@ import '../controllers/playlist_detail_controller.dart';
 
 export '../../data/providers/playlist_detail_providers.dart';
 
-final playlistDetailControllerProvider =
-    NotifierProvider<PlaylistDetailController, PlaylistDetailState>(
-      PlaylistDetailController.new,
+final playlistDetailControllerProvider = NotifierProvider.autoDispose
+    .family<PlaylistDetailController, PlaylistDetailState, String>(
+      (_) => PlaylistDetailController(),
     );

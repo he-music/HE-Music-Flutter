@@ -5,7 +5,7 @@ import '../controllers/album_detail_controller.dart';
 
 export '../../data/providers/album_detail_providers.dart';
 
-final albumDetailControllerProvider =
-    NotifierProvider<AlbumDetailController, AlbumDetailState>(
-      AlbumDetailController.new,
+final albumDetailControllerProvider = NotifierProvider.autoDispose
+    .family<AlbumDetailController, AlbumDetailState, String>(
+      (_) => AlbumDetailController(),
     );

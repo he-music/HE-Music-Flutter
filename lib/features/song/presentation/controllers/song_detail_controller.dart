@@ -5,7 +5,7 @@ import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/entities/song_detail_request.dart';
 import '../../domain/entities/song_detail_state.dart';
 import '../../domain/repositories/song_detail_repository.dart';
-import '../providers/song_detail_providers.dart';
+import '../../data/providers/song_detail_providers.dart';
 
 class SongDetailController extends Notifier<SongDetailState> {
   String _lastRequestKey = '';
@@ -28,6 +28,9 @@ class SongDetailController extends Notifier<SongDetailState> {
   }
 
   Future<void> _load(SongDetailRequest request) async {
+    if (!ref.mounted) {
+      return;
+    }
     state = state.copyWith(
       loading: true,
       relationsLoading: false,
@@ -38,9 +41,15 @@ class SongDetailController extends Notifier<SongDetailState> {
     );
     try {
       final content = await _repository.fetchDetail(request);
+      if (!ref.mounted) {
+        return;
+      }
       final supportsSongRelations = await _supportsSongRelations(
         request.platform,
       );
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         content: content,
@@ -53,18 +62,27 @@ class SongDetailController extends Notifier<SongDetailState> {
       }
       try {
         final relations = await _repository.fetchRelations(request);
+        if (!ref.mounted) {
+          return;
+        }
         state = state.copyWith(
           relationsLoading: false,
           relations: relations,
           clearRelationsError: true,
         );
       } catch (error) {
+        if (!ref.mounted) {
+          return;
+        }
         state = state.copyWith(
           relationsLoading: false,
           relationsErrorMessage: '$error',
         );
       }
     } catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         relationsLoading: false,

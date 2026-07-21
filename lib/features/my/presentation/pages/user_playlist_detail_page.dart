@@ -75,14 +75,19 @@ class _UserPlaylistDetailPageState
       if (!mounted) {
         return;
       }
-      ref.read(userPlaylistDetailControllerProvider.notifier).refresh(_request);
+      ref
+          .read(
+            userPlaylistDetailControllerProvider(_request.cacheKey).notifier,
+          )
+          .refresh(_request);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(userPlaylistDetailControllerProvider);
-    final controller = ref.read(userPlaylistDetailControllerProvider.notifier);
+    final provider = userPlaylistDetailControllerProvider(_request.cacheKey);
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
     final content = state.content;
 
     if (content == null) {
@@ -472,7 +477,9 @@ class _UserPlaylistDetailPageState
         .toList(growable: false);
     try {
       await ref
-          .read(userPlaylistDetailControllerProvider.notifier)
+          .read(
+            userPlaylistDetailControllerProvider(_request.cacheKey).notifier,
+          )
           .removeSongs(
             request: _request,
             songs: songIds,
@@ -607,7 +614,9 @@ class _UserPlaylistDetailPageState
     }
     try {
       await ref
-          .read(userPlaylistDetailControllerProvider.notifier)
+          .read(
+            userPlaylistDetailControllerProvider(_request.cacheKey).notifier,
+          )
           .updatePlaylist(
             request: _request,
             name: result.name,
@@ -719,7 +728,9 @@ class _UserPlaylistDetailPageState
     }
     try {
       await ref
-          .read(userPlaylistDetailControllerProvider.notifier)
+          .read(
+            userPlaylistDetailControllerProvider(_request.cacheKey).notifier,
+          )
           .deletePlaylist(_request.id);
       ref.invalidate(myCreatedPlaylistsProvider);
       ref.invalidate(myOverviewControllerProvider);
