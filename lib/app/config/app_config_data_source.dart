@@ -6,9 +6,9 @@ import 'app_lyric_font_preset.dart';
 import 'app_lyric_highlight_color.dart';
 import 'app_lyric_highlight_mode.dart';
 import 'app_online_audio_quality.dart';
-import 'app_player_background_style.dart';
 import 'app_theme_accent.dart';
 import 'app_theme_mode.dart';
+import '../theme/player/app_player_style_registry.dart';
 import '../theme/skin/app_skin_registry.dart';
 
 const _themeModeKey = 'app_config.theme_mode';
@@ -22,7 +22,7 @@ const _onlineAudioQualityPreferenceKey =
 const _lastSelectedOnlineAudioQualityNameKey =
     'app_config.last_selected_online_audio_quality';
 const _autoCheckUpdatesKey = 'app_config.auto_check_updates';
-const _playerBackgroundStyleKey = 'app_config.player_background_style';
+const _playerStyleIdKey = 'app_config.player_style_id';
 const _legacyLyricHighlightColorKey = 'app_config.lyric_highlight_color';
 const _lyricHighlightModeKey = 'app_config.lyric_highlight_mode';
 const _lyricHighlightPresetKey = 'app_config.lyric_highlight_preset';
@@ -51,9 +51,15 @@ class AppConfigDataSource {
     final tokenExpiresAt = prefs.getInt(_tokenExpiresAtKey);
     final lyricHighlightMode = _readLyricHighlightMode(prefs);
     final skinId = _readSkinId(prefs.getString(_skinIdKey));
+    final playerStyleId = AppPlayerStyleRegistry.instance.normalizeId(
+      prefs.getString(_playerStyleIdKey),
+    );
     if (prefs.containsKey(_skinIdKey) &&
         prefs.getString(_skinIdKey) != skinId) {
       await prefs.setString(_skinIdKey, skinId);
+    }
+    if (prefs.getString(_playerStyleIdKey) != playerStyleId) {
+      await prefs.setString(_playerStyleIdKey, playerStyleId);
     }
     return AppConfigState.initial.copyWith(
       themeMode: _readThemeMode(prefs.getString(_themeModeKey)),
@@ -68,9 +74,7 @@ class AppConfigDataSource {
         prefs.getString(_onlineAudioQualityPreferenceKey),
       ),
       autoCheckUpdates: prefs.getBool(_autoCheckUpdatesKey) ?? true,
-      playerBackgroundStyle: AppPlayerBackgroundStyle.fromValue(
-        prefs.getString(_playerBackgroundStyleKey),
-      ),
+      playerStyleId: playerStyleId,
       lyricHighlightMode: lyricHighlightMode,
       lyricHighlightPreset: _readLyricHighlightPreset(prefs),
       lyricHighlightCustomColor: _readLyricHighlightCustomColor(prefs),
@@ -112,8 +116,8 @@ class AppConfigDataSource {
     );
     await prefs.setBool(_autoCheckUpdatesKey, state.autoCheckUpdates);
     await prefs.setString(
-      _playerBackgroundStyleKey,
-      state.playerBackgroundStyle.value,
+      _playerStyleIdKey,
+      AppPlayerStyleRegistry.instance.normalizeId(state.playerStyleId),
     );
     await prefs.setString(
       _lyricHighlightModeKey,

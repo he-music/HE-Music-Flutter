@@ -11,7 +11,6 @@ import '../../../../app/config/app_lyric_font_preset.dart';
 import '../../../../app/config/app_lyric_highlight_color.dart';
 import '../../../../app/config/app_lyric_highlight_mode.dart';
 import '../../../../app/config/app_online_audio_quality.dart';
-import '../../../../app/config/app_player_background_style.dart';
 import '../../../../app/config/app_theme_accent.dart';
 import '../../../../app/config/app_theme_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -283,18 +282,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         value: config.isMonochrome,
         onChanged: (_) =>
             ref.read(appConfigProvider.notifier).toggleMonochrome(),
-        highlighted: _highlightedItemId == item.id,
-      ),
-      SettingsItemIds.playerBackgroundStyle => SettingsSelectTile(
-        icon: item.icon,
-        iconRole: settingsItemIconRole(item.id),
-        title: AppI18n.t(config, item.titleKey),
-        subtitle: settingsItemSubtitle(item.id, config),
-        trailingText: _playerBackgroundStyleLabel(
-          config.playerBackgroundStyle,
-          config,
-        ),
-        onTap: _openPlayerBackgroundStyleSheet,
         highlighted: _highlightedItemId == item.id,
       ),
       SettingsItemIds.onlineAudioQuality => SettingsSelectTile(
@@ -713,54 +700,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Future<void> _openPlayerBackgroundStyleSheet() {
-    final config = ref.read(appConfigProvider);
-    final options = <SettingsChoiceOption<AppPlayerBackgroundStyle>>[
-      SettingsChoiceOption<AppPlayerBackgroundStyle>(
-        value: AppPlayerBackgroundStyle.albumCover,
-        title: _playerBackgroundStyleLabel(
-          AppPlayerBackgroundStyle.albumCover,
-          config,
-        ),
-        subtitle: AppI18n.t(
-          config,
-          'settings.player_background_style.album_cover.desc',
-        ),
-      ),
-      SettingsChoiceOption<AppPlayerBackgroundStyle>(
-        value: AppPlayerBackgroundStyle.fluid,
-        title: _playerBackgroundStyleLabel(
-          AppPlayerBackgroundStyle.fluid,
-          config,
-        ),
-        subtitle: AppI18n.t(
-          config,
-          'settings.player_background_style.fluid.desc',
-        ),
-      ),
-      SettingsChoiceOption<AppPlayerBackgroundStyle>(
-        value: AppPlayerBackgroundStyle.artistPhoto,
-        title: _playerBackgroundStyleLabel(
-          AppPlayerBackgroundStyle.artistPhoto,
-          config,
-        ),
-        subtitle: AppI18n.t(
-          config,
-          'settings.player_background_style.artist_photo.desc',
-        ),
-      ),
-    ];
-    return showSettingsSingleChoiceSheet<AppPlayerBackgroundStyle>(
-      context: context,
-      title: AppI18n.t(config, 'settings.player_background_style'),
-      currentValue: config.playerBackgroundStyle,
-      options: options,
-      onSelected: (value) {
-        ref.read(appConfigProvider.notifier).setPlayerBackgroundStyle(value);
-      },
-    );
-  }
-
   Future<void> _openLyricHighlightColorSheet() {
     final config = ref.read(appConfigProvider);
     final options = <SettingsChoiceOption<String>>[
@@ -845,26 +784,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return brightness == Brightness.dark
         ? config.themeAccent.darkSeed
         : config.themeAccent.lightSeed;
-  }
-
-  String _playerBackgroundStyleLabel(
-    AppPlayerBackgroundStyle style,
-    AppConfigState config,
-  ) {
-    return switch (style) {
-      AppPlayerBackgroundStyle.albumCover => AppI18n.t(
-        config,
-        'settings.player_background_style.album_cover',
-      ),
-      AppPlayerBackgroundStyle.fluid => AppI18n.t(
-        config,
-        'settings.player_background_style.fluid',
-      ),
-      AppPlayerBackgroundStyle.artistPhoto => AppI18n.t(
-        config,
-        'settings.player_background_style.artist_photo',
-      ),
-    };
   }
 
   String _lyricHighlightSummary(AppConfigState config) {

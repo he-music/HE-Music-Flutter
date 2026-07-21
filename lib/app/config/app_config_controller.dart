@@ -7,9 +7,9 @@ import 'app_lyric_font_preset.dart';
 import 'app_lyric_highlight_color.dart';
 import 'app_lyric_highlight_mode.dart';
 import 'app_online_audio_quality.dart';
-import 'app_player_background_style.dart';
 import 'app_theme_accent.dart';
 import 'app_theme_mode.dart';
+import '../theme/player/app_player_style_registry.dart';
 import '../theme/skin/app_skin_registry.dart';
 
 class AppConfigController extends Notifier<AppConfigState> {
@@ -71,8 +71,9 @@ class AppConfigController extends Notifier<AppConfigState> {
     _update(state.copyWith(autoCheckUpdates: value));
   }
 
-  void setPlayerBackgroundStyle(AppPlayerBackgroundStyle style) {
-    _update(state.copyWith(playerBackgroundStyle: style));
+  void setPlayerStyleId(String styleId) {
+    final normalized = AppPlayerStyleRegistry.instance.normalizeId(styleId);
+    _update(state.copyWith(playerStyleId: normalized));
   }
 
   void setLyricHighlightMode(AppLyricHighlightMode mode) {
@@ -174,7 +175,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       localeCode: loaded.localeCode,
       onlineAudioQualityPreference: loaded.onlineAudioQualityPreference,
       autoCheckUpdates: loaded.autoCheckUpdates,
-      playerBackgroundStyle: loaded.playerBackgroundStyle,
+      playerStyleId: loaded.playerStyleId,
       lyricHighlightMode: loaded.lyricHighlightMode,
       lyricHighlightPreset: loaded.lyricHighlightPreset,
       lyricHighlightCustomColor: loaded.lyricHighlightCustomColor,

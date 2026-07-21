@@ -10,7 +10,8 @@ import '../providers/player_providers.dart';
 class PlayerCompactLyricSection extends ConsumerWidget {
   const PlayerCompactLyricSection({super.key, required this.onTap});
 
-  static const double _compactLyricHeight = 40;
+  /// 共享播放器布局用于预留歌词预览槽位的高度。
+  static const double layoutHeight = 40;
   final VoidCallback onTap;
 
   @override
@@ -19,7 +20,7 @@ class PlayerCompactLyricSection extends ConsumerWidget {
       playerControllerProvider.select((state) => state.currentTrack != null),
     );
     if (!hasTrack) {
-      return const SizedBox(height: _compactLyricHeight);
+      return const SizedBox(height: layoutHeight);
     }
     final position = ref.watch(lyricPositionProvider);
     final documentAsync = ref.watch(currentLyricDocumentProvider);
@@ -30,7 +31,7 @@ class PlayerCompactLyricSection extends ConsumerWidget {
     );
     final theme = Theme.of(context);
     return SizedBox(
-      height: _compactLyricHeight,
+      height: layoutHeight,
       width: double.infinity,
       child: Material(
         color: Colors.transparent,

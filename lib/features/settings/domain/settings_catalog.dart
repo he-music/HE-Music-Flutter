@@ -31,7 +31,6 @@ abstract final class SettingsItemIds {
   static const skin = 'skin';
   static const skinAnimation = 'skin-animation';
   static const monochrome = 'monochrome';
-  static const playerBackgroundStyle = 'player-background-style';
   static const onlineAudioQuality = 'online-audio-quality';
   static const lyricHighlightColor = 'lyric-highlight-color';
   static const lyricFontPreset = 'lyric-font-preset';
@@ -184,15 +183,6 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.toggle,
     icon: Icons.contrast_rounded,
     keywords: <String>['黑白', '灰度', '外观'],
-  ),
-  SettingsItemNode(
-    id: SettingsItemIds.playerBackgroundStyle,
-    sectionId: SettingsSectionIds.appearance,
-    groupId: SettingsGroupIds.appearanceDisplay,
-    titleKey: 'settings.player_background_style',
-    kind: SettingsItemKind.select,
-    icon: Icons.blur_on_rounded,
-    keywords: <String>['播放器', '背景', '流体', '封面'],
   ),
   SettingsItemNode(
     id: SettingsItemIds.onlineAudioQuality,

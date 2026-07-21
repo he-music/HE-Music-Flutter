@@ -70,8 +70,16 @@ class ArtistPhotoCache extends Notifier<ArtistPhotoCacheState> {
         ...state.cache,
         key: ArtistPhotoCacheEntry(urls: urls, cachedAt: DateTime.now()),
       },
+      currentIndices: state.currentIndices,
     );
     return urls;
+  }
+
+  /// 返回仍在有效期内的缓存写真；未命中或已过期时返回 null。
+  List<String>? cachedPhotos(String cacheKey) {
+    final entry = state.cache[cacheKey];
+    if (entry == null || _isExpired(entry)) return null;
+    return entry.urls;
   }
 
   /// 获取指定歌手的当前轮播索引，默认 0。
@@ -83,10 +91,7 @@ class ArtistPhotoCache extends Notifier<ArtistPhotoCacheState> {
   void updateIndex(String cacheKey, int index) {
     state = ArtistPhotoCacheState(
       cache: state.cache,
-      currentIndices: <String, int>{
-        ...state.currentIndices,
-        cacheKey: index,
-      },
+      currentIndices: <String, int>{...state.currentIndices, cacheKey: index},
     );
   }
 

@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../app_navigation_service.dart';
 import '../config/app_config_controller.dart';
 import '../i18n/app_i18n.dart';
-import '../theme/skin/app_player_theme_boundary.dart';
+import '../theme/player/app_player_style_boundary.dart';
 import '../../features/album/presentation/pages/album_detail_page.dart';
 import '../../features/artist/presentation/pages/artist_detail_page.dart';
 import '../../features/artist/presentation/pages/artist_plaza_page.dart';
@@ -375,7 +375,7 @@ GoRouter createAppRouter([String? initialLocation]) {
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => CustomTransitionPage<void>(
           key: state.pageKey,
-          child: const AppPlayerThemeBoundary(child: PlayerPage()),
+          child: const AppPlayerStyleBoundary(child: PlayerPage()),
           transitionDuration: const Duration(milliseconds: 260),
           reverseTransitionDuration: const Duration(milliseconds: 220),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {

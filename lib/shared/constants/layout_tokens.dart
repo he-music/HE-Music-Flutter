@@ -4,6 +4,6 @@ class LayoutTokens {
   static const double compactPageGutter = 12;
   static const double listItemInnerGutter = 6;
 
-  /// 保留给少数内部尺寸计算；不再用于触发第二套宽屏 UI。
+  /// 全屏播放器与其他宽屏工具切换桌面布局的统一断点。
   static const double desktopBreakpoint = 840;
 }

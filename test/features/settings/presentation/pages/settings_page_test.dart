@@ -6,7 +6,6 @@ import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
-import 'package:he_music_flutter/app/config/app_player_background_style.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_feature_state.dart';
@@ -71,7 +70,7 @@ void main() {
     expect(find.text('皮肤'), findsOneWidget);
     expect(find.text('皮肤动画'), findsOneWidget);
     expect(find.text('黑白模式'), findsOneWidget);
-    expect(find.text('播放器背景样式'), findsOneWidget);
+    expect(find.text('播放器背景样式'), findsNothing);
   });
 
   testWidgets('immersive skin disables manual accent and shows skin state', (
@@ -321,7 +320,7 @@ void main() {
     expect(find.text('自动'), findsOneWidget);
   });
 
-  testWidgets('player background style sheet updates config state', (
+  testWidgets('settings does not expose player appearance controls', (
     tester,
   ) async {
     final container = ProviderContainer();
@@ -336,21 +335,8 @@ void main() {
     await tester.tap(find.text('外观'));
     await tester.pumpAndSettle();
 
-    expect(
-      container.read(appConfigProvider).playerBackgroundStyle,
-      AppPlayerBackgroundStyle.albumCover,
-    );
-
-    await tester.tap(find.text('播放器背景样式'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('流体'));
-    await tester.pumpAndSettle();
-
-    expect(
-      container.read(appConfigProvider).playerBackgroundStyle,
-      AppPlayerBackgroundStyle.fluid,
-    );
-    expect(find.text('歌手写真'), findsNothing);
+    expect(find.text('播放器背景样式'), findsNothing);
+    expect(find.text('播放器样式'), findsNothing);
   });
 
   testWidgets('language sheet can select system locale', (tester) async {

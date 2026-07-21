@@ -3,11 +3,11 @@ import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
-import 'package:he_music_flutter/app/config/app_player_background_style.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/config/app_theme_mode.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,7 +29,7 @@ void main() {
         onlineAudioQualityPreference: AppOnlineAudioQuality.flac,
         lastSelectedOnlineAudioQualityName: 'sq',
         autoCheckUpdates: true,
-        playerBackgroundStyle: AppPlayerBackgroundStyle.fluid,
+        playerStyleId: AppPlayerStyleRegistry.vinylId,
         lyricHighlightMode: AppLyricHighlightMode.custom,
         lyricHighlightPreset: AppLyricHighlightColor.sky,
         lyricHighlightCustomColor: 0xFF123456,
@@ -50,7 +50,7 @@ void main() {
     expect(state.onlineAudioQualityPreference, AppOnlineAudioQuality.flac);
     expect(state.lastSelectedOnlineAudioQualityName, 'sq');
     expect(state.autoCheckUpdates, isTrue);
-    expect(state.playerBackgroundStyle, AppPlayerBackgroundStyle.fluid);
+    expect(state.playerStyleId, AppPlayerStyleRegistry.vinylId);
     expect(state.lyricHighlightMode, AppLyricHighlightMode.custom);
     expect(state.lyricHighlightPreset, AppLyricHighlightColor.sky);
     expect(state.lyricHighlightCustomColor, 0xFF123456);
@@ -98,10 +98,7 @@ void main() {
       AppConfigState.initial.lyricHighlightPreset,
     );
     expect(state.lyricFontPreset, AppConfigState.initial.lyricFontPreset);
-    expect(
-      state.playerBackgroundStyle,
-      AppConfigState.initial.playerBackgroundStyle,
-    );
+    expect(state.playerStyleId, AppPlayerStyleRegistry.classicId);
     expect(state.enableWordByWordLyric, isTrue);
     expect(state.skinId, AppSkinRegistry.classicId);
     expect(state.enableSkinAnimation, isTrue);
@@ -141,17 +138,39 @@ void main() {
     expect(classic.themeAccent, AppThemeAccent.amber);
   });
 
-  test(
-    'load should fallback player background style to default on invalid data',
-    () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        'app_config.player_background_style': 'unknown',
-      });
-      const dataSource = AppConfigDataSource();
+  test('legacy player background does not migrate to a player style', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'app_config.player_background_style': 'artist_photo',
+    });
+    const dataSource = AppConfigDataSource();
 
-      final state = await dataSource.load();
+    final state = await dataSource.load();
+    final prefs = await SharedPreferences.getInstance();
 
-      expect(state.playerBackgroundStyle, AppPlayerBackgroundStyle.albumCover);
-    },
-  );
+    expect(state.playerStyleId, AppPlayerStyleRegistry.classicId);
+    expect(
+      prefs.getString('app_config.player_style_id'),
+      AppPlayerStyleRegistry.classicId,
+    );
+    expect(
+      prefs.getString('app_config.player_background_style'),
+      'artist_photo',
+    );
+  });
+
+  test('load normalizes and persists an unknown player style id', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'app_config.player_style_id': 'removed_style',
+    });
+    const dataSource = AppConfigDataSource();
+
+    final state = await dataSource.load();
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(state.playerStyleId, AppPlayerStyleRegistry.classicId);
+    expect(
+      prefs.getString('app_config.player_style_id'),
+      AppPlayerStyleRegistry.classicId,
+    );
+  });
 }

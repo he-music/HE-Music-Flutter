@@ -4,7 +4,6 @@ import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
-import 'package:he_music_flutter/app/config/app_player_background_style.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/config/app_theme_mode.dart';
 import 'package:he_music_flutter/core/error/app_exception.dart';
@@ -27,7 +26,7 @@ AppConfigState _config({
     localeCode: 'zh',
     onlineAudioQualityPreference: preference,
     autoCheckUpdates: true,
-    playerBackgroundStyle: AppPlayerBackgroundStyle.fluid,
+    playerStyleId: 'classic',
     lyricHighlightMode: AppLyricHighlightMode.preset,
     lyricHighlightPreset: AppLyricHighlightColor.sky,
     lyricFontPreset: AppLyricFontPreset.medium,

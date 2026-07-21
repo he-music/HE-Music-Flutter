@@ -4,6 +4,7 @@ import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 
 void main() {
@@ -60,6 +61,31 @@ void main() {
       expect(dataSource.saved.enableSkinAnimation, isFalse);
     },
   );
+
+  test('controller normalizes and persists player style ids', () async {
+    final dataSource = _RecordingAppConfigDataSource(AppConfigState.initial);
+    final container = ProviderContainer(
+      overrides: [appConfigDataSourceProvider.overrideWithValue(dataSource)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(appConfigProvider.notifier);
+    await controller.waitUntilHydrated();
+
+    controller.setPlayerStyleId(AppPlayerStyleRegistry.cassetteId);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(appConfigProvider).playerStyleId,
+      AppPlayerStyleRegistry.cassetteId,
+    );
+
+    controller.setPlayerStyleId('removed');
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(appConfigProvider).playerStyleId,
+      AppPlayerStyleRegistry.classicId,
+    );
+    expect(dataSource.saved.playerStyleId, AppPlayerStyleRegistry.classicId);
+  });
 }
 
 class _RecordingAppConfigDataSource extends AppConfigDataSource {

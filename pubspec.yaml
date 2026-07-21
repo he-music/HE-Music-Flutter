@@ -63,7 +63,6 @@ dependencies:
   qr_flutter: ^4.1.0
   mobile_scanner: ^7.2.0
   share_plus: ^13.1.0
-  mesh_gradient: ^1.3.8
   file_selector: ^1.0.3
   drift: ^2.26.1
   sqlite3_flutter_libs: ^0.5.28
@@ -108,6 +107,10 @@ flutter:
     - assets/icons/logo.png
     - assets/icons/favicon-512x512.png
     - assets/icons/auth/
+    - assets/player_styles/classic/preview.png
+    - assets/player_styles/vinyl/preview.png
+    - assets/player_styles/cassette/preview.png
+    - assets/player_styles/artist_photo/preview.png
     - assets/skins/city_sound_creator/wallpaper_light.png
     - assets/skins/city_sound_creator/wallpaper_dark.png
     - assets/skins/city_sound_creator/preview_light.png

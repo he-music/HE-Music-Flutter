@@ -216,7 +216,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(
-      find.byKey(const ValueKey<String>('app-player-theme-boundary')),
+      find.byKey(const ValueKey<String>('app-player-style-boundary')),
       findsOneWidget,
     );
 

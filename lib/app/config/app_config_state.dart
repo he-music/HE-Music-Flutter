@@ -3,9 +3,9 @@ import 'app_lyric_font_preset.dart';
 import 'app_lyric_highlight_color.dart';
 import 'app_lyric_highlight_mode.dart';
 import 'app_online_audio_quality.dart';
-import 'app_player_background_style.dart';
 import 'app_theme_accent.dart';
 import 'app_theme_mode.dart';
+import '../theme/player/app_player_style_registry.dart';
 
 class AppConfigState {
   const AppConfigState({
@@ -18,7 +18,7 @@ class AppConfigState {
     required this.localeCode,
     required this.onlineAudioQualityPreference,
     required this.autoCheckUpdates,
-    required this.playerBackgroundStyle,
+    required this.playerStyleId,
     required this.lyricHighlightMode,
     required this.lyricHighlightPreset,
     this.lyricHighlightCustomColor,
@@ -41,7 +41,7 @@ class AppConfigState {
   final String localeCode;
   final AppOnlineAudioQuality onlineAudioQualityPreference;
   final bool autoCheckUpdates;
-  final AppPlayerBackgroundStyle playerBackgroundStyle;
+  final String playerStyleId;
   final AppLyricHighlightMode lyricHighlightMode;
   final AppLyricHighlightColor lyricHighlightPreset;
   final int? lyricHighlightCustomColor;
@@ -64,7 +64,7 @@ class AppConfigState {
     String? localeCode,
     AppOnlineAudioQuality? onlineAudioQualityPreference,
     bool? autoCheckUpdates,
-    AppPlayerBackgroundStyle? playerBackgroundStyle,
+    String? playerStyleId,
     AppLyricHighlightMode? lyricHighlightMode,
     AppLyricHighlightColor? lyricHighlightPreset,
     int? lyricHighlightCustomColor,
@@ -92,8 +92,7 @@ class AppConfigState {
       onlineAudioQualityPreference:
           onlineAudioQualityPreference ?? this.onlineAudioQualityPreference,
       autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
-      playerBackgroundStyle:
-          playerBackgroundStyle ?? this.playerBackgroundStyle,
+      playerStyleId: playerStyleId ?? this.playerStyleId,
       lyricHighlightMode: lyricHighlightMode ?? this.lyricHighlightMode,
       lyricHighlightPreset: lyricHighlightPreset ?? this.lyricHighlightPreset,
       lyricHighlightCustomColor: clearLyricHighlightCustomColor
@@ -128,7 +127,7 @@ class AppConfigState {
     localeCode: 'zh',
     onlineAudioQualityPreference: AppOnlineAudioQuality.auto,
     autoCheckUpdates: true,
-    playerBackgroundStyle: AppPlayerBackgroundStyle.albumCover,
+    playerStyleId: AppPlayerStyleRegistry.classicId,
     lyricHighlightMode: AppLyricHighlightMode.preset,
     lyricHighlightPreset: AppLyricHighlightColor.sky,
     lyricFontPreset: AppLyricFontPreset.medium,
