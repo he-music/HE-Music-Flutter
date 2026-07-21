@@ -5,16 +5,118 @@ import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
+import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
+import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
+import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_feature_state.dart';
 import 'package:he_music_flutter/features/online/presentation/controllers/online_controller.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_page.dart';
+import 'package:he_music_flutter/features/settings/presentation/pages/settings_item_presentation_registry.dart';
 import 'package:toastification/toastification.dart';
 
 void main() {
+  test('setting option labels and descriptions support English', () {
+    final config = AppConfigState.initial.copyWith(localeCode: 'en');
+
+    expect(
+      AppThemeAccent.values
+          .map((item) => settingsThemeAccentLabel(item, config))
+          .toList(),
+      <String>[
+        'Forest',
+        'Ocean',
+        'Cobalt',
+        'Sunset',
+        'Rose',
+        'Violet',
+        'Amber',
+        'Midnight',
+        'Mint',
+        'Cherry',
+        'Graphite',
+      ],
+    );
+    expect(
+      AppLyricHighlightColor.values
+          .map((item) => settingsLyricHighlightColorLabel(item, config))
+          .toList(),
+      <String>['Sky Blue', 'Emerald', 'Amber', 'Coral', 'Violet'],
+    );
+    expect(
+      AppLyricFontPreset.values
+          .map((item) => settingsLyricFontPresetLabel(item, config))
+          .toList(),
+      <String>['Small', 'Medium', 'Large'],
+    );
+    expect(
+      AppOnlineAudioQuality.values
+          .map((item) => settingsOnlineAudioQualityLabel(item, config))
+          .toList(),
+      <String>[
+        'Auto',
+        '128mp3',
+        '192mp3',
+        '320mp3',
+        'flac',
+        'hires',
+        'dolby',
+        'galaxy',
+        'master',
+      ],
+    );
+    expect(
+      settingsOnlineAudioQualityDescription(AppOnlineAudioQuality.auto, config),
+      'Select automatically by priority: 320mp3 > hires > flac > 128mp3',
+    );
+    expect(
+      settingsOnlineAudioQualityDescription(
+        AppOnlineAudioQuality.mp3128,
+        config,
+      ),
+      'Standard quality, 128 kbps',
+    );
+    expect(
+      settingsOnlineAudioQualityDescription(
+        AppOnlineAudioQuality.auto,
+        config.copyWith(lastSelectedOnlineAudioQualityName: 'hires'),
+      ),
+      'Prefer the last manual selection, hires; otherwise use '
+      '320mp3 > hires > flac > 128mp3',
+    );
+  });
+
+  testWidgets('lyric setting choices follow English locale', (tester) async {
+    final container = _createContainer(authToken: null, localeCode: 'en');
+    addTearDown(container.dispose);
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp(container: container));
+    await tester.pump();
+
+    await tester.tap(find.text('Lyrics'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sky Blue'), findsOneWidget);
+    expect(find.text('Medium'), findsOneWidget);
+    expect(find.text('天蓝'), findsNothing);
+    expect(find.text('中'), findsNothing);
+
+    await tester.tap(find.text('Lyric Size'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Small'), findsOneWidget);
+    expect(find.text('Medium'), findsNWidgets(2));
+    expect(find.text('Large'), findsOneWidget);
+    expect(find.text('小'), findsNothing);
+    expect(find.text('大'), findsNothing);
+  });
+
   testWidgets('mobile settings home shows search and four sections', (
     tester,
   ) async {
@@ -374,11 +476,16 @@ Widget _buildSettingsApp({ProviderContainer? container}) {
 ProviderContainer _createContainer({
   required String? authToken,
   String skinId = AppSkinRegistry.classicId,
+  String localeCode = 'zh',
 }) {
   return ProviderContainer(
     overrides: [
       appConfigProvider.overrideWith(
-        () => _TestAppConfigController(authToken: authToken, skinId: skinId),
+        () => _TestAppConfigController(
+          authToken: authToken,
+          skinId: skinId,
+          localeCode: localeCode,
+        ),
       ),
       onlineControllerProvider.overrideWith(_TestOnlineController.new),
     ],
@@ -386,16 +493,22 @@ ProviderContainer _createContainer({
 }
 
 class _TestAppConfigController extends AppConfigController {
-  _TestAppConfigController({required this.authToken, required this.skinId});
+  _TestAppConfigController({
+    required this.authToken,
+    required this.skinId,
+    required this.localeCode,
+  });
 
   final String? authToken;
   final String skinId;
+  final String localeCode;
 
   @override
   AppConfigState build() {
     return AppConfigState.initial.copyWith(
       authToken: authToken,
       skinId: skinId,
+      localeCode: localeCode,
       clearToken: authToken == null,
     );
   }

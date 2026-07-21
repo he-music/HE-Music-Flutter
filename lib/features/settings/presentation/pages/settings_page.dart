@@ -241,7 +241,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: currentSkin.metadata.allowsManualAccent
-            ? config.themeAccent.label
+            ? settingsThemeAccentLabel(config.themeAccent, config)
             : AppI18n.t(config, 'settings.theme_accent.follows_skin'),
         leadingTrailing: currentSkin.metadata.allowsManualAccent
             ? SettingsColorDot(color: _accentPreviewColor(config))
@@ -289,7 +289,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
-        trailingText: config.onlineAudioQualityPreference.label,
+        trailingText: settingsOnlineAudioQualityLabel(
+          config.onlineAudioQualityPreference,
+          config,
+        ),
         onTap: _openOnlineAudioQualitySheet,
         highlighted: _highlightedItemId == item.id,
       ),
@@ -310,7 +313,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
-        trailingText: config.lyricFontPreset.label,
+        trailingText: settingsLyricFontPresetLabel(
+          config.lyricFontPreset,
+          config,
+        ),
         onTap: _openLyricFontPresetSheet,
         highlighted: _highlightedItemId == item.id,
       ),
@@ -634,7 +640,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           .map(
             (item) => SettingsChoiceOption<AppThemeAccent>(
               value: item,
-              title: item.label,
+              title: settingsThemeAccentLabel(item, config),
               leading: SettingsColorDot(color: item.lightSeed),
             ),
           )
@@ -681,13 +687,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           .map(
             (item) => SettingsChoiceOption<AppOnlineAudioQuality>(
               value: item,
-              title: item.label,
-              subtitle: item.isAuto
-                  ? AppOnlineAudioQuality.autoDescription(
-                      lastSelectedQualityName:
-                          config.lastSelectedOnlineAudioQualityName,
-                    )
-                  : item.tip,
+              title: settingsOnlineAudioQualityLabel(item, config),
+              subtitle: settingsOnlineAudioQualityDescription(item, config),
               leading: const Icon(Icons.graphic_eq_rounded),
             ),
           )
@@ -711,7 +712,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ...AppLyricHighlightColor.values.map(
         (item) => SettingsChoiceOption<String>(
           value: 'preset:${item.value}',
-          title: item.label,
+          title: settingsLyricHighlightColorLabel(item, config),
           leading: SettingsColorDot(color: item.color),
         ),
       ),
@@ -748,7 +749,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           .map(
             (item) => SettingsChoiceOption<AppLyricFontPreset>(
               value: item,
-              title: item.label,
+              title: settingsLyricFontPresetLabel(item, config),
             ),
           )
           .toList(growable: false),
@@ -793,7 +794,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         config,
         'settings.choice.custom',
       ),
-      AppLyricHighlightMode.preset => config.lyricHighlightPreset.label,
+      AppLyricHighlightMode.preset => settingsLyricHighlightColorLabel(
+        config.lyricHighlightPreset,
+        config,
+      ),
     };
   }
 

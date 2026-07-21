@@ -11,10 +11,9 @@ void main() {
     expect(AppThemeAccent.fromValue('graphite'), AppThemeAccent.graphite);
   });
 
-  test('theme accent labels and seeds are configured', () {
+  test('theme accent values and seeds are configured', () {
     for (final accent in AppThemeAccent.values) {
       expect(accent.value.trim(), isNotEmpty);
-      expect(accent.label.trim(), isNotEmpty);
       expect(accent.lightSeed, isA<Color>());
       expect(accent.darkSeed, isA<Color>());
     }

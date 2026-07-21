@@ -1,5 +1,8 @@
 import '../../../../app/config/app_config_state.dart';
+import '../../../../app/config/app_lyric_font_preset.dart';
+import '../../../../app/config/app_lyric_highlight_color.dart';
 import '../../../../app/config/app_online_audio_quality.dart';
+import '../../../../app/config/app_theme_accent.dart';
 import '../../../../app/config/app_theme_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
@@ -30,7 +33,9 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
           return AppI18n.format(
             config,
             'settings.theme_accent.current',
-            <String, String>{'value': config.themeAccent.label},
+            <String, String>{
+              'value': settingsThemeAccentLabel(config.themeAccent, config),
+            },
           );
         },
       ),
@@ -64,9 +69,9 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
             AppI18n.t(config, 'settings.monochrome.desc'),
       ),
       SettingsItemIds.onlineAudioQuality: SettingsItemPresentation(
-        subtitleBuilder: (config) => _qualitySubtitle(
+        subtitleBuilder: (config) => settingsOnlineAudioQualityDescription(
           config.onlineAudioQualityPreference,
-          config.lastSelectedOnlineAudioQualityName,
+          config,
         ),
       ),
       SettingsItemIds.lyricHighlightColor: SettingsItemPresentation(
@@ -166,16 +171,57 @@ AppSkinIconRole settingsItemIconRole(String itemId) {
   };
 }
 
-String _qualitySubtitle(
-  AppOnlineAudioQuality preference,
-  String? lastSelected,
+String settingsThemeAccentLabel(AppThemeAccent accent, AppConfigState config) {
+  return AppI18n.t(config, 'settings.theme_accent.option.${accent.value}');
+}
+
+String settingsOnlineAudioQualityLabel(
+  AppOnlineAudioQuality quality,
+  AppConfigState config,
 ) {
-  if (!preference.isAuto) {
-    return preference.tip;
+  return AppI18n.t(config, 'settings.audio_quality.option.${quality.value}');
+}
+
+String settingsOnlineAudioQualityDescription(
+  AppOnlineAudioQuality quality,
+  AppConfigState config,
+) {
+  if (!quality.isAuto) {
+    return AppI18n.t(config, 'settings.audio_quality.tip.${quality.value}');
   }
-  return AppOnlineAudioQuality.autoDescription(
-    lastSelectedQualityName: lastSelected,
+  final fallback = AppOnlineAudioQuality.autoFallbackOrder
+      .map((item) => settingsOnlineAudioQualityLabel(item, config))
+      .join(' > ');
+  final lastSelected = config.lastSelectedOnlineAudioQualityName?.trim() ?? '';
+  if (lastSelected.isEmpty) {
+    return AppI18n.format(
+      config,
+      'settings.audio_quality.auto_priority',
+      <String, String>{'fallback': fallback},
+    );
+  }
+  return AppI18n.format(
+    config,
+    'settings.audio_quality.auto_last_selected',
+    <String, String>{'selected': lastSelected, 'fallback': fallback},
   );
+}
+
+String settingsLyricHighlightColorLabel(
+  AppLyricHighlightColor color,
+  AppConfigState config,
+) {
+  return AppI18n.t(
+    config,
+    'settings.lyric_highlight_color.option.${color.value}',
+  );
+}
+
+String settingsLyricFontPresetLabel(
+  AppLyricFontPreset preset,
+  AppConfigState config,
+) {
+  return AppI18n.t(config, 'settings.lyric_font_preset.option.${preset.value}');
 }
 
 String _themeModeLabel(AppThemeMode mode, AppConfigState config) {
