@@ -36,4 +36,21 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 200));
   });
+
+  testWidgets('local library search waits for user focus', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: LocalLibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('搜索'));
+    await tester.pump();
+
+    expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+
+    // 销毁 widget 树，触发 drift 流取消，再 pump 掉残留 timer
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 200));
+  });
 }

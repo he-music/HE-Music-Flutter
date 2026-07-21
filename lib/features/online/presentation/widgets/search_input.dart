@@ -15,18 +15,10 @@ import '../pages/online_search_suggest_panel.dart';
 /// 可复用于桌面顶部栏和移动端搜索页。
 /// 选中关键词或回车时通过 [onSearch] 回调通知外部。
 class SearchInput extends ConsumerStatefulWidget {
-  const SearchInput({
-    required this.onSearch,
-    this.autofocus = false,
-    this.compact = false,
-    super.key,
-  });
+  const SearchInput({required this.onSearch, this.compact = false, super.key});
 
   /// 选中关键词或回车时回调
   final ValueChanged<String> onSearch;
-
-  /// 是否自动聚焦
-  final bool autofocus;
 
   /// 紧凑模式：只显示搜索框，不显示热搜/建议面板（用于桌面顶部栏）
   final bool compact;
@@ -62,9 +54,6 @@ class _SearchInputState extends ConsumerState<SearchInput> {
   @override
   void initState() {
     super.initState();
-    if (widget.autofocus) {
-      _focusNode.requestFocus();
-    }
     Future.microtask(() {
       _loadHistory();
       _loadHotKeywords();

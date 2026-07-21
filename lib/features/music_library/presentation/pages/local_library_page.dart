@@ -204,7 +204,6 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     return AppBar(
       leading: AppBackButton(onPressed: controller.toggleSearch),
       title: TextField(
-        autofocus: true,
         onChanged: controller.updateSearchQuery,
         decoration: InputDecoration(
           hintText: AppI18n.t(config, 'local.search_hint'),

@@ -120,7 +120,6 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
                 // 输入框
                 TextField(
                   controller: _controller,
-                  autofocus: true,
                   maxLines: 4,
                   maxLength: 300,
                   decoration: InputDecoration(

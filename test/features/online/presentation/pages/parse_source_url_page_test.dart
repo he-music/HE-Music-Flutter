@@ -16,7 +16,9 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWith(_TestAppConfigController.new),
-          onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
+          onlinePlatformsProvider.overrideWith(
+            _TestOnlinePlatformsController.new,
+          ),
         ],
         child: const MaterialApp(home: ParseSourceUrlPage()),
       ),
@@ -25,6 +27,8 @@ void main() {
 
     expect(find.text('链接解析'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
   });
 
   testWidgets('parse result title uses platform short name when available', (

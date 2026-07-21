@@ -221,7 +221,6 @@ class _MyPageState extends ConsumerState<MyPage> {
         return AlertDialog(
           title: Text(AppI18n.t(config, 'my.playlist.create.title')),
           content: TextField(
-            autofocus: true,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               hintText: AppI18n.t(config, 'my.playlist.create.hint'),

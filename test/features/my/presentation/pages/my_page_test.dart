@@ -133,6 +133,8 @@ void main() {
 
     await tester.tap(find.byTooltip('创建歌单'));
     await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
     await tester.tap(find.widgetWithText(TextButton, '取消'));
     await tester.pumpAndSettle();
 
