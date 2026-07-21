@@ -75,6 +75,72 @@ void main() {
       expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
     });
 
+    testWidgets('操作按钮应使用 48dp 点击区域且不触发歌曲点击', (tester) async {
+      var songTapCount = 0;
+      var likeTapCount = 0;
+      var moreTapCount = 0;
+      await tester.pumpWidget(
+        _wrap(
+          SongListItem(
+            data: basicData,
+            onTap: () => songTapCount += 1,
+            onLikeTap: () => likeTapCount += 1,
+            onMoreTap: () => moreTapCount += 1,
+          ),
+        ),
+      );
+
+      final likeButton = find.ancestor(
+        of: find.byIcon(Icons.favorite_border_rounded),
+        matching: find.byType(IconButton),
+      );
+      final moreButton = find.ancestor(
+        of: find.byIcon(Icons.more_horiz_rounded),
+        matching: find.byType(IconButton),
+      );
+
+      expect(tester.getSize(likeButton), const Size.square(48));
+      expect(tester.getSize(moreButton), const Size.square(48));
+
+      await tester.tap(likeButton);
+      await tester.tap(moreButton);
+
+      expect(likeTapCount, 1);
+      expect(moreTapCount, 1);
+      expect(songTapCount, 0);
+    });
+
+    testWidgets('点击右侧操作按钮间隙不应触发歌曲点击', (tester) async {
+      var songTapCount = 0;
+      await tester.pumpWidget(
+        _wrap(
+          SongListItem(
+            data: basicData,
+            onTap: () => songTapCount += 1,
+            onLikeTap: () {},
+            onMoreTap: () {},
+          ),
+        ),
+      );
+
+      final likeButton = find.ancestor(
+        of: find.byIcon(Icons.favorite_border_rounded),
+        matching: find.byType(IconButton),
+      );
+      final moreButton = find.ancestor(
+        of: find.byIcon(Icons.more_horiz_rounded),
+        matching: find.byType(IconButton),
+      );
+      final likeRect = tester.getRect(likeButton);
+      final moreRect = tester.getRect(moreButton);
+
+      await tester.tapAt(
+        Offset((likeRect.right + moreRect.left) / 2, likeRect.center.dy),
+      );
+
+      expect(songTapCount, 0);
+    });
+
     testWidgets('isLiked 为 true 时显示实心红心', (tester) async {
       await tester.pumpWidget(
         _wrap(SongListItem(data: basicData, isLiked: true, onLikeTap: () {})),
@@ -143,25 +209,63 @@ void main() {
     });
 
     testWidgets('showMoreVersionButton 为 true 时应显示按钮', (tester) async {
-      var versionTapped = false;
+      var songTapCount = 0;
+      var versionTapCount = 0;
       final data = SongListItemData(
         title: 'T',
         artistAlbumText: 'A',
-        subtitleText: '',
+        subtitleText: '副标题',
         showMoreVersionButton: true,
       );
       await tester.pumpWidget(
         _wrap(
           SongListItem(
             data: data,
-            onMoreVersionTap: () => versionTapped = true,
+            onTap: () => songTapCount += 1,
+            onMoreVersionTap: () => versionTapCount += 1,
           ),
+          height: 128,
         ),
       );
 
-      expect(find.text('More Versions'), findsOneWidget);
-      await tester.tap(find.text('More Versions'));
-      expect(versionTapped, isTrue);
+      final versionLabel = find.text('More Versions');
+      final subtitle = find.text('副标题');
+      expect(versionLabel, findsOneWidget);
+
+      await tester.tap(versionLabel);
+      final titleRect = tester.getRect(find.text('T'));
+      final subtitleRect = tester.getRect(subtitle);
+      final labelRect = tester.getRect(versionLabel);
+      await tester.tapAt(Offset(titleRect.right - 4, labelRect.center.dy));
+
+      expect(versionTapCount, 2);
+      expect(songTapCount, 0);
+      expect(labelRect.top, greaterThan(subtitleRect.bottom));
+      expect((labelRect.left - subtitleRect.left).abs(), lessThanOrEqualTo(4));
+    });
+
+    testWidgets('窄屏同时显示三个操作时不应发生布局异常', (tester) async {
+      final data = SongListItemData(
+        title: '一首标题非常长的歌曲',
+        artistAlbumText: '歌手与专辑信息',
+        subtitleText: '副标题',
+        showMoreVersionButton: true,
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          SongListItem(
+            data: data,
+            onLikeTap: () {},
+            onMoreTap: () {},
+            onMoreVersionTap: () {},
+          ),
+          width: 320,
+          height: 128,
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('无封面 URL 时应显示音乐图标', (tester) async {
@@ -211,8 +315,10 @@ void main() {
   });
 }
 
-Widget _wrap(Widget child) {
+Widget _wrap(Widget child, {double width = 400, double height = 80}) {
   return MaterialApp(
-    home: Scaffold(body: SizedBox(width: 400, height: 80, child: child)),
+    home: Scaffold(
+      body: SizedBox(width: width, height: height, child: child),
+    ),
   );
 }

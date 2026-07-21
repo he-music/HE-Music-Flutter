@@ -135,6 +135,7 @@ class SongListItem extends StatelessWidget {
     final isCurrent = data.isCurrent;
     final isSelected = selectable && selected;
     final effectiveOnTap = selectable ? (onSelectTap ?? onTap) : onTap;
+    final hasActions = showActions && (onLikeTap != null || onMoreTap != null);
     final backgroundColor = isCurrent || isSelected
         ? theme.colorScheme.primary.withValues(alpha: isCurrent ? 0.07 : 0.05)
         : Colors.transparent;
@@ -142,79 +143,100 @@ class SongListItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         decoration: BoxDecoration(color: backgroundColor),
-        child: InkWell(
-          onTap: effectiveOnTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: LayoutTokens.listItemInnerGutter,
-              vertical: 11,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                if (selectable) ...<Widget>[
-                  _SelectIndicator(selected: selected),
-                  const SizedBox(width: 12),
-                ],
-                _SongCover(
-                  url: data.coverUrl,
-                  bytes: data.coverBytes,
-                  isCurrent: isCurrent,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            Expanded(
+              child: InkWell(
+                onTap: effectiveOnTap,
+                child: Padding(
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    LayoutTokens.listItemInnerGutter,
+                    11,
+                    hasActions ? 0 : LayoutTokens.listItemInnerGutter,
+                    11,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: <Widget>[
-                      Text(
-                        data.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          height: 1.12,
-                          color: isCurrent
-                              ? theme.colorScheme.primary
-                              : theme.textTheme.titleSmall?.color,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      _ArtistAlbumLine(
-                        tags: data.tags,
-                        artistAlbum: data.artistAlbumText,
+                      if (selectable) ...<Widget>[
+                        _SelectIndicator(selected: selected),
+                        const SizedBox(width: 12),
+                      ],
+                      _SongCover(
+                        url: data.coverUrl,
+                        bytes: data.coverBytes,
                         isCurrent: isCurrent,
                       ),
-                      if (data.subtitleText.trim().isNotEmpty ||
-                          data.showMoreVersionButton) ...<Widget>[
-                        const SizedBox(height: 3),
-                        _BottomMetaLine(
-                          subtitle: data.subtitleText,
-                          showMoreVersionButton: data.showMoreVersionButton,
-                          onMoreVersionTap: onMoreVersionTap,
-                          moreVersionLabel: moreVersionLabel,
-                          isCurrent: isCurrent,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minHeight: _SongCover._coverSize,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              Text(
+                                data.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.12,
+                                  color: isCurrent
+                                      ? theme.colorScheme.primary
+                                      : theme.textTheme.titleSmall?.color,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              _ArtistAlbumLine(
+                                tags: data.tags,
+                                artistAlbum: data.artistAlbumText,
+                                isCurrent: isCurrent,
+                              ),
+                              if (data.subtitleText
+                                  .trim()
+                                  .isNotEmpty) ...<Widget>[
+                                const SizedBox(height: 3),
+                                _BottomMetaLine(
+                                  subtitle: data.subtitleText,
+                                  isCurrent: isCurrent,
+                                ),
+                              ],
+                              if (data.showMoreVersionButton) ...<Widget>[
+                                const SizedBox(height: 3),
+                                _MoreVersionAction(
+                                  onTap: onMoreVersionTap,
+                                  label: moreVersionLabel,
+                                ),
+                              ],
+                              if (data.subtitleText.trim().isEmpty &&
+                                  !data.showMoreVersionButton)
+                                const SizedBox(height: 2)
+                              else
+                                const SizedBox(height: 1),
+                            ],
+                          ),
                         ),
-                      ],
-                      if (data.subtitleText.trim().isEmpty &&
-                          !data.showMoreVersionButton)
-                        const SizedBox(height: 2),
-                      if (data.subtitleText.trim().isNotEmpty ||
-                          data.showMoreVersionButton)
-                        const SizedBox(height: 1),
+                      ),
                     ],
                   ),
                 ),
-                if (showActions) ...<Widget>[
-                  const SizedBox(width: 4),
-                  _ActionButtons(
-                    liked: isLiked,
-                    onLikeTap: onLikeTap,
-                    onMoreTap: onMoreTap,
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
+            if (hasActions)
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(0, 11, 2, 11),
+                child: _ActionButtons(
+                  liked: isLiked,
+                  onLikeTap: onLikeTap,
+                  onMoreTap: onMoreTap,
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -277,26 +299,43 @@ class _ActionButtons extends StatelessWidget {
     final iconColor = Theme.of(
       context,
     ).colorScheme.onSurfaceVariant.withValues(alpha: 0.78);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        if (hasLike)
-          _ActionIcon(
-            onPressed: onLikeTap,
-            icon: Icon(
-              liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: liked ? Theme.of(context).colorScheme.error : iconColor,
+    const actionExtent = 48.0;
+    final width = hasLike && hasMore ? 90.0 : actionExtent;
+    return SizedBox(
+      width: width,
+      height: actionExtent,
+      // 两个命中区重叠 6dp，扩大点击范围但保持原有图标中心位置。
+      child: Stack(
+        children: <Widget>[
+          if (hasLike)
+            PositionedDirectional(
+              start: 0,
+              top: 0,
+              child: _ActionIcon(
+                onPressed: onLikeTap,
+                icon: Icon(
+                  liked
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: liked
+                      ? Theme.of(context).colorScheme.error
+                      : iconColor,
+                ),
+                tooltip: 'Like',
+              ),
             ),
-            tooltip: 'Like',
-          ),
-        if (hasLike && hasMore) const SizedBox(width: 2),
-        if (hasMore)
-          _ActionIcon(
-            onPressed: onMoreTap,
-            icon: Icon(Icons.more_horiz_rounded, color: iconColor),
-            tooltip: 'More',
-          ),
-      ],
+          if (hasMore)
+            PositionedDirectional(
+              end: 0,
+              top: 0,
+              child: _ActionIcon(
+                onPressed: onMoreTap,
+                icon: Icon(Icons.more_horiz_rounded, color: iconColor),
+                tooltip: 'More',
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -337,9 +376,9 @@ class _ActionIconState extends State<_ActionIcon> {
                 );
                 widget.onPressed?.call();
               },
-        constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
         padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
+        visualDensity: VisualDensity.standard,
         iconSize: 20,
         icon: widget.icon,
         tooltip: widget.tooltip,
@@ -389,62 +428,64 @@ class _ArtistAlbumLine extends StatelessWidget {
 }
 
 class _BottomMetaLine extends StatelessWidget {
-  const _BottomMetaLine({
-    required this.subtitle,
-    required this.showMoreVersionButton,
-    required this.onMoreVersionTap,
-    required this.moreVersionLabel,
-    required this.isCurrent,
-  });
+  const _BottomMetaLine({required this.subtitle, required this.isCurrent});
 
   final String subtitle;
-  final bool showMoreVersionButton;
-  final VoidCallback? onMoreVersionTap;
-  final String moreVersionLabel;
   final bool isCurrent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final showSubtitle = subtitle.trim().isNotEmpty;
-    if (!showSubtitle && !showMoreVersionButton) {
-      return const SizedBox(height: 0);
-    }
-    return Row(
-      children: <Widget>[
-        if (showSubtitle)
-          Expanded(
+    return SizedBox(
+      height: 14,
+      child: Text(
+        subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: isCurrent
+              ? theme.colorScheme.primary.withValues(alpha: 0.7)
+              : theme.hintColor,
+          height: 1.1,
+          fontSize: 11.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _MoreVersionAction extends StatelessWidget {
+  const _MoreVersionAction({required this.onTap, required this.label});
+
+  final VoidCallback? onTap;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 32),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
             child: Text(
-              subtitle,
+              label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: isCurrent
-                    ? theme.colorScheme.primary.withValues(alpha: 0.7)
-                    : theme.hintColor,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w500,
+                fontSize: 10.5,
                 height: 1.1,
-                fontSize: 11.5,
               ),
             ),
           ),
-        if (showSubtitle && showMoreVersionButton) const SizedBox(width: 8),
-        if (showMoreVersionButton)
-          InkWell(
-            onTap: onMoreVersionTap,
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-              child: Text(
-                moreVersionLabel,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 10.5,
-                ),
-              ),
-            ),
-          ),
-      ],
+        ),
+      ),
     );
   }
 }
