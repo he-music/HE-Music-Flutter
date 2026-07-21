@@ -27,6 +27,7 @@ import '../../features/online/domain/entities/online_platform.dart';
 import '../../shared/models/he_music_models.dart';
 import '../../shared/utils/cover_resolver.dart';
 import '../../shared/utils/audio_quality_selector.dart';
+import '../network/auth_token_interceptor.dart';
 import '../network/token_refresh_interceptor.dart';
 import 'audio_player_port.dart';
 import 'audio_player_factory.dart';
@@ -37,6 +38,8 @@ class HeAudioHandlerRuntimeConfig {
   const HeAudioHandlerRuntimeConfig({
     required this.apiBaseUrl,
     required this.authToken,
+    required this.refreshToken,
+    required this.tokenExpiresAt,
     required this.qualityPreference,
     required this.lastSelectedQualityName,
     required this.enableDesktopLyric,
@@ -50,6 +53,8 @@ class HeAudioHandlerRuntimeConfig {
 
   final String apiBaseUrl;
   final String? authToken;
+  final String? refreshToken;
+  final int? tokenExpiresAt;
   final AppOnlineAudioQuality qualityPreference;
   final String? lastSelectedQualityName;
   final bool enableDesktopLyric;
@@ -99,6 +104,8 @@ Future<HeAudioHandlerRuntimeConfig> loadHeAudioHandlerRuntimeConfig({
   return HeAudioHandlerRuntimeConfig(
     apiBaseUrl: config.apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), ''),
     authToken: config.authToken?.trim(),
+    refreshToken: config.refreshToken?.trim(),
+    tokenExpiresAt: config.tokenExpiresAt,
     qualityPreference: config.onlineAudioQualityPreference,
     lastSelectedQualityName: config.lastSelectedOnlineAudioQualityName?.trim(),
     enableDesktopLyric: config.enableDesktopLyric,
@@ -283,7 +290,6 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final shouldCloseOverlay = _enableDesktopLyric && !enableDesktopLyric;
     _apiBaseUrl = apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     _authToken = authToken?.trim();
-    globalTokenHolder.accessToken = _authToken;
     _qualityPreference = qualityPreference;
     _lastSelectedQualityName = lastSelectedQualityName?.trim();
     _enableDesktopLyric = enableDesktopLyric;
@@ -1107,6 +1113,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final config = await loadHeAudioHandlerRuntimeConfig();
     _apiBaseUrl = config.apiBaseUrl;
     _authToken = config.authToken;
+    globalTokenHolder.accessToken ??= config.authToken;
+    globalTokenHolder.refreshToken ??= config.refreshToken;
+    globalTokenHolder.expiresAt ??= config.tokenExpiresAt;
     _qualityPreference = config.qualityPreference;
     _lastSelectedQualityName = config.lastSelectedQualityName;
     _enableDesktopLyric = config.enableDesktopLyric;
@@ -1231,22 +1240,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         format: format,
       );
     }
-    final token = globalTokenHolder.accessToken ?? _authToken;
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: _apiBaseUrl,
-        connectTimeout: const Duration(seconds: 20),
-        receiveTimeout: const Duration(seconds: 30),
-        sendTimeout: const Duration(seconds: 30),
-        responseType: ResponseType.json,
-        headers: <String, String>{
-          'User-Agent': heAudioUserAgent,
-          if ((token ?? '').isNotEmpty) ...<String, String>{
-            'Authorization': 'Bearer $token',
-          },
-        },
-      ),
-    );
+    final dio = _createApiDio();
     try {
       final response = await dio.get(
         '/v1/song/url',
@@ -1942,22 +1936,37 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     Duration? receiveTimeout,
     Duration? sendTimeout,
   }) {
-    final token = globalTokenHolder.accessToken ?? _authToken;
-    return Dio(
+    final dio = Dio(
       BaseOptions(
         baseUrl: _apiBaseUrl,
         connectTimeout: connectTimeout ?? const Duration(seconds: 20),
         receiveTimeout: receiveTimeout ?? const Duration(seconds: 30),
         sendTimeout: sendTimeout ?? const Duration(seconds: 30),
         responseType: ResponseType.json,
-        headers: <String, String>{
-          'User-Agent': heAudioUserAgent,
-          if ((token ?? '').isNotEmpty) ...<String, String>{
-            'Authorization': 'Bearer $token',
-          },
+        headers: const <String, String>{'User-Agent': heAudioUserAgent},
+      ),
+    );
+    dio.interceptors.add(
+      AuthTokenInterceptor(
+        () => globalTokenHolder.accessToken ?? _authToken,
+        () => '',
+      ),
+    );
+    dio.interceptors.add(
+      TokenRefreshInterceptor(
+        tokenHolder: globalTokenHolder,
+        baseUrl: _apiBaseUrl,
+        refreshCoordinator: globalTokenRefreshCoordinator,
+        onTokensRefreshed: (accessToken, refreshToken, expiresAt) {
+          return const AppConfigDataSource().saveTokens(
+            accessToken,
+            refreshToken,
+            expiresAt,
+          );
         },
       ),
     );
+    return dio;
   }
 
   Map<String, dynamic> _asMap(dynamic value) {

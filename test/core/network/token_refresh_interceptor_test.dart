@@ -51,24 +51,136 @@ void main() {
         await server.close();
       }
     });
+
+    test('不同 Dio 实例的并发 401 应共享一次刷新', () async {
+      final server = await _TokenRefreshTestServer.start();
+      final tokenHolder = TokenHolder(
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-token',
+      );
+      final coordinator = TokenRefreshCoordinator(tokenHolder);
+      final refreshedTokens = <String>[];
+      final firstDio = _createDio(
+        server.baseUrl,
+        tokenHolder,
+        coordinator,
+        refreshedTokens,
+      );
+      final secondDio = _createDio(
+        server.baseUrl,
+        tokenHolder,
+        coordinator,
+        refreshedTokens,
+      );
+
+      try {
+        final responses = await Future.wait(<Future<Response<dynamic>>>[
+          firstDio.get('/v1/user/info'),
+          secondDio.get('/v1/platforms'),
+        ]).timeout(const Duration(seconds: 1));
+
+        expect(responses.map((item) => item.statusCode), everyElement(200));
+        expect(server.refreshRequestCount, 1);
+        expect(server.retriedPaths, hasLength(2));
+        expect(refreshedTokens, <String>['fresh-token|fresh-refresh-token']);
+      } finally {
+        firstDio.close(force: true);
+        secondDio.close(force: true);
+        await server.close();
+      }
+    });
+
+    test('新 token 重放仍返回 401 时不应再次刷新', () async {
+      final server = await _TokenRefreshTestServer.start(
+        initialRequestTarget: 1,
+        rejectFreshToken: true,
+      );
+      final tokenHolder = TokenHolder(
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-token',
+      );
+      final dio = _createDio(
+        server.baseUrl,
+        tokenHolder,
+        TokenRefreshCoordinator(tokenHolder),
+        <String>[],
+      );
+
+      try {
+        await expectLater(
+          dio.get<dynamic>('/v1/user/info'),
+          throwsA(
+            isA<DioException>().having(
+              (error) => error.response?.statusCode,
+              'statusCode',
+              401,
+            ),
+          ),
+        );
+        expect(server.refreshRequestCount, 1);
+        expect(server.protectedRequestCount, 2);
+      } finally {
+        dio.close(force: true);
+        await server.close();
+      }
+    });
   });
 }
 
+Dio _createDio(
+  String baseUrl,
+  TokenHolder tokenHolder,
+  TokenRefreshCoordinator coordinator,
+  List<String> refreshedTokens,
+) {
+  final dio = Dio(
+    BaseOptions(baseUrl: baseUrl, responseType: ResponseType.json),
+  );
+  dio.interceptors.add(
+    AuthTokenInterceptor(() => tokenHolder.accessToken, () => 'zh'),
+  );
+  dio.interceptors.add(
+    TokenRefreshInterceptor(
+      tokenHolder: tokenHolder,
+      baseUrl: baseUrl,
+      refreshCoordinator: coordinator,
+      onTokensRefreshed: (accessToken, refreshToken, _) {
+        refreshedTokens.add('$accessToken|$refreshToken');
+      },
+    ),
+  );
+  return dio;
+}
+
 class _TokenRefreshTestServer {
-  _TokenRefreshTestServer._(this._server);
+  _TokenRefreshTestServer._(
+    this._server, {
+    required this.initialRequestTarget,
+    required this.rejectFreshToken,
+  });
 
   final HttpServer _server;
+  final int initialRequestTarget;
+  final bool rejectFreshToken;
   final Completer<void> _bothInitialRequestsSeen = Completer<void>();
   final List<String> retriedPaths = <String>[];
   final List<String> retryAuthorizations = <String>[];
   int _initialUnauthorizedCount = 0;
   int refreshRequestCount = 0;
+  int protectedRequestCount = 0;
 
   String get baseUrl => 'http://${_server.address.host}:${_server.port}';
 
-  static Future<_TokenRefreshTestServer> start() async {
+  static Future<_TokenRefreshTestServer> start({
+    int initialRequestTarget = 2,
+    bool rejectFreshToken = false,
+  }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    final fixture = _TokenRefreshTestServer._(server);
+    final fixture = _TokenRefreshTestServer._(
+      server,
+      initialRequestTarget: initialRequestTarget,
+      rejectFreshToken: rejectFreshToken,
+    );
     server.listen(fixture._handleRequest);
     return fixture;
   }
@@ -97,10 +209,11 @@ class _TokenRefreshTestServer {
   }
 
   Future<void> _handleProtectedRequest(HttpRequest request) async {
+    protectedRequestCount++;
     final authorization = request.headers.value(
       HttpHeaders.authorizationHeader,
     );
-    if (authorization == 'Bearer fresh-token') {
+    if (authorization == 'Bearer fresh-token' && !rejectFreshToken) {
       retriedPaths.add(request.uri.path);
       retryAuthorizations.add(authorization ?? '');
       _writeJson(request.response, <String, dynamic>{'ok': true});
@@ -108,7 +221,7 @@ class _TokenRefreshTestServer {
     }
 
     _initialUnauthorizedCount++;
-    if (_initialUnauthorizedCount >= 2 &&
+    if (_initialUnauthorizedCount >= initialRequestTarget &&
         !_bothInitialRequestsSeen.isCompleted) {
       _bothInitialRequestsSeen.complete();
     }

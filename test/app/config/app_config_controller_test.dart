@@ -6,8 +6,16 @@ import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
+import 'package:he_music_flutter/core/network/token_refresh_interceptor.dart';
 
 void main() {
+  setUp(() {
+    globalTokenHolder
+      ..accessToken = null
+      ..refreshToken = null
+      ..expiresAt = null;
+  });
+
   test(
     'controller switches skins without changing the manual accent',
     () async {
@@ -86,6 +94,40 @@ void main() {
     );
     expect(dataSource.saved.playerStyleId, AppPlayerStyleRegistry.classicId);
   });
+
+  test(
+    'unrelated config updates preserve tokens refreshed outside Riverpod',
+    () async {
+      final dataSource = _RecordingAppConfigDataSource(
+        AppConfigState.initial.copyWith(
+          authToken: 'expired-token',
+          refreshToken: 'old-refresh-token',
+          tokenExpiresAt: 1,
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [appConfigDataSourceProvider.overrideWithValue(dataSource)],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(appConfigProvider.notifier);
+      await controller.waitUntilHydrated();
+      globalTokenHolder
+        ..accessToken = 'fresh-token'
+        ..refreshToken = 'fresh-refresh-token'
+        ..expiresAt = 123;
+
+      controller.setThemeAccent(AppThemeAccent.rose);
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(appConfigProvider);
+      expect(state.authToken, 'fresh-token');
+      expect(state.refreshToken, 'fresh-refresh-token');
+      expect(state.tokenExpiresAt, 123);
+      expect(dataSource.saved.authToken, 'fresh-token');
+      expect(dataSource.saved.refreshToken, 'fresh-refresh-token');
+      expect(dataSource.saved.tokenExpiresAt, 123);
+    },
+  );
 }
 
 class _RecordingAppConfigDataSource extends AppConfigDataSource {
@@ -100,5 +142,18 @@ class _RecordingAppConfigDataSource extends AppConfigDataSource {
   @override
   Future<void> save(AppConfigState state) async {
     saved = state;
+  }
+
+  @override
+  Future<void> saveTokens(
+    String accessToken,
+    String refreshToken,
+    int expiresAt,
+  ) async {
+    saved = saved.copyWith(
+      authToken: accessToken,
+      refreshToken: refreshToken,
+      tokenExpiresAt: expiresAt,
+    );
   }
 }

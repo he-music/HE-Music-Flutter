@@ -173,4 +173,24 @@ void main() {
       AppPlayerStyleRegistry.classicId,
     );
   });
+
+  test('saveTokens only updates the token triplet', () async {
+    const dataSource = AppConfigDataSource();
+    await dataSource.save(
+      AppConfigState.initial.copyWith(
+        themeMode: AppThemeMode.dark,
+        authToken: 'expired-token',
+        refreshToken: 'old-refresh-token',
+        tokenExpiresAt: 1,
+      ),
+    );
+
+    await dataSource.saveTokens('fresh-token', 'fresh-refresh-token', 123);
+    final state = await dataSource.load();
+
+    expect(state.themeMode, AppThemeMode.dark);
+    expect(state.authToken, 'fresh-token');
+    expect(state.refreshToken, 'fresh-refresh-token');
+    expect(state.tokenExpiresAt, 123);
+  });
 }

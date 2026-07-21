@@ -172,6 +172,18 @@ class AppConfigDataSource {
     }
   }
 
+  /// refresh 只更新 token 三元组，避免用旧配置快照覆盖其他并发设置。
+  Future<void> saveTokens(
+    String accessToken,
+    String refreshToken,
+    int expiresAt,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_authTokenKey, accessToken.trim());
+    await prefs.setString(_refreshTokenKey, refreshToken.trim());
+    await prefs.setInt(_tokenExpiresAtKey, expiresAt);
+  }
+
   String? _readLastSelectedOnlineAudioQualityName(String? value) {
     final normalized = value?.trim() ?? '';
     if (normalized.isEmpty) {

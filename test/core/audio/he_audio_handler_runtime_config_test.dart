@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
@@ -12,6 +14,7 @@ import 'package:he_music_flutter/app/config/app_environment.dart';
 import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
 import 'package:he_music_flutter/core/audio/audio_track.dart';
 import 'package:he_music_flutter/core/audio/he_audio_handler.dart';
+import 'package:he_music_flutter/core/network/token_refresh_interceptor.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
 import 'package:he_music_flutter/features/lyrics_overlay/data/overlay_message.dart';
@@ -25,6 +28,10 @@ void main() {
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    globalTokenHolder
+      ..accessToken = null
+      ..refreshToken = null
+      ..expiresAt = null;
   });
 
   test(
@@ -35,6 +42,8 @@ void main() {
         (await dataSource.load()).copyWith(
           apiBaseUrl: 'https://example.com/',
           authToken: 'token-123',
+          refreshToken: 'refresh-123',
+          tokenExpiresAt: 123,
           onlineAudioQualityPreference: AppOnlineAudioQuality.flac,
           lastSelectedOnlineAudioQualityName: 'FLAC',
         ),
@@ -46,10 +55,86 @@ void main() {
 
       expect(config.apiBaseUrl, AppEnvironment.apiBaseUrl);
       expect(config.authToken, 'token-123');
+      expect(config.refreshToken, 'refresh-123');
+      expect(config.tokenExpiresAt, 123);
       expect(config.qualityPreference, AppOnlineAudioQuality.flac);
       expect(config.lastSelectedQualityName, 'FLAC');
     },
   );
+
+  test('切歌时 song url 401 应刷新 token 并重放原请求', () async {
+    HttpOverrides.global = null;
+    final server = await _AudioRefreshTestServer.start();
+    addTearDown(server.close);
+    globalTokenHolder
+      ..accessToken = 'expired-token'
+      ..refreshToken = 'refresh-token'
+      ..expiresAt = 1;
+    final loadedUrls = <String>[];
+    final handler = HeAudioHandler(
+      fetchLyricsOverride:
+          ({
+            required String trackId,
+            String? platform,
+            String? localPath,
+          }) async => const LyricDocument.empty(),
+      setAudioSourceOverride: (source, player) async {
+        loadedUrls.add((source as UriAudioSource).uri.toString());
+        return null;
+      },
+      playOverride: (player) async {},
+    );
+    addTearDown(handler.disposeHandler);
+    await handler.syncConfig(
+      apiBaseUrl: server.baseUrl,
+      authToken: 'expired-token',
+      qualityPreference: AppOnlineAudioQuality.auto,
+      lastSelectedQualityName: null,
+      enableDesktopLyric: false,
+      enableDesktopLyricLock: false,
+      lyricHighlightMode: AppLyricHighlightMode.preset,
+      lyricHighlightPresetColorValue: AppLyricHighlightColor.sky.color
+          .toARGB32(),
+      lyricHighlightCustomColorValue: null,
+      lyricFontPresetIndex: AppLyricFontPreset.medium.index,
+      enableWordByWordLyric: false,
+    );
+
+    await handler.setQueueData(const <AudioTrack>[
+      AudioTrack(id: 'song-1', title: '歌曲一', url: '', platform: 'qq'),
+    ]);
+
+    expect(server.refreshRequestCount, 1);
+    expect(server.songUrlAuthorizations, <String>[
+      'Bearer expired-token',
+      'Bearer fresh-token',
+    ]);
+    expect(loadedUrls, <String>['https://audio.example.com/song-1.mp3']);
+    expect(globalTokenHolder.accessToken, 'fresh-token');
+    expect(globalTokenHolder.refreshToken, 'fresh-refresh-token');
+    expect(globalTokenHolder.expiresAt, 123);
+    final persisted = await const AppConfigDataSource().load();
+    expect(persisted.authToken, 'fresh-token');
+    expect(persisted.refreshToken, 'fresh-refresh-token');
+    expect(persisted.tokenExpiresAt, 123);
+
+    // Riverpod/播放器可能仍持有旧快照，后续配置同步不能覆盖实时 token。
+    await handler.syncConfig(
+      apiBaseUrl: server.baseUrl,
+      authToken: 'expired-token',
+      qualityPreference: AppOnlineAudioQuality.auto,
+      lastSelectedQualityName: null,
+      enableDesktopLyric: false,
+      enableDesktopLyricLock: false,
+      lyricHighlightMode: AppLyricHighlightMode.preset,
+      lyricHighlightPresetColorValue: AppLyricHighlightColor.sky.color
+          .toARGB32(),
+      lyricHighlightCustomColorValue: null,
+      lyricFontPresetIndex: AppLyricFontPreset.medium.index,
+      enableWordByWordLyric: false,
+    );
+    expect(globalTokenHolder.accessToken, 'fresh-token');
+  });
 
   test('shouldRefreshRemotePlaybackUrl returns true for remote tracks', () {
     const track = AudioTrack(
@@ -933,6 +1018,71 @@ class _SequenceRandom implements Random {
 
   @override
   double nextDouble() => nextInt(1000000) / 1000000;
+}
+
+class _AudioRefreshTestServer {
+  _AudioRefreshTestServer._(this._server);
+
+  final HttpServer _server;
+  final List<String> songUrlAuthorizations = <String>[];
+  int refreshRequestCount = 0;
+
+  String get baseUrl => 'http://${_server.address.host}:${_server.port}';
+
+  static Future<_AudioRefreshTestServer> start() async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final fixture = _AudioRefreshTestServer._(server);
+    server.listen(fixture._handleRequest);
+    return fixture;
+  }
+
+  Future<void> close() => _server.close(force: true);
+
+  Future<void> _handleRequest(HttpRequest request) async {
+    switch (request.uri.path) {
+      case '/v1/auth/token/refresh':
+        refreshRequestCount++;
+        await utf8.decoder.bind(request).join();
+        await _writeJson(request.response, <String, dynamic>{
+          'access_token': 'fresh-token',
+          'refresh_token': 'fresh-refresh-token',
+          'expires_at': 123,
+        });
+        return;
+      case '/v1/song/url':
+        final authorization =
+            request.headers.value(HttpHeaders.authorizationHeader) ?? '';
+        songUrlAuthorizations.add(authorization);
+        if (authorization != 'Bearer fresh-token') {
+          await _writeJson(request.response, <String, dynamic>{
+            'error': 'expired',
+          }, statusCode: HttpStatus.unauthorized);
+          return;
+        }
+        await _writeJson(request.response, <String, dynamic>{
+          'url': 'https://audio.example.com/song-1.mp3',
+          'format': 'mp3',
+        });
+        return;
+      default:
+        await _writeJson(request.response, <String, dynamic>{
+          'error': 'not found',
+        }, statusCode: HttpStatus.notFound);
+        return;
+    }
+  }
+
+  Future<void> _writeJson(
+    HttpResponse response,
+    Map<String, dynamic> payload, {
+    int statusCode = HttpStatus.ok,
+  }) async {
+    response
+      ..statusCode = statusCode
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode(payload));
+    await response.close();
+  }
 }
 
 class _RecordingOverlayChannelService implements OverlayChannelService {

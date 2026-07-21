@@ -16,14 +16,9 @@ import 'unauthorized_redirect_interceptor.dart';
 
 final apiDioProvider = Provider<Dio>((ref) {
   // 只监听网络相关字段，避免主题色等无关配置水合触发 Dio 重建，从而中断启动阶段请求。
-  final (authToken, refreshToken, apiBaseUrl, localeCode) = ref.watch(
+  final (apiBaseUrl, localeCode) = ref.watch(
     appConfigProvider.select(
-      (config) => (
-        config.authToken,
-        config.refreshToken,
-        config.apiBaseUrl,
-        config.localeCode,
-      ),
+      (config) => (config.apiBaseUrl, config.localeCode),
     ),
   );
   final router = ref.watch(appRouterProvider);
@@ -40,10 +35,24 @@ final apiDioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  // 使用全局共享的 TokenHolder，保证 HeAudioHandler 和拦截器读到同一份 token。
-  globalTokenHolder.accessToken = authToken;
-  globalTokenHolder.refreshToken = refreshToken;
   final tokenHolder = globalTokenHolder;
+  final initialConfig = ref.read(appConfigProvider);
+  tokenHolder.accessToken ??= initialConfig.authToken;
+  tokenHolder.refreshToken ??= initialConfig.refreshToken;
+  tokenHolder.expiresAt ??= initialConfig.tokenExpiresAt;
+  // 监听登录/登出但不重建 Dio；请求拦截器会动态读取 holder。
+  ref.listen<(String?, String?, int?)>(
+    appConfigProvider.select(
+      (config) =>
+          (config.authToken, config.refreshToken, config.tokenExpiresAt),
+    ),
+    (previous, next) {
+      tokenHolder
+        ..accessToken = next.$1
+        ..refreshToken = next.$2
+        ..expiresAt = next.$3;
+    },
+  );
   dio.interceptors.add(
     AuthTokenInterceptor(() => tokenHolder.accessToken, () => localeCode),
   );
@@ -54,13 +63,13 @@ final apiDioProvider = Provider<Dio>((ref) {
     TokenRefreshInterceptor(
       tokenHolder: tokenHolder,
       baseUrl: baseUrl,
-      onTokensRefreshed: (newAccess, newRefresh, expiresAt) {
+      refreshCoordinator: globalTokenRefreshCoordinator,
+      onTokensRefreshed: (newAccess, newRefresh, expiresAt) async {
         // 登出与刷新竞态 —— 若 token 已被清空则不恢复。
         if (ref.read(appConfigProvider).authToken == null) {
           return;
         }
-        // 仅持久化，不更新 Riverpod state，避免触发 Dio 重建。
-        configController.persistTokens(newAccess, newRefresh, expiresAt);
+        await configController.persistTokens(newAccess, newRefresh, expiresAt);
       },
       getDeviceInfo: () =>
           deviceInfoAsync.whenOrNull(data: (d) => d.toApiMap()),

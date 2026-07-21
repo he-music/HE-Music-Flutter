@@ -6,129 +6,65 @@ import 'package:dio/dio.dart';
 /// TokenRefreshInterceptor 和 apiDioProvider 共享同一个实例，
 /// 保证闭包读到的始终是最新值。
 class TokenHolder {
-  TokenHolder({this.accessToken, this.refreshToken});
+  TokenHolder({this.accessToken, this.refreshToken, this.expiresAt});
 
   String? accessToken;
   String? refreshToken;
+  int? expiresAt;
 }
 
-/// 全局共享的 TokenHolder 实例。
-/// apiDioProvider、TokenRefreshInterceptor、HeAudioHandler 共用同一个实例，
-/// 保证 token 刷新后所有网络层立即可见。
-final globalTokenHolder = TokenHolder();
+typedef TokensRefreshedCallback =
+    FutureOr<void> Function(
+      String accessToken,
+      String refreshToken,
+      int expiresAt,
+    );
 
-/// 拦截 401 响应，自动使用 refresh_token 换取新的 token 对。
-/// 刷新失败时将错误传递给下游（UnauthorizedRedirectInterceptor 处理登出）。
-class TokenRefreshInterceptor extends Interceptor {
-  TokenRefreshInterceptor({
-    required this.tokenHolder,
-    required this.baseUrl,
-    required this.onTokensRefreshed,
-    this.getDeviceInfo,
-  });
+/// 负责跨 Dio 实例合并并发 refresh，并同步最新 token。
+class TokenRefreshCoordinator {
+  TokenRefreshCoordinator(this.tokenHolder);
 
   final TokenHolder tokenHolder;
-  final String baseUrl;
-  final void Function(String accessToken, String refreshToken, int expiresAt)
-  onTokensRefreshed;
+  Future<String?>? _ongoingRefresh;
 
-  /// 返回当前设备信息 Map（对应 proto DeviceInfo），用于刷新请求。
-  final Map<String, dynamic>? Function()? getDeviceInfo;
-
-  /// 防止并发刷新：多个 401 共享同一次刷新+重试流程。
-  /// Completer 在整个流程（刷新 + 重试）完成后才 complete。
-  Completer<void>? _ongoingRefresh;
-
-  /// 不需要尝试刷新的接口路径。
-  static final _excludedPaths = RegExp(
-    r'/(login|token/refresh|auth/result|auth/qr/result|auth/logout)\b',
-  );
-
-  @override
-  void onError(DioException err, ErrorInterceptorHandler handler) {
-    if (err.response?.statusCode != 401) {
-      return handler.next(err);
-    }
-
-    final path = err.requestOptions.path;
-    if (_excludedPaths.hasMatch(path)) {
-      return handler.next(err);
-    }
-
-    // 已经重试过一次，不再刷新。
-    if (err.requestOptions.extra['tokenRefreshed'] == true) {
-      return handler.next(err);
+  Future<String?> refresh({
+    required String baseUrl,
+    required TokensRefreshedCallback onTokensRefreshed,
+    Map<String, dynamic>? Function()? getDeviceInfo,
+  }) {
+    final ongoingRefresh = _ongoingRefresh;
+    if (ongoingRefresh != null) {
+      return ongoingRefresh;
     }
 
     final refreshToken = tokenHolder.refreshToken;
     if (refreshToken == null || refreshToken.isEmpty) {
-      return handler.next(err);
+      return Future<String?>.value();
     }
 
-    // 并发保护：多个 401 共享同一次刷新，后续请求等待完成后使用新 token。
-    if (_ongoingRefresh != null) {
-      final ongoingRefresh = _ongoingRefresh!;
-      ongoingRefresh.future
-          .then((_) {
-            final newToken = tokenHolder.accessToken;
-            if (newToken == null || newToken.isEmpty) {
-              handler.next(err);
-              return;
-            }
-            _retryWithToken(err.requestOptions, newToken)
-                .then((response) {
-                  handler.resolve(response);
-                })
-                .catchError((Object e) {
-                  handler.next(err);
-                });
-          })
-          .catchError((Object _) {
-            handler.next(err);
-          });
-      return;
-    }
-
-    final refreshCompleter = Completer<void>();
-    _ongoingRefresh = refreshCompleter;
-    void completeRefresh() {
-      if (!refreshCompleter.isCompleted) {
-        refreshCompleter.complete();
-      }
-    }
-
-    _doRefresh(refreshToken)
-        .then((newToken) {
-          if (newToken == null || newToken.isEmpty) {
-            handler.next(err);
-            completeRefresh();
-            return Future<void>.value();
-          }
-          return _retryWithToken(err.requestOptions, newToken)
-              .then((response) {
-                handler.resolve(response);
-              })
-              .catchError((Object e) {
-                handler.next(err);
-              })
-              .whenComplete(() {
-                completeRefresh();
-              });
-        })
-        .catchError((Object _) {
-          handler.next(err);
-          completeRefresh();
-        })
-        .whenComplete(() {
-          if (identical(_ongoingRefresh, refreshCompleter)) {
-            _ongoingRefresh = null;
-          }
-        });
+    final refreshFuture = _doRefresh(
+      baseUrl: baseUrl,
+      refreshToken: refreshToken,
+      onTokensRefreshed: onTokensRefreshed,
+      getDeviceInfo: getDeviceInfo,
+    );
+    _ongoingRefresh = refreshFuture;
+    unawaited(
+      refreshFuture.whenComplete(() {
+        if (identical(_ongoingRefresh, refreshFuture)) {
+          _ongoingRefresh = null;
+        }
+      }),
+    );
+    return refreshFuture;
   }
 
-  /// 调用后端刷新接口，返回新 access_token。
-  /// 成功时同步更新 tokenHolder 并持久化到 SharedPreferences。
-  Future<String?> _doRefresh(String refreshToken) async {
+  Future<String?> _doRefresh({
+    required String baseUrl,
+    required String refreshToken,
+    required TokensRefreshedCallback onTokensRefreshed,
+    Map<String, dynamic>? Function()? getDeviceInfo,
+  }) async {
     final refreshDio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -157,7 +93,6 @@ class TokenRefreshInterceptor extends Interceptor {
       final newAccessToken = '${data['access_token'] ?? ''}'.trim();
       final newRefreshToken = '${data['refresh_token'] ?? ''}'.trim();
       final expiresAt = data['expires_at'];
-
       if (newAccessToken.isEmpty) {
         return null;
       }
@@ -166,20 +101,104 @@ class TokenRefreshInterceptor extends Interceptor {
           ? newRefreshToken
           : refreshToken;
       final effectiveExpiresAt = expiresAt is int ? expiresAt : 0;
-
-      // 同步更新可变引用，后续请求立即使用新 token。
+      // 登出或重新登录会替换 refresh token，旧请求不得恢复已经失效的会话。
+      if (tokenHolder.refreshToken != refreshToken) {
+        return null;
+      }
       tokenHolder.accessToken = newAccessToken;
       tokenHolder.refreshToken = effectiveRefresh;
-
-      // 通知 Riverpod 持久化。
-      onTokensRefreshed(newAccessToken, effectiveRefresh, effectiveExpiresAt);
-
+      tokenHolder.expiresAt = effectiveExpiresAt;
+      await onTokensRefreshed(
+        newAccessToken,
+        effectiveRefresh,
+        effectiveExpiresAt,
+      );
       return newAccessToken;
     } catch (_) {
       return null;
     } finally {
       refreshDio.close(force: true);
     }
+  }
+}
+
+/// 普通 API 与后台音频请求共享同一份实时 token 和 refresh Future。
+final globalTokenHolder = TokenHolder();
+final globalTokenRefreshCoordinator = TokenRefreshCoordinator(
+  globalTokenHolder,
+);
+
+/// 拦截 401 响应，自动使用 refresh_token 换取新的 token 对。
+/// 刷新失败时将错误传递给下游（UnauthorizedRedirectInterceptor 处理登出）。
+class TokenRefreshInterceptor extends Interceptor {
+  TokenRefreshInterceptor({
+    required this.tokenHolder,
+    required this.baseUrl,
+    required this.onTokensRefreshed,
+    TokenRefreshCoordinator? refreshCoordinator,
+    this.getDeviceInfo,
+  }) : assert(
+         refreshCoordinator == null ||
+             identical(refreshCoordinator.tokenHolder, tokenHolder),
+       ),
+       _refreshCoordinator =
+           refreshCoordinator ?? TokenRefreshCoordinator(tokenHolder);
+
+  final TokenHolder tokenHolder;
+  final String baseUrl;
+  final TokensRefreshedCallback onTokensRefreshed;
+  final TokenRefreshCoordinator _refreshCoordinator;
+
+  /// 返回当前设备信息 Map（对应 proto DeviceInfo），用于刷新请求。
+  final Map<String, dynamic>? Function()? getDeviceInfo;
+
+  /// 不需要尝试刷新的接口路径。
+  static final _excludedPaths = RegExp(
+    r'/(login|token/refresh|auth/result|auth/qr/result|auth/logout)\b',
+  );
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    if (err.response?.statusCode != 401) {
+      return handler.next(err);
+    }
+
+    final path = err.requestOptions.path;
+    if (_excludedPaths.hasMatch(path)) {
+      return handler.next(err);
+    }
+
+    // 已经重试过一次，不再刷新。
+    if (err.requestOptions.extra['tokenRefreshed'] == true) {
+      return handler.next(err);
+    }
+
+    if (tokenHolder.refreshToken?.isNotEmpty != true) {
+      return handler.next(err);
+    }
+
+    _refreshCoordinator
+        .refresh(
+          baseUrl: baseUrl,
+          onTokensRefreshed: onTokensRefreshed,
+          getDeviceInfo: getDeviceInfo,
+        )
+        .then((newToken) {
+          if (newToken == null || newToken.isEmpty) {
+            handler.next(err);
+            return;
+          }
+          _retryWithToken(err.requestOptions, newToken)
+              .then((response) {
+                handler.resolve(response);
+              })
+              .catchError((Object _) {
+                handler.next(err);
+              });
+        })
+        .catchError((Object _) {
+          handler.next(err);
+        });
   }
 
   Future<Response<dynamic>> _retryWithToken(

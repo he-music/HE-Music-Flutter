@@ -123,47 +123,84 @@ class AppConfigController extends Notifier<AppConfigState> {
   }
 
   void setAuthToken(String token) {
-    _update(state.copyWith(authToken: token.trim(), clearRefreshToken: true));
+    final accessToken = token.trim();
+    globalTokenHolder
+      ..accessToken = accessToken
+      ..refreshToken = null
+      ..expiresAt = null;
+    _update(state.copyWith(authToken: accessToken, clearRefreshToken: true));
   }
 
   /// 一次性设置 access_token、refresh_token 和过期时间。
   void setTokens(String accessToken, String refreshToken, int expiresAt) {
+    final normalizedAccess = accessToken.trim();
+    final normalizedRefresh = refreshToken.trim();
+    globalTokenHolder
+      ..accessToken = normalizedAccess
+      ..refreshToken = normalizedRefresh
+      ..expiresAt = expiresAt;
     _update(
       state.copyWith(
-        authToken: accessToken.trim(),
-        refreshToken: refreshToken.trim(),
+        authToken: normalizedAccess,
+        refreshToken: normalizedRefresh,
         tokenExpiresAt: expiresAt,
       ),
     );
   }
 
   void clearAuthToken() {
+    globalTokenHolder
+      ..accessToken = null
+      ..refreshToken = null
+      ..expiresAt = null;
     _update(state.copyWith(clearToken: true, clearRefreshToken: true));
   }
 
-  /// 仅持久化 token 三元组到 SharedPreferences，不更新 Riverpod state。
-  /// 用于 Token 刷新场景：TokenHolder 已经持有最新值，
-  /// 此处仅确保持久化，避免触发 apiDioProvider 重建。
-  void persistTokens(String accessToken, String refreshToken, int expiresAt) {
-    final snapshot = state.copyWith(
-      authToken: accessToken.trim(),
-      refreshToken: refreshToken.trim(),
+  /// refresh 后同步内存状态并定向持久化，不触发 apiDioProvider 重建。
+  Future<void> persistTokens(
+    String accessToken,
+    String refreshToken,
+    int expiresAt,
+  ) {
+    final normalizedAccess = accessToken.trim();
+    final normalizedRefresh = refreshToken.trim();
+    globalTokenHolder
+      ..accessToken = normalizedAccess
+      ..refreshToken = normalizedRefresh
+      ..expiresAt = expiresAt;
+    state = state.copyWith(
+      authToken: normalizedAccess,
+      refreshToken: normalizedRefresh,
       tokenExpiresAt: expiresAt,
     );
-    _persist(snapshot);
+    return ref
+        .read(appConfigDataSourceProvider)
+        .saveTokens(normalizedAccess, normalizedRefresh, expiresAt);
   }
 
   void _update(AppConfigState next, {bool persist = true}) {
-    state = next;
+    final accessToken = globalTokenHolder.accessToken;
+    final refreshToken = globalTokenHolder.refreshToken;
+    final effective = next.copyWith(
+      authToken: accessToken,
+      clearToken: accessToken == null,
+      refreshToken: refreshToken,
+      tokenExpiresAt: globalTokenHolder.expiresAt,
+      clearRefreshToken: refreshToken == null,
+    );
+    state = effective;
     if (!persist) {
       return;
     }
-    _persist(next);
+    _persist(effective);
   }
 
   Future<void> _hydrate() async {
     final loaded = await ref.read(appConfigDataSourceProvider).load();
     // 刷新拦截器可能已更新全局 token，水合时必须优先保留实时值。
+    globalTokenHolder.accessToken ??= loaded.authToken;
+    globalTokenHolder.refreshToken ??= loaded.refreshToken;
+    globalTokenHolder.expiresAt ??= loaded.tokenExpiresAt;
     final accessToken = globalTokenHolder.accessToken ?? loaded.authToken;
     final refreshToken = globalTokenHolder.refreshToken ?? loaded.refreshToken;
     state = state.copyWith(
@@ -190,7 +227,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       clearToken: accessToken == null,
       refreshToken: refreshToken,
       clearRefreshToken: refreshToken == null,
-      tokenExpiresAt: loaded.tokenExpiresAt,
+      tokenExpiresAt: globalTokenHolder.expiresAt ?? loaded.tokenExpiresAt,
     );
   }
 

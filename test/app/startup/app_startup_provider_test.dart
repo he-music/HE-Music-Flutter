@@ -18,11 +18,13 @@ void main() {
   setUp(() {
     globalTokenHolder.accessToken = null;
     globalTokenHolder.refreshToken = null;
+    globalTokenHolder.expiresAt = null;
   });
 
   tearDown(() {
     globalTokenHolder.accessToken = null;
     globalTokenHolder.refreshToken = null;
+    globalTokenHolder.expiresAt = null;
   });
 
   test('平台请求应等待配置和 token 水合完成', () async {
