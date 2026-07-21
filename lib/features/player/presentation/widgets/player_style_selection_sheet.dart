@@ -99,41 +99,53 @@ class _PlayerStyleOption extends StatelessWidget {
               child: Column(
                 children: <Widget>[
                   Expanded(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: <Widget>[
-                        Image.asset(
-                          style.metadata.previewAsset,
-                          key: ValueKey<String>(
-                            'player-style-preview-${style.metadata.id}',
-                          ),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _PlayerStylePreviewFallback(style: style);
-                          },
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: <Color>[
+                            colors.backgroundStart,
+                            colors.backgroundEnd,
+                          ],
                         ),
-                        if (selected)
-                          Align(
-                            alignment: Alignment.topRight,
-                            child: Container(
-                              key: ValueKey<String>(
-                                'player-style-selected-${style.metadata.id}',
-                              ),
-                              width: 28,
-                              height: 28,
-                              margin: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: colors.accent,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.check_rounded,
-                                size: 18,
-                                color: style.colors.backgroundEnd,
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: <Widget>[
+                          Image.asset(
+                            style.metadata.previewAsset,
+                            key: ValueKey<String>(
+                              'player-style-preview-${style.metadata.id}',
+                            ),
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _PlayerStylePreviewFallback(style: style);
+                            },
+                          ),
+                          if (selected)
+                            Align(
+                              alignment: Alignment.topRight,
+                              child: Container(
+                                key: ValueKey<String>(
+                                  'player-style-selected-${style.metadata.id}',
+                                ),
+                                width: 28,
+                                height: 28,
+                                margin: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: colors.accent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.check_rounded,
+                                  size: 18,
+                                  color: style.colors.backgroundEnd,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   SizedBox(

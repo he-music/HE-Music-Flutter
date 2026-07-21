@@ -104,10 +104,11 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final styleId in AppPlayerStyleRegistry.builtInIds) {
-      expect(
-        find.byKey(ValueKey<String>('player-style-preview-$styleId')),
-        findsOneWidget,
+      final previewFinder = find.byKey(
+        ValueKey<String>('player-style-preview-$styleId'),
       );
+      expect(previewFinder, findsOneWidget);
+      expect(tester.widget<Image>(previewFinder).fit, BoxFit.contain);
     }
     expect(
       find.byKey(const ValueKey<String>('player-style-selected-classic')),
