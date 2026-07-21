@@ -13,7 +13,7 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/skin_selection_page.dart';
 
 void main() {
-  testWidgets('candidate and preview brightness stay local until apply', (
+  testWidgets('candidate stays local until apply with both previews visible', (
     tester,
   ) async {
     final container = ProviderContainer(
@@ -24,16 +24,22 @@ void main() {
     await tester.pumpWidget(_buildApp(container, const SkinSelectionPage()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('城市声场创作者'));
-    await tester.pump();
-    expect(container.read(appConfigProvider).skinId, AppSkinRegistry.classicId);
-
-    await tester.tap(find.text('深色'));
-    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-light')),
+      findsNWidgets(2),
+    );
     expect(
       find.byKey(const ValueKey<String>('skin-preview-dark')),
       findsNWidgets(2),
     );
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-brightness')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('城市声场创作者'));
+    await tester.pump();
+    expect(container.read(appConfigProvider).skinId, AppSkinRegistry.classicId);
     expect(container.read(appConfigProvider).themeMode.name, 'system');
 
     await tester.tap(find.byKey(const ValueKey<String>('apply-skin-button')));
@@ -90,23 +96,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(resolver.paths, <String>[
-      'assets/skins/city_sound_creator/preview_light.png',
-    ]);
+    expect(
+      resolver.paths,
+      unorderedEquals(<String>[
+        'assets/skins/city_sound_creator/preview_light.png',
+        'assets/skins/city_sound_creator/preview_dark.png',
+      ]),
+    );
     expect(
       find.byKey(
         const ValueKey<String>('skin-preview-image-city_sound_creator-light'),
       ),
       findsOneWidget,
     );
-
-    await tester.tap(find.text('深色'));
-    await tester.pumpAndSettle();
-
-    expect(resolver.paths, <String>[
-      'assets/skins/city_sound_creator/preview_light.png',
-      'assets/skins/city_sound_creator/preview_dark.png',
-    ]);
     expect(
       find.byKey(
         const ValueKey<String>('skin-preview-image-city_sound_creator-dark'),
@@ -132,6 +134,12 @@ void main() {
     expect(
       find.byKey(
         const ValueKey<String>('skin-preview-live-city_sound_creator-light'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('skin-preview-live-city_sound_creator-dark'),
       ),
       findsOneWidget,
     );
@@ -163,6 +171,12 @@ void main() {
       ),
       findsNothing,
     );
+    expect(
+      find.byKey(
+        const ValueKey<String>('skin-preview-live-city_sound_creator-dark'),
+      ),
+      findsNothing,
+    );
 
     resolver.completeWithFailure();
     await tester.pumpAndSettle();
@@ -172,6 +186,50 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.byKey(
+        const ValueKey<String>('skin-preview-live-city_sound_creator-dark'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('both previews fit a narrow mobile viewport', (tester) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final container = ProviderContainer(
+      overrides: [appConfigProvider.overrideWith(_TestAppConfigController.new)],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        container,
+        SkinSelectionPage(assetResolver: _PreviewResolver()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-light')),
+      findsNWidgets(2),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-dark')),
+      findsNWidgets(2),
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('skin-preview-light')).first,
+          )
+          .width,
+      lessThanOrEqualTo(104),
+    );
+    expect(tester.takeException(), isNull);
   });
 }
 

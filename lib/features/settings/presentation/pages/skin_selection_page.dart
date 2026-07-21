@@ -29,7 +29,6 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
   late AppSkinAssetResolver _assetResolver;
   late String _appliedSkinId;
   late String _candidateSkinId;
-  Brightness _previewBrightness = Brightness.light;
 
   @override
   void initState() {
@@ -53,57 +52,25 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final registry = AppSkinRegistry.builtIn(config.themeAccent);
-    final content = Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<Brightness>(
-              key: const ValueKey<String>('skin-preview-brightness'),
-              segments: <ButtonSegment<Brightness>>[
-                ButtonSegment<Brightness>(
-                  value: Brightness.light,
-                  label: Text(AppI18n.t(config, 'my.theme.light')),
-                ),
-                ButtonSegment<Brightness>(
-                  value: Brightness.dark,
-                  label: Text(AppI18n.t(config, 'my.theme.dark')),
-                ),
-              ],
-              selected: <Brightness>{_previewBrightness},
-              onSelectionChanged: (selection) {
-                setState(() {
-                  _previewBrightness = selection.single;
-                });
-              },
-            ),
-          ),
-        ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            itemCount: registry.skins.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final skin = registry.skins[index];
-              return _SkinChoiceCard(
-                skin: skin,
-                brightness: _previewBrightness,
-                selected: skin.metadata.id == _candidateSkinId,
-                applied: skin.metadata.id == _appliedSkinId,
-                localeCode: config.localeCode,
-                assetResolver: _assetResolver,
-                onTap: () {
-                  setState(() {
-                    _candidateSkinId = skin.metadata.id;
-                  });
-                },
-              );
-            },
-          ),
-        ),
-      ],
+    final content = ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      itemCount: registry.skins.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final skin = registry.skins[index];
+        return _SkinChoiceCard(
+          skin: skin,
+          selected: skin.metadata.id == _candidateSkinId,
+          applied: skin.metadata.id == _appliedSkinId,
+          localeCode: config.localeCode,
+          assetResolver: _assetResolver,
+          onTap: () {
+            setState(() {
+              _candidateSkinId = skin.metadata.id;
+            });
+          },
+        );
+      },
     );
     if (widget.embedded) {
       return content;
@@ -145,7 +112,6 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
 class _SkinChoiceCard extends StatelessWidget {
   const _SkinChoiceCard({
     required this.skin,
-    required this.brightness,
     required this.selected,
     required this.applied,
     required this.localeCode,
@@ -154,7 +120,6 @@ class _SkinChoiceCard extends StatelessWidget {
   });
 
   final AppSkinPackage skin;
-  final Brightness brightness;
   final bool selected;
   final bool applied;
   final String localeCode;
@@ -182,64 +147,98 @@ class _SkinChoiceCard extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                SizedBox(
-                  width: 108,
-                  child: _SkinPreview(
-                    skin: skin,
-                    brightness: brightness,
-                    assetResolver: assetResolver,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                AppI18n.tByLocaleCode(
-                                  localeCode,
-                                  skin.metadata.nameKey,
-                                ),
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                            if (selected)
-                              Icon(
-                                Icons.check_circle_rounded,
-                                color: colorScheme.primary,
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          AppI18n.tByLocaleCode(
-                            localeCode,
-                            skin.metadata.descriptionKey,
-                          ),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        if (applied) ...<Widget>[
-                          const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
                           Text(
                             AppI18n.tByLocaleCode(
                               localeCode,
-                              'settings.skin.applied',
+                              skin.metadata.nameKey,
                             ),
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(color: colorScheme.primary),
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
+                          const SizedBox(height: 6),
+                          Text(
+                            AppI18n.tByLocaleCode(
+                              localeCode,
+                              skin.metadata.descriptionKey,
+                            ),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          if (applied) ...<Widget>[
+                            const SizedBox(height: 8),
+                            Text(
+                              AppI18n.tByLocaleCode(
+                                localeCode,
+                                'settings.skin.applied',
+                              ),
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: colorScheme.primary),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
+                    if (selected) ...<Widget>[
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: colorScheme.primary,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    for (final brightness in const <Brightness>[
+                      Brightness.light,
+                      Brightness.dark,
+                    ]) ...<Widget>[
+                      if (brightness == Brightness.dark)
+                        const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          children: <Widget>[
+                            Text(
+                              AppI18n.tByLocaleCode(
+                                localeCode,
+                                brightness == Brightness.light
+                                    ? 'my.theme.light'
+                                    : 'my.theme.dark',
+                              ),
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            const SizedBox(height: 6),
+                            Align(
+                              alignment: Alignment.topCenter,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 104,
+                                ),
+                                child: _SkinPreview(
+                                  skin: skin,
+                                  brightness: brightness,
+                                  assetResolver: assetResolver,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
