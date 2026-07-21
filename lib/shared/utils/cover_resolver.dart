@@ -1,5 +1,8 @@
 import '../../features/online/domain/entities/online_platform.dart';
 
+/// 请求平台声明的最大封面尺寸；平台未声明尺寸时回退到 1000。
+const int maxCoverSize = -1;
+
 /// 通用封面解析：仅负责 `{x}/{y}` 尺寸占位符替换（按平台 `image_sizes` 选择尺寸）。
 /// 注意：不做任何兜底接口拼接。适用于歌单/专辑/歌手等非歌曲资源。
 String resolveTemplateCoverUrl({

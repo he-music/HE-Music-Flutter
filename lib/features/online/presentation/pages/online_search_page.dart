@@ -1048,7 +1048,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
           platformId: platform,
           songId: id,
           cover: song.cover,
-          size: 300,
+          size: maxCoverSize,
         );
         return resolved.isEmpty ? null : resolved;
       }(),

@@ -217,7 +217,7 @@ class _RadioPlazaPageState extends ConsumerState<RadioPlazaPage> {
       platformId: platformId,
       songId: song.id,
       cover: song.cover,
-      size: 300,
+      size: maxCoverSize,
     );
     final localPath = song.path?.trim();
     return PlayerTrack(

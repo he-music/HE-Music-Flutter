@@ -996,7 +996,7 @@ void main() {
     final tracks = lastQueueEvent['tracks'] as List<dynamic>;
     final artworkUrl =
         (tracks.last as Map<String, dynamic>)['artworkUrl'] as String?;
-    expect(artworkUrl, 'https://img.example.com/300/cover.jpg');
+    expect(artworkUrl, 'https://img.example.com/500/cover.jpg');
   });
 }
 

@@ -1846,7 +1846,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       platformId: platformId,
       songId: song.id,
       cover: song.cover,
-      size: 300,
+      size: maxCoverSize,
     ).trim();
     if (url.isNotEmpty) {
       return url;

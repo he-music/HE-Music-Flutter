@@ -59,6 +59,14 @@ class DetailSongActionHandler {
   }
 
   String resolveCoverUrl(SongInfo song) {
+    return _resolveCoverUrl(song, size: 300);
+  }
+
+  String _resolvePlayerCoverUrl(SongInfo song) {
+    return _resolveCoverUrl(song, size: maxCoverSize);
+  }
+
+  String _resolveCoverUrl(SongInfo song, {required int size}) {
     final platformId = resolvePlatformId(song);
     if (platformId.isEmpty) {
       return song.cover;
@@ -73,7 +81,7 @@ class DetailSongActionHandler {
       platformId: platformId,
       songId: song.id,
       cover: song.cover,
-      size: 300,
+      size: size,
     );
   }
 
@@ -89,11 +97,8 @@ class DetailSongActionHandler {
     try {
       final tracks = songs
           .map(
-            (song) => _buildTrack(
-              song: song,
-              platformId: resolvePlatformId(song),
-              coverUrl: resolveCoverUrl(song),
-            ),
+            (song) =>
+                _buildTrack(song: song, platformId: resolvePlatformId(song)),
           )
           .toList(growable: false);
       await playerController.replaceQueue(
@@ -119,23 +124,17 @@ class DetailSongActionHandler {
     final playerController = ref.read(playerControllerProvider.notifier);
     for (final song in songs) {
       await playerController.appendTrack(
-        _buildTrack(
-          song: song,
-          platformId: resolvePlatformId(song),
-          coverUrl: resolveCoverUrl(song),
-        ),
+        _buildTrack(song: song, platformId: resolvePlatformId(song)),
       );
     }
   }
 
   Future<void> playNextSong(SongInfo song) {
-    final coverUrl = resolveCoverUrl(song);
-    return _insertNext(song, coverUrl, resolvePlatformId(song));
+    return _insertNext(song, resolvePlatformId(song));
   }
 
   Future<void> playSongNow(SongInfo song) {
-    final coverUrl = resolveCoverUrl(song);
-    return _playNow(song, coverUrl, resolvePlatformId(song));
+    return _playNow(song, resolvePlatformId(song));
   }
 
   Future<void> toggleSongFavorite(
@@ -380,9 +379,8 @@ class DetailSongActionHandler {
         'platform': resolvePlatformLabel(platformId, platforms: platforms),
       }),
       onPlay: onPlay ?? () => unawaited(playSongNow(song)),
-      onPlayNext: () => unawaited(_insertNext(song, coverUrl, platformId)),
-      onAddToPlaylist: () =>
-          unawaited(_appendToQueue(song, coverUrl, platformId)),
+      onPlayNext: () => unawaited(_insertNext(song, platformId)),
+      onAddToPlaylist: () => unawaited(_appendToQueue(song, platformId)),
       onRemoveFromPlaylist: onRemoveFromPlaylist,
       onDownload:
           _canDownload(platformId: platformId, qualities: availableQualities)
@@ -475,8 +473,8 @@ class DetailSongActionHandler {
   PlayerTrack _buildTrack({
     required SongInfo song,
     required String platformId,
-    required String coverUrl,
   }) {
+    final coverUrl = _resolvePlayerCoverUrl(song);
     return PlayerTrack(
       id: song.id,
       title: song.title,
@@ -491,40 +489,22 @@ class DetailSongActionHandler {
     );
   }
 
-  Future<void> _playNow(
-    SongInfo song,
-    String coverUrl,
-    String platformId,
-  ) async {
+  Future<void> _playNow(SongInfo song, String platformId) async {
     await ref
         .read(playerControllerProvider.notifier)
-        .insertNextAndPlay(
-          _buildTrack(song: song, platformId: platformId, coverUrl: coverUrl),
-        );
+        .insertNextAndPlay(_buildTrack(song: song, platformId: platformId));
   }
 
-  Future<void> _insertNext(
-    SongInfo song,
-    String coverUrl,
-    String platformId,
-  ) async {
+  Future<void> _insertNext(SongInfo song, String platformId) async {
     await ref
         .read(playerControllerProvider.notifier)
-        .insertNextTrack(
-          _buildTrack(song: song, platformId: platformId, coverUrl: coverUrl),
-        );
+        .insertNextTrack(_buildTrack(song: song, platformId: platformId));
   }
 
-  Future<void> _appendToQueue(
-    SongInfo song,
-    String coverUrl,
-    String platformId,
-  ) async {
+  Future<void> _appendToQueue(SongInfo song, String platformId) async {
     await ref
         .read(playerControllerProvider.notifier)
-        .appendTrack(
-          _buildTrack(song: song, platformId: platformId, coverUrl: coverUrl),
-        );
+        .appendTrack(_buildTrack(song: song, platformId: platformId));
   }
 
   Future<void> _downloadSong({

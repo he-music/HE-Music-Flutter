@@ -295,6 +295,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
               platforms: platforms,
               platformId: selectedPlatformId,
               song: song,
+              size: maxCoverSize,
             );
             return PlayerTrack(
               id: song.id,
@@ -410,6 +411,13 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       platformId: platformId,
       song: song,
     );
+    final playerArtworkUrl = _resolveDiscoverSongCover(
+      config: config,
+      platforms: platforms,
+      platformId: platformId,
+      song: song,
+      size: maxCoverSize,
+    );
     final qualities = buildDownloadQualityOptions(
       links: song.links,
       qualityDescriptions: _platformQualityDescriptions(
@@ -436,7 +444,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
           albumId: albumId.isEmpty ? null : albumId,
           artists: song.artists,
           mvId: song.mvId,
-          artworkUrl: artworkUrl,
+          artworkUrl: playerArtworkUrl,
           platformId: platformId,
         ),
       ),
@@ -451,7 +459,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
           albumId: albumId.isEmpty ? null : albumId,
           artists: song.artists,
           mvId: song.mvId,
-          artworkUrl: artworkUrl,
+          artworkUrl: playerArtworkUrl,
           platformId: platformId,
         ),
       ),
@@ -466,7 +474,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
           albumId: albumId.isEmpty ? null : albumId,
           artists: song.artists,
           mvId: song.mvId,
-          artworkUrl: artworkUrl,
+          artworkUrl: playerArtworkUrl,
           platformId: platformId,
         ),
       ),
@@ -598,6 +606,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     required List<OnlinePlatform> platforms,
     required String? platformId,
     required SongInfo song,
+    int size = 300,
   }) {
     final resolvedPlatform = (platformId ?? '').trim();
     if (resolvedPlatform.isEmpty) {
@@ -610,7 +619,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       platformId: resolvedPlatform,
       songId: song.id,
       cover: song.cover,
-      size: 300,
+      size: size,
     );
   }
 
