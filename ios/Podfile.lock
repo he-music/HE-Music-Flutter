@@ -27,6 +27,8 @@ PODS:
     - Flutter
   - permission_handler_apple (9.3.0):
     - Flutter
+  - rive_native (0.0.1):
+    - Flutter
   - saver_gallery (0.0.1):
     - Flutter
   - screen_brightness_ios (0.1.0):
@@ -83,6 +85,7 @@ DEPENDENCIES:
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
+  - rive_native (from `.symlinks/plugins/rive_native/ios`)
   - saver_gallery (from `.symlinks/plugins/saver_gallery/ios`)
   - screen_brightness_ios (from `.symlinks/plugins/screen_brightness_ios/ios`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
@@ -123,6 +126,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/package_info_plus/ios"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
+  rive_native:
+    :path: ".symlinks/plugins/rive_native/ios"
   saver_gallery:
     :path: ".symlinks/plugins/saver_gallery/ios"
   screen_brightness_ios:
@@ -154,6 +159,7 @@ SPEC CHECKSUMS:
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
+  rive_native: c8fbe631855835dc84f7d59befcdb43de3ac48d4
   saver_gallery: af2d0c762dafda254e0ad025ef0dabd6506cd490
   screen_brightness_ios: 9953fd7da5bd480f1a93990daeec2eb42d4f3b52
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a

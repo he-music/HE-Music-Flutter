@@ -37,6 +37,9 @@ jobs:
       - name: 安装依赖
         run: make get
 
+      - name: 设置 Rive Linux 运行库
+        run: dart run rive_native:setup --verbose --clean --platform linux
+
       - name: 执行发布前检查
         run: make release-check
 
@@ -161,6 +164,9 @@ jobs:
           fi
       - name: 安装依赖
         run: make get
+
+      - name: 设置 Rive iOS 运行库
+        run: dart run rive_native:setup --verbose --clean --platform ios
 
       - name: 执行 iOS 无签名构建脚本
         env:

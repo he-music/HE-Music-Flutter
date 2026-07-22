@@ -31,6 +31,7 @@ const _previewFontFallback = <String>[_previewCjkFontFamily];
 late Uint8List _artworkBytes;
 late Uint8List _artistPhotoBytes;
 
+// 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
   testWidgets('player style previews match the real player scene', (
     tester,
@@ -63,7 +64,7 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     }
-  });
+  }, skip: Platform.isLinux);
 
   testWidgets('desktop player styles match the side by side scene', (
     tester,
@@ -96,51 +97,53 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     }
-  });
+  }, skip: Platform.isLinux);
 
-  testWidgets('artist photo fallback scenes stay within the same layout', (
-    tester,
-  ) async {
-    await tester.runAsync(() async {
-      await _loadPreviewFonts();
-      _artworkBytes = await File('assets/icons/logo.png').readAsBytes();
-      _artistPhotoBytes = await File(
-        'assets/skins/city_sound_creator/wallpaper_dark.png',
-      ).readAsBytes();
-    });
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = _previewSize;
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetPhysicalSize);
+  testWidgets(
+    'artist photo fallback scenes stay within the same layout',
+    (tester) async {
+      await tester.runAsync(() async {
+        await _loadPreviewFonts();
+        _artworkBytes = await File('assets/icons/logo.png').readAsBytes();
+        _artistPhotoBytes = await File(
+          'assets/skins/city_sound_creator/wallpaper_dark.png',
+        ).readAsBytes();
+      });
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = _previewSize;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
 
-    for (final scene in <({bool includeArtwork, String name})>[
-      (includeArtwork: true, name: 'cover_fallback'),
-      (includeArtwork: false, name: 'neutral_fallback'),
-    ]) {
-      await tester.pumpWidget(
-        _buildPreviewApp(
-          AppPlayerStyleRegistry.artistPhotoId,
-          artistPhotoMode: _PreviewArtistPhotoMode.empty,
-          includeArtwork: scene.includeArtwork,
-        ),
-      );
-      await tester.pumpAndSettle();
-      if (scene.includeArtwork) {
-        await _pumpUntilImagesDecoded(tester);
+      for (final scene in <({bool includeArtwork, String name})>[
+        (includeArtwork: true, name: 'cover_fallback'),
+        (includeArtwork: false, name: 'neutral_fallback'),
+      ]) {
+        await tester.pumpWidget(
+          _buildPreviewApp(
+            AppPlayerStyleRegistry.artistPhotoId,
+            artistPhotoMode: _PreviewArtistPhotoMode.empty,
+            includeArtwork: scene.includeArtwork,
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (scene.includeArtwork) {
+          await _pumpUntilImagesDecoded(tester);
+        }
+
+        await expectLater(
+          find.byKey(_previewKey),
+          matchesGoldenFile(
+            'goldens/player_styles/artist_photo_${scene.name}.png',
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
       }
-
-      await expectLater(
-        find.byKey(_previewKey),
-        matchesGoldenFile(
-          'goldens/player_styles/artist_photo_${scene.name}.png',
-        ),
-      );
-
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-    }
-  });
+    },
+    skip: Platform.isLinux,
+  );
 
   test('player style preview assets match metadata and provenance', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
