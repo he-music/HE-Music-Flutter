@@ -55,15 +55,15 @@ class HeMusicApp extends ConsumerWidget {
       routerConfig: appRouter,
       builder: (context, child) {
         final content = child ?? const SizedBox.shrink();
+        final enableStartupGates = !isTestBinding || enableStartupGateInTests;
+        final startupChild = enableStartupGates
+            ? AppAutoUpdateGate(child: content)
+            : content;
         final startupGated = _AppStartupGate(
           appConfig: appConfig,
-          child: content,
+          child: startupChild,
         );
-        final gated = isTestBinding
-            ? enableStartupGateInTests
-                  ? startupGated
-                  : content
-            : AppAutoUpdateGate(child: startupGated);
+        final gated = enableStartupGates ? startupGated : content;
         final skinned = Stack(
           fit: StackFit.expand,
           children: <Widget>[

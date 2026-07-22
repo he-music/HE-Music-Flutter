@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/app.dart';
 import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_environment.dart';
 import 'package:he_music_flutter/app/config/app_theme_mode.dart';
@@ -15,6 +18,9 @@ import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/startup/app_startup_provider.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/features/update/domain/entities/update_state.dart';
+import 'package:he_music_flutter/features/update/presentation/controllers/update_controller.dart';
+import 'package:he_music_flutter/features/update/presentation/providers/update_providers.dart';
 
 void main() {
   setUpAll(AppEnvironment.initialize);
@@ -115,6 +121,9 @@ void main() {
           appStartupProvider.overrideWith(
             (ref) => Future<void>.error(unauthorized),
           ),
+          appConfigDataSourceProvider.overrideWithValue(
+            const _TestAppConfigDataSource(autoCheckUpdates: false),
+          ),
         ],
         child: const HeMusicApp(enableStartupGateInTests: true),
       ),
@@ -145,6 +154,9 @@ void main() {
           appConfigProvider.overrideWith(_HydratedTestAppConfigController.new),
           appRouterProvider.overrideWithValue(router),
           onlineApiClientProvider.overrideWithValue(apiClient),
+          appConfigDataSourceProvider.overrideWithValue(
+            const _TestAppConfigDataSource(autoCheckUpdates: false),
+          ),
         ],
         child: const HeMusicApp(enableStartupGateInTests: true),
       ),
@@ -159,6 +171,50 @@ void main() {
 
     expect(find.text('首页'), findsOneWidget);
     expect(apiClient.fetchPlatformsCallCount, 2);
+  });
+
+  testWidgets('startup checks updates only after initialization completes', (
+    tester,
+  ) async {
+    final startup = Completer<void>();
+    final router = _createStartupTestRouter();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(
+          () => _TestAppConfigController(
+            themeMode: AppThemeMode.light,
+            localeCode: 'zh',
+          ),
+        ),
+        appConfigDataSourceProvider.overrideWithValue(
+          const _TestAppConfigDataSource(autoCheckUpdates: true),
+        ),
+        appRouterProvider.overrideWithValue(router),
+        appStartupProvider.overrideWith((ref) => startup.future),
+        updateControllerProvider.overrideWith(_CountingUpdateController.new),
+      ],
+    );
+    addTearDown(router.dispose);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const HeMusicApp(enableStartupGateInTests: true),
+      ),
+    );
+    await tester.pump();
+
+    final controller =
+        container.read(updateControllerProvider.notifier)
+            as _CountingUpdateController;
+    expect(controller.checkCount, 0);
+
+    startup.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(controller.checkCount, 1);
   });
 }
 
@@ -225,6 +281,29 @@ class _HydratedTestAppConfigController extends AppConfigController {
 
   @override
   Future<void> waitUntilHydrated() => Future<void>.value();
+}
+
+class _TestAppConfigDataSource extends AppConfigDataSource {
+  const _TestAppConfigDataSource({required this.autoCheckUpdates});
+
+  final bool autoCheckUpdates;
+
+  @override
+  Future<AppConfigState> load() async {
+    return AppConfigState.initial.copyWith(autoCheckUpdates: autoCheckUpdates);
+  }
+}
+
+class _CountingUpdateController extends UpdateController {
+  int checkCount = 0;
+
+  @override
+  UpdateState build() => UpdateState.initial;
+
+  @override
+  Future<void> checkForUpdates() async {
+    checkCount += 1;
+  }
 }
 
 class _RetryOnlineApiClient extends OnlineApiClient {

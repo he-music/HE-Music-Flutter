@@ -32,7 +32,10 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
   @override
   void initState() {
     super.initState();
-    Future<void>.microtask(_checkOnStartup);
+    // 等首帧完成，确保 Router 的 Navigator 已经挂载。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkOnStartup();
+    });
   }
 
   @override
