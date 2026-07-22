@@ -22,6 +22,22 @@ jobs:
       - name: 检出仓库
         uses: actions/checkout@v4
 
+      - name: 校验发布版本
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PUBSPEC_VERSION="$(ruby -r yaml -e 'print YAML.safe_load(File.read(ARGV.fetch(0))).fetch("version")' pubspec.yaml)"
+          APP_VERSION="${PUBSPEC_VERSION%%+*}"
+
+          if [ "${TAG_VERSION}" != "${APP_VERSION}" ]; then
+            echo "发布 tag ${GITHUB_REF_NAME} 与 pubspec.yaml 版本 ${PUBSPEC_VERSION} 不一致" >&2
+            echo "请先将 pubspec.yaml 更新为 ${TAG_VERSION}+<build-number>，提交后再创建 tag" >&2
+            exit 1
+          fi
+
+          echo "发布版本校验通过: ${GITHUB_REF_NAME} -> ${PUBSPEC_VERSION}"
+
       - name: 设置 Java
         uses: actions/setup-java@v4
         with:
