@@ -73,8 +73,13 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   bool _songsLoading = false;
   bool _albumsLoading = false;
   bool _videosLoading = false;
+  // 区分“尚未请求”和“请求成功但为空”，避免切换标签时闪现空状态。
+  bool _albumsRequested = false;
+  bool _videosRequested = false;
   bool _isSongBatchMode = false;
   bool _submittingSongBatch = false;
+  // 标签动画开始时只触发一次加载，不等待 indexIsChanging 结束。
+  int _lastHandledTabIndex = 0;
 
   String? _songsError;
   String? _albumsError;
@@ -323,7 +328,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
             ),
             _ArtistAlbumsTab(
               albums: _albums,
-              loading: _albumsLoading,
+              loading: !_albumsRequested || _albumsLoading,
               error: _albumsError,
               platforms: platforms,
               onRetry: _loadAlbums,
@@ -331,7 +336,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
             ),
             _ArtistVideosTab(
               videos: _videos,
-              loading: _videosLoading,
+              loading: !_videosRequested || _videosLoading,
               error: _videosError,
               platforms: platforms,
               onRetry: _loadVideos,
@@ -375,10 +380,12 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   }
 
   void _handleTabChanged() {
-    if (_tabController.indexIsChanging) {
+    final selectedIndex = _tabController.index;
+    if (selectedIndex == _lastHandledTabIndex) {
       return;
     }
-    switch (_ArtistDetailTab.values[_tabController.index]) {
+    _lastHandledTabIndex = selectedIndex;
+    switch (_ArtistDetailTab.values[selectedIndex]) {
       case _ArtistDetailTab.songs:
         if (_songs.isEmpty && !_songsLoading && _songsError == null) {
           unawaited(_loadSongs());
@@ -481,6 +488,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
       return;
     }
     setState(() {
+      _albumsRequested = true;
       _albumsLoading = true;
       _albumsError = null;
     });
@@ -523,6 +531,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
       return;
     }
     setState(() {
+      _videosRequested = true;
       _videosLoading = true;
       _videosError = null;
     });

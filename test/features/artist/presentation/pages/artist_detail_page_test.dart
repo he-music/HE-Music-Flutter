@@ -21,6 +21,7 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
+import 'package:he_music_flutter/shared/widgets/detail_loading_skeleton.dart';
 
 void main() {
   testWidgets(
@@ -96,6 +97,62 @@ void main() {
     expect(repository.fetchSongsCallCount, 0);
     expect(find.text('首屏歌曲'), findsOneWidget);
   });
+
+  testWidgets(
+    'artist detail tabs load before transition and avoid empty flash',
+    (tester) async {
+      final repository = _PendingTabArtistDetailRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            artistDetailRepositoryProvider.overrideWithValue(repository),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+          ],
+          child: _buildTestApp(
+            localeCode: 'zh',
+            child: const ArtistDetailPage(
+              id: 'artist-1',
+              platform: 'qq',
+              title: '测试歌手',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.text('专辑'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(repository.fetchAlbumsPageCallCount, 1);
+
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(ArtistAlbumsLoadingView), findsOneWidget);
+      expect(find.text('暂无专辑'), findsNothing);
+
+      repository.completeAlbumsPage();
+      await tester.pumpAndSettle();
+      expect(find.byType(ArtistAlbumsLoadingView), findsNothing);
+
+      await tester.tap(find.text('视频'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(repository.fetchVideosPageCallCount, 1);
+
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(ArtistVideosLoadingView), findsOneWidget);
+      expect(find.text('暂无视频'), findsNothing);
+
+      repository.completeVideosPage();
+      await tester.pumpAndSettle();
+      expect(find.byType(ArtistVideosLoadingView), findsNothing);
+    },
+  );
 
   testWidgets('artist albums tab shows first page before later pages finish', (
     tester,
@@ -422,6 +479,54 @@ class _TestArtistDetailRepository implements ArtistDetailRepository {
       items: <MvInfo>[],
       hasMore: false,
       nextPageIndex: 2,
+    );
+  }
+}
+
+class _PendingTabArtistDetailRepository extends _TestArtistDetailRepository {
+  final Completer<ArtistDetailPageChunk<AlbumInfo>> _albumsPageCompleter =
+      Completer<ArtistDetailPageChunk<AlbumInfo>>();
+  final Completer<ArtistDetailPageChunk<MvInfo>> _videosPageCompleter =
+      Completer<ArtistDetailPageChunk<MvInfo>>();
+
+  int fetchAlbumsPageCallCount = 0;
+  int fetchVideosPageCallCount = 0;
+
+  @override
+  Future<ArtistDetailPageChunk<AlbumInfo>> fetchAlbumsPage(
+    ArtistDetailRequest request, {
+    required int pageIndex,
+  }) {
+    fetchAlbumsPageCallCount += 1;
+    return _albumsPageCompleter.future;
+  }
+
+  @override
+  Future<ArtistDetailPageChunk<MvInfo>> fetchVideosPage(
+    ArtistDetailRequest request, {
+    required int pageIndex,
+  }) {
+    fetchVideosPageCallCount += 1;
+    return _videosPageCompleter.future;
+  }
+
+  void completeAlbumsPage() {
+    _albumsPageCompleter.complete(
+      const ArtistDetailPageChunk<AlbumInfo>(
+        items: <AlbumInfo>[],
+        hasMore: false,
+        nextPageIndex: 2,
+      ),
+    );
+  }
+
+  void completeVideosPage() {
+    _videosPageCompleter.complete(
+      const ArtistDetailPageChunk<MvInfo>(
+        items: <MvInfo>[],
+        hasMore: false,
+        nextPageIndex: 2,
+      ),
     );
   }
 }
