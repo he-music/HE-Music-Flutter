@@ -9,6 +9,7 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/artist_photo_provider.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_backdrop.dart';
+import 'package:mesh_gradient/mesh_gradient.dart';
 
 void main() {
   test('classic gradient keeps the cover hue recognizable', () {
@@ -88,6 +89,82 @@ void main() {
       find.byKey(const ValueKey<String>('player-backdrop-classic')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('fluid backdrop renders a static mesh for reduced motion', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: true),
+          child: Scaffold(
+            body: PlayerBackdrop(
+              stageKind: AppPlayerStageKind.fluid,
+              imageProvider: null,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(Duration.zero);
+
+    expect(
+      find.byKey(const ValueKey<String>('player-backdrop-fluid')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-fluid-mesh-static')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-fluid-readability-mask')),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('fluid backdrop keeps moving until it is disposed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: PlayerBackdrop(
+            stageKind: AppPlayerStageKind.fluid,
+            imageProvider: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(Duration.zero);
+
+    final initial = tester
+        .widget<MeshGradient>(
+          find.byKey(const ValueKey<String>('player-fluid-mesh-animated')),
+        )
+        .points!;
+    await tester.pump(const Duration(seconds: 1));
+    final later = tester
+        .widget<MeshGradient>(
+          find.byKey(const ValueKey<String>('player-fluid-mesh-animated')),
+        )
+        .points!;
+
+    expect(
+      List<Offset>.generate(
+        initial.length,
+        (index) => later[index].position - initial[index].position,
+      ).every((offset) => offset.distance > 0.001),
+      isTrue,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('artist photo cache miss stays neutral while loading', (

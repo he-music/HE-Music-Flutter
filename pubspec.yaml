@@ -48,6 +48,7 @@ dependencies:
   background_downloader: ^9.5.4
   flutter_lyric: ^3.0.7
   marquee: ^2.3.0
+  mesh_gradient: ^1.3.8
   audio_service: ^0.18.18
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
@@ -108,6 +109,7 @@ flutter:
     - assets/icons/favicon-512x512.png
     - assets/icons/auth/
     - assets/player_styles/classic/preview.png
+    - assets/player_styles/fluid/preview.png
     - assets/player_styles/vinyl/preview.png
     - assets/player_styles/cassette/preview.png
     - assets/player_styles/artist_photo/preview.png

@@ -2,6 +2,7 @@ import 'app_player_style_models.dart';
 import 'styles/artist_photo_player_style.dart';
 import 'styles/cassette_player_style.dart';
 import 'styles/classic_player_style.dart';
+import 'styles/fluid_player_style.dart';
 import 'styles/vinyl_player_style.dart';
 
 class AppPlayerStyleRegistry {
@@ -11,6 +12,7 @@ class AppPlayerStyleRegistry {
   factory AppPlayerStyleRegistry.builtIn() {
     return AppPlayerStyleRegistry(const <AppPlayerStylePackage>[
       classicPlayerStyle,
+      fluidPlayerStyle,
       vinylPlayerStyle,
       cassettePlayerStyle,
       artistPhotoPlayerStyle,
@@ -18,11 +20,13 @@ class AppPlayerStyleRegistry {
   }
 
   static const String classicId = 'classic';
+  static const String fluidId = 'fluid';
   static const String vinylId = 'vinyl';
   static const String cassetteId = 'cassette';
   static const String artistPhotoId = 'artist_photo';
   static const Set<String> builtInIds = <String>{
     classicId,
+    fluidId,
     vinylId,
     cassetteId,
     artistPhotoId,

@@ -193,6 +193,7 @@ class _PlayerStylePreviewFallback extends StatelessWidget {
       child: Icon(
         switch (style.stageKind) {
           AppPlayerStageKind.classic => Icons.album_rounded,
+          AppPlayerStageKind.fluid => Icons.water_drop_rounded,
           AppPlayerStageKind.vinyl => Icons.radio_button_checked_rounded,
           AppPlayerStageKind.cassette => Icons.audiotrack_rounded,
           AppPlayerStageKind.artistPhoto => Icons.photo_rounded,

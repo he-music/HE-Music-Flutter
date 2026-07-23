@@ -6,7 +6,7 @@
 - Renderer: Flutter widget golden test using the real `PlayerPage`, shared responsive layout, style backdrop and style stage components.
 - Logical output size: `360x640` for each preview.
 - Fixed data: project logo artwork, Chinese track metadata, fixed playback position, fixed quality, paused hardware animation frame, and fixed test fonts.
-- Output files: `assets/player_styles/classic/preview.png`, `assets/player_styles/vinyl/preview.png`, `assets/player_styles/cassette/preview.png`, and `assets/player_styles/artist_photo/preview.png`.
+- Output files: `assets/player_styles/classic/preview.png`, `assets/player_styles/fluid/preview.png`, `assets/player_styles/vinyl/preview.png`, `assets/player_styles/cassette/preview.png`, and `assets/player_styles/artist_photo/preview.png`.
 - License: project UI render; approved project assets and Flutter-rendered application UI may be distributed with HE Music.
 
 ## Artist photo source
@@ -24,8 +24,9 @@
 ## Generated preview hashes
 
 - `assets/player_styles/classic/preview.png`: `8b0fef14a2587320651f413462b01e0382a7024d76b6dd23853721e1da20d4e4`.
+- `assets/player_styles/fluid/preview.png`: `9372377ff1a0ac675fa0afa315b3d49f13479fac60d9378699c4b72d92f47ee2`.
 - `assets/player_styles/vinyl/preview.png`: `17d6744b13dd502e94db7c7023a8edc1908e4c56b403e6e1c639ca9599318217`.
 - `assets/player_styles/cassette/preview.png`: `bfc4da4a241af07d79a67b4f946c509eca47891da450592cb00c68be625a59f9`.
 - `assets/player_styles/artist_photo/preview.png`: `388cca914a4b97034cde3d6702df4909d8441baf15903e6d4b3ec6b5a103edca`.
-- Technical inspection: all four previews render readable fixed Chinese text, metadata badges, playback time and controls without blank regions or overflow; classic, vinyl, cassette and artist-photo subjects are visually distinct.
-- Review status: automated golden and technical inspection completed on 2026-07-21; final product visual approval remains with the user.
+- Technical inspection: all five previews render readable fixed Chinese text, metadata badges, playback time and controls without blank regions or overflow; classic, fluid, vinyl, cassette and artist-photo subjects are visually distinct.
+- Review status: automated golden and technical inspection completed on 2026-07-23; final product visual approval remains with the user.

@@ -13,6 +13,7 @@ Future<List<Color>> colorsFromImageProvider(
   ImageProvider<Object>? imageProvider, {
   int maxColors = 12,
   Size decodeSize = const Size(96, 96),
+  bool prioritizeSaturation = true,
 }) async {
   if (imageProvider == null) return const <Color>[];
   try {
@@ -42,9 +43,12 @@ Future<List<Color>> colorsFromImageProvider(
     final pixels = _argbPixelsFromRgbaBytes(byteData);
     final result = await QuantizerCelebi().quantize(pixels, maxColors);
 
-    // 按像素数量和饱和度排序，优先返回最醒目的颜色。
+    // 经典样式优先醒目颜色；流体样式按像素数量保留封面原始气质。
     final sorted = result.colorToCount.entries.toList()
       ..sort((a, b) {
+        if (!prioritizeSaturation) {
+          return b.value.compareTo(a.value);
+        }
         final sa = HSLColor.fromColor(Color(a.key)).saturation;
         final sb = HSLColor.fromColor(Color(b.key)).saturation;
         final diff = sb.compareTo(sa);

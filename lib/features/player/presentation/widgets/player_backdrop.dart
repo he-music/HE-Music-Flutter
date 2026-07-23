@@ -8,6 +8,7 @@ import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../domain/entities/player_track.dart';
 import '../helpers/player_image_color_helper.dart';
 import '../providers/artist_photo_provider.dart';
+import '../styles/fluid_player_backdrop.dart';
 
 typedef ArtistPhotoImageProviderBuilder =
     ImageProvider<Object> Function(String url);
@@ -228,6 +229,9 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
         : 0;
     return switch (widget.stageKind) {
       AppPlayerStageKind.classic => _ClassicGradientBackdrop(
+        imageProvider: widget.imageProvider,
+      ),
+      AppPlayerStageKind.fluid => FluidPlayerBackdrop(
         imageProvider: widget.imageProvider,
       ),
       AppPlayerStageKind.vinyl => const _FixedStageBackdrop(

@@ -3,14 +3,14 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart
 import 'package:he_music_flutter/app/theme/player/styles/classic_player_style.dart';
 
 void main() {
-  test('built-in registry exposes four complete unique styles', () {
+  test('built-in registry exposes five complete unique styles', () {
     final registry = AppPlayerStyleRegistry.builtIn();
 
     expect(
       registry.styles.map((style) => style.metadata.id).toSet(),
       AppPlayerStyleRegistry.builtInIds,
     );
-    expect(registry.styles, hasLength(4));
+    expect(registry.styles, hasLength(5));
     expect(registry.styles.every((style) => style.isValid), isTrue);
   });
 

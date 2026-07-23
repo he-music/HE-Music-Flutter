@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-enum AppPlayerStageKind { classic, vinyl, cassette, artistPhoto }
+enum AppPlayerStageKind { classic, fluid, vinyl, cassette, artistPhoto }
 
 @immutable
 class AppPlayerStyleMetadata {
