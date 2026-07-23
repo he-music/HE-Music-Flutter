@@ -350,6 +350,48 @@ void main() {
     expect(cache.requestedDirections, <bool>[true, false]);
   });
 
+  testWidgets('rapid track changes ignore expired artist photo requests', (
+    tester,
+  ) async {
+    final requests = <String, Completer<List<String>>>{
+      'Artist A': Completer<List<String>>(),
+      'Artist B': Completer<List<String>>(),
+      'Artist C': Completer<List<String>>(),
+    };
+    final cache = _NamedArtistPhotoCache(requests);
+    final container = _createContainer(cache);
+    final track = ValueNotifier<PlayerTrack>(_artistTrackA);
+    addTearDown(container.dispose);
+    addTearDown(track.dispose);
+
+    await tester.pumpWidget(_buildTrackDynamicArtistBackdrop(container, track));
+    track.value = _artistTrackB;
+    await tester.pump();
+    track.value = _artistTrackC;
+    await tester.pump();
+
+    requests['Artist A']!.complete(const <String>['photo-a']);
+    requests['Artist B']!.complete(const <String>['photo-b']);
+    await tester.pump();
+    expect(_artistPhotoStateFinder(ArtistPhotoVisualState.loading), findsOne);
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-a')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-b')),
+      findsNothing,
+    );
+
+    requests['Artist C']!.complete(const <String>['photo-c']);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-c')),
+      findsOne,
+    );
+    expect(cache.requestedNames, <String>['Artist A', 'Artist B', 'Artist C']);
+  });
+
   testWidgets('cached index resumes and advances every twelve seconds', (
     tester,
   ) async {
@@ -448,6 +490,31 @@ Widget _buildDynamicArtistBackdrop(
   );
 }
 
+Widget _buildTrackDynamicArtistBackdrop(
+  ProviderContainer container,
+  ValueNotifier<PlayerTrack> track,
+) {
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp(
+      home: Scaffold(
+        body: ValueListenableBuilder<PlayerTrack>(
+          valueListenable: track,
+          builder: (context, value, child) {
+            return PlayerBackdrop(
+              stageKind: AppPlayerStageKind.artistPhoto,
+              imageProvider: _validImageProvider(),
+              track: value,
+              isPortrait: true,
+              artistPhotoImageProviderBuilder: (_) => _validImageProvider(),
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}
+
 ImageProvider<Object> _validImageProvider() {
   return MemoryImage(
     base64Decode(
@@ -465,6 +532,25 @@ const PlayerTrack _track = PlayerTrack(
   id: 'track-a',
   title: 'Track A',
   artist: 'Artist',
+  platform: 'qq',
+);
+
+const PlayerTrack _artistTrackA = PlayerTrack(
+  id: 'track-a',
+  title: 'Track A',
+  artist: 'Artist A',
+  platform: 'qq',
+);
+const PlayerTrack _artistTrackB = PlayerTrack(
+  id: 'track-b',
+  title: 'Track B',
+  artist: 'Artist B',
+  platform: 'qq',
+);
+const PlayerTrack _artistTrackC = PlayerTrack(
+  id: 'track-c',
+  title: 'Track C',
+  artist: 'Artist C',
   platform: 'qq',
 );
 
@@ -502,6 +588,34 @@ class _TestArtistPhotoCache extends ArtistPhotoCache {
   }) async {
     requestedDirections.add(isPortrait);
     final urls = await loader(isPortrait);
+    final key = buildCacheKey(platform, ids, names, isPortrait);
+    state = ArtistPhotoCacheState(
+      cache: <String, ArtistPhotoCacheEntry>{
+        ...state.cache,
+        key: ArtistPhotoCacheEntry(urls: urls, cachedAt: DateTime.now()),
+      },
+      currentIndices: state.currentIndices,
+    );
+    return urls;
+  }
+}
+
+class _NamedArtistPhotoCache extends ArtistPhotoCache {
+  _NamedArtistPhotoCache(this.requests);
+
+  final Map<String, Completer<List<String>>> requests;
+  final List<String> requestedNames = <String>[];
+
+  @override
+  Future<List<String>> fetchPhotos({
+    required String platform,
+    List<String> ids = const <String>[],
+    List<String> names = const <String>[],
+    bool isPortrait = false,
+  }) async {
+    final name = names.single;
+    requestedNames.add(name);
+    final urls = await requests[name]!.future;
     final key = buildCacheKey(platform, ids, names, isPortrait);
     state = ArtistPhotoCacheState(
       cache: <String, ArtistPhotoCacheEntry>{

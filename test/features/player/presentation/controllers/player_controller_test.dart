@@ -182,6 +182,269 @@ void main() {
     expect(state.duration, const Duration(minutes: 3));
   });
 
+  group('manualSkipTarget', () {
+    test('pending 立即更新展示歌曲但不改变正式歌曲', () async {
+      final harness = await _createTargetPreviewHarness();
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 10, targetIndex: 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = harness.container.read(playerControllerProvider);
+      expect(state.currentIndex, 0);
+      expect(state.currentTrack?.id, 'song-1');
+      expect(state.requestedTrackIndex, 1);
+      expect(state.requestedTrack?.id, 'song-2');
+      expect(state.displayTrack?.id, 'song-2');
+      expect(state.requestedTransitionId, 10);
+      expect(state.isTrackTransitioning, isTrue);
+    });
+
+    test('同一 transition 可从未知目标更新为准确目标', () async {
+      final harness = await _createTargetPreviewHarness();
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 11),
+      );
+      await Future<void>.delayed(Duration.zero);
+      var state = harness.container.read(playerControllerProvider);
+      expect(state.requestedTrackIndex, isNull);
+      expect(state.requestedTransitionId, 11);
+      expect(state.displayTrack?.id, 'song-1');
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 11, targetIndex: 2),
+      );
+      await Future<void>.delayed(Duration.zero);
+      state = harness.container.read(playerControllerProvider);
+      expect(state.requestedTrackIndex, 2);
+      expect(state.displayTrack?.id, 'song-3');
+    });
+
+    test('新 transition 替换旧目标且陈旧 pending 和 clear 均被忽略', () async {
+      final harness = await _createTargetPreviewHarness();
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 20, targetIndex: 1),
+      );
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 21, targetIndex: 2),
+      );
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 20, targetIndex: 0),
+      );
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 20, status: 'cleared'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = harness.container.read(playerControllerProvider);
+      expect(state.requestedTransitionId, 21);
+      expect(state.requestedTrackIndex, 2);
+      expect(state.displayTrack?.id, 'song-3');
+    });
+
+    test('非法状态、transition、索引和歌曲身份不会污染当前目标', () async {
+      final harness = await _createTargetPreviewHarness();
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 30, targetIndex: 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final invalidEvents = <Map<String, dynamic>>[
+        _manualSkipTargetEvent(
+          transitionId: 31,
+          targetIndex: 2,
+          status: 'loading',
+        ),
+        <String, dynamic>{
+          ..._manualSkipTargetEvent(transitionId: 31, targetIndex: 2),
+          'transitionId': '31',
+        },
+        _manualSkipTargetEvent(transitionId: -1, targetIndex: 2),
+        _manualSkipTargetEvent(transitionId: 31, targetIndex: -1),
+        _manualSkipTargetEvent(transitionId: 31, targetIndex: 99),
+        <String, dynamic>{
+          ..._manualSkipTargetEvent(transitionId: 31, targetIndex: 2),
+          'targetTrackId': 'other-song',
+        },
+        <String, dynamic>{
+          ..._manualSkipTargetEvent(transitionId: 31, targetIndex: 2),
+          'targetTrackPlatform': 'netease',
+        },
+        <String, dynamic>{
+          ..._manualSkipTargetEvent(transitionId: 31),
+          'targetTrackId': 'song-3',
+        },
+      ];
+      for (final event in invalidEvents) {
+        harness.audioPlayer.emitCustomEvent(event);
+      }
+      await Future<void>.delayed(Duration.zero);
+
+      final state = harness.container.read(playerControllerProvider);
+      expect(state.requestedTransitionId, 30);
+      expect(state.requestedTrackIndex, 1);
+      expect(state.displayTrack?.id, 'song-2');
+    });
+
+    test('同代及更新代 clear 会回退正式歌曲并阻止同代目标复活', () async {
+      final harness = await _createTargetPreviewHarness();
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 40, targetIndex: 1),
+      );
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 40, status: 'cleared'),
+      );
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 40, targetIndex: 2),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      var state = harness.container.read(playerControllerProvider);
+      expect(state.requestedTrackIndex, isNull);
+      expect(state.requestedTransitionId, isNull);
+      expect(state.displayTrack?.id, 'song-1');
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 41, targetIndex: 2),
+      );
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 42, status: 'cleared'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      state = harness.container.read(playerControllerProvider);
+      expect(state.isTrackTransitioning, isFalse);
+      expect(state.displayTrack?.id, 'song-1');
+    });
+
+    test('活跃 queueState 保留 pending，正式提交原子更新并清理', () async {
+      final harness = await _createTargetPreviewHarness();
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 50, targetIndex: 2),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      harness.audioPlayer.emitCustomEvent(
+        _queueStateEvent(
+          transitionId: 50,
+          currentIndex: 0,
+          manualSkipTargetActive: true,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      var state = harness.container.read(playerControllerProvider);
+      expect(state.currentTrack?.id, 'song-1');
+      expect(state.displayTrack?.id, 'song-3');
+      expect(state.isTrackTransitioning, isTrue);
+
+      harness.audioPlayer.emitCustomEvent(
+        _queueStateEvent(
+          transitionId: 50,
+          currentIndex: 2,
+          manualSkipTargetActive: false,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      state = harness.container.read(playerControllerProvider);
+      expect(state.currentIndex, 2);
+      expect(state.currentTrack?.id, 'song-3');
+      expect(state.displayTrack?.id, 'song-3');
+      expect(state.requestedTransitionId, isNull);
+      expect(state.isTrackTransitioning, isFalse);
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 50, targetIndex: 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        harness.container.read(playerControllerProvider).displayTrack?.id,
+        'song-3',
+      );
+    });
+
+    test('pending 期间的播放流状态在 queueState 提交后保持最新值', () async {
+      final harness = await _createTargetPreviewHarness();
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 60, targetIndex: 1),
+      );
+      harness.audioPlayer.emitPlaying(true);
+      harness.audioPlayer.emitLoading(true);
+      harness.audioPlayer.emitPosition(const Duration(milliseconds: 500));
+      harness.audioPlayer.emitPosition(const Duration(seconds: 18));
+      harness.audioPlayer.emitDuration(const Duration(minutes: 4));
+      await Future<void>.delayed(Duration.zero);
+
+      harness.audioPlayer.emitCustomEvent(
+        _queueStateEvent(
+          transitionId: 60,
+          currentIndex: 1,
+          manualSkipTargetActive: false,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = harness.container.read(playerControllerProvider);
+      expect(state.currentIndex, 1);
+      expect(state.isPlaying, isTrue);
+      expect(state.isLoading, isTrue);
+      expect(state.position, const Duration(seconds: 18));
+      expect(state.duration, const Duration(minutes: 4));
+    });
+
+    test('currentIndex 正式提交会清理目标并拒绝同代迟到事件', () async {
+      final harness = await _createTargetPreviewHarness();
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 70, targetIndex: 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+      harness.audioPlayer.emitCurrentIndex(1);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      var state = harness.container.read(playerControllerProvider);
+      expect(state.currentIndex, 1);
+      expect(state.requestedTransitionId, isNull);
+      expect(state.displayTrack?.id, 'song-2');
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 70, targetIndex: 2),
+      );
+      await Future<void>.delayed(Duration.zero);
+      state = harness.container.read(playerControllerProvider);
+      expect(state.currentIndex, 1);
+      expect(state.requestedTransitionId, isNull);
+      expect(state.displayTrack?.id, 'song-2');
+    });
+
+    test('空队列正式快照安全清理请求目标和展示歌曲', () async {
+      final harness = await _createTargetPreviewHarness();
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 80, targetIndex: 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      harness.audioPlayer.emitCustomEvent(
+        _queueStateEvent(
+          transitionId: 80,
+          currentIndex: 0,
+          manualSkipTargetActive: false,
+          tracks: const <Map<String, dynamic>>[],
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = harness.container.read(playerControllerProvider);
+      expect(state.queue, isEmpty);
+      expect(state.currentIndex, 0);
+      expect(state.currentTrack, isNull);
+      expect(state.requestedTrack, isNull);
+      expect(state.displayTrack, isNull);
+      expect(state.isTrackTransitioning, isFalse);
+    });
+  });
+
   test('切换音质时应委托音频层刷新 source，而不是在 controller 重新请求链接', () async {
     final apiClient = _FakeOnlineApiClient(
       handlers: <String, _SongUrlHandler>{},
@@ -591,6 +854,81 @@ List<PlayerTrack> _buildQualityQueue() {
   ];
 }
 
+List<PlayerTrack> _buildTargetPreviewQueue() {
+  return const <PlayerTrack>[
+    PlayerTrack(id: 'song-1', title: '第一首', platform: 'qq'),
+    PlayerTrack(id: 'song-2', title: '第二首', platform: 'qq'),
+    PlayerTrack(id: 'song-3', title: '第三首', platform: 'qq'),
+  ];
+}
+
+Future<({ProviderContainer container, _FakeAudioPlayerPort audioPlayer})>
+_createTargetPreviewHarness() async {
+  final audioPlayer = _FakeAudioPlayerPort();
+  final container = ProviderContainer(
+    overrides: [
+      appConfigProvider.overrideWith(_TestAppConfigController.new),
+      audioPlayerPortProvider.overrideWithValue(audioPlayer),
+    ],
+  );
+  addTearDown(container.dispose);
+  addTearDown(audioPlayer.dispose);
+  await container
+      .read(playerControllerProvider.notifier)
+      .replaceQueue(_buildTargetPreviewQueue(), startIndex: 0, autoplay: false);
+  return (container: container, audioPlayer: audioPlayer);
+}
+
+Map<String, dynamic> _manualSkipTargetEvent({
+  required int transitionId,
+  int? targetIndex,
+  String status = 'pending',
+}) {
+  final queue = _buildTargetPreviewQueue();
+  final target =
+      targetIndex == null || targetIndex < 0 || targetIndex >= queue.length
+      ? null
+      : queue[targetIndex];
+  return <String, dynamic>{
+    'type': 'manualSkipTarget',
+    'transitionId': transitionId,
+    'status': status,
+    'targetIndex': targetIndex,
+    'targetTrackId': target?.id,
+    'targetTrackPlatform': target?.platform,
+  };
+}
+
+Map<String, dynamic> _queueStateEvent({
+  required int transitionId,
+  required int currentIndex,
+  required bool manualSkipTargetActive,
+  List<Map<String, dynamic>>? tracks,
+}) {
+  return <String, dynamic>{
+    'type': 'queueState',
+    'transitionId': transitionId,
+    'manualSkipTargetActive': manualSkipTargetActive,
+    'tracks': tracks ?? _buildTargetPreviewQueue().map(_trackEventMap).toList(),
+    'currentIndex': currentIndex,
+  };
+}
+
+Map<String, dynamic> _trackEventMap(PlayerTrack track) {
+  return <String, dynamic>{
+    'id': track.id,
+    'title': track.title,
+    'url': track.url,
+    'path': track.path,
+    'durationMs': track.duration?.inMilliseconds,
+    'artist': track.artist,
+    'album': track.album,
+    'artworkUrl': track.artworkUrl,
+    'platform': track.platform,
+    'links': const <Map<String, dynamic>>[],
+  };
+}
+
 class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() {
@@ -735,8 +1073,20 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
     _playingController.add(value);
   }
 
+  void emitLoading(bool value) {
+    _loadingController.add(value);
+  }
+
+  void emitPosition(Duration value) {
+    _positionController.add(value);
+  }
+
   void emitDuration(Duration? value) {
     _durationController.add(value);
+  }
+
+  void emitCustomEvent(Map<String, dynamic> event) {
+    _customEventController.add(event);
   }
 }
 

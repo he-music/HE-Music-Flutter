@@ -7,12 +7,14 @@ class PlayerProgressBar extends StatelessWidget {
     required this.position,
     required this.duration,
     required this.onSeek,
+    this.enabled = true,
     super.key,
   });
 
   final Duration position;
   final Duration duration;
   final ValueChanged<Duration> onSeek;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +35,12 @@ class PlayerProgressBar extends StatelessWidget {
             overlayColor: Colors.white.withValues(alpha: 0.14),
           ),
           child: Slider(
+            key: const ValueKey<String>('player-progress-slider'),
             value: currentMillis.toDouble(),
             max: maxMillis.toDouble(),
-            onChanged: (value) => onSeek(Duration(milliseconds: value.toInt())),
+            onChanged: enabled
+                ? (value) => onSeek(Duration(milliseconds: value.toInt()))
+                : null,
           ),
         ),
         Row(

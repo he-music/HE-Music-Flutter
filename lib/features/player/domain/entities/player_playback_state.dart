@@ -30,6 +30,8 @@ class PlayerPlaybackState {
     this.previousPlayModeBeforeRadio,
     this.previousPreviewIndex,
     this.nextPreviewIndex,
+    this.requestedTrackIndex,
+    this.requestedTransitionId,
     this.errorMessage,
   });
 
@@ -54,6 +56,8 @@ class PlayerPlaybackState {
   final PlayerPlayMode? previousPlayModeBeforeRadio;
   final int? previousPreviewIndex;
   final int? nextPreviewIndex;
+  final int? requestedTrackIndex;
+  final int? requestedTransitionId;
   final String? errorMessage;
 
   PlayerTrack? get currentTrack {
@@ -62,6 +66,18 @@ class PlayerPlaybackState {
     }
     return queue[currentIndex];
   }
+
+  PlayerTrack? get requestedTrack {
+    final index = requestedTrackIndex;
+    if (index == null || index < 0 || index >= queue.length) {
+      return null;
+    }
+    return queue[index];
+  }
+
+  PlayerTrack? get displayTrack => requestedTrack ?? currentTrack;
+
+  bool get isTrackTransitioning => requestedTransitionId != null;
 
   PlayerPlaybackState copyWith({
     List<PlayerTrack>? queue,
@@ -94,6 +110,10 @@ class PlayerPlaybackState {
     bool clearPreviousPreviewIndex = false,
     int? nextPreviewIndex,
     bool clearNextPreviewIndex = false,
+    int? requestedTrackIndex,
+    bool clearRequestedTrackIndex = false,
+    int? requestedTransitionId,
+    bool clearRequestedTransitionId = false,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -136,6 +156,12 @@ class PlayerPlaybackState {
       nextPreviewIndex: clearNextPreviewIndex
           ? null
           : nextPreviewIndex ?? this.nextPreviewIndex,
+      requestedTrackIndex: clearRequestedTrackIndex
+          ? null
+          : requestedTrackIndex ?? this.requestedTrackIndex,
+      requestedTransitionId: clearRequestedTransitionId
+          ? null
+          : requestedTransitionId ?? this.requestedTransitionId,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }
@@ -159,6 +185,8 @@ class PlayerPlaybackState {
       previousPlayModeBeforeRadio: null,
       previousPreviewIndex: null,
       nextPreviewIndex: null,
+      requestedTrackIndex: null,
+      requestedTransitionId: null,
     );
   }
 }

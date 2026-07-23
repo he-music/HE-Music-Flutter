@@ -91,12 +91,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       config.playerStyleId,
     );
     final controller = ref.read(playerControllerProvider.notifier);
-    final track = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
+    final presentation = ref.watch(
+      playerControllerProvider.select(
+        (state) => (
+          currentTrack: state.currentTrack,
+          displayTrack: state.displayTrack,
+          isTrackTransitioning: state.isTrackTransitioning,
+        ),
+      ),
     );
     final backdropImageProvider = artworkProvider(
-      track?.artworkUrl,
-      track?.artworkBytes,
+      presentation.displayTrack?.artworkUrl,
+      presentation.displayTrack?.artworkBytes,
     );
     final usePortraitArtistPhoto = resolvePlayerArtistPhotoPortraitForTest(
       MediaQuery.sizeOf(context),
@@ -104,9 +110,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final lyricPage = PlayerLyricPage(
       key: _lyricPageKey,
       emptyText: AppI18n.t(config, 'player.lyrics.empty'),
-      onSeek: controller.seek,
-      artworkUrl: track?.artworkUrl,
-      artworkBytes: track?.artworkBytes,
+      onSeek: presentation.isTrackTransitioning ? null : controller.seek,
+      artworkUrl: presentation.currentTrack?.artworkUrl,
+      artworkBytes: presentation.currentTrack?.artworkBytes,
       center: false,
     );
     return Scaffold(
@@ -117,7 +123,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             child: PlayerBackdrop(
               stageKind: playerStyle.stageKind,
               imageProvider: backdropImageProvider,
-              track: track,
+              track: presentation.displayTrack,
               isPortrait: usePortraitArtistPhoto,
               artistPhotoImageProviderBuilder:
                   widget.artistPhotoImageProviderBuilder,
@@ -146,7 +152,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   layoutSpec: spec,
                   stageKind: playerStyle.stageKind,
                   stageMaxWidth: playerStyle.geometry.stageMaxWidth,
-                  track: track,
+                  track: presentation.displayTrack,
                   onOpenQueue: _openQueueSheet,
                   onOpenMore: _openMoreSheet,
                   onOpenLyrics: () => _animateToPage(1),
@@ -1212,13 +1218,16 @@ class _PlayerUtilityRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isTrackTransitioning = ref.watch(
+      playerControllerProvider.select((state) => state.isTrackTransitioning),
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         _PlayerUtilityButton(
           icon: Icons.more_horiz_rounded,
           color: Colors.white.withValues(alpha: 0.82),
-          onTap: onOpenMore,
+          onTap: isTrackTransitioning ? null : onOpenMore,
         ),
       ],
     );
@@ -1230,9 +1239,15 @@ class _PlayerFavoriteButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final track = ref.watch(
-      playerControllerProvider.select((s) => s.currentTrack),
+    final presentation = ref.watch(
+      playerControllerProvider.select(
+        (state) => (
+          currentTrack: state.currentTrack,
+          isTrackTransitioning: state.isTrackTransitioning,
+        ),
+      ),
     );
+    final track = presentation.currentTrack;
     final platformId = (track?.platform ?? '').trim();
     final canOnline = platformId.isNotEmpty && platformId != 'local';
 
@@ -1257,15 +1272,17 @@ class _PlayerFavoriteButton extends ConsumerWidget {
           ? Icons.favorite_rounded
           : Icons.favorite_border_rounded,
       color: color,
-      onTap: () async {
-        await ref
-            .read(onlineControllerProvider.notifier)
-            .toggleSongFavorite(
-              songId: track.id,
-              platform: platformId,
-              like: !isFavorited,
-            );
-      },
+      onTap: presentation.isTrackTransitioning
+          ? null
+          : () async {
+              await ref
+                  .read(onlineControllerProvider.notifier)
+                  .toggleSongFavorite(
+                    songId: track.id,
+                    platform: platformId,
+                    like: !isFavorited,
+                  );
+            },
     );
   }
 }
@@ -1279,17 +1296,20 @@ class _PlayerUtilityButton extends StatelessWidget {
 
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkResponse(
-      onTap: onTap,
-      radius: 24,
-      child: SizedBox(
-        width: 40,
-        height: 40,
-        child: Icon(icon, color: color, size: 22),
+    return Opacity(
+      opacity: onTap == null ? 0.38 : 1,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 24,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, color: color, size: 22),
+        ),
       ),
     );
   }
@@ -1308,10 +1328,14 @@ class _PlayerProgressSection extends ConsumerWidget {
     final duration = ref.watch(
       playerControllerProvider.select((state) => state.duration),
     );
+    final isTrackTransitioning = ref.watch(
+      playerControllerProvider.select((state) => state.isTrackTransitioning),
+    );
     return PlayerProgressBar(
       position: position,
       duration: duration,
       onSeek: onSeek,
+      enabled: !isTrackTransitioning,
     );
   }
 }
@@ -1339,6 +1363,9 @@ class _PlayerControlSection extends ConsumerWidget {
     final isRadioMode = ref.watch(
       playerControllerProvider.select((state) => state.isRadioMode),
     );
+    final isTrackTransitioning = ref.watch(
+      playerControllerProvider.select((state) => state.isTrackTransitioning),
+    );
     return PlayerControlBar(
       config: config,
       compact: compactLayout,
@@ -1346,6 +1373,7 @@ class _PlayerControlSection extends ConsumerWidget {
       playMode: playMode,
       showPlayModeButton: !isRadioMode,
       playModeLocked: isRadioMode,
+      isTrackTransitioning: isTrackTransitioning,
       showQueueButton: !isRadioMode,
       onOpenQueue: onOpenQueue,
       onCyclePlayMode: controller.cyclePlayMode,

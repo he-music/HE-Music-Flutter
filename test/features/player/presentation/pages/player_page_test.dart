@@ -17,6 +17,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/pages/player_page.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:he_music_flutter/features/player/presentation/styles/player_style_stage.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
@@ -628,6 +629,244 @@ void main() {
     expect(overlayStyle.statusBarBrightness, Brightness.dark);
     expect(overlayStyle.statusBarColor, Colors.transparent);
   });
+
+  testWidgets('完整播放器快速三次下一曲立即显示 B C D 且正式索引保持 A', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    late _TransitionPlayerController controller;
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: () {
+          controller = _TransitionPlayerController();
+          return controller;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final initialHeaderSize = tester.getSize(
+      find.byKey(const ValueKey<String>('player-track-header')),
+    );
+
+    await tester.tap(find.byIcon(Icons.skip_next_rounded));
+    await tester.pump();
+    expect(_visiblePlayerTitle(tester), 'Track B');
+
+    await tester.tap(find.byIcon(Icons.skip_next_rounded));
+    await tester.pump();
+    expect(_visiblePlayerTitle(tester), 'Track C');
+
+    await tester.tap(find.byIcon(Icons.skip_next_rounded));
+    await tester.pump();
+    expect(_visiblePlayerTitle(tester), 'Track D');
+    expect(controller.nextCalls, 3);
+    expect(controller.snapshot.currentIndex, 0);
+    expect(controller.snapshot.currentTrack?.id, 'track-a');
+    expect(controller.snapshot.displayTrack?.id, 'track-d');
+    expect(
+      find.byKey(const ValueKey<String>('player-track-preparing-indicator')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('player-track-header'))),
+      initialHeaderSize,
+    );
+
+    controller.commitRequestedTrack();
+    await tester.pump();
+    expect(_visiblePlayerTitle(tester), 'Track D');
+    expect(controller.snapshot.currentIndex, 3);
+    expect(controller.snapshot.isTrackTransitioning, isFalse);
+    expect(
+      find.byKey(const ValueKey<String>('player-track-preparing-indicator')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('过渡期仅上一下一和队列保持可用', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    late _TransitionPlayerController controller;
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: () {
+          controller = _TransitionPlayerController();
+          return controller;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.skip_next_rounded));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('player-control-preparing-indicator')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Slider>(
+            find.byKey(const ValueKey<String>('player-progress-slider')),
+          )
+          .onChanged,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.byKey(const ValueKey<String>('player-compact-lyric-tap')),
+          )
+          .onTap,
+      isNull,
+    );
+    expect(_iconButton(tester, Icons.repeat_rounded).onPressed, isNull);
+    expect(_iconButton(tester, Icons.queue_music_rounded).onPressed, isNotNull);
+    expect(_iconButton(tester, Icons.skip_next_rounded).onPressed, isNotNull);
+    expect(
+      _iconButton(tester, Icons.skip_previous_rounded).onPressed,
+      isNotNull,
+    );
+    expect(_inkResponse(tester, Icons.more_horiz_rounded).onTap, isNull);
+    expect(_inkResponse(tester, Icons.favorite_border_rounded).onTap, isNull);
+
+    await tester.tap(find.byIcon(Icons.skip_next_rounded));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.skip_previous_rounded));
+    await tester.pump();
+    expect(controller.nextCalls, 2);
+    expect(controller.previousCalls, 1);
+    expect(_visiblePlayerTitle(tester), 'Track B');
+  });
+
+  testWidgets('未知目标保留当前标题，准确目标到达后更新，失败时回退', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    late _TransitionPlayerController controller;
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: () {
+          controller = _TransitionPlayerController();
+          return controller;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    controller.showUnknownTarget();
+    await tester.pump();
+    expect(_visiblePlayerTitle(tester), 'Track A');
+    expect(controller.snapshot.isTrackTransitioning, isTrue);
+
+    controller.showTarget(2);
+    await tester.pump();
+    expect(_visiblePlayerTitle(tester), 'Track C');
+    expect(
+      tester.widget<PlayerStyleStage>(find.byType(PlayerStyleStage)).track?.id,
+      'track-c',
+    );
+
+    controller.failRequestedTrack();
+    await tester.pump();
+    expect(_visiblePlayerTitle(tester), 'Track A');
+    expect(
+      tester.widget<PlayerStyleStage>(find.byType(PlayerStyleStage)).track?.id,
+      'track-a',
+    );
+  });
+
+  testWidgets('经典流体和磁带样式都立即接收目标歌曲', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final styleId in const <String>[
+      AppPlayerStyleRegistry.classicId,
+      AppPlayerStyleRegistry.fluidId,
+      AppPlayerStyleRegistry.cassetteId,
+    ]) {
+      late _TransitionPlayerController controller;
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: () {
+            controller = _TransitionPlayerController();
+            return controller;
+          },
+          config: AppConfigState.initial.copyWith(
+            localeCode: 'en',
+            playerStyleId: styleId,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      controller.showTarget(2);
+      await tester.pump();
+      final stage = tester.widget<PlayerStyleStage>(
+        find.byType(PlayerStyleStage),
+      );
+      expect(stage.track?.id, 'track-c', reason: styleId);
+      if (styleId == AppPlayerStyleRegistry.cassetteId) {
+        expect(find.text('Track C'), findsWidgets);
+      }
+      expect(tester.takeException(), isNull, reason: styleId);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  });
+
+  testWidgets('过渡状态在手机和桌面布局均不溢出', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in const <Size>[Size(320, 568), Size(1440, 960)]) {
+      await tester.binding.setSurfaceSize(size);
+      late _TransitionPlayerController controller;
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: () {
+            controller = _TransitionPlayerController();
+            return controller;
+          },
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      controller.showTarget(3);
+      await tester.pump();
+
+      expect(_visiblePlayerTitle(tester), 'Track D', reason: '$size');
+      expect(
+        find.byKey(
+          const ValueKey<String>('player-control-preparing-indicator'),
+        ),
+        findsOneWidget,
+        reason: '$size',
+      );
+      expect(tester.takeException(), isNull, reason: '$size');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  });
+}
+
+String _visiblePlayerTitle(WidgetTester tester) {
+  return tester
+      .widget<Text>(find.byKey(const ValueKey<String>('player-track-title')))
+      .data!;
+}
+
+IconButton _iconButton(WidgetTester tester, IconData icon) {
+  return tester.widget<IconButton>(
+    find.ancestor(of: find.byIcon(icon), matching: find.byType(IconButton)),
+  );
+}
+
+InkResponse _inkResponse(WidgetTester tester, IconData icon) {
+  return tester.widget<InkResponse>(
+    find.ancestor(of: find.byIcon(icon), matching: find.byType(InkResponse)),
+  );
 }
 
 Widget _buildPlayerTestApp({
@@ -772,6 +1011,94 @@ class _RadioTrackPlayerController extends PlayerController {
   @override
   Future<void> initialize() async {}
 }
+
+class _TransitionPlayerController extends PlayerController {
+  int nextCalls = 0;
+  int previousCalls = 0;
+  int _transitionId = 100;
+
+  PlayerPlaybackState get snapshot => state;
+
+  @override
+  PlayerPlaybackState build() {
+    return PlayerPlaybackState.initial(_transitionTracks);
+  }
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<void> playNext() async {
+    nextCalls += 1;
+    final sourceIndex = state.requestedTrackIndex ?? state.currentIndex;
+    showTarget((sourceIndex + 1) % state.queue.length);
+  }
+
+  @override
+  Future<void> playPrevious() async {
+    previousCalls += 1;
+    final sourceIndex = state.requestedTrackIndex ?? state.currentIndex;
+    showTarget((sourceIndex - 1 + state.queue.length) % state.queue.length);
+  }
+
+  void showUnknownTarget() {
+    state = state.copyWith(
+      requestedTransitionId: ++_transitionId,
+      clearRequestedTrackIndex: true,
+    );
+  }
+
+  void showTarget(int index) {
+    state = state.copyWith(
+      requestedTrackIndex: index,
+      requestedTransitionId: ++_transitionId,
+    );
+  }
+
+  void commitRequestedTrack() {
+    final targetIndex = state.requestedTrackIndex;
+    if (targetIndex == null) return;
+    state = state.copyWith(
+      currentIndex: targetIndex,
+      clearRequestedTrackIndex: true,
+      clearRequestedTransitionId: true,
+    );
+  }
+
+  void failRequestedTrack() {
+    state = state.copyWith(
+      clearRequestedTrackIndex: true,
+      clearRequestedTransitionId: true,
+    );
+  }
+}
+
+const List<PlayerTrack> _transitionTracks = <PlayerTrack>[
+  PlayerTrack(
+    id: 'track-a',
+    title: 'Track A',
+    artist: 'Artist A',
+    platform: 'qq',
+  ),
+  PlayerTrack(
+    id: 'track-b',
+    title: 'Track B',
+    artist: 'Artist B',
+    platform: 'qq',
+  ),
+  PlayerTrack(
+    id: 'track-c',
+    title: 'Track C',
+    artist: 'Artist C',
+    platform: 'qq',
+  ),
+  PlayerTrack(
+    id: 'track-d',
+    title: 'Track D',
+    artist: 'Artist D',
+    platform: 'qq',
+  ),
+];
 
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
   _TestOnlinePlatformsController({required this.featureSupportFlag});

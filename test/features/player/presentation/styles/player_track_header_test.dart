@@ -63,6 +63,38 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   });
+
+  testWidgets('pending header displays target metadata in a fixed slot', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildHeaderApp(_PendingHeaderController.new));
+    await tester.pump();
+
+    expect(find.text('目标歌曲'), findsOneWidget);
+    expect(find.text('目标歌手'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('player-track-preparing-indicator')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('player-track-header'))),
+      const Size(300, PlayerTrackHeader.layoutHeight),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('player-track-preparing-slot')),
+      ),
+      const Size(26, 18),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-quality-badge')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-speed-badge')),
+      findsOneWidget,
+    );
+  });
 }
 
 Widget _buildHeaderApp(PlayerController Function() controllerFactory) {
@@ -121,4 +153,26 @@ class _ShortArtistController extends _HeaderController {
 class _LongArtistController extends _HeaderController {
   @override
   String get artist => '一位名字非常非常长并且会溢出固定槽位的歌手';
+}
+
+class _PendingHeaderController extends PlayerController {
+  @override
+  PlayerPlaybackState build() {
+    return PlayerPlaybackState.initial(const <PlayerTrack>[
+      PlayerTrack(id: 'current', title: '当前歌曲', artist: '当前歌手'),
+      PlayerTrack(id: 'target', title: '目标歌曲', artist: '目标歌手'),
+    ]).copyWith(
+      requestedTrackIndex: 1,
+      requestedTransitionId: 7,
+      currentAvailableQualities: const <PlayerQualityOption>[
+        PlayerQualityOption(
+          name: 'SQ',
+          quality: 500,
+          format: 'flac',
+          url: 'https://example.com/song.flac',
+        ),
+      ],
+      currentSelectedQualityName: 'SQ',
+    );
+  }
 }

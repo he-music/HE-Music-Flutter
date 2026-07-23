@@ -29,7 +29,7 @@ class PlayerLyricPage extends ConsumerStatefulWidget {
   });
 
   final String emptyText;
-  final ValueChanged<Duration> onSeek;
+  final ValueChanged<Duration>? onSeek;
   final String? artworkUrl;
   final Uint8List? artworkBytes;
   final bool center;

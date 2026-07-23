@@ -19,6 +19,9 @@ class PlayerCompactLyricSection extends ConsumerWidget {
     final hasTrack = ref.watch(
       playerControllerProvider.select((state) => state.currentTrack != null),
     );
+    final isTrackTransitioning = ref.watch(
+      playerControllerProvider.select((state) => state.isTrackTransitioning),
+    );
     if (!hasTrack) {
       return const SizedBox(height: layoutHeight);
     }
@@ -33,37 +36,41 @@ class PlayerCompactLyricSection extends ConsumerWidget {
     return SizedBox(
       height: layoutHeight,
       width: double.infinity,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          focusColor: Colors.transparent,
-          child: ClipRect(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-                child: Text(
-                  text,
-                  key: ValueKey<String>(text),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: Colors.white.withValues(
-                      alpha: text.isEmpty ? 0.56 : 0.92,
+      child: Opacity(
+        opacity: isTrackTransitioning ? 0.45 : 1,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: const ValueKey<String>('player-compact-lyric-tap'),
+            onTap: isTrackTransitioning ? null : onTap,
+            borderRadius: BorderRadius.circular(10),
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            focusColor: Colors.transparent,
+            child: ClipRect(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+                  child: Text(
+                    text,
+                    key: ValueKey<String>(text),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: Colors.white.withValues(
+                        alpha: text.isEmpty ? 0.56 : 0.92,
+                      ),
+                      fontWeight: FontWeight.w500,
+                      height: 1.0,
+                      fontSize: 16,
                     ),
-                    fontWeight: FontWeight.w500,
-                    height: 1.0,
-                    fontSize: 16,
                   ),
                 ),
               ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:marquee/marquee.dart';
 
+import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/i18n/app_i18n.dart';
 import '../../domain/entities/player_quality_option.dart';
 import '../providers/player_providers.dart';
 
@@ -24,9 +26,15 @@ class PlayerTrackHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final track = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
+    final presentation = ref.watch(
+      playerControllerProvider.select(
+        (state) => (
+          displayTrack: state.displayTrack,
+          isTrackTransitioning: state.isTrackTransitioning,
+        ),
+      ),
     );
+    final track = presentation.displayTrack;
     final qualities = ref.watch(
       playerControllerProvider.select(
         (state) => state.currentAvailableQualities,
@@ -73,6 +81,33 @@ class PlayerTrackHeader extends ConsumerWidget {
                   style: titleStyle,
                 ),
               ),
+              SizedBox(
+                key: const ValueKey<String>('player-track-preparing-slot'),
+                width: 26,
+                height: 18,
+                child: presentation.isTrackTransitioning
+                    ? Semantics(
+                        liveRegion: true,
+                        label: AppI18n.format(
+                          ref.watch(appConfigProvider),
+                          'player.transition.preparing_track',
+                          <String, String>{'title': title},
+                        ),
+                        child: const Center(
+                          child: SizedBox.square(
+                            key: ValueKey<String>(
+                              'player-track-preparing-indicator',
+                            ),
+                            dimension: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
               if (isRadioMode) ...<Widget>[
                 const SizedBox(width: 8),
                 const _PlayerRadioModeIcon(),
@@ -90,7 +125,8 @@ class PlayerTrackHeader extends ConsumerWidget {
                   child: _OverflowMarquee(text: artist),
                 ),
                 const SizedBox(width: 8),
-                if (quality != null) ...<Widget>[
+                if (quality != null &&
+                    !presentation.isTrackTransitioning) ...<Widget>[
                   _PlayerMetadataBadge(
                     key: const ValueKey<String>('player-quality-badge'),
                     label: quality.name,

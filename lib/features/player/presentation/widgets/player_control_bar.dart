@@ -11,6 +11,7 @@ class PlayerControlBar extends StatelessWidget {
     required this.playMode,
     this.showPlayModeButton = true,
     this.playModeLocked = false,
+    this.isTrackTransitioning = false,
     this.showQueueButton = true,
     this.compact = false,
     required this.onOpenQueue,
@@ -26,6 +27,7 @@ class PlayerControlBar extends StatelessWidget {
   final PlayerPlayMode playMode;
   final bool showPlayModeButton;
   final bool playModeLocked;
+  final bool isTrackTransitioning;
   final bool showQueueButton;
   final bool compact;
   final VoidCallback onOpenQueue;
@@ -43,7 +45,9 @@ class PlayerControlBar extends StatelessWidget {
         children: <Widget>[
           if (showPlayModeButton)
             _SideControlButton(
-              onPressed: playModeLocked ? null : onCyclePlayMode,
+              onPressed: playModeLocked || isTrackTransitioning
+                  ? null
+                  : onCyclePlayMode,
               tooltip: _modeTooltip(playMode),
               icon: _modeIcon(playMode),
               compact: compact,
@@ -57,9 +61,11 @@ class PlayerControlBar extends StatelessWidget {
           ),
           SizedBox(width: compact ? 8 : 14),
           _PrimaryControlButton(
-            onPressed: onPlayPause,
+            onPressed: isTrackTransitioning ? null : onPlayPause,
             icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
             compact: compact,
+            isTrackTransitioning: isTrackTransitioning,
+            preparingLabel: AppI18n.t(config, 'player.transition.preparing'),
           ),
           SizedBox(width: compact ? 8 : 14),
           _RoundControlButton(
@@ -103,17 +109,38 @@ class _PrimaryControlButton extends StatelessWidget {
     required this.onPressed,
     required this.icon,
     required this.compact,
+    required this.isTrackTransitioning,
+    required this.preparingLabel,
   });
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final IconData icon;
   final bool compact;
+  final bool isTrackTransitioning;
+  final String preparingLabel;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onPressed,
-      icon: Icon(icon, size: compact ? 34 : 42),
+      icon: isTrackTransitioning
+          ? Semantics(
+              label: preparingLabel,
+              child: SizedBox.square(
+                dimension: compact ? 34 : 42,
+                child: const Center(
+                  child: SizedBox.square(
+                    key: ValueKey<String>('player-control-preparing-indicator'),
+                    dimension: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : Icon(icon, size: compact ? 34 : 42),
       color: Colors.white,
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,

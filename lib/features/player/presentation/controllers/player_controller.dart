@@ -47,6 +47,8 @@ class PlayerController extends Notifier<PlayerPlaybackState>
   bool _initialized = false;
   int _trackSwitchRequestId = 0;
   int _lyricHighlightColorRequestId = 0;
+  int _latestManualSkipTransitionId = -1;
+  int _settledManualSkipTransitionId = -1;
 
   @override
   PlayerPlaybackState get currentState => state;
@@ -881,12 +883,15 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       availableQualities: availableQualities,
       selectedQualityName: selectedQualityName,
     );
+    _settleManualSkipTransition(liveState.requestedTransitionId);
     // 装载期间播放流可能已更新，提交业务上下文时不能用旧快照覆盖。
     state = committedState.copyWith(
       isPlaying: liveState.isPlaying,
       isLoading: liveState.isLoading,
       position: liveState.position,
       duration: liveState.duration,
+      clearRequestedTrackIndex: true,
+      clearRequestedTransitionId: true,
     );
     applyResolvedState(resolution);
     unawaited(_syncAutoLyricHighlightColor());
@@ -967,6 +972,10 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       );
       return;
     }
+    if (type == 'manualSkipTarget') {
+      _handleManualSkipTarget(event);
+      return;
+    }
     if (type != 'queueState') {
       return;
     }
@@ -1007,6 +1016,18 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         : _qualityManager.resolveSelectedQualityName(
             availableQualities: availableQualities,
           );
+    final transitionId = event['transitionId'] is int
+        ? event['transitionId'] as int
+        : null;
+    final manualSkipTargetActive = event['manualSkipTargetActive'] == true;
+    if (!manualSkipTargetActive && transitionId != null && transitionId >= 0) {
+      if (transitionId > _latestManualSkipTransitionId) {
+        _latestManualSkipTransitionId = transitionId;
+      }
+      if (transitionId > _settledManualSkipTransitionId) {
+        _settledManualSkipTransitionId = transitionId;
+      }
+    }
     state = state.copyWith(
       queue: queue,
       currentIndex: queue.isEmpty ? 0 : currentIndex.clamp(0, queue.length - 1),
@@ -1033,8 +1054,77 @@ class PlayerController extends Notifier<PlayerPlaybackState>
           ? event['currentRadioPageIndex'] as int
           : null,
       clearCurrentRadioPageIndex: event['currentRadioPageIndex'] == null,
+      clearRequestedTrackIndex: !manualSkipTargetActive,
+      clearRequestedTransitionId: !manualSkipTargetActive,
       clearError: true,
     );
+  }
+
+  void _handleManualSkipTarget(Map<dynamic, dynamic> event) {
+    final transitionId = event['transitionId'];
+    if (transitionId is! int ||
+        transitionId < 0 ||
+        transitionId < _latestManualSkipTransitionId ||
+        transitionId <= _settledManualSkipTransitionId) {
+      return;
+    }
+    final status = event['status'];
+    if (status == 'cleared') {
+      _latestManualSkipTransitionId = transitionId;
+      _settledManualSkipTransitionId = transitionId;
+      state = state.copyWith(
+        clearRequestedTrackIndex: true,
+        clearRequestedTransitionId: true,
+      );
+      return;
+    }
+    if (status != 'pending') {
+      return;
+    }
+    final targetIndex = event['targetIndex'];
+    if (targetIndex == null) {
+      if (event['targetTrackId'] != null ||
+          event['targetTrackPlatform'] != null) {
+        return;
+      }
+      _latestManualSkipTransitionId = transitionId;
+      state = state.copyWith(
+        requestedTransitionId: transitionId,
+        clearRequestedTrackIndex: true,
+      );
+      return;
+    }
+    if (targetIndex is! int ||
+        targetIndex < 0 ||
+        targetIndex >= state.queue.length) {
+      return;
+    }
+    final target = state.queue[targetIndex];
+    final targetTrackId = event['targetTrackId'];
+    final targetTrackPlatform = event['targetTrackPlatform'];
+    if (targetTrackId is! String ||
+        targetTrackId.trim() != target.id.trim() ||
+        (targetTrackPlatform is String ? targetTrackPlatform.trim() : '') !=
+            (target.platform?.trim() ?? '')) {
+      return;
+    }
+    _latestManualSkipTransitionId = transitionId;
+    state = state.copyWith(
+      requestedTrackIndex: targetIndex,
+      requestedTransitionId: transitionId,
+    );
+  }
+
+  void _settleManualSkipTransition(int? transitionId) {
+    if (transitionId == null) {
+      return;
+    }
+    if (transitionId > _latestManualSkipTransitionId) {
+      _latestManualSkipTransitionId = transitionId;
+    }
+    if (transitionId > _settledManualSkipTransitionId) {
+      _settledManualSkipTransitionId = transitionId;
+    }
   }
 
   int? _previewIndexFromEvent(dynamic value, int queueLength) {
@@ -1182,11 +1272,14 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     final selectedQualityName = _qualityManager.resolveSelectedQualityName(
       availableQualities: availableQualities,
     );
+    _settleManualSkipTransition(state.requestedTransitionId);
     state = state.copyWith(
       currentIndex: safeIndex,
       position: Duration.zero,
       currentAvailableQualities: availableQualities,
       currentSelectedQualityName: selectedQualityName,
+      clearRequestedTrackIndex: true,
+      clearRequestedTransitionId: true,
       clearError: true,
     );
     unawaited(_syncAutoLyricHighlightColor());

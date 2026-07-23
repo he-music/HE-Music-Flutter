@@ -125,6 +125,44 @@ void main() {
     );
   });
 
+  testWidgets('rapid target changes only commit the final vinyl label', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        playerControllerProvider.overrideWith(_VinylTestController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    final track = ValueNotifier<PlayerTrack>(_trackA);
+    addTearDown(track.dispose);
+
+    await tester.pumpWidget(_buildDynamicStage(container, track));
+    await tester.pump(const Duration(milliseconds: 420));
+
+    track.value = _trackB;
+    await tester.pump();
+    track.value = _trackC;
+    await tester.pump();
+    track.value = _trackD;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('vinyl-center-label-track-d')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('vinyl-center-label-track-b')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('vinyl-center-label-track-c')),
+      findsNothing,
+    );
+  });
+
   testWidgets('reduced motion keeps vinyl in a static playing state', (
     tester,
   ) async {
@@ -203,6 +241,8 @@ Widget _buildStage(
 
 const PlayerTrack _trackA = PlayerTrack(id: 'track-a', title: 'Track A');
 const PlayerTrack _trackB = PlayerTrack(id: 'track-b', title: 'Track B');
+const PlayerTrack _trackC = PlayerTrack(id: 'track-c', title: 'Track C');
+const PlayerTrack _trackD = PlayerTrack(id: 'track-d', title: 'Track D');
 
 class _VinylTestController extends PlayerController {
   @override

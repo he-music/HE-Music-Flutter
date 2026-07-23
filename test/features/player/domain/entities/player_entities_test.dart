@@ -226,6 +226,9 @@ void main() {
       expect(state.speed, 1.0);
       expect(state.playMode, PlayerPlayMode.sequence);
       expect(state.isRadioMode, isFalse);
+      expect(state.requestedTrack, isNull);
+      expect(state.displayTrack?.id, 's1');
+      expect(state.isTrackTransitioning, isFalse);
     });
 
     test('currentTrack 应返回当前索引对应的曲目', () {
@@ -304,6 +307,60 @@ void main() {
       expect(cleared.currentRadioPlatform, isNull);
       expect(cleared.currentRadioPageIndex, isNull);
       expect(cleared.previousPlayModeBeforeRadio, isNull);
+    });
+
+    test('待播放目标应驱动 displayTrack 但不改变 currentTrack', () {
+      final state = PlayerPlaybackState.initial(
+        tracks,
+      ).copyWith(requestedTrackIndex: 2, requestedTransitionId: 7);
+
+      expect(state.currentTrack?.id, 's1');
+      expect(state.requestedTrack?.id, 's3');
+      expect(state.displayTrack?.id, 's3');
+      expect(state.isTrackTransitioning, isTrue);
+    });
+
+    test('目标未知时应保留正式歌曲并表达过渡状态', () {
+      final state = PlayerPlaybackState.initial(
+        tracks,
+      ).copyWith(requestedTransitionId: 8);
+
+      expect(state.requestedTrack, isNull);
+      expect(state.displayTrack?.id, 's1');
+      expect(state.isTrackTransitioning, isTrue);
+    });
+
+    test('待播放索引越界时 displayTrack 应安全回退正式歌曲', () {
+      final state = PlayerPlaybackState.initial(
+        tracks,
+      ).copyWith(requestedTrackIndex: 99, requestedTransitionId: 9);
+
+      expect(state.requestedTrack, isNull);
+      expect(state.displayTrack?.id, 's1');
+    });
+
+    test('待播放目标与正式索引相同时仍应表达过渡状态', () {
+      final state = PlayerPlaybackState.initial(
+        tracks,
+      ).copyWith(requestedTrackIndex: 0, requestedTransitionId: 10);
+
+      expect(state.displayTrack?.id, 's1');
+      expect(state.isTrackTransitioning, isTrue);
+    });
+
+    test('copyWith 应同时清除待播放索引和 transition', () {
+      final state = PlayerPlaybackState.initial(
+        tracks,
+      ).copyWith(requestedTrackIndex: 1, requestedTransitionId: 11);
+      final cleared = state.copyWith(
+        clearRequestedTrackIndex: true,
+        clearRequestedTransitionId: true,
+      );
+
+      expect(cleared.requestedTrackIndex, isNull);
+      expect(cleared.requestedTransitionId, isNull);
+      expect(cleared.displayTrack?.id, 's1');
+      expect(cleared.isTrackTransitioning, isFalse);
     });
   });
 

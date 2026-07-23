@@ -241,6 +241,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   List<int>? _desiredShuffleOrder;
   int? _desiredShuffleCursor;
   int _desiredDirection = 1;
+  bool _manualSkipTargetActive = false;
   Duration? _duration;
   bool _shuffleEnabled = false;
   bool _singleLoopEnabled = false;
@@ -544,8 +545,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       return;
     }
     if (_isRadioMode && _committedIndex >= _tracks.length - 1) {
-      final transitionId = _beginTransition();
-      unawaited(_playNextRadioTrack(transitionId));
+      _cancelManualIntent(clearDesired: true);
+      final transitionId = _beginTransition(cancelManualIntent: false);
+      _manualSkipTargetActive = true;
+      _broadcastManualSkipTarget(transitionId: transitionId, targetIndex: null);
+      unawaited(_playNextRadioTrack(transitionId, manual: true));
       return;
     }
     _scheduleManualSkip(1);
@@ -576,6 +580,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           ? (baseIndex + 1) % _tracks.length
           : (baseIndex - 1 + _tracks.length) % _tracks.length;
     }
+    _manualSkipTargetActive = true;
+    _broadcastManualSkipTarget(
+      transitionId: transitionId,
+      targetIndex: _desiredIndex,
+    );
     _pendingIndex = null;
     _pendingShuffleOrder = null;
     _pendingShuffleCursor = null;
@@ -671,15 +680,18 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         } on _StaleTransitionException {
           return;
         } catch (nextError) {
+          _clearManualSkipTarget(transitionId);
           _broadcastTransitionError(nextError, transitionId);
           return;
         }
       }
+      _clearManualSkipTarget(transitionId);
       _broadcastTransitionError(error, transitionId);
     }
   }
 
   void _cancelManualIntent({required bool clearDesired}) {
+    final hadActiveTarget = _manualSkipTargetActive;
     _manualSkipDebounceTimer?.cancel();
     _manualSkipMaxBatchTimer?.cancel();
     _manualSkipDebounceTimer = null;
@@ -689,15 +701,35 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _desiredShuffleOrder = null;
       _desiredShuffleCursor = null;
     }
+    _manualSkipTargetActive = false;
+    if (hadActiveTarget) {
+      _broadcastManualSkipTarget(
+        transitionId: _transitionId,
+        targetIndex: null,
+        cleared: true,
+      );
+    }
   }
 
-  Future<void> _playNextRadioTrack(int transitionId) async {
+  Future<void> _playNextRadioTrack(
+    int transitionId, {
+    bool manual = false,
+  }) async {
     try {
       final sourceIndex = _committedIndex;
       final appended = await _ensureRadioNextPageAppended();
       _guardTransition(transitionId);
       if (!appended || _tracks.length <= sourceIndex + 1) {
+        if (manual) {
+          _clearManualSkipTarget(transitionId);
+        }
         return;
+      }
+      if (manual) {
+        _broadcastManualSkipTarget(
+          transitionId: transitionId,
+          targetIndex: sourceIndex + 1,
+        );
       }
       await _loadTrackAt(
         sourceIndex + 1,
@@ -707,6 +739,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     } on _StaleTransitionException {
       return;
     } catch (error) {
+      if (manual) {
+        _clearManualSkipTarget(transitionId);
+      }
       _broadcastTransitionError(error, transitionId);
     }
   }
@@ -846,6 +881,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _desiredIndex = null;
     _desiredShuffleOrder = null;
     _desiredShuffleCursor = null;
+    _manualSkipTargetActive = false;
     _armedSourceGeneration = generation;
     _handledCompletionGeneration = null;
     queue.add(_tracks.map(_toMediaItem).toList(growable: false));
@@ -1277,6 +1313,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         _singleLoopEnabled ||
         _pendingIndex != null ||
         _desiredIndex != null ||
+        _manualSkipTargetActive ||
         generation != _armedSourceGeneration ||
         generation == _handledCompletionGeneration) {
       _logTransition(
@@ -1339,6 +1376,13 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       }
       if (!attemptedIndexes.add(nextIndex)) {
         break;
+      }
+      if (_manualSkipTargetActive) {
+        _desiredIndex = nextIndex;
+        _broadcastManualSkipTarget(
+          transitionId: transitionId,
+          targetIndex: nextIndex,
+        );
       }
       try {
         await _loadTrackAt(
@@ -1405,6 +1449,29 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     });
   }
 
+  void _clearManualSkipTarget(int transitionId) {
+    if (transitionId != _transitionId || !_manualSkipTargetActive) {
+      return;
+    }
+    _cancelManualIntent(clearDesired: true);
+  }
+
+  void _broadcastManualSkipTarget({
+    required int transitionId,
+    required int? targetIndex,
+    bool cleared = false,
+  }) {
+    final target = targetIndex == null ? null : _safeTrack(targetIndex);
+    customEvent.add(<String, dynamic>{
+      'type': 'manualSkipTarget',
+      'transitionId': transitionId,
+      'status': cleared ? 'cleared' : 'pending',
+      'targetIndex': targetIndex,
+      'targetTrackId': target?.id,
+      'targetTrackPlatform': target?.platform,
+    });
+  }
+
   void _logTransition(
     String event,
     int transitionId, {
@@ -1468,6 +1535,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final previewIndexes = _resolvePreviewTrackIndexes(_committedIndex);
     customEvent.add(<String, dynamic>{
       'type': 'queueState',
+      'transitionId': _transitionId,
+      'manualSkipTargetActive': _manualSkipTargetActive,
       'tracks': _tracks.map(_serializeTrack).toList(growable: false),
       'currentIndex': _committedIndex,
       'previousPreviewIndex': previewIndexes.previous,
