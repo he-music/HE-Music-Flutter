@@ -5,7 +5,6 @@ import 'package:he_music_flutter/features/my/domain/entities/user_playlist_detai
 import 'package:he_music_flutter/features/my/domain/repositories/user_playlist_detail_repository.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/favorite_song_status_providers.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/user_playlist_detail_providers.dart';
-import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_content.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/utils/favorite_song_key.dart';
 
@@ -60,24 +59,24 @@ class _FakeUserPlaylistDetailRepository
   final bool isDefault;
 
   @override
-  Future<PlaylistDetailContent> fetchDetail(
-    UserPlaylistDetailRequest request,
-  ) async {
-    return PlaylistDetailContent(
-      info: PlaylistInfo(
-        name: '测试歌单',
-        id: request.id,
-        cover: '',
-        creator: 'me',
-        songCount: '0',
-        playCount: '0',
-        songs: const <SongInfo>[],
-        platform: 'user',
-        description: '',
-        isDefault: isDefault,
-      ),
+  Future<PlaylistInfo> fetchInfo(UserPlaylistDetailRequest request) async {
+    return PlaylistInfo(
+      name: '测试歌单',
+      id: request.id,
+      cover: '',
+      creator: 'me',
+      songCount: '0',
+      playCount: '0',
       songs: const <SongInfo>[],
+      platform: 'user',
+      description: '',
+      isDefault: isDefault,
     );
+  }
+
+  @override
+  Future<List<SongInfo>> fetchSongs(UserPlaylistDetailRequest request) async {
+    return const <SongInfo>[];
   }
 
   @override

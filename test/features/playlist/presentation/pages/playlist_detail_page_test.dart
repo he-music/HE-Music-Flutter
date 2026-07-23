@@ -15,13 +15,13 @@ import 'package:he_music_flutter/features/player/domain/entities/player_playback
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
-import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_content.dart';
 import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_request.dart';
 import 'package:he_music_flutter/features/playlist/domain/repositories/playlist_detail_repository.dart';
 import 'package:he_music_flutter/features/playlist/presentation/pages/playlist_detail_page.dart';
 import 'package:he_music_flutter/features/playlist/presentation/providers/playlist_detail_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
+import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 
 void main() {
@@ -127,6 +127,55 @@ void main() {
     await tester.pump();
     expect(find.text('歌单 B'), findsWidgets);
   });
+
+  testWidgets('playlist info replaces full skeleton while songs are pending', (
+    tester,
+  ) async {
+    final repository = _ControlledPlaylistDetailRepository();
+    const request = PlaylistDetailRequest(
+      id: 'playlist-1',
+      platform: 'qq',
+      title: '渐进歌单',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          playerControllerProvider.overrideWith(_TestPlayerController.new),
+          onlinePlatformsProvider.overrideWith(
+            _TestOnlinePlatformsController.new,
+          ),
+          playlistDetailRepositoryProvider.overrideWithValue(repository),
+          favoriteSongStatusProvider.overrideWith(
+            _TestFavoriteSongStatusController.new,
+          ),
+          favoriteCollectionStatusProvider.overrideWith(
+            _LikedPlaylistCollectionStatusController.new,
+          ),
+        ],
+        child: const MaterialApp(
+          home: PlaylistDetailPage(
+            id: 'playlist-1',
+            platform: 'qq',
+            title: '渐进歌单',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    repository.completeInfo(request);
+    await tester.pump();
+
+    expect(find.byType(DetailLoadingBody), findsNothing);
+    expect(find.text('渐进歌单'), findsWidgets);
+    expect(find.byType(SkeletonBox), findsWidgets);
+    expect(find.text('暂无歌曲'), findsNothing);
+
+    repository.completeSongs(request);
+    await tester.pump();
+  });
 }
 
 class _TestAppConfigController extends AppConfigController {
@@ -186,52 +235,64 @@ class _LikedPlaylistCollectionStatusController
 
 class _FakePlaylistDetailRepository implements PlaylistDetailRepository {
   @override
-  Future<PlaylistDetailContent> fetchDetail(
-    PlaylistDetailRequest request,
-  ) async {
-    return PlaylistDetailContent(
-      info: PlaylistInfo(
-        name: '测试歌单',
-        id: request.id,
-        cover: 'https://example.com/cover.jpg',
-        creator: '测试用户',
-        songCount: '1',
-        playCount: '10',
-        songs: const <SongInfo>[],
-        platform: request.platform,
-        description: '测试描述',
-      ),
+  Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request) async {
+    return PlaylistInfo(
+      name: '测试歌单',
+      id: request.id,
+      cover: 'https://example.com/cover.jpg',
+      creator: '测试用户',
+      songCount: '1',
+      playCount: '10',
       songs: const <SongInfo>[],
+      platform: request.platform,
+      description: '测试描述',
     );
+  }
+
+  @override
+  Future<List<SongInfo>> fetchSongs(PlaylistDetailRequest request) async {
+    return const <SongInfo>[];
   }
 }
 
 class _ControlledPlaylistDetailRepository implements PlaylistDetailRepository {
-  final Map<String, Completer<PlaylistDetailContent>> _completers = {};
+  final Map<String, Completer<PlaylistInfo>> _infoCompleters = {};
+  final Map<String, Completer<List<SongInfo>>> _songCompleters = {};
 
   @override
-  Future<PlaylistDetailContent> fetchDetail(PlaylistDetailRequest request) {
-    return (_completers[request.cacheKey] ??=
-            Completer<PlaylistDetailContent>())
+  Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request) {
+    return (_infoCompleters[request.cacheKey] ??= Completer<PlaylistInfo>())
+        .future;
+  }
+
+  @override
+  Future<List<SongInfo>> fetchSongs(PlaylistDetailRequest request) {
+    return (_songCompleters[request.cacheKey] ??= Completer<List<SongInfo>>())
         .future;
   }
 
   void complete(PlaylistDetailRequest request) {
-    _completers[request.cacheKey]!.complete(
-      PlaylistDetailContent(
-        info: PlaylistInfo(
-          name: request.title,
-          id: request.id,
-          cover: '',
-          creator: '',
-          songCount: '0',
-          playCount: '0',
-          songs: const <SongInfo>[],
-          platform: request.platform,
-          description: '',
-        ),
+    completeInfo(request);
+    completeSongs(request);
+  }
+
+  void completeInfo(PlaylistDetailRequest request) {
+    _infoCompleters[request.cacheKey]!.complete(
+      PlaylistInfo(
+        name: request.title,
+        id: request.id,
+        cover: '',
+        creator: '',
+        songCount: '0',
+        playCount: '0',
         songs: const <SongInfo>[],
+        platform: request.platform,
+        description: '',
       ),
     );
+  }
+
+  void completeSongs(PlaylistDetailRequest request) {
+    _songCompleters[request.cacheKey]!.complete(const <SongInfo>[]);
   }
 }

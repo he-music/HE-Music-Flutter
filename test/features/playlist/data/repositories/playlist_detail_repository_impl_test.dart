@@ -2,12 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/playlist/data/datasources/playlist_detail_api_client.dart';
 import 'package:he_music_flutter/features/playlist/data/repositories/playlist_detail_repository_impl.dart';
-import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_content.dart';
 import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_request.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
-  test('fetchDetail delegates to apiClient', () async {
+  test('fetchInfo delegates to apiClient', () async {
     final fake = _FakePlaylistDetailApiClient();
     final repo = PlaylistDetailRepositoryImpl(fake);
 
@@ -16,18 +15,33 @@ void main() {
       platform: 'netease',
       title: 'Test',
     );
-    final result = await repo.fetchDetail(request);
+    final result = await repo.fetchInfo(request);
 
-    expect(fake.lastRequest, request);
-    expect(result.info.name, 'Test Playlist');
+    expect(fake.lastInfoRequest, request);
+    expect(result.name, 'Test Playlist');
   });
 
-  test('fetchDetail propagates apiClient error', () async {
+  test('fetchSongs delegates to apiClient', () async {
+    final fake = _FakePlaylistDetailApiClient();
+    final repo = PlaylistDetailRepositoryImpl(fake);
+    final request = PlaylistDetailRequest(
+      id: 'pl-1',
+      platform: 'netease',
+      title: 'Test',
+    );
+
+    final result = await repo.fetchSongs(request);
+
+    expect(fake.lastSongsRequest, request);
+    expect(result, hasLength(1));
+  });
+
+  test('fetchInfo propagates apiClient error', () async {
     final fake = _ThrowingPlaylistDetailApiClient();
     final repo = PlaylistDetailRepositoryImpl(fake);
 
     expect(
-      () => repo.fetchDetail(
+      () => repo.fetchInfo(
         PlaylistDetailRequest(id: 'pl-1', platform: 'netease', title: 'x'),
       ),
       throwsException,
@@ -38,27 +52,29 @@ void main() {
 class _FakePlaylistDetailApiClient extends PlaylistDetailApiClient {
   _FakePlaylistDetailApiClient() : super(Dio());
 
-  PlaylistDetailRequest? lastRequest;
+  PlaylistDetailRequest? lastInfoRequest;
+  PlaylistDetailRequest? lastSongsRequest;
 
   @override
-  Future<PlaylistDetailContent> fetchDetail(
-    PlaylistDetailRequest request,
-  ) async {
-    lastRequest = request;
-    return PlaylistDetailContent(
-      info: const PlaylistInfo(
-        name: 'Test Playlist',
-        id: 'pl-1',
-        cover: '',
-        creator: '',
-        songCount: '0',
-        playCount: '0',
-        songs: [],
-        platform: 'netease',
-        description: '',
-      ),
-      songs: const [],
+  Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request) async {
+    lastInfoRequest = request;
+    return const PlaylistInfo(
+      name: 'Test Playlist',
+      id: 'pl-1',
+      cover: '',
+      creator: '',
+      songCount: '0',
+      playCount: '0',
+      songs: [],
+      platform: 'netease',
+      description: '',
     );
+  }
+
+  @override
+  Future<List<SongInfo>> fetchSongs(PlaylistDetailRequest request) async {
+    lastSongsRequest = request;
+    return <SongInfo>[_song()];
   }
 }
 
@@ -66,6 +82,24 @@ class _ThrowingPlaylistDetailApiClient extends PlaylistDetailApiClient {
   _ThrowingPlaylistDetailApiClient() : super(Dio());
 
   @override
-  Future<PlaylistDetailContent> fetchDetail(PlaylistDetailRequest request) =>
-      throw Exception('network error');
+  Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request) {
+    throw Exception('network error');
+  }
+}
+
+SongInfo _song() {
+  return const SongInfo(
+    name: 'Song',
+    subtitle: '',
+    id: 'song-1',
+    duration: 0,
+    mvId: '',
+    album: SongInfoAlbumInfo(name: '', id: ''),
+    artists: <SongInfoArtistInfo>[],
+    links: <LinkInfo>[],
+    platform: 'netease',
+    cover: '',
+    sublist: <SongInfo>[],
+    originalType: 0,
+  );
 }

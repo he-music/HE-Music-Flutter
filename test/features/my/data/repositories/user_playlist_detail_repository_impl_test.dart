@@ -4,20 +4,31 @@ import 'package:he_music_flutter/features/my/data/datasources/user_playlist_deta
 import 'package:he_music_flutter/features/my/data/datasources/user_playlist_song_api_client.dart';
 import 'package:he_music_flutter/features/my/data/repositories/user_playlist_detail_repository_impl.dart';
 import 'package:he_music_flutter/features/my/domain/entities/user_playlist_detail_request.dart';
-import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_content.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
-  test('fetchDetail delegates to apiClient', () async {
+  test('fetchInfo delegates to apiClient', () async {
     final fake = _FakeUserPlaylistDetailApiClient();
     final songFake = _FakeUserPlaylistSongApiClient();
     final repo = UserPlaylistDetailRepositoryImpl(fake, songFake);
 
     final request = UserPlaylistDetailRequest(id: 'pl-1', title: 'My List');
-    final result = await repo.fetchDetail(request);
+    final result = await repo.fetchInfo(request);
 
     expect(fake.lastRequestId, 'pl-1');
-    expect(result.info.name, 'My Playlist');
+    expect(result.name, 'My Playlist');
+  });
+
+  test('fetchSongs delegates to apiClient', () async {
+    final fake = _FakeUserPlaylistDetailApiClient();
+    final songFake = _FakeUserPlaylistSongApiClient();
+    final repo = UserPlaylistDetailRepositoryImpl(fake, songFake);
+    final request = UserPlaylistDetailRequest(id: 'pl-1', title: 'My List');
+
+    final result = await repo.fetchSongs(request);
+
+    expect(fake.lastSongsRequestId, 'pl-1');
+    expect(result, hasLength(1));
   });
 
   test('updatePlaylist delegates to apiClient', () async {
@@ -74,13 +85,13 @@ void main() {
     expect(songFake.lastRemoveSongs, hasLength(1));
   });
 
-  test('fetchDetail propagates apiClient error', () async {
+  test('fetchInfo propagates apiClient error', () async {
     final fake = _ThrowingUserPlaylistDetailApiClient();
     final songFake = _FakeUserPlaylistSongApiClient();
     final repo = UserPlaylistDetailRepositoryImpl(fake, songFake);
 
     expect(
-      () => repo.fetchDetail(UserPlaylistDetailRequest(id: 'pl-1', title: 'x')),
+      () => repo.fetchInfo(UserPlaylistDetailRequest(id: 'pl-1', title: 'x')),
       throwsException,
     );
   });
@@ -90,29 +101,31 @@ class _FakeUserPlaylistDetailApiClient extends UserPlaylistDetailApiClient {
   _FakeUserPlaylistDetailApiClient() : super(Dio());
 
   String? lastRequestId;
+  String? lastSongsRequestId;
   String? lastUpdateId;
   String? lastUpdateName;
   String? lastDeleteId;
 
   @override
-  Future<PlaylistDetailContent> fetchDetail(
-    UserPlaylistDetailRequest request,
-  ) async {
+  Future<PlaylistInfo> fetchInfo(UserPlaylistDetailRequest request) async {
     lastRequestId = request.id;
-    return PlaylistDetailContent(
-      info: const PlaylistInfo(
-        name: 'My Playlist',
-        id: 'pl-1',
-        cover: '',
-        creator: '',
-        songCount: '0',
-        playCount: '0',
-        songs: [],
-        platform: 'netease',
-        description: '',
-      ),
-      songs: const [],
+    return const PlaylistInfo(
+      name: 'My Playlist',
+      id: 'pl-1',
+      cover: '',
+      creator: '',
+      songCount: '0',
+      playCount: '0',
+      songs: [],
+      platform: 'netease',
+      description: '',
     );
+  }
+
+  @override
+  Future<List<SongInfo>> fetchSongs(UserPlaylistDetailRequest request) async {
+    lastSongsRequestId = request.id;
+    return <SongInfo>[_song()];
   }
 
   @override
@@ -163,9 +176,9 @@ class _ThrowingUserPlaylistDetailApiClient extends UserPlaylistDetailApiClient {
   _ThrowingUserPlaylistDetailApiClient() : super(Dio());
 
   @override
-  Future<PlaylistDetailContent> fetchDetail(
-    UserPlaylistDetailRequest request,
-  ) => throw Exception('network error');
+  Future<PlaylistInfo> fetchInfo(UserPlaylistDetailRequest request) {
+    throw Exception('network error');
+  }
 
   @override
   Future<void> updatePlaylist({
@@ -177,4 +190,21 @@ class _ThrowingUserPlaylistDetailApiClient extends UserPlaylistDetailApiClient {
 
   @override
   Future<void> deletePlaylist(String id) async {}
+}
+
+SongInfo _song() {
+  return const SongInfo(
+    name: 'Song',
+    subtitle: '',
+    id: 'song-1',
+    duration: 0,
+    mvId: '',
+    album: SongInfoAlbumInfo(name: '', id: ''),
+    artists: <SongInfoArtistInfo>[],
+    links: <LinkInfo>[],
+    platform: 'qq',
+    cover: '',
+    sublist: <SongInfo>[],
+    originalType: 0,
+  );
 }

@@ -44,20 +44,21 @@ class SongDetailController extends Notifier<SongDetailState> {
       if (!ref.mounted) {
         return;
       }
+      state = state.copyWith(
+        loading: false,
+        content: content,
+        relationsLoading: true,
+        clearError: true,
+        clearRelationsError: true,
+      );
       final supportsSongRelations = await _supportsSongRelations(
         request.platform,
       );
       if (!ref.mounted) {
         return;
       }
-      state = state.copyWith(
-        loading: false,
-        content: content,
-        relationsLoading: supportsSongRelations,
-        clearError: true,
-        clearRelationsError: true,
-      );
       if (!supportsSongRelations) {
+        state = state.copyWith(relationsLoading: false);
         return;
       }
       try {

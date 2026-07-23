@@ -8,7 +8,7 @@ import 'package:he_music_flutter/features/my/domain/entities/user_playlist_detai
 
 void main() {
   group('UserPlaylistDetailApiClient', () {
-    test('fetchDetail 应正确解析歌单详情和歌曲列表', () async {
+    test('fetchInfo 和 fetchSongs 应分别解析歌单详情和歌曲列表', () async {
       final client = _createMultiClient({
         '/v1/user/playlist': {
           'name': 'Test Playlist',
@@ -38,19 +38,22 @@ void main() {
         },
       });
 
-      final result = await client.fetchDetail(
-        const UserPlaylistDetailRequest(id: 'pl-1', title: 'Fallback Title'),
+      const request = UserPlaylistDetailRequest(
+        id: 'pl-1',
+        title: 'Fallback Title',
       );
+      final info = await client.fetchInfo(request);
+      final songs = await client.fetchSongs(request);
 
-      expect(result.info.name, 'Test Playlist');
-      expect(result.info.cover, 'https://a.com/cover.jpg');
-      expect(result.info.creator, 'test_user');
-      expect(result.info.songCount, '2');
-      expect(result.info.playCount, '500');
-      expect(result.info.description, 'A test playlist');
-      expect(result.info.isDefault, isFalse);
-      expect(result.songs, hasLength(2));
-      expect(result.songs.first.id, 's1');
+      expect(info.name, 'Test Playlist');
+      expect(info.cover, 'https://a.com/cover.jpg');
+      expect(info.creator, 'test_user');
+      expect(info.songCount, '2');
+      expect(info.playCount, '500');
+      expect(info.description, 'A test playlist');
+      expect(info.isDefault, isFalse);
+      expect(songs, hasLength(2));
+      expect(songs.first.id, 's1');
     });
 
     test('fetchDetail 应透传默认歌单标记', () async {
@@ -59,11 +62,11 @@ void main() {
         '/v1/user/playlist/songs': {'list': []},
       });
 
-      final result = await client.fetchDetail(
+      final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
       );
 
-      expect(result.info.isDefault, isTrue);
+      expect(result.isDefault, isTrue);
     });
 
     test('fetchDetail 在 name 缺失时回退到 request.title', () async {
@@ -72,11 +75,11 @@ void main() {
         '/v1/user/playlist/songs': {'list': []},
       });
 
-      final result = await client.fetchDetail(
+      final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'Fallback Title'),
       );
 
-      expect(result.info.name, 'Fallback Title');
+      expect(result.name, 'Fallback Title');
     });
 
     test('fetchDetail 的 cover 应尝试多个 key', () async {
@@ -85,11 +88,11 @@ void main() {
         '/v1/user/playlist/songs': {'list': []},
       });
 
-      final result = await client.fetchDetail(
+      final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
       );
 
-      expect(result.info.cover, 'https://a.com/pic.jpg');
+      expect(result.cover, 'https://a.com/pic.jpg');
     });
 
     test('fetchDetail 的 song_count 应尝试多个 key', () async {
@@ -98,14 +101,14 @@ void main() {
         '/v1/user/playlist/songs': {'list': []},
       });
 
-      final result = await client.fetchDetail(
+      final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
       );
 
-      expect(result.info.songCount, '42');
+      expect(result.songCount, '42');
     });
 
-    test('fetchDetail 在 song_count 缺失时回退到歌曲列表长度', () async {
+    test('fetchInfo 在 song_count 缺失时保留空值供页面使用歌曲数回退', () async {
       final client = _createMultiClient({
         '/v1/user/playlist': <String, dynamic>{},
         '/v1/user/playlist/songs': {
@@ -116,11 +119,11 @@ void main() {
         },
       });
 
-      final result = await client.fetchDetail(
+      final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
       );
 
-      expect(result.info.songCount, '2');
+      expect(result.songCount, isEmpty);
     });
 
     test('fetchDetail 在歌曲缺少 id 或 name 时应抛出 AppException', () async {
@@ -134,7 +137,7 @@ void main() {
       });
 
       expect(
-        () => client.fetchDetail(
+        () => client.fetchSongs(
           const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
         ),
         throwsA(isA<AppException>()),

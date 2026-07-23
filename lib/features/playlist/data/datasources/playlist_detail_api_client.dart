@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../shared/models/he_music_models.dart';
-import '../../domain/entities/playlist_detail_content.dart';
 import '../../domain/entities/playlist_detail_request.dart';
 import '../../domain/entities/playlist_detail_song.dart';
 
@@ -12,9 +11,7 @@ class PlaylistDetailApiClient {
 
   final Dio _dio;
 
-  Future<PlaylistDetailContent> fetchDetail(
-    PlaylistDetailRequest request,
-  ) async {
+  Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request) async {
     final response = await _dio.get(
       '/v1/playlist',
       queryParameters: <String, dynamic>{
@@ -23,35 +20,27 @@ class PlaylistDetailApiClient {
       },
     );
     final raw = _asMap(response.data);
-    final songs = await _fetchPlaylistSongs(
+    return PlaylistInfo(
+      name: _title(raw, request.title),
       id: request.id,
+      cover: _cover(raw),
+      creator: _subtitle(raw),
+      songCount: _songCount(raw),
+      playCount: _playCount(raw),
+      songs: const <PlaylistDetailSong>[],
       platform: request.platform,
-    );
-    return PlaylistDetailContent(
-      info: PlaylistInfo(
-        name: _title(raw, request.title),
-        id: request.id,
-        cover: _cover(raw),
-        creator: _subtitle(raw),
-        songCount: _songCount(raw),
-        playCount: _playCount(raw),
-        songs: songs,
-        platform: request.platform,
-        description: _description(raw),
-      ),
-      songs: songs,
+      description: _description(raw),
     );
   }
 
-  Future<List<PlaylistDetailSong>> _fetchPlaylistSongs({
-    required String id,
-    required String platform,
-  }) async {
+  Future<List<PlaylistDetailSong>> fetchSongs(
+    PlaylistDetailRequest request,
+  ) async {
     final response = await _dio.get(
       '/v1/playlist/songs',
       queryParameters: <String, dynamic>{
-        'id': id,
-        'platform': platform,
+        'id': request.id,
+        'platform': request.platform,
         'page_index': 1,
         'page_size': 1000,
       },
@@ -71,7 +60,7 @@ class PlaylistDetailApiClient {
               NetworkFailure('Invalid song item in playlist detail payload.'),
             );
           }
-          return SongInfo.fromMap(song, fallbackPlatform: platform);
+          return SongInfo.fromMap(song, fallbackPlatform: request.platform);
         })
         .toList(growable: false);
   }

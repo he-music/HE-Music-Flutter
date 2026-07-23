@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
@@ -45,6 +47,56 @@ void main() {
       expect(state.relationsErrorMessage, isNull);
     },
   );
+
+  test(
+    'detail is exposed while platform capabilities are still loading',
+    () async {
+      final repository = _FakeSongDetailRepository();
+      final platformsCompleter = Completer<List<OnlinePlatform>>();
+      final container = ProviderContainer(
+        overrides: [
+          songDetailRepositoryProvider.overrideWithValue(repository),
+          onlinePlatformsProvider.overrideWith(
+            () => _PendingPlatformsController(platformsCompleter),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      const request = SongDetailRequest(
+        id: 'song-1',
+        platform: 'qq',
+        title: '测试歌曲',
+      );
+      final provider = songDetailControllerProvider(request.cacheKey);
+      final subscription = container.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
+
+      final initializing = container
+          .read(provider.notifier)
+          .initialize(request);
+      await container.pump();
+
+      final loadingState = container.read(provider);
+      expect(loadingState.loading, false);
+      expect(loadingState.content?.song.title, '测试歌曲');
+      expect(loadingState.relationsLoading, true);
+      expect(repository.fetchRelationsCallCount, 0);
+
+      platformsCompleter.complete(<OnlinePlatform>[
+        OnlinePlatform(
+          id: 'qq',
+          name: 'QQ 音乐',
+          shortName: 'QQ',
+          status: 1,
+          featureSupportFlag: PlatformFeatureSupportFlag.getSongDetail,
+        ),
+      ]);
+      await initializing;
+
+      expect(container.read(provider).relationsLoading, false);
+      expect(repository.fetchRelationsCallCount, 0);
+    },
+  );
 }
 
 class _UnsupportedSongRelationsPlatformsController
@@ -61,6 +113,15 @@ class _UnsupportedSongRelationsPlatformsController
       ),
     ];
   }
+}
+
+class _PendingPlatformsController extends OnlinePlatformsController {
+  _PendingPlatformsController(this.completer);
+
+  final Completer<List<OnlinePlatform>> completer;
+
+  @override
+  Future<List<OnlinePlatform>> build() => completer.future;
 }
 
 class _FakeSongDetailRepository implements SongDetailRepository {

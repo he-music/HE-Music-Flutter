@@ -123,7 +123,13 @@ class _UserPlaylistDetailPageState
               ),
             )
           : null,
-      child: _buildDetailBody(context: context, content: content),
+      child: _buildDetailBody(
+        context: context,
+        content: content,
+        songsLoading: state.songsLoading,
+        songsErrorMessage: state.songsErrorMessage,
+        onRetrySongs: () => controller.retrySongs(_request),
+      ),
     );
   }
 
@@ -151,6 +157,9 @@ class _UserPlaylistDetailPageState
   Widget _buildDetailBody({
     required BuildContext context,
     required PlaylistDetailContent content,
+    required bool songsLoading,
+    required String? songsErrorMessage,
+    required Future<void> Function() onRetrySongs,
   }) {
     final title = content.title.trim().isEmpty ? widget.title : content.title;
     final subtitle = content.subtitle.trim();
@@ -225,6 +234,9 @@ class _UserPlaylistDetailPageState
         ),
         child: SongInfoListSection(
           songs: songs,
+          initialLoading: songsLoading && songs.isEmpty,
+          errorMessage: songsErrorMessage,
+          onRetry: onRetrySongs,
           currentTrack: currentTrack,
           resolveSongCover: _songActions.resolveCoverUrl,
           resolvePlatformId: _songActions.resolvePlatformId,

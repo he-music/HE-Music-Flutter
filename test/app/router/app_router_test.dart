@@ -26,7 +26,6 @@ import 'package:he_music_flutter/features/online/presentation/pages/online_searc
 import 'package:he_music_flutter/features/online/presentation/controllers/online_controller.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/playlist/data/providers/playlist_detail_providers.dart';
-import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_content.dart';
 import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_request.dart';
 import 'package:he_music_flutter/features/playlist/domain/repositories/playlist_detail_repository.dart';
 import 'package:he_music_flutter/features/playlist/presentation/pages/playlist_detail_page.dart';
@@ -428,38 +427,39 @@ class _TestSearchPlaceholderController
 }
 
 class _TestPlaylistDetailRepository implements PlaylistDetailRepository {
+  static const song = SongInfo(
+    name: '路由测试歌单歌曲',
+    subtitle: '测试歌手',
+    id: 'song-1',
+    duration: 0,
+    mvId: '',
+    album: SongInfoAlbumInfo(name: '测试专辑', id: 'album-1'),
+    artists: <SongInfoArtistInfo>[SongInfoArtistInfo(name: '测试歌手', id: 'a1')],
+    links: <LinkInfo>[],
+    platform: 'qq',
+    cover: '',
+    sublist: <SongInfo>[],
+    originalType: 0,
+  );
+
   @override
-  Future<PlaylistDetailContent> fetchDetail(
-    PlaylistDetailRequest request,
-  ) async {
-    const song = SongInfo(
-      name: '路由测试歌单歌曲',
-      subtitle: '测试歌手',
-      id: 'song-1',
-      duration: 0,
-      mvId: '',
-      album: SongInfoAlbumInfo(name: '测试专辑', id: 'album-1'),
-      artists: <SongInfoArtistInfo>[SongInfoArtistInfo(name: '测试歌手', id: 'a1')],
-      links: <LinkInfo>[],
-      platform: 'qq',
+  Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request) async {
+    return const PlaylistInfo(
+      name: '测试歌单',
+      id: 'playlist-1',
       cover: '',
-      sublist: <SongInfo>[],
-      originalType: 0,
-    );
-    return const PlaylistDetailContent(
-      info: PlaylistInfo(
-        name: '测试歌单',
-        id: 'playlist-1',
-        cover: '',
-        creator: '测试创建者',
-        songCount: '1',
-        playCount: '0',
-        songs: <SongInfo>[song],
-        platform: 'qq',
-        description: '',
-      ),
+      creator: '测试创建者',
+      songCount: '1',
+      playCount: '0',
       songs: <SongInfo>[song],
+      platform: 'qq',
+      description: '',
     );
+  }
+
+  @override
+  Future<List<SongInfo>> fetchSongs(PlaylistDetailRequest request) async {
+    return const <SongInfo>[song];
   }
 }
 

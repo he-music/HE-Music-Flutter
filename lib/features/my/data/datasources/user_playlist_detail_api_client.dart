@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../shared/models/he_music_models.dart';
-import '../../../playlist/domain/entities/playlist_detail_content.dart';
 import '../../../playlist/domain/entities/playlist_detail_song.dart';
 import '../../domain/entities/user_playlist_detail_request.dart';
 
@@ -12,29 +11,23 @@ class UserPlaylistDetailApiClient {
 
   final Dio _dio;
 
-  Future<PlaylistDetailContent> fetchDetail(
-    UserPlaylistDetailRequest request,
-  ) async {
+  Future<PlaylistInfo> fetchInfo(UserPlaylistDetailRequest request) async {
     final response = await _dio.get(
       '/v1/user/playlist',
       queryParameters: <String, dynamic>{'id': request.id},
     );
     final raw = _asMap(response.data);
-    final songs = await _fetchPlaylistSongs(request.id);
-    return PlaylistDetailContent(
-      info: PlaylistInfo(
-        name: _title(raw, request.title),
-        id: request.id,
-        cover: _cover(raw),
-        creator: _subtitle(raw),
-        songCount: _songCount(raw, songs.length),
-        playCount: _playCount(raw),
-        songs: songs,
-        platform: 'user',
-        description: _description(raw),
-        isDefault: _isDefault(raw['is_default']),
-      ),
-      songs: songs,
+    return PlaylistInfo(
+      name: _title(raw, request.title),
+      id: request.id,
+      cover: _cover(raw),
+      creator: _subtitle(raw),
+      songCount: _songCount(raw),
+      playCount: _playCount(raw),
+      songs: const <PlaylistDetailSong>[],
+      platform: 'user',
+      description: _description(raw),
+      isDefault: _isDefault(raw['is_default']),
     );
   }
 
@@ -59,11 +52,13 @@ class UserPlaylistDetailApiClient {
     await _dio.delete('/v1/user/playlist', data: <String, dynamic>{'id': id});
   }
 
-  Future<List<PlaylistDetailSong>> _fetchPlaylistSongs(String id) async {
+  Future<List<PlaylistDetailSong>> fetchSongs(
+    UserPlaylistDetailRequest request,
+  ) async {
     final response = await _dio.get(
       '/v1/user/playlist/songs',
       queryParameters: <String, dynamic>{
-        'id': id,
+        'id': request.id,
         'page_index': 1,
         'page_size': 1000,
       },
@@ -127,7 +122,7 @@ class UserPlaylistDetailApiClient {
     return '';
   }
 
-  String _songCount(Map<String, dynamic> raw, int fallbackCount) {
+  String _songCount(Map<String, dynamic> raw) {
     const keys = <String>['song_count', 'songCount', 'trackCount'];
     for (final key in keys) {
       final value = '${raw[key] ?? ''}'.trim();
@@ -135,7 +130,7 @@ class UserPlaylistDetailApiClient {
         return value;
       }
     }
-    return '$fallbackCount';
+    return '';
   }
 
   String _platform(Map<String, dynamic> raw) {

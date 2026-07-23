@@ -115,7 +115,13 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                   unawaited(_addSelectedSongsToPlaylist(content.songs)),
             )
           : null,
-      child: _buildDetailBody(context: context, content: content),
+      child: _buildDetailBody(
+        context: context,
+        content: content,
+        songsLoading: state.songsLoading,
+        songsErrorMessage: state.songsErrorMessage,
+        onRetrySongs: () => controller.retrySongs(_request),
+      ),
     );
   }
 
@@ -140,6 +146,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Widget _buildDetailBody({
     required BuildContext context,
     required PlaylistDetailContent content,
+    required bool songsLoading,
+    required String? songsErrorMessage,
+    required Future<void> Function() onRetrySongs,
   }) {
     final title = content.title.trim().isEmpty ? widget.title : content.title;
     final subtitle = content.subtitle.trim();
@@ -241,6 +250,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         ),
         child: SongInfoListSection(
           songs: songs,
+          initialLoading: songsLoading && songs.isEmpty,
+          errorMessage: songsErrorMessage,
+          onRetry: onRetrySongs,
           currentTrack: currentTrack,
           resolveSongCover: _songActions.resolveCoverUrl,
           resolvePlatformId: _songActions.resolvePlatformId,

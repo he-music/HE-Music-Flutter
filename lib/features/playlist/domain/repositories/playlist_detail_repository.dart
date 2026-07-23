@@ -1,6 +1,9 @@
-import '../entities/playlist_detail_content.dart';
+import '../../../../shared/models/he_music_models.dart';
 import '../entities/playlist_detail_request.dart';
+import '../entities/playlist_detail_song.dart';
 
 abstract class PlaylistDetailRepository {
-  Future<PlaylistDetailContent> fetchDetail(PlaylistDetailRequest request);
+  Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request);
+
+  Future<List<PlaylistDetailSong>> fetchSongs(PlaylistDetailRequest request);
 }

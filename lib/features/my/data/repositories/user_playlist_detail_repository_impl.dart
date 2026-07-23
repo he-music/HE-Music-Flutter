@@ -1,5 +1,5 @@
 import '../../../../shared/models/he_music_models.dart';
-import '../../../playlist/domain/entities/playlist_detail_content.dart';
+import '../../../playlist/domain/entities/playlist_detail_song.dart';
 import '../../domain/entities/user_playlist_detail_request.dart';
 import '../../domain/repositories/user_playlist_detail_repository.dart';
 import '../datasources/user_playlist_detail_api_client.dart';
@@ -12,8 +12,15 @@ class UserPlaylistDetailRepositoryImpl implements UserPlaylistDetailRepository {
   final UserPlaylistSongApiClient _songApiClient;
 
   @override
-  Future<PlaylistDetailContent> fetchDetail(UserPlaylistDetailRequest request) {
-    return _apiClient.fetchDetail(request);
+  Future<PlaylistInfo> fetchInfo(UserPlaylistDetailRequest request) {
+    return _apiClient.fetchInfo(request);
+  }
+
+  @override
+  Future<List<PlaylistDetailSong>> fetchSongs(
+    UserPlaylistDetailRequest request,
+  ) {
+    return _apiClient.fetchSongs(request);
   }
 
   @override
