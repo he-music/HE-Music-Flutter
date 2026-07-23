@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 
 class OnlineSearchHotPanel extends StatelessWidget {
@@ -35,7 +37,7 @@ class OnlineSearchHotPanel extends StatelessWidget {
             trailing: IconButton(
               onPressed: onClearHistory,
               tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
-              icon: const Icon(Icons.delete_outline_rounded),
+              icon: const AppSkinIcon(role: AppSkinIconRole.searchHistoryClear),
             ),
           ),
           const KeywordWrapSkeleton(
@@ -47,7 +49,7 @@ class OnlineSearchHotPanel extends StatelessWidget {
             trailing: IconButton(
               onPressed: onClearHistory,
               tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
-              icon: const Icon(Icons.delete_outline_rounded),
+              icon: const AppSkinIcon(role: AppSkinIconRole.searchHistoryClear),
             ),
           ),
           _KeywordWrap(items: historyKeywords, onTap: onTapKeyword),

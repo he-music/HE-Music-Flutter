@@ -59,6 +59,8 @@ const _iconAssetNames = <AppSkinIconRole, String>{
   AppSkinIconRole.homeVideo: 'home_video.svg',
   AppSkinIconRole.homeRadio: 'home_radio.svg',
   AppSkinIconRole.search: 'search.svg',
+  AppSkinIconRole.searchSubmit: 'forward.svg',
+  AppSkinIconRole.searchHistoryClear: 'song_delete.svg',
   AppSkinIconRole.back: 'back.svg',
   AppSkinIconRole.forward: 'forward.svg',
   AppSkinIconRole.more: 'more.svg',
@@ -68,6 +70,7 @@ const _iconAssetNames = <AppSkinIconRole, String>{
   AppSkinIconRole.miniPlayerPlay: 'mini_player_play.svg',
   AppSkinIconRole.miniPlayerPause: 'mini_player_pause.svg',
   AppSkinIconRole.miniPlayerQueue: 'mini_player_queue.svg',
+  AppSkinIconRole.queueClear: 'song_delete.svg',
   AppSkinIconRole.songFavorite: 'song_favorite.svg',
   AppSkinIconRole.songUnfavorite: 'song_unfavorite.svg',
   AppSkinIconRole.songPlay: 'mini_player_play.svg',
@@ -87,14 +90,21 @@ const _iconAssetNames = <AppSkinIconRole, String>{
   AppSkinIconRole.songCopyId: 'song_copy_id.svg',
   AppSkinIconRole.songSearchSameName: 'search.svg',
   AppSkinIconRole.batchSelectAll: 'batch_select_all.svg',
+  AppSkinIconRole.batchDeselectAll: 'batch_deselect_all.svg',
   AppSkinIconRole.batchPlay: 'mini_player_play.svg',
+  AppSkinIconRole.batchAddToQueue: 'song_add_queue.svg',
   AppSkinIconRole.batchAddToPlaylist: 'song_add_playlist.svg',
   AppSkinIconRole.batchDownload: 'song_download.svg',
   AppSkinIconRole.myHistory: 'my_history.svg',
   AppSkinIconRole.myLocalMusic: 'my_local_music.svg',
+  AppSkinIconRole.localLibraryScan: 'my_local_music.svg',
+  AppSkinIconRole.localLibraryClear: 'song_delete.svg',
   AppSkinIconRole.myDownloads: 'song_download.svg',
   AppSkinIconRole.myCollection: 'song_favorite.svg',
+  AppSkinIconRole.myCollectionRefresh: 'refresh.svg',
+  AppSkinIconRole.myCollectionRemove: 'song_unfavorite.svg',
   AppSkinIconRole.myPlaylist: 'home_playlist.svg',
+  AppSkinIconRole.myPlaylistCreate: 'song_add_playlist.svg',
   AppSkinIconRole.settingsAppearance: 'settings_appearance.svg',
   AppSkinIconRole.settingsPlayback: 'settings_playback.svg',
   AppSkinIconRole.settingsLyrics: 'settings_lyrics.svg',
@@ -132,8 +142,7 @@ AppSkinIconCatalog _iconCatalog(AppSkinIconCatalog fallback) {
               path: '$_iconDirectory/${entry.value}',
               type: AppSkinAssetType.svg,
               themeColorSource:
-                  entry.key == AppSkinIconRole.back ||
-                      entry.key == AppSkinIconRole.forward
+                  entry.value == 'back.svg' || entry.value == 'forward.svg'
                   ? null
                   : _iconSourceColor,
             ),

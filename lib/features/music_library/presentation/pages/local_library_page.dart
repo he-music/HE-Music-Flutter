@@ -12,6 +12,8 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/database/local_music_database.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../features/player/domain/entities/player_track.dart';
 import '../../../../features/player/presentation/providers/player_providers.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -150,17 +152,17 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
         IconButton(
           onPressed: controller.toggleSearch,
           tooltip: AppI18n.t(config, 'common.search'),
-          icon: const Icon(Icons.search_rounded),
+          icon: const AppSkinIcon(role: AppSkinIconRole.search),
         ),
         IconButton(
           onPressed: controller.scanLibrary,
           tooltip: AppI18n.t(config, 'common.scan'),
-          icon: const Icon(Icons.folder_open_rounded),
+          icon: const AppSkinIcon(role: AppSkinIconRole.localLibraryScan),
         ),
         IconButton(
           onPressed: () => _showClearDialog(context, controller, config),
           tooltip: AppI18n.t(config, 'common.clear'),
-          icon: const Icon(Icons.clear_all_rounded),
+          icon: const AppSkinIcon(role: AppSkinIconRole.localLibraryClear),
         ),
       ],
     );
@@ -178,15 +180,17 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     return AppBar(
       leading: IconButton(
         onPressed: controller.exitMultiSelect,
-        icon: const Icon(Icons.close_rounded),
+        icon: const AppSkinIcon(role: AppSkinIconRole.close),
         tooltip: AppI18n.t(config, 'common.cancel'),
       ),
       title: Text('$selectedCount'),
       actions: <Widget>[
         IconButton(
           onPressed: () => controller.selectAll(songs),
-          icon: Icon(
-            allSelected ? Icons.deselect_rounded : Icons.select_all_rounded,
+          icon: AppSkinIcon(
+            role: allSelected
+                ? AppSkinIconRole.batchDeselectAll
+                : AppSkinIconRole.batchSelectAll,
           ),
           tooltip: allSelected
               ? AppI18n.t(config, 'local.select.deselect_all')
@@ -214,7 +218,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
         if (controller.searchState.query.isNotEmpty)
           IconButton(
             onPressed: () => controller.updateSearchQuery(''),
-            icon: const Icon(Icons.close_rounded),
+            icon: const AppSkinIcon(role: AppSkinIconRole.close),
             tooltip: AppI18n.t(config, 'common.clear'),
           ),
       ],
@@ -248,7 +252,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: <Widget>[
             _SelectionActionButton(
-              icon: Icons.play_arrow_rounded,
+              iconRole: AppSkinIconRole.batchPlay,
               label: AppI18n.t(config, 'local.select.play'),
               onTap: selectedSongs.isEmpty
                   ? null
@@ -260,7 +264,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                     },
             ),
             _SelectionActionButton(
-              icon: Icons.queue_music_rounded,
+              iconRole: AppSkinIconRole.batchAddToQueue,
               label: AppI18n.t(config, 'local.select.add_to_queue'),
               onTap: selectedSongs.isEmpty
                   ? null
@@ -1147,12 +1151,12 @@ class _FolderListItem extends StatelessWidget {
 
 class _SelectionActionButton extends StatelessWidget {
   const _SelectionActionButton({
-    required this.icon,
+    required this.iconRole,
     required this.label,
     this.onTap,
   });
 
-  final IconData icon;
+  final AppSkinIconRole iconRole;
   final String label;
   final VoidCallback? onTap;
 
@@ -1160,7 +1164,7 @@ class _SelectionActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextButton.icon(
       onPressed: onTap,
-      icon: Icon(icon),
+      icon: AppSkinIcon(role: iconRole),
       label: Text(label),
     );
   }

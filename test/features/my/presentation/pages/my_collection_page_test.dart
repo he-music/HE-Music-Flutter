@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
+import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_collection_state.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
@@ -52,9 +56,31 @@ void main() {
     expect(find.text('保留的歌单'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
+
+  testWidgets('my collection actions request skin icon roles', (tester) async {
+    const item = MyFavoriteItem(
+      id: 'artist-1',
+      platform: 'qq',
+      type: MyFavoriteType.artists,
+      title: '测试歌手',
+      subtitle: '12 首歌曲',
+      coverUrl: '',
+    );
+    final state = MyCollectionState.initial.copyWith(
+      loading: false,
+      selectedType: MyFavoriteType.artists,
+      artists: const <MyFavoriteItem>[item],
+    );
+
+    await tester.pumpWidget(_buildTestApp(state, useCitySkin: true));
+    await tester.pump();
+
+    expect(_findSkinIcon(AppSkinIconRole.myCollectionRefresh), findsOneWidget);
+    expect(_findSkinIcon(AppSkinIconRole.myCollectionRemove), findsOneWidget);
+  });
 }
 
-Widget _buildTestApp(MyCollectionState state) {
+Widget _buildTestApp(MyCollectionState state, {bool useCitySkin = false}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
@@ -62,7 +88,16 @@ Widget _buildTestApp(MyCollectionState state) {
         () => _TestMyCollectionController(state),
       ),
     ],
-    child: const MaterialApp(home: MyCollectionPage()),
+    child: MaterialApp(
+      theme: useCitySkin ? AppTheme.light(citySoundCreatorSkin()) : null,
+      home: const MyCollectionPage(),
+    ),
+  );
+}
+
+Finder _findSkinIcon(AppSkinIconRole role) {
+  return find.byWidgetPredicate(
+    (widget) => widget is AppSkinIcon && widget.role == role,
   );
 }
 

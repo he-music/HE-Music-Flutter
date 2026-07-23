@@ -6,6 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
+import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/features/online/data/datasources/search_history_data_source.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
@@ -85,6 +89,23 @@ void main() {
 
     expect(find.text('平台热词'), findsOneWidget);
   });
+
+  testWidgets('online search submit requests the skin submit role', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildOnlineSearchApp());
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is AppSkinIcon &&
+            widget.role == AppSkinIconRole.searchSubmit,
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 Widget _buildOnlineSearchApp({
@@ -111,6 +132,7 @@ Widget _buildOnlineSearchApp({
       ),
     ],
     child: MaterialApp(
+      theme: AppTheme.light(citySoundCreatorSkin()),
       home: OnlineSearchPage(
         platform: 'qq',
         initialKeyword: initialKeyword,

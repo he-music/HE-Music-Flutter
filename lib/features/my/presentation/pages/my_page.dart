@@ -66,12 +66,12 @@ class _MyPageState extends ConsumerState<MyPage> {
           IconButton(
             tooltip: AppI18n.t(config, 'common.scan'),
             onPressed: () => context.push(AppRoutes.loginQrScan),
-            icon: const Icon(Icons.qr_code_scanner_rounded),
+            icon: const AppSkinIcon(role: AppSkinIconRole.scan),
           ),
         IconButton(
           tooltip: AppI18n.t(config, 'settings.title'),
           onPressed: () => context.push(AppRoutes.settings),
-          icon: const Icon(Icons.settings_outlined),
+          icon: const AppSkinIcon(role: AppSkinIconRole.settings),
         ),
       ],
     );
@@ -587,7 +587,7 @@ class _PlaylistShelfSection extends ConsumerWidget {
             if (selectedIndex == 0)
               _PlaylistActionButton(
                 onPressed: onCreatePlaylist,
-                icon: Icons.add_rounded,
+                iconRole: AppSkinIconRole.myPlaylistCreate,
                 tooltip: AppI18n.tByLocaleCode(
                   configLocaleCode,
                   'my.playlist.create.title',
@@ -768,12 +768,12 @@ class _PlaylistTabButton extends StatelessWidget {
 class _PlaylistActionButton extends StatelessWidget {
   const _PlaylistActionButton({
     required this.onPressed,
-    required this.icon,
+    required this.iconRole,
     required this.tooltip,
   });
 
   final Future<void> Function() onPressed;
-  final IconData icon;
+  final AppSkinIconRole iconRole;
   final String tooltip;
 
   @override
@@ -792,7 +792,11 @@ class _PlaylistActionButton extends StatelessWidget {
             child: SizedBox(
               width: 40,
               height: 40,
-              child: Icon(icon, size: 20, color: colorScheme.onSurface),
+              child: AppSkinIcon(
+                role: iconRole,
+                size: 20,
+                color: colorScheme.onSurface,
+              ),
             ),
           ),
         ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../domain/entities/online_platform.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/underline_tab.dart';
@@ -60,8 +62,8 @@ class SearchTopBox extends StatelessWidget {
                       width: 1,
                     ),
                   ),
-                  prefixIcon: Icon(
-                    Icons.search_rounded,
+                  prefixIcon: AppSkinIcon(
+                    role: AppSkinIconRole.search,
                     size: 20,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -76,8 +78,8 @@ class SearchTopBox extends StatelessWidget {
                             controller.clear();
                             onChanged('');
                           },
-                          icon: Icon(
-                            Icons.close_rounded,
+                          icon: AppSkinIcon(
+                            role: AppSkinIconRole.close,
                             size: 18,
                             color: theme.hintColor,
                           ),

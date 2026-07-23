@@ -6,6 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
+import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_overview.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_overview_state.dart';
@@ -51,6 +55,15 @@ void main() {
 
     expect(find.text('我的收藏'), findsOneWidget);
     expect(find.text('8'), findsNothing);
+  });
+
+  testWidgets('my page actions request skin icon roles', (tester) async {
+    await tester.pumpWidget(_buildTestApp(localeCode: 'zh', useCitySkin: true));
+    await tester.pump();
+
+    expect(_findSkinIcon(AppSkinIconRole.scan), findsOneWidget);
+    expect(_findSkinIcon(AppSkinIconRole.settings), findsOneWidget);
+    expect(_findSkinIcon(AppSkinIconRole.myPlaylistCreate), findsOneWidget);
   });
 
   testWidgets('my page title does not use bold font weight', (tester) async {
@@ -197,6 +210,7 @@ Widget _buildTestApp({
   OnlineApiClient? onlineApiClient,
   bool overviewLoading = false,
   Future<List<MyFavoriteItem>>? playlistsFuture,
+  bool useCitySkin = false,
 }) {
   return ProviderScope(
     overrides: [
@@ -222,9 +236,17 @@ Widget _buildTestApp({
         onlineApiClientProvider.overrideWithValue(onlineApiClient),
     ],
     child: MaterialApp(
-      theme: ThemeData(platform: TargetPlatform.android),
+      theme: useCitySkin
+          ? AppTheme.light(citySoundCreatorSkin())
+          : ThemeData(platform: TargetPlatform.android),
       home: const Scaffold(body: MyPage()),
     ),
+  );
+}
+
+Finder _findSkinIcon(AppSkinIconRole role) {
+  return find.byWidgetPredicate(
+    (widget) => widget is AppSkinIcon && widget.role == role,
   );
 }
 

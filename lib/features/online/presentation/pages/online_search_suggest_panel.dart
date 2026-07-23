@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
+
 class OnlineSearchSuggestPanel extends StatelessWidget {
   const OnlineSearchSuggestPanel({
     required this.loading,
@@ -42,8 +45,8 @@ class OnlineSearchSuggestPanel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
             child: Row(
               children: <Widget>[
-                Icon(
-                  Icons.search_rounded,
+                AppSkinIcon(
+                  role: AppSkinIconRole.search,
                   size: 18,
                   color: Theme.of(context).hintColor,
                 ),

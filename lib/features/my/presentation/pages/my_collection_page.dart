@@ -6,6 +6,8 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
@@ -50,7 +52,9 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage> {
               onPressed: ref
                   .read(myCollectionControllerProvider.notifier)
                   .refreshAll,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const AppSkinIcon(
+                role: AppSkinIconRole.myCollectionRefresh,
+              ),
               tooltip: AppI18n.t(config, 'my.refresh'),
             ),
           ],
@@ -251,7 +255,7 @@ class _CollectionList extends ConsumerWidget {
           subtitle: Text(item.subtitle),
           trailing: IconButton(
             onPressed: () => onRemove(item),
-            icon: const Icon(Icons.favorite_rounded),
+            icon: const AppSkinIcon(role: AppSkinIconRole.myCollectionRemove),
             color: Theme.of(context).colorScheme.error,
             tooltip: AppI18n.t(config, 'my.collection.remove'),
           ),

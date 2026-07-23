@@ -8,6 +8,8 @@ import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
@@ -1342,7 +1344,7 @@ class _SearchHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Icon(Icons.arrow_forward_rounded, size: 18),
+              child: AppSkinIcon(role: AppSkinIconRole.searchSubmit, size: 18),
             ),
           ),
         ),

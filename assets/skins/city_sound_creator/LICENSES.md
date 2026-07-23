@@ -79,14 +79,23 @@ The 2x derivatives were inspected at full frame and in local detail crops on 202
 ## Semantic icon catalog
 
 - Production path: `assets/skins/city_sound_creator/icons/`.
-- Approved review manifest SHA-256: `6b7f2aa9162637585e1a319ecc8ffe1250cc25099f67bfdf5866165b11804d68`.
-- Scope: 71 semantic roles mapped to 53 unique `24x24` SVG files; 18 strictly synonymous roles intentionally reuse an existing asset.
+- Original V2 review manifest SHA-256: `6b7f2aa9162637585e1a319ecc8ffe1250cc25099f67bfdf5866165b11804d68`.
+- Scope: 81 semantic roles mapped to 55 unique `24x24` SVG files; 26 strictly synonymous or visually equivalent roles intentionally reuse an existing asset.
 - Authorship: project-original vector paths authored for this skin; no third-party icon set, stock vector, font glyph, embedded image, or generated raster source is bundled.
-- Promotion: the 53 approved V2 SVG files were promoted with no tracing, conversion, recoloring, or optimization pass; trailing blank lines were normalized to one EOF newline for repository whitespace compliance.
+- Promotion: the original 53 approved V2 SVG files were promoted with no tracing, conversion, recoloring, or optimization pass; trailing blank lines were normalized to one EOF newline for repository whitespace compliance.
 - Runtime color contract: `#E85D52` is the exact replaceable source color; device teal `#138F87`, beat yellow `#E7B93E`, and other authored identity colors remain fixed.
 - Technical inspection: XML parsing, `viewBox="0 0 24 24"`, 20px/24px rendering, light/dark surfaces, forbidden embedded elements, and role-to-asset completeness passed on 2026-07-17.
 - Approval: the user approved the complete V2 icon catalog on 2026-07-17.
 - Runtime packaging: `pubspec.yaml` declares only the production `icons/` directory; temporary review HTML, manifest, and preview files were discarded after approval.
+
+### Incremental V2 extension (2026-07-23)
+
+- Task: `.trellis/tasks/07-23-city-sound-skin-icon-coverage/`.
+- Added `refresh.svg`, SHA-256 `89d2a9972cad2420191b0a8c54a820b8afb81c77f95e6018ab9abeeb93139152`.
+- Added `batch_deselect_all.svg`, SHA-256 `3b89098a822bd5032d401acc1e0a7893f8459d31c06042de67170796cb27b8eb`.
+- Authorship: project-original vector paths authored directly for this extension from the approved V2 stroke, corner, and palette contract; no third-party or generated raster source was used.
+- Reuse: eight new semantic roles reuse approved V2 assets while keeping role-specific Material fallbacks for `classic`.
+- Review contract: XML parsing, `24x24` viewBox, source-color presence, forbidden-element checks, 20dp/24dp rendering, light/dark rendering, and full role-to-file coverage.
 
 ## Real UI skin previews
 

@@ -109,7 +109,9 @@ void main() {
       expect(descriptor, isNotNull, reason: '$role must use a themed SVG');
       expect(descriptor!.type, AppSkinAssetType.svg);
       final preservesOriginalColors =
-          role == AppSkinIconRole.back || role == AppSkinIconRole.forward;
+          role == AppSkinIconRole.back ||
+          role == AppSkinIconRole.forward ||
+          role == AppSkinIconRole.searchSubmit;
       expect(
         descriptor.themeColorSource?.toARGB32(),
         preservesOriginalColors ? null : _iconSourceColorValue,
@@ -136,7 +138,7 @@ void main() {
       catalogPaths.add(descriptor.path);
     }
 
-    expect(catalogPaths, hasLength(53));
+    expect(catalogPaths, hasLength(55));
     final diskPaths = Directory(_iconDirectory)
         .listSync()
         .whereType<File>()
@@ -150,9 +152,9 @@ void main() {
     final provenance = await File(
       'assets/skins/city_sound_creator/LICENSES.md',
     ).readAsString();
-    expect(provenance, contains('71 semantic roles'));
-    expect(provenance, contains('53 unique `24x24` SVG files'));
-    expect(provenance, contains('approved the complete V2 icon catalog'));
+    expect(provenance, contains('81 semantic roles'));
+    expect(provenance, contains('55 unique `24x24` SVG files'));
+    expect(provenance, contains('Incremental V2 extension'));
   });
 
   test('Rive ambient asset matches the approved runtime contract', () async {

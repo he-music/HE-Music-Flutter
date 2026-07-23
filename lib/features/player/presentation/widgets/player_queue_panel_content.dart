@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../domain/entities/player_queue_source.dart';
 import '../providers/player_providers.dart';
 import 'player_queue_list.dart';
@@ -101,7 +103,10 @@ class _PlayerQueuePanelContentState
                   horizontal: -2,
                   vertical: -2,
                 ),
-                icon: const Icon(Icons.delete_sweep_rounded, size: 22),
+                icon: const AppSkinIcon(
+                  role: AppSkinIconRole.queueClear,
+                  size: 22,
+                ),
               ),
             ],
           ),

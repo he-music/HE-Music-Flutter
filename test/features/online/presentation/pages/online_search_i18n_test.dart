@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
+import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_bars.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_hot_panel.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_list.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_suggest_panel.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/online/presentation/widgets/search_artist_list_item.dart';
 
@@ -85,8 +90,45 @@ void main() {
       await tester.pump();
 
       expect(find.byTooltip('清空'), findsOneWidget);
+      expect(_findSkinIcon(AppSkinIconRole.searchHistoryClear), findsOneWidget);
     },
   );
+
+  testWidgets('search chrome requests skin icon roles', (tester) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        localeCode: 'zh',
+        child: Column(
+          children: <Widget>[
+            SearchTopBox(
+              controller: controller,
+              placeholderPrimary: '搜索',
+              onSubmit: () async {},
+              onChanged: (_) {},
+            ),
+            Expanded(
+              child: OnlineSearchSuggestPanel(
+                loading: false,
+                suggestions: const <String>['周杰伦'],
+                onTapKeyword: (_) {},
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(_findSkinIcon(AppSkinIconRole.search), findsNWidgets(2));
+
+    await tester.enterText(find.byType(TextField), '稻香');
+    await tester.pump();
+
+    expect(_findSkinIcon(AppSkinIconRole.close), findsOneWidget);
+  });
 
   testWidgets('search result list shows english empty state and footer', (
     tester,
@@ -181,9 +223,15 @@ Widget _buildTestApp({required String localeCode, required Widget child}) {
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
     ],
     child: MaterialApp(
-      theme: ThemeData(platform: TargetPlatform.android),
+      theme: AppTheme.light(citySoundCreatorSkin()),
       home: Scaffold(body: child),
     ),
+  );
+}
+
+Finder _findSkinIcon(AppSkinIconRole role) {
+  return find.byWidgetPredicate(
+    (widget) => widget is AppSkinIcon && widget.role == role,
   );
 }
 
