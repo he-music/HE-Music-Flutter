@@ -27,8 +27,14 @@ class OnlineSearchRepositoryImpl implements OnlineSearchRepository {
   }
 
   @override
-  Future<List<SearchDefaultEntry>> fetchDefaultKeywords({String? platform}) {
-    return _apiClient.fetchDefaultKeywords(platform: platform);
+  Future<List<SearchDefaultEntry>> fetchDefaultKeywords({
+    String? platform,
+    bool silentErrorMessage = false,
+  }) {
+    return _apiClient.fetchDefaultKeywords(
+      platform: platform,
+      silentErrorMessage: silentErrorMessage,
+    );
   }
 
   @override

@@ -15,7 +15,10 @@ abstract class OnlineSearchRepository {
   });
 
   /// 获取搜索框默认占位关键词。
-  Future<List<SearchDefaultEntry>> fetchDefaultKeywords({String? platform});
+  Future<List<SearchDefaultEntry>> fetchDefaultKeywords({
+    String? platform,
+    bool silentErrorMessage = false,
+  });
 
   /// 综合搜索（返回歌曲、歌单、专辑、视频、歌手等多个维度）。
   Future<OnlineComprehensiveSearchResult> comprehensiveSearch({

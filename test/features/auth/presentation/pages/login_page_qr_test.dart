@@ -53,6 +53,29 @@ void main() {
     expect(client.createQrCallCount, 1);
   });
 
+  testWidgets('desktop qr polling pauses in background and resumes once', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final client = _LoginPageTestClient.desktop();
+    await tester.pumpWidget(
+      _buildApp(platform: TargetPlatform.macOS, client: client),
+    );
+    await tester.pump();
+    await tester.tap(find.text('扫码登录'));
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 4));
+    expect(client.statusCallCount, 0);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(client.statusCallCount, 1);
+    expect(client.lastStatusRequestWasSilent, isTrue);
+  });
+
   testWidgets('desktop login page recreates qr session after reopening', (
     tester,
   ) async {
@@ -212,6 +235,7 @@ class _LoginPageTestClient extends OnlineApiClient {
   final QrLoginSessionResult qrSessionResult;
   int createQrCallCount = 0;
   int statusCallCount = 0;
+  bool? lastStatusRequestWasSilent;
 
   factory _LoginPageTestClient.desktop({
     QrLoginSessionResult? qrSessionResult,
@@ -264,8 +288,10 @@ class _LoginPageTestClient extends OnlineApiClient {
   @override
   Future<QrLoginSessionStatusResult> getQrLoginSessionStatus({
     required String sessionId,
+    bool silentErrorMessage = false,
   }) async {
     statusCallCount += 1;
+    lastStatusRequestWasSilent = silentErrorMessage;
     return const QrLoginSessionStatusResult(
       sessionId: 'qls_desktop',
       status: 'pending',

@@ -234,10 +234,18 @@ class OnlineApiClient {
     );
   }
 
-  Future<AuthStatusResult> getAuthStatus({required String state}) async {
+  Future<AuthStatusResult> getAuthStatus({
+    required String state,
+    bool silentErrorMessage = false,
+  }) async {
     final response = await _dio.get(
       '/v1/auth/status',
       queryParameters: <String, dynamic>{'state': state},
+      options: Options(
+        extra: <String, dynamic>{
+          if (silentErrorMessage) 'silentErrorMessage': true,
+        },
+      ),
     );
     final data = _asMap(response.data);
     return AuthStatusResult(
@@ -294,10 +302,16 @@ class OnlineApiClient {
 
   Future<QrLoginSessionStatusResult> getQrLoginSessionStatus({
     required String sessionId,
+    bool silentErrorMessage = false,
   }) async {
     final response = await _dio.get(
       '/v1/auth/qr/status',
       queryParameters: <String, dynamic>{'session_id': sessionId},
+      options: Options(
+        extra: <String, dynamic>{
+          if (silentErrorMessage) 'silentErrorMessage': true,
+        },
+      ),
     );
     final data = _asMap(response.data);
     return QrLoginSessionStatusResult(
@@ -451,12 +465,18 @@ class OnlineApiClient {
 
   Future<List<SearchDefaultEntry>> fetchDefaultKeywords({
     String? platform,
+    bool silentErrorMessage = false,
   }) async {
     final response = await _dio.get(
       '/v1/search/default',
       queryParameters: <String, dynamic>{
         if (platform != null && platform.isNotEmpty) 'platform': platform,
       },
+      options: Options(
+        extra: <String, dynamic>{
+          if (silentErrorMessage) 'silentErrorMessage': true,
+        },
+      ),
     );
     final data = _asMap(response.data);
     final list = _extractList(data, <String>['list']);

@@ -68,7 +68,10 @@ class QrLoginController extends Notifier<QrLoginState> {
     try {
       final result = await ref
           .read(onlineApiClientProvider)
-          .getQrLoginSessionStatus(sessionId: sessionId);
+          .getQrLoginSessionStatus(
+            sessionId: sessionId,
+            silentErrorMessage: true,
+          );
       state = state.copyWith(
         status: _mapWorkflowStatus(result.status),
         isBusy: false,

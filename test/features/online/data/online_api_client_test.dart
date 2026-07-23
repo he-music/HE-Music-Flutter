@@ -269,6 +269,31 @@ void main() {
         expect(result.first['id'], 'qq');
       });
     });
+
+    test('后台自动请求可标记为静默错误', () async {
+      final requests = <RequestOptions>[];
+      final client = _createClient(<String, dynamic>{
+        'list': <dynamic>[],
+      }, captureRequest: requests.add);
+
+      await client.fetchDefaultKeywords(silentErrorMessage: true);
+      await client.getAuthStatus(
+        state: 'oauth-state',
+        silentErrorMessage: true,
+      );
+      await client.getQrLoginSessionStatus(
+        sessionId: 'qr-session',
+        silentErrorMessage: true,
+      );
+
+      expect(requests, hasLength(3));
+      expect(
+        requests.every(
+          (request) => request.extra['silentErrorMessage'] == true,
+        ),
+        isTrue,
+      );
+    });
   });
 }
 

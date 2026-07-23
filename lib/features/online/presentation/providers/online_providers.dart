@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
@@ -130,12 +131,20 @@ class SearchDefaultPlaceholderController
   Timer? _reloadTimer;
   Timer? _rotateTimer;
   bool _initialized = false;
+  late AppLifecycleState _lifecycleState;
+  AppLifecycleListener? _lifecycleListener;
 
   @override
   SearchDefaultPlaceholderState build() {
+    _lifecycleState =
+        WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
+    _lifecycleListener ??= AppLifecycleListener(
+      onStateChange: _onAppLifecycleChanged,
+    );
     ref.onDispose(() {
-      _reloadTimer?.cancel();
-      _rotateTimer?.cancel();
+      _stopTimers();
+      _lifecycleListener?.dispose();
+      _lifecycleListener = null;
     });
     if (!_initialized) {
       _initialized = true;
@@ -146,6 +155,13 @@ class SearchDefaultPlaceholderController
 
   Future<void> _initialize() async {
     await refresh();
+    _startTimers();
+  }
+
+  void _startTimers() {
+    if (_lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
     _reloadTimer ??= Timer.periodic(_reloadInterval, (_) {
       unawaited(refresh());
     });
@@ -154,8 +170,32 @@ class SearchDefaultPlaceholderController
     });
   }
 
+  void _stopTimers() {
+    _reloadTimer?.cancel();
+    _reloadTimer = null;
+    _rotateTimer?.cancel();
+    _rotateTimer = null;
+  }
+
+  void _onAppLifecycleChanged(AppLifecycleState lifecycleState) {
+    _lifecycleState = lifecycleState;
+    // 搜索占位词不是后台关键任务，离开前台后停止计时和网络刷新。
+    if (lifecycleState != AppLifecycleState.resumed) {
+      _stopTimers();
+      return;
+    }
+    _startTimers();
+    unawaited(refresh());
+  }
+
   Future<void> refresh() async {
+    if (_lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
     final platforms = await ref.read(onlinePlatformsProvider.future);
+    if (_lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
     final platform = platforms
         .where(
           (item) =>
@@ -169,7 +209,10 @@ class SearchDefaultPlaceholderController
     try {
       final next = await ref
           .read(onlineSearchRepositoryProvider)
-          .fetchDefaultKeywords(platform: platform.id);
+          .fetchDefaultKeywords(
+            platform: platform.id,
+            silentErrorMessage: true,
+          );
       if (next.isEmpty) {
         return;
       }

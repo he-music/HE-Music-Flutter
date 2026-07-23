@@ -36,9 +36,13 @@ void main() {
     final history = _FakeSearchHistoryDataSource();
     final repo = OnlineSearchRepositoryImpl(fake, history);
 
-    final result = await repo.fetchDefaultKeywords(platform: 'netease');
+    final result = await repo.fetchDefaultKeywords(
+      platform: 'netease',
+      silentErrorMessage: true,
+    );
 
     expect(fake.lastDefaultPlatform, 'netease');
+    expect(fake.lastDefaultSilentErrorMessage, isTrue);
     expect(result, hasLength(1));
   });
 
@@ -123,6 +127,7 @@ class _FakeOnlineApiClient extends OnlineApiClient {
   String? lastHotKeywordsPlatform;
   String? lastSuggestionKeyword;
   String? lastDefaultPlatform;
+  bool? lastDefaultSilentErrorMessage;
   String? lastComprehensiveKeyword;
   String? lastSearchKeyword;
   String? lastSearchPlatform;
@@ -147,8 +152,10 @@ class _FakeOnlineApiClient extends OnlineApiClient {
   @override
   Future<List<SearchDefaultEntry>> fetchDefaultKeywords({
     String? platform,
+    bool silentErrorMessage = false,
   }) async {
     lastDefaultPlatform = platform;
+    lastDefaultSilentErrorMessage = silentErrorMessage;
     return [const SearchDefaultEntry(key: 'default', description: 'desc')];
   }
 
@@ -218,8 +225,10 @@ class _ThrowingOnlineApiClient extends OnlineApiClient {
   }) => throw Exception('network error');
 
   @override
-  Future<List<SearchDefaultEntry>> fetchDefaultKeywords({String? platform}) =>
-      throw Exception('network error');
+  Future<List<SearchDefaultEntry>> fetchDefaultKeywords({
+    String? platform,
+    bool silentErrorMessage = false,
+  }) => throw Exception('network error');
 
   @override
   Future<OnlineComprehensiveSearchResult> comprehensiveSearch({

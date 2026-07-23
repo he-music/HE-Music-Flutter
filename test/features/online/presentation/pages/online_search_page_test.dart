@@ -193,6 +193,7 @@ class _SearchPageOnlineApiClient extends OnlineApiClient {
   @override
   Future<List<SearchDefaultEntry>> fetchDefaultKeywords({
     String? platform,
+    bool silentErrorMessage = false,
   }) async {
     return const <SearchDefaultEntry>[
       SearchDefaultEntry(key: '周杰伦', description: '稻香'),

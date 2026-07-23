@@ -30,7 +30,8 @@ class LoginPage extends ConsumerStatefulWidget {
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage>
+    with WidgetsBindingObserver {
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
 
@@ -48,11 +49,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   String? _oauthStatusText;
   int _oauthExpiresAt = 0;
   int _oauthCheckInterval = 0;
+  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   _DesktopLoginTab _desktopLoginTab = _DesktopLoginTab.password;
 
   @override
   void initState() {
     super.initState();
+    _lifecycleState =
+        WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
+    WidgetsBinding.instance.addObserver(this);
     _usernameController = TextEditingController();
     _passwordController = TextEditingController();
     Future.microtask(_loadAuthProviders);
@@ -60,11 +65,32 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authPollTimer?.cancel();
     _qrPollTimer?.cancel();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    // 登录轮询只在前台运行，恢复后再补一次有效会话的状态检查。
+    if (state != AppLifecycleState.resumed) {
+      _authPollTimer?.cancel();
+      _authPollTimer = null;
+      _qrPollTimer?.cancel();
+      _qrPollTimer = null;
+      return;
+    }
+    if (_oauthBusy) {
+      unawaited(_pollAuthStatus());
+    }
+    final qrState = ref.read(qrLoginControllerProvider);
+    if (_shouldKeepPolling(qrState.status)) {
+      unawaited(_pollQrLoginStatus());
+    }
   }
 
   @override
@@ -302,6 +328,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   void _scheduleQrPolling(int checkInterval) {
     _qrPollTimer?.cancel();
+    if (_lifecycleState != AppLifecycleState.resumed) {
+      _qrPollTimer = null;
+      return;
+    }
     final seconds = checkInterval > 0 ? checkInterval : 2;
     _qrPollTimer = Timer(Duration(seconds: seconds), () {
       unawaited(_pollQrLoginStatus());
@@ -310,7 +340,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _pollQrLoginStatus() async {
     final qrState = ref.read(qrLoginControllerProvider);
-    if (!_isDesktopQrPlatform ||
+    if (_lifecycleState != AppLifecycleState.resumed ||
+        !_isDesktopQrPlatform ||
+        qrState.isBusy ||
         qrState.sessionId.trim().isEmpty ||
         qrState.status == QrLoginWorkflowStatus.success ||
         qrState.status == QrLoginWorkflowStatus.expired ||
@@ -341,7 +373,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         _scheduleQrPolling(nextState.checkInterval);
       }
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || _lifecycleState != AppLifecycleState.resumed) {
         return;
       }
       AppMessageService.showError(
@@ -549,6 +581,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   void _scheduleAuthPolling(int checkInterval) {
     _authPollTimer?.cancel();
+    if (_lifecycleState != AppLifecycleState.resumed) {
+      _authPollTimer = null;
+      return;
+    }
     final seconds = checkInterval > 0 ? checkInterval : 2;
     _authPollTimer = Timer(Duration(seconds: seconds), () {
       unawaited(_pollAuthStatus());
@@ -557,7 +593,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _pollAuthStatus() async {
     final state = _oauthState?.trim() ?? '';
-    if (!_oauthBusy || state.isEmpty || _oauthPollingInFlight) {
+    if (_lifecycleState != AppLifecycleState.resumed ||
+        !_oauthBusy ||
+        state.isEmpty ||
+        _oauthPollingInFlight) {
       return;
     }
     if (_isOAuthExpired()) {
@@ -573,7 +612,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     try {
       final result = await ref
           .read(onlineApiClientProvider)
-          .getAuthStatus(state: state);
+          .getAuthStatus(state: state, silentErrorMessage: true);
       if (!mounted) {
         return;
       }

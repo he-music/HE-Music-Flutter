@@ -193,6 +193,7 @@ class _FakeOnlineApiClient extends OnlineApiClient {
   @override
   Future<QrLoginSessionStatusResult> getQrLoginSessionStatus({
     required String sessionId,
+    bool silentErrorMessage = false,
   }) async {
     return statusResult;
   }
