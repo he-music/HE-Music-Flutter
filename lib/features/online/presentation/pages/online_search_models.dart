@@ -27,7 +27,7 @@ extension SearchTypePlatformFeature on SearchType {
       SearchType.album => PlatformFeatureSupportFlag.searchAlbum,
       SearchType.artist => PlatformFeatureSupportFlag.searchSinger,
       SearchType.video => PlatformFeatureSupportFlag.searchMv,
-      SearchType.lyric => PlatformFeatureSupportFlag.searchLyric,
+      SearchType.lyric => PlatformFeatureSupportFlag.searchLyricSong,
     };
   }
 }

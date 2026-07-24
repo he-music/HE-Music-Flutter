@@ -157,7 +157,7 @@ void main() {
       });
     });
 
-    group('searchLyrics', () {
+    group('searchLyricSong', () {
       test('应请求固定歌词路径并解析完整歌词', () async {
         RequestOptions? captured;
         final client = _createClient({
@@ -179,12 +179,12 @@ void main() {
           'has_more': true,
         }, captureRequest: (options) => captured = options);
 
-        final result = await client.searchLyrics(
+        final result = await client.searchLyricSong(
           keyword: '故事',
           platform: 'netease',
         );
 
-        expect(captured?.path, '/v1/lyric/search');
+        expect(captured?.path, '/v1/song/lyric/search');
         expect(captured?.queryParameters['key'], '故事');
         expect(captured?.queryParameters['platform'], 'netease');
         expect(captured?.queryParameters['page_index'], 1);

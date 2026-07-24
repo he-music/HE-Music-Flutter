@@ -50,14 +50,14 @@ void main() {
     expect(result.items.single.song.id, 'song-1');
   });
 
-  test('searchLyrics delegates typed lyric search to apiClient', () async {
+  test('searchLyricSong delegates typed lyric search to apiClient', () async {
     final fake = _FakeOnlineApiClient();
     final repo = OnlineSearchRepositoryImpl(
       fake,
       _FakeSearchHistoryDataSource(),
     );
 
-    final result = await repo.searchLyrics(keyword: '故事', platform: 'qq');
+    final result = await repo.searchLyricSong(keyword: '故事', platform: 'qq');
 
     expect(fake.lastSearchKind, 'lyric');
     expect(result.items.single.lyricSnippet, '故事的小黄花');
@@ -243,7 +243,7 @@ class _FakeOnlineApiClient extends OnlineApiClient {
   }
 
   @override
-  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyricSong({
     required String keyword,
     required String platform,
     int pageIndex = 1,

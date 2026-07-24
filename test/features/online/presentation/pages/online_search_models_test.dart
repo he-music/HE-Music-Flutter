@@ -15,10 +15,10 @@ void main() {
     expect(SearchType.lyric.apiType, 'lyric');
     expect(
       SearchType.lyric.requiredPlatformFeatureFlag,
-      PlatformFeatureSupportFlag.searchLyric,
+      PlatformFeatureSupportFlag.searchLyricSong,
     );
     expect(
-      PlatformFeatureSupportFlag.searchLyric,
+      PlatformFeatureSupportFlag.searchLyricSong,
       BigInt.parse('281474976710656'),
     );
   });

@@ -531,7 +531,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   }) {
     final repository = ref.read(onlineSearchRepositoryProvider);
     if (type == SearchType.lyric) {
-      return repository.searchLyrics(
+      return repository.searchLyricSong(
         keyword: keyword,
         platform: platformId,
         pageIndex: pageIndex,

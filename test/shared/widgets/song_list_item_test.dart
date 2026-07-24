@@ -229,8 +229,13 @@ void main() {
       );
 
       final versionLabel = find.text('More Versions');
+      final versionAction = find.ancestor(
+        of: versionLabel,
+        matching: find.byType(SongListItemTextAction),
+      );
       final subtitle = find.text('副标题');
       expect(versionLabel, findsOneWidget);
+      expect(tester.getSize(versionAction).height, 32);
 
       await tester.tap(versionLabel);
       final titleRect = tester.getRect(find.text('T'));
@@ -242,6 +247,40 @@ void main() {
       expect(songTapCount, 0);
       expect(labelRect.top, greaterThan(subtitleRect.bottom));
       expect((labelRect.left - subtitleRect.left).abs(), lessThanOrEqualTo(4));
+    });
+
+    testWidgets('附加信息应位于 subtitle 下方和更多版本上方', (tester) async {
+      final data = SongListItemData(
+        title: 'T',
+        artistAlbumText: 'A',
+        subtitleText: '副标题',
+        showMoreVersionButton: true,
+      );
+      const snippetKey = ValueKey('metadata-lyric-snippet');
+
+      await tester.pumpWidget(
+        _wrap(
+          SongListItem(
+            data: data,
+            contentAfterSubtitle: const Text('歌词片段', key: snippetKey),
+            onMoreVersionTap: () {},
+          ),
+          height: 160,
+        ),
+      );
+
+      final subtitleRect = tester.getRect(find.text('副标题'));
+      final snippetRect = tester.getRect(find.byKey(snippetKey));
+      final moreVersionRect = tester.getRect(find.text('More Versions'));
+      expect(snippetRect.top, greaterThan(subtitleRect.bottom));
+      expect(moreVersionRect.top, greaterThan(snippetRect.bottom));
+      expect(
+        find.ancestor(
+          of: find.byKey(snippetKey),
+          matching: find.byType(InkWell),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('窄屏同时显示三个操作时不应发生布局异常', (tester) async {

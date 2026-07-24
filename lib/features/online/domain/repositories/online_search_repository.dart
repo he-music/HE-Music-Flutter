@@ -45,7 +45,7 @@ abstract class OnlineSearchRepository {
   });
 
   /// 根据歌词内容搜索歌曲。
-  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyricSong({
     required String keyword,
     required String platform,
     int pageIndex = 1,

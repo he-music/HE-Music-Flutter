@@ -299,6 +299,40 @@ void main() {
       expect(tappedSong?.id, 'song-1');
     },
   );
+
+  testWidgets('comprehensive song lyric snippet uses one ellipsized line', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        child: OnlineSearchComprehensiveResult(
+          result: const OnlineComprehensiveSearchResult(
+            keyword: 'Love',
+            song: OnlineComprehensiveSearchSection<SearchSongInfo>(
+              items: <SearchSongInfo>[_searchSongWithLyricSnippet],
+            ),
+          ),
+          likedSongKeys: const <String>{},
+          onTapItem: (_, _) {},
+          onTapSongItem: (_) {},
+          onLikeSongItem: (_) async {},
+          onMoreSongItem: (_) {},
+          onMoreSection: (_) {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final snippet = tester.widget<Text>(
+      find.byKey(const ValueKey('search-lyric-snippet-song-1|qq')),
+    );
+    expect(snippet.maxLines, 1);
+    expect(snippet.overflow, TextOverflow.ellipsis);
+    expect(
+      find.byKey(const ValueKey('search-lyric-badge-song-1|qq')),
+      findsOneWidget,
+    );
+  });
 }
 
 const _searchSong = SearchSongInfo(
@@ -321,6 +355,28 @@ const _searchSong = SearchSongInfo(
   lyricSnippet: '',
   lyric: '',
   matchedKeywords: <String>['Love', 'Taylor Swift'],
+);
+
+const _searchSongWithLyricSnippet = SearchSongInfo(
+  song: SongInfo(
+    name: 'Love Story',
+    subtitle: '',
+    id: 'song-1',
+    duration: 235,
+    mvId: '',
+    album: SongInfoAlbumInfo(id: 'album-1', name: 'Fearless'),
+    artists: <SongInfoArtistInfo>[
+      SongInfoArtistInfo(id: 'artist-1', name: 'Taylor Swift'),
+    ],
+    links: <LinkInfo>[],
+    platform: 'qq',
+    cover: '',
+  ),
+  sublist: <SearchSongInfo>[],
+  originalType: 0,
+  lyricSnippet: 'Long lyric snippet with Love repeated beyond one visible line',
+  lyric: '',
+  matchedKeywords: <String>['Love'],
 );
 
 Widget _buildApp({required Widget child}) {

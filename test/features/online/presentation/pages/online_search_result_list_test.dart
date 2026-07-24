@@ -115,8 +115,12 @@ void main() {
     await tester.pumpWidget(
       _buildResultList(
         type: SearchType.song,
+        immersive: true,
         songResults: <SearchSongInfo>[
-          _searchSong(lyricSnippet: '命中的歌词片段', lyric: '完整歌词第一行\n完整歌词第二行'),
+          _searchSong(
+            lyricSnippet: r'命中的歌词片段\n第二行片段',
+            lyric: '完整歌词第一行\n完整歌词第二行',
+          ),
         ],
         onTapSongItem: (song) => tappedSong = song,
       ),
@@ -124,7 +128,38 @@ void main() {
     await tester.pump();
 
     expect(find.text('测试歌曲'), findsOneWidget);
-    expect(find.text('命中的歌词片段'), findsOneWidget);
+    const snippetKey = ValueKey('search-lyric-snippet-song-1|qq');
+    expect(find.byKey(snippetKey), findsOneWidget);
+    final snippet = tester.widget<Text>(find.byKey(snippetKey));
+    final secondSnippetLine = tester.widget<Text>(
+      find.byKey(const ValueKey('search-lyric-snippet-song-1|qq-1')),
+    );
+    expect(snippet.softWrap, isFalse);
+    expect(snippet.maxLines, 1);
+    expect(snippet.overflow, TextOverflow.ellipsis);
+    expect(secondSnippetLine.textSpan?.toPlainText(), '第二行片段');
+    expect(secondSnippetLine.softWrap, isFalse);
+    expect(secondSnippetLine.maxLines, 1);
+    expect(secondSnippetLine.overflow, TextOverflow.ellipsis);
+    expect(
+      find.byKey(const ValueKey('search-lyric-badge-song-1|qq')),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(of: find.byKey(snippetKey), matching: find.byType(InkWell)),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('search-lyric-snippet-action-song-1|qq')),
+      findsNothing,
+    );
+    expect(
+      find.ancestor(
+        of: find.byKey(snippetKey),
+        matching: find.byType(AppSkinSurface),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('search-lyric-toggle-song-1|qq')),
       findsNothing,
@@ -138,20 +173,92 @@ void main() {
   testWidgets('lyric search expands and collapses full plain-text lyrics', (
     tester,
   ) async {
+    SongInfo? tappedSong;
     await tester.pumpWidget(
       _buildResultList(
         type: SearchType.lyric,
+        immersive: true,
         songResults: <SearchSongInfo>[
-          _searchSong(lyricSnippet: '命中的歌词片段', lyric: '完整歌词第一行\n完整歌词第二行'),
+          _searchSong(
+            lyricSnippet: r'命中的歌词片段\n第二行片段',
+            lyric: r'完整歌词第一行\n完整歌词第二行',
+          ),
         ],
+        onTapSongItem: (song) => tappedSong = song,
       ),
     );
     await tester.pump();
 
     const fullLyricKey = ValueKey('search-lyric-full-song-1|qq');
+    const snippetKey = ValueKey('search-lyric-snippet-song-1|qq');
     final toggle = find.byKey(const ValueKey('search-lyric-toggle-song-1|qq'));
+    final snippet = tester.widget<Text>(find.byKey(snippetKey));
+    final secondSnippetLine = tester.widget<Text>(
+      find.byKey(const ValueKey('search-lyric-snippet-song-1|qq-1')),
+    );
+    final snippetFontSize = snippet.style?.fontSize;
+    expect(snippet.softWrap, isFalse);
+    expect(snippet.maxLines, 1);
+    expect(snippet.overflow, TextOverflow.ellipsis);
+    expect(secondSnippetLine.textSpan?.toPlainText(), '第二行片段');
+    expect(secondSnippetLine.softWrap, isFalse);
+    expect(secondSnippetLine.maxLines, 1);
+    expect(secondSnippetLine.overflow, TextOverflow.ellipsis);
+    expect(
+      find.ancestor(of: find.byKey(snippetKey), matching: find.byType(InkWell)),
+      findsNWidgets(2),
+    );
+    expect(
+      find.byKey(const ValueKey('search-lyric-snippet-action-song-1|qq')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('search-lyric-badge-song-1|qq')),
+      findsNothing,
+    );
     expect(toggle, findsOneWidget);
+    expect(tester.getSize(toggle).height, 32);
     expect(find.byKey(fullLyricKey), findsNothing);
+
+    await tester.tap(find.byKey(snippetKey));
+    await tester.pump();
+    expect(find.byKey(fullLyricKey), findsOneWidget);
+    expect(find.byKey(snippetKey), findsNothing);
+    expect(tappedSong, isNull);
+    expect(find.text('收起歌词'), findsOneWidget);
+    final fullLyricText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(fullLyricKey),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(fullLyricText.textSpan?.toPlainText(), '完整歌词第一行\n完整歌词第二行');
+    expect(fullLyricText.textSpan?.toPlainText(), isNot(contains(r'\n')));
+    expect(fullLyricText.style?.fontSize, snippetFontSize);
+    expect(
+      find.ancestor(
+        of: find.byKey(fullLyricKey),
+        matching: find.byType(InkWell),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('search-lyric-full-action-song-1|qq')),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(
+        of: find.byKey(fullLyricKey),
+        matching: find.byType(AppSkinSurface),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(fullLyricKey));
+    await tester.pump();
+    expect(find.byKey(fullLyricKey), findsNothing);
+    expect(find.byKey(snippetKey), findsOneWidget);
+    expect(tappedSong, isNull);
 
     await tester.tap(toggle);
     await tester.pump();
@@ -160,6 +267,7 @@ void main() {
     await tester.tap(toggle);
     await tester.pump();
     expect(find.byKey(fullLyricKey), findsNothing);
+    expect(find.byKey(snippetKey), findsOneWidget);
   });
 
   testWidgets('expanded version invokes action with the nested version song', (

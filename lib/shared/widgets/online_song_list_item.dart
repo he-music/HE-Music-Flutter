@@ -31,6 +31,8 @@ class OnlineSongListItem extends ConsumerWidget {
     this.onLikeTap,
     this.onMoreTap,
     this.onMoreVersionTap,
+    this.contentAfterSubtitle,
+    this.footer,
     super.key,
   });
 
@@ -55,6 +57,8 @@ class OnlineSongListItem extends ConsumerWidget {
   final VoidCallback? onLikeTap;
   final VoidCallback? onMoreTap;
   final VoidCallback? onMoreVersionTap;
+  final Widget? contentAfterSubtitle;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,6 +87,8 @@ class OnlineSongListItem extends ConsumerWidget {
       onLikeTap: onLikeTap,
       onMoreTap: onMoreTap,
       onMoreVersionTap: onMoreVersionTap,
+      contentAfterSubtitle: contentAfterSubtitle,
+      footer: footer,
       moreVersionLabel: AppI18n.t(config, 'song.more_versions'),
     );
   }

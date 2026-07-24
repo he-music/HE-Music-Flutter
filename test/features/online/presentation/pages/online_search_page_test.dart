@@ -120,7 +120,13 @@ void main() {
 
     final bar = tester.widget<SearchTypeBar>(find.byType(SearchTypeBar));
     expect(bar.types, isNot(contains(SearchType.lyric)));
-    expect(find.text('Lyrics'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(SearchTypeBar),
+        matching: find.text('Lyrics'),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets(
@@ -139,7 +145,7 @@ void main() {
               status: 1,
               featureSupportFlag:
                   _searchPlatforms.single.featureSupportFlag |
-                  PlatformFeatureSupportFlag.searchLyric,
+                  PlatformFeatureSupportFlag.searchLyricSong,
             ),
           ]),
         ),
@@ -151,8 +157,12 @@ void main() {
       final bar = tester.widget<SearchTypeBar>(find.byType(SearchTypeBar));
       expect(bar.types.last, SearchType.lyric);
 
-      await tester.ensureVisible(find.text('Lyrics'));
-      await tester.tap(find.text('Lyrics'));
+      final lyricType = find.descendant(
+        of: find.byType(SearchTypeBar),
+        matching: find.text('Lyrics'),
+      );
+      await tester.ensureVisible(lyricType);
+      await tester.tap(lyricType);
       await tester.pump();
       await tester.pump();
 
@@ -300,7 +310,7 @@ final _lyricSearchPlatform = OnlinePlatform(
   status: 1,
   featureSupportFlag:
       _searchPlatforms.single.featureSupportFlag |
-      PlatformFeatureSupportFlag.searchLyric,
+      PlatformFeatureSupportFlag.searchLyricSong,
 );
 
 class _SearchPageOnlineApiClient extends OnlineApiClient {
@@ -389,7 +399,7 @@ class _SearchPageOnlineApiClient extends OnlineApiClient {
   }
 
   @override
-  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyricSong({
     required String keyword,
     required String platform,
     int pageIndex = 1,
@@ -412,7 +422,7 @@ class _PagingSearchPageOnlineApiClient extends _SearchPageOnlineApiClient {
   final List<int> requestedLyricPages = <int>[];
 
   @override
-  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyricSong({
     required String keyword,
     required String platform,
     int pageIndex = 1,

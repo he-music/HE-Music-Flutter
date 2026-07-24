@@ -548,14 +548,14 @@ class OnlineApiClient {
     );
   }
 
-  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyricSong({
     required String keyword,
     required String platform,
     int pageIndex = 1,
     int pageSize = 30,
   }) {
     return _searchSongItems(
-      path: '/v1/lyric/search',
+      path: '/v1/song/lyric/search',
       keyword: keyword,
       platform: platform,
       pageIndex: pageIndex,

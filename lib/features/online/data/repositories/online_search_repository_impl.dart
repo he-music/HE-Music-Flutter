@@ -79,13 +79,13 @@ class OnlineSearchRepositoryImpl implements OnlineSearchRepository {
   }
 
   @override
-  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyricSong({
     required String keyword,
     required String platform,
     int pageIndex = 1,
     int pageSize = 30,
   }) {
-    return _apiClient.searchLyrics(
+    return _apiClient.searchLyricSong(
       keyword: keyword,
       platform: platform,
       pageIndex: pageIndex,

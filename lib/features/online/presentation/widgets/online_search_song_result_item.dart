@@ -10,6 +10,7 @@ import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/cover_resolver.dart';
 import '../../../../shared/widgets/online_song_list_item.dart';
+import '../../../../shared/widgets/song_list_item.dart';
 import '../../domain/entities/online_platform.dart';
 import '../providers/online_providers.dart';
 import '../utils/search_text_highlight.dart';
@@ -103,89 +104,135 @@ class _OnlineSearchSongResultItemState
       cover: song.cover,
       size: 300,
     );
-    final lyricSnippet = item.lyricSnippet.trim();
-    final canExpandLyric =
-        widget.allowFullLyric && item.lyric.trim().isNotEmpty;
+    final lyricSnippet = _normalizeLyricLineBreaks(item.lyricSnippet).trim();
+    final fullLyric = _normalizeLyricLineBreaks(item.lyric);
+    final canExpandLyric = widget.allowFullLyric && fullLyric.trim().isNotEmpty;
     final lyricExpanded = _expandedLyricKeys.contains(songKey);
+    final lyricToggle = canExpandLyric
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(78, 0, 12, 4),
+            child: SongListItemTextAction(
+              key: ValueKey<String>('search-lyric-toggle-$songKey'),
+              onTap: () => _toggleLyric(songKey),
+              label: AppI18n.tByLocaleCode(
+                config.localeCode,
+                lyricExpanded ? 'search.lyric.collapse' : 'search.lyric.expand',
+              ),
+              trailingIcon: lyricExpanded
+                  ? Icons.expand_less_rounded
+                  : Icons.expand_more_rounded,
+            ),
+          )
+        : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        OnlineSongListItem(
-          song: song,
-          artistAlbumText: song.artistAlbumText,
-          subtitleText: song.displaySubtitle,
-          titleSpans: _highlightSpans(song.title, item),
-          artistAlbumSpans: _highlightSpans(song.artistAlbumText, item),
-          subtitleSpans: _highlightSpans(song.displaySubtitle, item),
-          additionalTags: item.originalType == 1
-              ? <String>[
-                  AppI18n.tByLocaleCode(config.localeCode, 'song.tag.original'),
-                ]
-              : const <String>[],
-          coverUrl: coverUrl.trim().isEmpty ? null : coverUrl,
-          isCurrent: isCurrentSongTrack(currentTrack, song),
-          showMoreVersionButton: showMoreVersion,
-          isLiked: widget.likedSongKeys.contains(songKey),
-          onTap: () => widget.onTapSong(song),
-          onLikeTap: () => unawaited(widget.onLikeSong(song)),
-          onMoreTap: () => widget.onMoreSong(song),
-          onMoreVersionTap: onMoreVersionTap,
-        ),
-        if (lyricSnippet.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(80, 2, 16, 6),
+    final lyricSnippetLines = lyricSnippet.split('\n');
+    final lyricSnippetStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      height: 1.45,
+    );
+    final lyricSnippetText = lyricSnippet.isEmpty
+        ? null
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: List<Widget>.generate(lyricSnippetLines.length, (index) {
+              final line = lyricSnippetLines[index];
+              return Text.rich(
+                TextSpan(
+                  text: line.isEmpty ? ' ' : null,
+                  children: <InlineSpan>[
+                    if (index == 0 && !widget.allowFullLyric)
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(end: 4),
+                          child: _LyricSnippetBadge(
+                            key: ValueKey<String>(
+                              'search-lyric-badge-$songKey',
+                            ),
+                            label: AppI18n.tByLocaleCode(
+                              config.localeCode,
+                              'search.lyric.badge',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ..._highlightSpans(line, item),
+                  ],
+                ),
+                key: ValueKey<String>(
+                  index == 0
+                      ? 'search-lyric-snippet-$songKey'
+                      : 'search-lyric-snippet-$songKey-$index',
+                ),
+                softWrap: false,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: lyricSnippetStyle,
+                semanticsLabel: line,
+              );
+            }),
+          );
+    final lyricSnippetContent = !lyricExpanded && lyricSnippetText != null
+        ? canExpandLyric
+              ? InkWell(
+                  key: ValueKey<String>('search-lyric-snippet-action-$songKey'),
+                  onTap: () => _toggleLyric(songKey),
+                  borderRadius: BorderRadius.circular(4),
+                  child: lyricSnippetText,
+                )
+              : lyricSnippetText
+        : null;
+    final lyricContent = <Widget>[
+      if (!lyricExpanded && lyricToggle != null) lyricToggle,
+      if (canExpandLyric && lyricExpanded)
+        Padding(
+          key: ValueKey<String>('search-lyric-full-$songKey'),
+          padding: const EdgeInsets.fromLTRB(80, 2, 16, 6),
+          child: InkWell(
+            key: ValueKey<String>('search-lyric-full-action-$songKey'),
+            onTap: () => _toggleLyric(songKey),
+            borderRadius: BorderRadius.circular(4),
             child: Text.rich(
-              TextSpan(children: _highlightSpans(lyricSnippet, item)),
-              key: ValueKey<String>('search-lyric-snippet-$songKey'),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+              TextSpan(children: _highlightSpans(fullLyric, item)),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                height: 1.45,
-              ),
-              semanticsLabel: lyricSnippet,
-            ),
-          ),
-        if (canExpandLyric)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(76, 0, 12, 4),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: TextButton.icon(
-                key: ValueKey<String>('search-lyric-toggle-$songKey'),
-                onPressed: () => _toggleLyric(songKey),
-                icon: Icon(
-                  lyricExpanded
-                      ? Icons.expand_less_rounded
-                      : Icons.expand_more_rounded,
-                  size: 18,
-                ),
-                label: Text(
-                  AppI18n.tByLocaleCode(
-                    config.localeCode,
-                    lyricExpanded
-                        ? 'search.lyric.collapse'
-                        : 'search.lyric.expand',
-                  ),
-                ),
-              ),
-            ),
-          ),
-        if (canExpandLyric && lyricExpanded)
-          Padding(
-            key: ValueKey<String>('search-lyric-full-$songKey'),
-            padding: const EdgeInsets.fromLTRB(80, 0, 16, 12),
-            child: Text.rich(
-              TextSpan(children: _highlightSpans(item.lyric, item)),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurface,
                 height: 1.65,
               ),
-              semanticsLabel: item.lyric,
+              semanticsLabel: fullLyric,
             ),
           ),
-      ],
+        ),
+      if (lyricExpanded && lyricToggle != null) lyricToggle,
+    ];
+
+    return OnlineSongListItem(
+      song: song,
+      artistAlbumText: song.artistAlbumText,
+      subtitleText: song.displaySubtitle,
+      titleSpans: _highlightSpans(song.title, item),
+      artistAlbumSpans: _highlightSpans(song.artistAlbumText, item),
+      subtitleSpans: _highlightSpans(song.displaySubtitle, item),
+      additionalTags: item.originalType == 1
+          ? <String>[
+              AppI18n.tByLocaleCode(config.localeCode, 'song.tag.original'),
+            ]
+          : const <String>[],
+      coverUrl: coverUrl.trim().isEmpty ? null : coverUrl,
+      isCurrent: isCurrentSongTrack(currentTrack, song),
+      showMoreVersionButton: showMoreVersion,
+      isLiked: widget.likedSongKeys.contains(songKey),
+      onTap: () => widget.onTapSong(song),
+      onLikeTap: () => unawaited(widget.onLikeSong(song)),
+      onMoreTap: () => widget.onMoreSong(song),
+      onMoreVersionTap: onMoreVersionTap,
+      contentAfterSubtitle: lyricSnippetContent,
+      footer: lyricContent.isEmpty
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: lyricContent,
+            ),
     );
   }
 
@@ -221,4 +268,41 @@ class _OnlineSearchSongResultItemState
   }
 
   String _songKey(SongInfo song) => '${song.id}|${song.platform}';
+
+  String _normalizeLyricLineBreaks(String value) {
+    return value
+        .replaceAll(r'\r\n', '\n')
+        .replaceAll(r'\n', '\n')
+        .replaceAll(r'\r', '\n')
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
+  }
+}
+
+class _LyricSnippetBadge extends StatelessWidget {
+  const _LyricSnippetBadge({required this.label, super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: color.withValues(alpha: 0.72)),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontSize: 9.5,
+          height: 1,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
 }
