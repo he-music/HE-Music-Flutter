@@ -55,7 +55,7 @@ class HomeDiscoverItem {
           : _readCoverUrl(raw),
       type: type,
       songInfo: songInfo,
-      originalType: songInfo?.originalType ?? _readOriginalType(raw, type),
+      originalType: _readOriginalType(raw, type),
       mvId: (songInfo?.mvId ?? '').trim().isNotEmpty
           ? songInfo!.mvId
           : _readMvId(raw, type),

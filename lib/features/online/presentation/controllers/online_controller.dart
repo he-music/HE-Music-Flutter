@@ -105,11 +105,17 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     _validateNotEmpty(platform, 'Platform is required.');
     await _runAction(() async {
       final client = ref.read(onlineApiClientProvider);
-      final results = await client.searchMusic(
-        keyword: keyword,
-        platform: platform,
-        type: type,
-      );
+      final normalizedType = type.trim().toLowerCase();
+      final results = normalizedType == 'song'
+          ? (await client.searchSongs(
+              keyword: keyword,
+              platform: platform,
+            )).items
+          : (await client.searchMusic(
+              keyword: keyword,
+              platform: platform,
+              type: type,
+            )).items;
       state = state.copyWith(
         searchResults: results,
         message: 'Search completed: ${results.length} items.',

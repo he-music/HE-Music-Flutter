@@ -497,15 +497,23 @@ class OnlineApiClient {
         .toList(growable: false);
   }
 
-  Future<List<Map<String, dynamic>>> searchMusic({
+  Future<OnlineSearchPageResult<Map<String, dynamic>>> searchMusic({
     required String keyword,
     required String platform,
-    String type = 'song',
+    required String type,
     int pageIndex = 1,
     int pageSize = 30,
   }) async {
+    final normalizedType = type.trim().toLowerCase();
+    if (normalizedType == 'song' || normalizedType == 'lyric') {
+      throw ArgumentError.value(
+        type,
+        'type',
+        'Song and lyric searches require their typed API methods.',
+      );
+    }
     final response = await _dio.get(
-      '/v1/$type/search',
+      '/v1/$normalizedType/search',
       queryParameters: <String, dynamic>{
         'key': keyword,
         'platform': platform,
@@ -514,7 +522,82 @@ class OnlineApiClient {
       },
     );
     final data = _asMap(response.data);
-    return _extractList(data, <String>['list']);
+    final items = _extractList(data, <String>['list']);
+    return _readSearchPageResult(
+      data: data,
+      items: items,
+      fallbackPlatform: platform,
+      fallbackKeyword: keyword,
+      fallbackPageIndex: pageIndex,
+      fallbackPageSize: pageSize,
+    );
+  }
+
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchSongs({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) {
+    return _searchSongItems(
+      path: '/v1/song/search',
+      keyword: keyword,
+      platform: platform,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
+  }
+
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) {
+    return _searchSongItems(
+      path: '/v1/lyric/search',
+      keyword: keyword,
+      platform: platform,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
+  }
+
+  Future<OnlineSearchPageResult<SearchSongInfo>> _searchSongItems({
+    required String path,
+    required String keyword,
+    required String platform,
+    required int pageIndex,
+    required int pageSize,
+  }) async {
+    final response = await _dio.get(
+      path,
+      queryParameters: <String, dynamic>{
+        'key': keyword,
+        'platform': platform,
+        'page_index': pageIndex,
+        'page_size': pageSize,
+      },
+    );
+    final data = _asMap(response.data);
+    final responsePlatform = _readStringField(data, 'platform');
+    final fallbackPlatform = responsePlatform.isEmpty
+        ? platform
+        : responsePlatform;
+    final items = _extractList(data, const <String>['list'])
+        .map(
+          (item) =>
+              SearchSongInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
+        )
+        .toList(growable: false);
+    return _readSearchPageResult(
+      data: data,
+      items: items,
+      fallbackPlatform: platform,
+      fallbackKeyword: keyword,
+      fallbackPageIndex: pageIndex,
+      fallbackPageSize: pageSize,
+    );
   }
 
   Future<OnlineComprehensiveSearchResult> comprehensiveSearch({
@@ -528,8 +611,14 @@ class OnlineApiClient {
     final data = _asMap(response.data);
     return OnlineComprehensiveSearchResult(
       keyword: '${data['key'] ?? keyword}'.trim(),
-      bestMatch: _readBestMatch(data['bestMatch'] ?? data['best_match']),
-      song: _readComprehensiveSection(data['song']),
+      bestMatch: _readBestMatch(
+        data['bestMatch'] ?? data['best_match'],
+        fallbackPlatform: platform,
+      ),
+      song: _readComprehensiveSongSection(
+        data['song'],
+        fallbackPlatform: platform,
+      ),
       playlist: _readComprehensiveSection(data['playlist']),
       album: _readComprehensiveSection(data['album']),
       video: _readComprehensiveSection(data['mv']),
@@ -970,25 +1059,74 @@ class OnlineApiClient {
     return fallback;
   }
 
-  OnlineComprehensiveSearchSection _readComprehensiveSection(dynamic value) {
+  OnlineSearchPageResult<T> _readSearchPageResult<T>({
+    required Map<String, dynamic> data,
+    required List<T> items,
+    required String fallbackPlatform,
+    required String fallbackKeyword,
+    required int fallbackPageIndex,
+    required int fallbackPageSize,
+  }) {
+    final platform = _readStringField(data, 'platform');
+    final keyword = _readStringField(data, 'key');
+    final pageIndex = _readIntField(data, 'page_index');
+    final pageSize = _readIntField(data, 'page_size');
+    return OnlineSearchPageResult<T>(
+      platform: platform.isEmpty ? fallbackPlatform : platform,
+      keyword: keyword.isEmpty ? fallbackKeyword : keyword,
+      items: items,
+      pageIndex: pageIndex > 0 ? pageIndex : fallbackPageIndex,
+      pageSize: pageSize > 0 ? pageSize : fallbackPageSize,
+      totalCount: _readIntField(data, 'total_count'),
+      hasMore: _readBoolField(data, 'has_more', fallback: false),
+    );
+  }
+
+  OnlineComprehensiveSearchSection<Map<String, dynamic>>
+  _readComprehensiveSection(dynamic value) {
     final payload = _asMap(value);
     final list = _extractList(payload, const <String>['list', 'items', 'data']);
-    return OnlineComprehensiveSearchSection(
+    return OnlineComprehensiveSearchSection<Map<String, dynamic>>(
       items: list,
       hasMore: _readBoolField(payload, 'has_more', fallback: false),
       totalCount: _readIntField(payload, 'total_count'),
     );
   }
 
+  OnlineComprehensiveSearchSection<SearchSongInfo>
+  _readComprehensiveSongSection(
+    dynamic value, {
+    required String fallbackPlatform,
+  }) {
+    final payload = _asMap(value);
+    final items = _extractList(payload, const <String>['list', 'items', 'data'])
+        .map(
+          (item) =>
+              SearchSongInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
+        )
+        .toList(growable: false);
+    return OnlineComprehensiveSearchSection<SearchSongInfo>(
+      items: items,
+      hasMore: _readBoolField(payload, 'has_more', fallback: false),
+      totalCount: _readIntField(payload, 'total_count'),
+    );
+  }
+
   /// 解析 best_match 字段，将 primary + recommendations 合并为一个有序列表
-  List<BestMatchRecommendItem> _readBestMatch(dynamic value) {
+  List<BestMatchRecommendItem> _readBestMatch(
+    dynamic value, {
+    required String fallbackPlatform,
+  }) {
     final payload = _asMap(value);
     if (payload.isEmpty) {
       return const <BestMatchRecommendItem>[];
     }
     final items = <BestMatchRecommendItem>[];
     // primary 作为第一项
-    final primary = _readRecommendItem(payload['primary']);
+    final primary = _readRecommendItem(
+      payload['primary'],
+      fallbackPlatform: fallbackPlatform,
+    );
     if (primary != null) {
       items.add(primary);
     }
@@ -996,7 +1134,10 @@ class OnlineApiClient {
     final recs = payload['recommendations'];
     if (recs is List) {
       for (final entry in recs) {
-        final item = _readRecommendItem(entry);
+        final item = _readRecommendItem(
+          entry,
+          fallbackPlatform: fallbackPlatform,
+        );
         if (item != null) {
           items.add(item);
         }
@@ -1006,7 +1147,10 @@ class OnlineApiClient {
   }
 
   /// 解析单个 RecommendItem: resourceType + oneof data
-  BestMatchRecommendItem? _readRecommendItem(dynamic value) {
+  BestMatchRecommendItem? _readRecommendItem(
+    dynamic value, {
+    required String fallbackPlatform,
+  }) {
     final map = _asMap(value);
     if (map.isEmpty) {
       return null;
@@ -1021,6 +1165,9 @@ class OnlineApiClient {
     if (data.isEmpty) {
       return null;
     }
-    return BestMatchRecommendItem(resourceType: resourceType, data: data);
+    final resource = resourceType == 'song'
+        ? SearchSongInfo.fromMap(data, fallbackPlatform: fallbackPlatform)
+        : data;
+    return BestMatchRecommendItem(resourceType: resourceType, data: resource);
   }
 }

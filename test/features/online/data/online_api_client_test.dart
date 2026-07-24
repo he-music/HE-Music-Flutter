@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/online/data/online_api_client.dart';
+import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
   group('OnlineApiClient', () {
@@ -72,21 +73,34 @@ void main() {
     });
 
     group('searchMusic', () {
-      test('应正确解析搜索结果列表', () async {
+      test('应正确解析普通资源及分页信息', () async {
         final client = _createClient({
+          'platform': 'qq',
+          'key': 'test',
           'list': [
-            {'id': 's1', 'name': 'Song 1', 'platform': 'qq'},
-            {'id': 's2', 'name': 'Song 2', 'platform': 'qq'},
+            {'id': 'p1', 'name': 'Playlist 1', 'platform': 'qq'},
+            {'id': 'p2', 'name': 'Playlist 2', 'platform': 'qq'},
           ],
+          'page_index': 2,
+          'page_size': 20,
+          'total_count': 41,
+          'has_more': true,
         });
 
         final result = await client.searchMusic(
           keyword: 'test',
           platform: 'qq',
+          type: 'playlist',
+          pageIndex: 2,
+          pageSize: 20,
         );
 
-        expect(result, hasLength(2));
-        expect(result.first['id'], 's1');
+        expect(result.items, hasLength(2));
+        expect(result.items.first['id'], 'p1');
+        expect(result.pageIndex, 2);
+        expect(result.pageSize, 20);
+        expect(result.totalCount, 41);
+        expect(result.hasMore, isTrue);
       });
 
       test('空 list 时返回空', () async {
@@ -95,9 +109,88 @@ void main() {
         final result = await client.searchMusic(
           keyword: 'test',
           platform: 'qq',
+          type: 'playlist',
         );
 
-        expect(result, isEmpty);
+        expect(result.items, isEmpty);
+      });
+
+      test('拒绝通过通用入口读取歌曲包装数据', () async {
+        final client = _createClient({'list': []});
+
+        expect(
+          () =>
+              client.searchMusic(keyword: 'test', platform: 'qq', type: 'song'),
+          throwsArgumentError,
+        );
+      });
+    });
+
+    group('searchSongs', () {
+      test('应将歌曲结果解析为 SearchSongInfo', () async {
+        final client = _createClient({
+          'platform': 'qq',
+          'key': '晴天',
+          'list': [
+            {
+              'song': {'id': 's1', 'name': '晴天'},
+              'sublist': <dynamic>[],
+              'original_type': 1,
+              'lyric_snippet': '故事的小黄花',
+              'lyric': '',
+              'matched_keywords': ['晴天'],
+            },
+          ],
+          'page_index': 1,
+          'page_size': 30,
+          'total_count': 1,
+          'has_more': false,
+        });
+
+        final result = await client.searchSongs(keyword: '晴天', platform: 'qq');
+
+        expect(result.items.single.song.id, 's1');
+        expect(result.items.single.song.platform, 'qq');
+        expect(result.items.single.originalType, 1);
+        expect(result.items.single.lyricSnippet, '故事的小黄花');
+        expect(result.hasMore, isFalse);
+      });
+    });
+
+    group('searchLyrics', () {
+      test('应请求固定歌词路径并解析完整歌词', () async {
+        RequestOptions? captured;
+        final client = _createClient({
+          'platform': 'netease',
+          'key': '故事',
+          'list': [
+            {
+              'song': {'id': 's1', 'name': '晴天'},
+              'sublist': <dynamic>[],
+              'original_type': 0,
+              'lyric_snippet': '从前从前有个人爱你很久',
+              'lyric': '故事的小黄花\n从出生那年就飘着',
+              'matched_keywords': ['故事'],
+            },
+          ],
+          'page_index': 1,
+          'page_size': 30,
+          'total_count': 31,
+          'has_more': true,
+        }, captureRequest: (options) => captured = options);
+
+        final result = await client.searchLyrics(
+          keyword: '故事',
+          platform: 'netease',
+        );
+
+        expect(captured?.path, '/v1/lyric/search');
+        expect(captured?.queryParameters['key'], '故事');
+        expect(captured?.queryParameters['platform'], 'netease');
+        expect(captured?.queryParameters['page_index'], 1);
+        expect(captured?.queryParameters['page_size'], 30);
+        expect(result.items.single.lyric, contains('从出生那年'));
+        expect(result.hasMore, isTrue);
       });
     });
 
@@ -110,10 +203,30 @@ void main() {
               'resourceType': 'artist',
               'artist': {'id': 'ar-1', 'name': '周杰伦'},
             },
+            'recommendations': [
+              {
+                'resource_type': 'song',
+                'song': {
+                  'song': {'id': 's2', 'name': '七里香'},
+                  'sublist': <dynamic>[],
+                  'original_type': 1,
+                  'lyric_snippet': '窗外的麻雀',
+                  'lyric': '',
+                  'matched_keywords': ['周杰伦'],
+                },
+              },
+            ],
           },
           'song': {
             'list': [
-              {'id': 's1', 'name': '晴天'},
+              {
+                'song': {'id': 's1', 'name': '晴天'},
+                'sublist': <dynamic>[],
+                'original_type': 1,
+                'lyric_snippet': '故事的小黄花',
+                'lyric': '',
+                'matched_keywords': ['周杰伦'],
+              },
             ],
             'total_count': 100,
           },
@@ -136,8 +249,14 @@ void main() {
         expect(result.keyword, '周杰伦');
         expect(result.hasBestMatch, isTrue);
         expect(result.bestMatch.first.resourceType, 'artist');
-        expect(result.bestMatch.first.data['name'], '周杰伦');
+        expect(
+          (result.bestMatch.first.data as Map<String, dynamic>)['name'],
+          '周杰伦',
+        );
+        expect(result.bestMatch[1].data, isA<SearchSongInfo>());
+        expect((result.bestMatch[1].data as SearchSongInfo).song.id, 's2');
         expect(result.song.items, hasLength(1));
+        expect(result.song.items.single.song.id, 's1');
         expect(result.song.totalCount, 100);
         expect(result.playlist.items, hasLength(1));
       });

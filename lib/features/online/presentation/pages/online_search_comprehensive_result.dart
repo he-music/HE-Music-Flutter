@@ -7,11 +7,12 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/video_item.dart';
-import '../../../../shared/widgets/online_song_list_item.dart';
 import '../../../../shared/utils/cover_resolver.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../domain/entities/online_platform.dart';
 import '../providers/online_providers.dart';
+import '../utils/search_text_highlight.dart';
+import '../widgets/online_search_song_result_item.dart';
 import '../widgets/search_album_list_item.dart';
 import '../widgets/search_artist_list_item.dart';
 import '../widgets/search_playlist_list_item.dart';
@@ -109,6 +110,7 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
     required this.result,
     required this.likedSongKeys,
     required this.onTapItem,
+    required this.onTapSongItem,
     required this.onLikeSongItem,
     required this.onMoreSongItem,
     required this.onMoreSection,
@@ -118,25 +120,54 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
   final OnlineComprehensiveSearchResult result;
   final Set<String> likedSongKeys;
   final void Function(SearchType type, Map<String, dynamic> item) onTapItem;
-  final Future<void> Function(Map<String, dynamic> item) onLikeSongItem;
-  final ValueChanged<Map<String, dynamic>> onMoreSongItem;
+  final ValueChanged<SongInfo> onTapSongItem;
+  final Future<void> Function(SongInfo item) onLikeSongItem;
+  final ValueChanged<SongInfo> onMoreSongItem;
   final ValueChanged<SearchType> onMoreSection;
-
-  static const List<SearchType> _sectionOrder = <SearchType>[
-    SearchType.song,
-    SearchType.artist,
-    SearchType.album,
-    SearchType.playlist,
-    SearchType.video,
-  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final localeCode = ref.watch(appConfigProvider).localeCode;
-    final sections = _sectionOrder
-        .map((type) => (type: type, data: result.sectionOf(type)))
-        .where((entry) => !entry.data.isEmpty)
-        .toList(growable: false);
+    final commonSections =
+        <
+          ({
+            SearchType type,
+            OnlineComprehensiveSearchSection<Map<String, dynamic>> section,
+          })
+        >[
+          (type: SearchType.artist, section: result.artist),
+          (type: SearchType.album, section: result.album),
+          (type: SearchType.playlist, section: result.playlist),
+          (type: SearchType.video, section: result.video),
+        ];
+    final sections = <Widget>[
+      if (!result.song.isEmpty)
+        _SectionBlock(
+          type: SearchType.song,
+          hasMore: result.song.hasMore,
+          onMoreSection: onMoreSection,
+          child: _SongSectionList(
+            items: result.song.items,
+            searchKeyword: result.keyword,
+            likedSongKeys: likedSongKeys,
+            onTapSongItem: onTapSongItem,
+            onLikeSongItem: onLikeSongItem,
+            onMoreSongItem: onMoreSongItem,
+          ),
+        ),
+      for (final entry in commonSections)
+        if (!entry.section.isEmpty)
+          _SectionBlock(
+            type: entry.type,
+            hasMore: entry.section.hasMore,
+            onMoreSection: onMoreSection,
+            child: _CommonSectionList(
+              type: entry.type,
+              items: entry.section.items,
+              onTapItem: onTapItem,
+            ),
+          ),
+    ];
     final hasBestMatch = result.hasBestMatch;
     if (!hasBestMatch && sections.isEmpty) {
       return Center(
@@ -153,8 +184,10 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 14),
               child: _BestMatchBlock(
                 items: result.bestMatch,
+                searchKeyword: result.keyword,
                 likedSongKeys: likedSongKeys,
                 onTapItem: onTapItem,
+                onTapSongItem: onTapSongItem,
                 onLikeSongItem: onLikeSongItem,
                 onMoreSongItem: onMoreSongItem,
               ),
@@ -165,16 +198,7 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
           itemCount: sections.length,
           separatorBuilder: (context, index) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
-            final section = sections[index];
-            return _SectionBlock(
-              type: section.type,
-              section: section.data,
-              likedSongKeys: likedSongKeys,
-              onTapItem: onTapItem,
-              onLikeSongItem: onLikeSongItem,
-              onMoreSongItem: onMoreSongItem,
-              onMoreSection: onMoreSection,
-            );
+            return sections[index];
           },
         ),
         // 底部留白
@@ -201,17 +225,21 @@ double _bestMatchCardWidth(SearchType type) {
 class _BestMatchBlock extends ConsumerWidget {
   const _BestMatchBlock({
     required this.items,
+    required this.searchKeyword,
     required this.likedSongKeys,
     required this.onTapItem,
+    required this.onTapSongItem,
     required this.onLikeSongItem,
     required this.onMoreSongItem,
   });
 
   final List<BestMatchRecommendItem> items;
+  final String searchKeyword;
   final Set<String> likedSongKeys;
   final void Function(SearchType type, Map<String, dynamic> item) onTapItem;
-  final Future<void> Function(Map<String, dynamic> item) onLikeSongItem;
-  final ValueChanged<Map<String, dynamic>> onMoreSongItem;
+  final ValueChanged<SongInfo> onTapSongItem;
+  final Future<void> Function(SongInfo item) onLikeSongItem;
+  final ValueChanged<SongInfo> onMoreSongItem;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -236,8 +264,10 @@ class _BestMatchBlock extends ConsumerWidget {
         // primary 全宽列表项
         _BestMatchPrimaryItem(
           item: primary,
+          searchKeyword: searchKeyword,
           likedSongKeys: likedSongKeys,
           onTapItem: onTapItem,
+          onTapSongItem: onTapSongItem,
           onLikeSongItem: onLikeSongItem,
           onMoreSongItem: onMoreSongItem,
         ),
@@ -260,10 +290,14 @@ class _BestMatchBlock extends ConsumerWidget {
                   width: cardWidth,
                   child: _BestMatchCard(
                     item: item,
+                    searchKeyword: searchKeyword,
                     onTap: () {
                       final type = item.searchType;
-                      if (type != null) {
-                        onTapItem(type, item.data);
+                      final data = item.data;
+                      if (type == SearchType.song && data is SearchSongInfo) {
+                        onTapSongItem(data.song);
+                      } else if (type != null && data is Map<String, dynamic>) {
+                        onTapItem(type, data);
                       }
                     },
                   ),
@@ -292,17 +326,21 @@ class _BestMatchBlock extends ConsumerWidget {
 class _BestMatchPrimaryItem extends ConsumerWidget {
   const _BestMatchPrimaryItem({
     required this.item,
+    required this.searchKeyword,
     required this.likedSongKeys,
     required this.onTapItem,
+    required this.onTapSongItem,
     required this.onLikeSongItem,
     required this.onMoreSongItem,
   });
 
   final BestMatchRecommendItem item;
+  final String searchKeyword;
   final Set<String> likedSongKeys;
   final void Function(SearchType type, Map<String, dynamic> item) onTapItem;
-  final Future<void> Function(Map<String, dynamic> item) onLikeSongItem;
-  final ValueChanged<Map<String, dynamic>> onMoreSongItem;
+  final ValueChanged<SongInfo> onTapSongItem;
+  final Future<void> Function(SongInfo item) onLikeSongItem;
+  final ValueChanged<SongInfo> onMoreSongItem;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -311,13 +349,25 @@ class _BestMatchPrimaryItem extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     final data = item.data;
+    if (searchType == SearchType.song) {
+      if (data is! SearchSongInfo) {
+        return const SizedBox.shrink();
+      }
+      return OnlineSearchSongResultItem(
+        item: data,
+        searchKeyword: searchKeyword,
+        likedSongKeys: likedSongKeys,
+        onTapSong: onTapSongItem,
+        onLikeSong: onLikeSongItem,
+        onMoreSong: onMoreSongItem,
+      );
+    }
+    if (data is! Map<String, dynamic>) {
+      return const SizedBox.shrink();
+    }
     final localeCode = ref.read(appConfigProvider).localeCode;
     final platforms =
         ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-
-    if (searchType == SearchType.song) {
-      return _buildSongItem(ref, data, platforms);
-    }
 
     final image = resolveTemplateCoverUrl(
       platforms: platforms,
@@ -365,39 +415,6 @@ class _BestMatchPrimaryItem extends ConsumerWidget {
       _ => const SizedBox.shrink(),
     };
   }
-
-  Widget _buildSongItem(
-    WidgetRef ref,
-    Map<String, dynamic> data,
-    List<OnlinePlatform> platforms,
-  ) {
-    final config = ref.read(appConfigProvider);
-    final song = searchSongInfo(data);
-    final coverUrl = resolveSongCoverUrl(
-      baseUrl: config.apiBaseUrl,
-      token: config.authToken ?? '',
-      platforms: platforms,
-      platformId: text(data['platform']),
-      songId: text(data['id']),
-      cover: text(data['cover']) == '-' ? '' : text(data['cover']),
-      size: 300,
-    );
-    return OnlineSongListItem(
-      song: song,
-      artistAlbumText: songArtistAlbumText(data),
-      subtitleText: songAlias(data) == '-' ? '' : songAlias(data),
-      coverUrl: coverUrl.trim().isEmpty ? null : coverUrl,
-      isCurrent: false,
-      showMoreVersionButton: false,
-      isLiked: likedSongKeys.contains(
-        '${text(data['id'])}|${text(data['platform'])}',
-      ),
-      onTap: () => onTapItem(SearchType.song, data),
-      onLikeTap: () => onLikeSongItem(data),
-      onMoreTap: () => onMoreSongItem(data),
-      onMoreVersionTap: null,
-    );
-  }
 }
 
 // ============================================================
@@ -405,9 +422,14 @@ class _BestMatchPrimaryItem extends ConsumerWidget {
 // ============================================================
 
 class _BestMatchCard extends ConsumerWidget {
-  const _BestMatchCard({required this.item, required this.onTap});
+  const _BestMatchCard({
+    required this.item,
+    required this.searchKeyword,
+    required this.onTap,
+  });
 
   final BestMatchRecommendItem item;
+  final String searchKeyword;
   final VoidCallback onTap;
 
   @override
@@ -420,14 +442,37 @@ class _BestMatchCard extends ConsumerWidget {
     final localeCode = ref.read(appConfigProvider).localeCode;
     final platforms =
         ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-    final image = resolveTemplateCoverUrl(
-      platforms: platforms,
-      platformId: text(data['platform']),
-      cover: text(data['cover']) == '-' ? '' : text(data['cover']),
-      size: 300,
-    );
-    final title = displayTitle(searchType, data);
-    final subtitle = _cardSubtitle(searchType, data, localeCode);
+    late final String image;
+    late final String title;
+    late final String subtitle;
+    List<String> matchedKeywords = const <String>[];
+    if (searchType == SearchType.song && data is SearchSongInfo) {
+      final song = data.song;
+      final config = ref.read(appConfigProvider);
+      image = resolveSongCoverUrl(
+        baseUrl: config.apiBaseUrl,
+        token: config.authToken ?? '',
+        platforms: platforms,
+        platformId: song.platform,
+        songId: song.id,
+        cover: song.cover,
+        size: 300,
+      );
+      title = song.title;
+      subtitle = song.artist;
+      matchedKeywords = data.matchedKeywords;
+    } else if (data is Map<String, dynamic>) {
+      image = resolveTemplateCoverUrl(
+        platforms: platforms,
+        platformId: text(data['platform']),
+        cover: text(data['cover']) == '-' ? '' : text(data['cover']),
+        size: 300,
+      );
+      title = displayTitle(searchType, data);
+      subtitle = _cardSubtitle(searchType, data);
+    } else {
+      return const SizedBox.shrink();
+    }
     final isArtist = searchType == SearchType.artist;
     final fallbackIcon = switch (searchType) {
       SearchType.artist => Icons.person_rounded,
@@ -471,8 +516,14 @@ class _BestMatchCard extends ConsumerWidget {
             badgeText: isArtist ? null : badgeText,
           ),
           const SizedBox(height: 6),
-          Text(
-            title,
+          Text.rich(
+            TextSpan(
+              children: _highlightSpans(
+                context: context,
+                text: title,
+                matchedKeywords: matchedKeywords,
+              ),
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: isArtist ? TextAlign.center : TextAlign.start,
@@ -483,8 +534,14 @@ class _BestMatchCard extends ConsumerWidget {
           ),
           if (showSubtitle) ...[
             const SizedBox(height: 2),
-            Text(
-              subtitle,
+            Text.rich(
+              TextSpan(
+                children: _highlightSpans(
+                  context: context,
+                  text: subtitle,
+                  matchedKeywords: matchedKeywords,
+                ),
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: isArtist ? TextAlign.center : TextAlign.start,
@@ -499,14 +556,9 @@ class _BestMatchCard extends ConsumerWidget {
     );
   }
 
-  String _cardSubtitle(
-    SearchType type,
-    Map<String, dynamic> data,
-    String localeCode,
-  ) {
+  String _cardSubtitle(SearchType type, Map<String, dynamic> data) {
     return switch (type) {
       SearchType.artist => '',
-      SearchType.song => songSubtitle(data),
       SearchType.playlist => searchPlaylistInfo(data).creator,
       SearchType.album => _artistNamesText(searchAlbumInfo(data).artists),
       SearchType.video => searchVideoInfo(data).creator,
@@ -519,6 +571,31 @@ class _BestMatchCard extends ConsumerWidget {
         .map((a) => a.name.trim())
         .where((n) => n.isNotEmpty)
         .join('/');
+  }
+
+  List<InlineSpan> _highlightSpans({
+    required BuildContext context,
+    required String text,
+    required List<String> matchedKeywords,
+  }) {
+    final highlightStyle = TextStyle(
+      color: Theme.of(context).colorScheme.primary,
+      fontWeight: FontWeight.w600,
+    );
+    return splitSearchHighlightText(
+          text: text,
+          matchedKeywords: matchedKeywords,
+          fallbackKeyword: item.searchType == SearchType.song
+              ? searchKeyword
+              : '',
+        )
+        .map<InlineSpan>(
+          (segment) => TextSpan(
+            text: segment.text,
+            style: segment.highlighted ? highlightStyle : null,
+          ),
+        )
+        .toList(growable: false);
   }
 }
 
@@ -614,21 +691,15 @@ class _BestMatchCover extends StatelessWidget {
 class _SectionBlock extends ConsumerWidget {
   const _SectionBlock({
     required this.type,
-    required this.section,
-    required this.likedSongKeys,
-    required this.onTapItem,
-    required this.onLikeSongItem,
-    required this.onMoreSongItem,
+    required this.hasMore,
     required this.onMoreSection,
+    required this.child,
   });
 
   final SearchType type;
-  final OnlineComprehensiveSearchSection section;
-  final Set<String> likedSongKeys;
-  final void Function(SearchType type, Map<String, dynamic> item) onTapItem;
-  final Future<void> Function(Map<String, dynamic> item) onLikeSongItem;
-  final ValueChanged<Map<String, dynamic>> onMoreSongItem;
+  final bool hasMore;
   final ValueChanged<SearchType> onMoreSection;
+  final Widget child;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -648,7 +719,7 @@ class _SectionBlock extends ConsumerWidget {
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-              if (section.hasMore)
+              if (hasMore)
                 TextButton(
                   onPressed: () => onMoreSection(type),
                   child: Text(AppI18n.tByLocaleCode(localeCode, 'common.more')),
@@ -657,35 +728,65 @@ class _SectionBlock extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 4),
-        _SectionList(
-          type: type,
-          items: section.items,
-          likedSongKeys: likedSongKeys,
-          onTapItem: onTapItem,
-          onLikeSongItem: onLikeSongItem,
-          onMoreSongItem: onMoreSongItem,
-        ),
+        child,
       ],
     );
   }
 }
 
-class _SectionList extends ConsumerWidget {
-  const _SectionList({
-    required this.type,
+class _SongSectionList extends StatelessWidget {
+  const _SongSectionList({
     required this.items,
+    required this.searchKeyword,
     required this.likedSongKeys,
-    required this.onTapItem,
+    required this.onTapSongItem,
     required this.onLikeSongItem,
     required this.onMoreSongItem,
   });
 
+  final List<SearchSongInfo> items;
+  final String searchKeyword;
+  final Set<String> likedSongKeys;
+  final ValueChanged<SongInfo> onTapSongItem;
+  final Future<void> Function(SongInfo item) onLikeSongItem;
+  final ValueChanged<SongInfo> onMoreSongItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: items.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 2),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return OnlineSearchSongResultItem(
+          key: ValueKey<String>(
+            'comprehensive-song-${item.song.id}|${item.song.platform}',
+          ),
+          item: item,
+          searchKeyword: searchKeyword,
+          likedSongKeys: likedSongKeys,
+          onTapSong: onTapSongItem,
+          onLikeSong: onLikeSongItem,
+          onMoreSong: onMoreSongItem,
+        );
+      },
+    );
+  }
+}
+
+class _CommonSectionList extends ConsumerWidget {
+  const _CommonSectionList({
+    required this.type,
+    required this.items,
+    required this.onTapItem,
+  });
+
   final SearchType type;
   final List<Map<String, dynamic>> items;
-  final Set<String> likedSongKeys;
   final void Function(SearchType type, Map<String, dynamic> item) onTapItem;
-  final Future<void> Function(Map<String, dynamic> item) onLikeSongItem;
-  final ValueChanged<Map<String, dynamic>> onMoreSongItem;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -695,47 +796,11 @@ class _SectionList extends ConsumerWidget {
       padding: EdgeInsets.zero,
       itemCount: items.length,
       separatorBuilder: (context, index) => const SizedBox(height: 2),
-      itemBuilder: (context, index) {
-        if (type == SearchType.song) {
-          return _buildSongItem(ref, items[index]);
-        }
-        return _buildCommonItem(ref, items[index]);
-      },
+      itemBuilder: (context, index) => _buildItem(ref, items[index]),
     );
   }
 
-  Widget _buildSongItem(WidgetRef ref, Map<String, dynamic> item) {
-    final config = ref.read(appConfigProvider);
-    final platforms =
-        ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-    final song = searchSongInfo(item);
-    final coverUrl = resolveSongCoverUrl(
-      baseUrl: config.apiBaseUrl,
-      token: config.authToken ?? '',
-      platforms: platforms,
-      platformId: text(item['platform']),
-      songId: text(item['id']),
-      cover: text(item['cover']) == '-' ? '' : text(item['cover']),
-      size: 300,
-    );
-    return OnlineSongListItem(
-      song: song,
-      artistAlbumText: songArtistAlbumText(item),
-      subtitleText: songAlias(item) == '-' ? '' : songAlias(item),
-      coverUrl: coverUrl.trim().isEmpty ? null : coverUrl,
-      isCurrent: false,
-      showMoreVersionButton: false,
-      isLiked: likedSongKeys.contains(
-        '${text(item['id'])}|${text(item['platform'])}',
-      ),
-      onTap: () => onTapItem(type, item),
-      onLikeTap: () => onLikeSongItem(item),
-      onMoreTap: () => onMoreSongItem(item),
-      onMoreVersionTap: null,
-    );
-  }
-
-  Widget _buildCommonItem(WidgetRef ref, Map<String, dynamic> item) {
+  Widget _buildItem(WidgetRef ref, Map<String, dynamic> item) {
     final localeCode = ref.read(appConfigProvider).localeCode;
     final platforms =
         ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];

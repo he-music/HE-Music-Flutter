@@ -13,6 +13,9 @@ class SongListItemData {
     required this.title,
     required this.artistAlbumText,
     required this.subtitleText,
+    this.titleSpans,
+    this.artistAlbumSpans,
+    this.subtitleSpans,
     this.coverUrl,
     this.coverBytes,
     this.tags = const <String>[],
@@ -24,20 +27,26 @@ class SongListItemData {
     required SongInfo song,
     String? artistAlbumText,
     String subtitleText = '',
+    List<InlineSpan>? titleSpans,
+    List<InlineSpan>? artistAlbumSpans,
+    List<InlineSpan>? subtitleSpans,
     String? coverUrl,
     Uint8List? coverBytes,
     List<String>? tags,
+    List<String> additionalTags = const <String>[],
     bool isCurrent = false,
     bool showMoreVersionButton = false,
-    String originalTagLabel = 'Original',
   }) {
     return SongListItemData(
       title: song.title,
       artistAlbumText: artistAlbumText ?? song.artist,
       subtitleText: subtitleText,
+      titleSpans: titleSpans,
+      artistAlbumSpans: artistAlbumSpans,
+      subtitleSpans: subtitleSpans,
       coverUrl: coverUrl,
       coverBytes: coverBytes,
-      tags: tags ?? _defaultSongTags(song, originalTagLabel),
+      tags: tags ?? <String>[..._defaultSongTags(song), ...additionalTags],
       isCurrent: isCurrent,
       showMoreVersionButton: showMoreVersionButton,
     );
@@ -46,6 +55,9 @@ class SongListItemData {
   final String title;
   final String artistAlbumText;
   final String subtitleText;
+  final List<InlineSpan>? titleSpans;
+  final List<InlineSpan>? artistAlbumSpans;
+  final List<InlineSpan>? subtitleSpans;
   final String? coverUrl;
   final Uint8List? coverBytes;
   final List<String> tags;
@@ -53,14 +65,11 @@ class SongListItemData {
   final bool showMoreVersionButton;
 }
 
-List<String> _defaultSongTags(SongInfo song, String originalTagLabel) {
+List<String> _defaultSongTags(SongInfo song) {
   final tags = <String>[];
   final quality = _songQualityLabel(song);
   if (quality.isNotEmpty) {
     tags.add(quality);
-  }
-  if (song.originalType == 1) {
-    tags.add(originalTagLabel);
   }
   return tags;
 }
@@ -179,10 +188,10 @@ class SongListItem extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: <Widget>[
-                              Text(
-                                data.title,
+                              _ListItemText(
+                                text: data.title,
+                                spans: data.titleSpans,
                                 maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w500,
                                   height: 1.12,
@@ -195,6 +204,7 @@ class SongListItem extends StatelessWidget {
                               _ArtistAlbumLine(
                                 tags: data.tags,
                                 artistAlbum: data.artistAlbumText,
+                                artistAlbumSpans: data.artistAlbumSpans,
                                 isCurrent: isCurrent,
                               ),
                               if (data.subtitleText
@@ -203,6 +213,7 @@ class SongListItem extends StatelessWidget {
                                 const SizedBox(height: 3),
                                 _BottomMetaLine(
                                   subtitle: data.subtitleText,
+                                  subtitleSpans: data.subtitleSpans,
                                   isCurrent: isCurrent,
                                 ),
                               ],
@@ -391,11 +402,13 @@ class _ArtistAlbumLine extends StatelessWidget {
   const _ArtistAlbumLine({
     required this.tags,
     required this.artistAlbum,
+    required this.artistAlbumSpans,
     required this.isCurrent,
   });
 
   final List<String> tags;
   final String artistAlbum;
+  final List<InlineSpan>? artistAlbumSpans;
   final bool isCurrent;
 
   @override
@@ -410,10 +423,10 @@ class _ArtistAlbumLine extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: Text(
-            artistAlbum,
+          child: _ListItemText(
+            text: artistAlbum,
+            spans: artistAlbumSpans,
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: isCurrent
                   ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.9)
@@ -428,9 +441,14 @@ class _ArtistAlbumLine extends StatelessWidget {
 }
 
 class _BottomMetaLine extends StatelessWidget {
-  const _BottomMetaLine({required this.subtitle, required this.isCurrent});
+  const _BottomMetaLine({
+    required this.subtitle,
+    required this.subtitleSpans,
+    required this.isCurrent,
+  });
 
   final String subtitle;
+  final List<InlineSpan>? subtitleSpans;
   final bool isCurrent;
 
   @override
@@ -438,10 +456,10 @@ class _BottomMetaLine extends StatelessWidget {
     final theme = Theme.of(context);
     return SizedBox(
       height: 14,
-      child: Text(
-        subtitle,
+      child: _ListItemText(
+        text: subtitle,
+        spans: subtitleSpans,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodySmall?.copyWith(
           color: isCurrent
               ? theme.colorScheme.primary.withValues(alpha: 0.7)
@@ -450,6 +468,40 @@ class _BottomMetaLine extends StatelessWidget {
           fontSize: 11.5,
         ),
       ),
+    );
+  }
+}
+
+class _ListItemText extends StatelessWidget {
+  const _ListItemText({
+    required this.text,
+    required this.spans,
+    required this.maxLines,
+    required this.style,
+  });
+
+  final String text;
+  final List<InlineSpan>? spans;
+  final int maxLines;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final richSpans = spans;
+    if (richSpans == null) {
+      return Text(
+        text,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+    return Text.rich(
+      TextSpan(children: richSpans),
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+      semanticsLabel: text,
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/helpers/root_route_navigation_helper.dart';
+import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/share_link_builder.dart';
 import 'online_search_models.dart';
 
@@ -34,6 +35,7 @@ void openSearchDetail({
     case SearchType.artist:
     case SearchType.video:
     case SearchType.song:
+    case SearchType.lyric:
       final uri = Uri(
         path: _detailRouteForSearchType(type),
         queryParameters: <String, String>{
@@ -49,32 +51,32 @@ void openSearchDetail({
 
 void openSearchSongAlbumDetail({
   required BuildContext context,
-  required Map<String, dynamic> item,
+  required SongInfo song,
   required String fallbackPlatformId,
   required String localeCode,
   required ValueChanged<String> onError,
 }) {
-  final albumId = songAlbumId(item);
-  if (albumId == '-') {
+  final albumId = song.album?.id.trim() ?? '';
+  if (albumId.isEmpty) {
     onError(AppI18n.tByLocaleCode(localeCode, 'search.no_album'));
     return;
   }
   context.pushAlbumDetail(
     id: albumId,
-    platform: resolveSearchPlatform(item, fallbackPlatformId),
-    title: songAlbum(item),
+    platform: resolveSearchSongPlatform(song, fallbackPlatformId),
+    title: song.album?.name.trim() ?? '',
   );
 }
 
 void openSearchSongArtistDetail({
   required BuildContext context,
-  required Map<String, dynamic> item,
+  required SongInfo song,
   required String fallbackPlatformId,
   required String localeCode,
   required ValueChanged<String> onError,
 }) {
-  final artistId = songPrimaryArtistId(item);
-  if (artistId == '-') {
+  final artistId = song.artists.isEmpty ? '' : song.artists.first.id.trim();
+  if (artistId.isEmpty) {
     onError(AppI18n.tByLocaleCode(localeCode, 'search.no_artist'));
     return;
   }
@@ -83,22 +85,22 @@ void openSearchSongArtistDetail({
     queryParameters: <String, String>{
       'type': 'artist',
       'id': artistId,
-      'platform': resolveSearchPlatform(item, fallbackPlatformId),
-      'title': songSubtitle(item),
+      'platform': resolveSearchSongPlatform(song, fallbackPlatformId),
+      'title': song.artist,
     },
   );
   context.push(uri.toString());
 }
 
 Future<void> searchBySameSongName({
-  required Map<String, dynamic> item,
+  required SongInfo song,
   required TextEditingController controller,
   required Future<void> Function() onSearch,
   required String localeCode,
   required ValueChanged<String> onError,
 }) async {
-  final name = songTitle(item);
-  if (name == '-') {
+  final name = song.title.trim();
+  if (name.isEmpty) {
     onError(AppI18n.tByLocaleCode(localeCode, 'search.invalid_name'));
     return;
   }
@@ -107,13 +109,13 @@ Future<void> searchBySameSongName({
 }
 
 Future<void> copySearchSongId({
-  required Map<String, dynamic> item,
+  required SongInfo song,
   required String localeCode,
   required ValueChanged<String> onError,
   required ValueChanged<String> onSuccess,
 }) async {
-  final id = text(item['id']);
-  if (id == '-') {
+  final id = song.id.trim();
+  if (id.isEmpty) {
     onError(AppI18n.tByLocaleCode(localeCode, 'search.invalid_id'));
     return;
   }
@@ -122,13 +124,13 @@ Future<void> copySearchSongId({
 }
 
 Future<void> copySearchSongName({
-  required Map<String, dynamic> item,
+  required SongInfo song,
   required String localeCode,
   required ValueChanged<String> onError,
   required ValueChanged<String> onSuccess,
 }) async {
-  final name = songTitle(item);
-  if (name == '-') {
+  final name = song.title.trim();
+  if (name.isEmpty) {
     onError(AppI18n.tByLocaleCode(localeCode, 'search.invalid_name'));
     return;
   }
@@ -137,18 +139,18 @@ Future<void> copySearchSongName({
 }
 
 Future<void> copySearchSongShareLink({
-  required Map<String, dynamic> item,
+  required SongInfo song,
   required String fallbackPlatformId,
   required String localeCode,
   required ValueChanged<String> onError,
   required ValueChanged<String> onSuccess,
 }) async {
-  final id = text(item['id']);
-  if (id == '-') {
+  final id = song.id.trim();
+  if (id.isEmpty) {
     onError(AppI18n.tByLocaleCode(localeCode, 'search.invalid_id'));
     return;
   }
-  final platform = resolveSearchPlatform(item, fallbackPlatformId);
+  final platform = resolveSearchSongPlatform(song, fallbackPlatformId);
   final link = buildShareLink(type: 'song', platform: platform, id: id);
   await Clipboard.setData(ClipboardData(text: link));
   onSuccess(AppI18n.tByLocaleCode(localeCode, 'player.copy.share_done'));
@@ -156,13 +158,13 @@ Future<void> copySearchSongShareLink({
 
 void openSearchSongMvDetail({
   required BuildContext context,
-  required Map<String, dynamic> item,
+  required SongInfo song,
   required String fallbackPlatformId,
   required String localeCode,
   required ValueChanged<String> onError,
 }) {
-  final mvId = songMvId(item);
-  if (mvId == '-' || mvId == '0') {
+  final mvId = song.mvId.trim();
+  if (mvId.isEmpty || mvId == '0') {
     onError(AppI18n.tByLocaleCode(localeCode, 'search.no_mv'));
     return;
   }
@@ -171,8 +173,8 @@ void openSearchSongMvDetail({
     queryParameters: <String, String>{
       'type': 'mv',
       'id': mvId,
-      'platform': resolveSearchPlatform(item, fallbackPlatformId),
-      'title': songTitle(item),
+      'platform': resolveSearchSongPlatform(song, fallbackPlatformId),
+      'title': song.title,
     },
   );
   context.push(uri.toString());
@@ -189,6 +191,11 @@ String resolveSearchPlatform(
   return platform;
 }
 
+String resolveSearchSongPlatform(SongInfo song, String fallbackPlatformId) {
+  final platform = song.platform.trim();
+  return platform.isEmpty ? fallbackPlatformId : platform;
+}
+
 String _detailRouteForSearchType(SearchType type) {
   return switch (type) {
     SearchType.comprehensive => AppRoutes.onlineSearch,
@@ -197,5 +204,6 @@ String _detailRouteForSearchType(SearchType type) {
     SearchType.artist => AppRoutes.artistDetail,
     SearchType.video => AppRoutes.videoDetail,
     SearchType.song => AppRoutes.songDetail,
+    SearchType.lyric => AppRoutes.songDetail,
   };
 }

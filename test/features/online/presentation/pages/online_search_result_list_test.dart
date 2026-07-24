@@ -11,6 +11,11 @@ import 'package:he_music_flutter/features/online/domain/entities/online_platform
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_list.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
+import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/video_item.dart';
 
@@ -102,6 +107,94 @@ void main() {
       }
     },
   );
+
+  testWidgets('song search uses nested song and never expands full lyrics', (
+    tester,
+  ) async {
+    SongInfo? tappedSong;
+    await tester.pumpWidget(
+      _buildResultList(
+        type: SearchType.song,
+        songResults: <SearchSongInfo>[
+          _searchSong(lyricSnippet: '命中的歌词片段', lyric: '完整歌词第一行\n完整歌词第二行'),
+        ],
+        onTapSongItem: (song) => tappedSong = song,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('测试歌曲'), findsOneWidget);
+    expect(find.text('命中的歌词片段'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('search-lyric-toggle-song-1|qq')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('测试歌曲'));
+    await tester.pump();
+    expect(tappedSong?.id, 'song-1');
+  });
+
+  testWidgets('lyric search expands and collapses full plain-text lyrics', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildResultList(
+        type: SearchType.lyric,
+        songResults: <SearchSongInfo>[
+          _searchSong(lyricSnippet: '命中的歌词片段', lyric: '完整歌词第一行\n完整歌词第二行'),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    const fullLyricKey = ValueKey('search-lyric-full-song-1|qq');
+    final toggle = find.byKey(const ValueKey('search-lyric-toggle-song-1|qq'));
+    expect(toggle, findsOneWidget);
+    expect(find.byKey(fullLyricKey), findsNothing);
+
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(find.byKey(fullLyricKey), findsOneWidget);
+
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(find.byKey(fullLyricKey), findsNothing);
+  });
+
+  testWidgets('expanded version invokes action with the nested version song', (
+    tester,
+  ) async {
+    SongInfo? tappedSong;
+    await tester.pumpWidget(
+      _buildResultList(
+        type: SearchType.song,
+        songResults: <SearchSongInfo>[
+          _searchSong(
+            lyricSnippet: '',
+            lyric: '',
+            sublist: <SearchSongInfo>[
+              _searchSong(
+                id: 'song-live',
+                name: '现场版本',
+                lyricSnippet: '',
+                lyric: '',
+              ),
+            ],
+          ),
+        ],
+        onTapSongItem: (song) => tappedSong = song,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('更多版本'));
+    await tester.pump();
+    await tester.tap(find.text('现场版本'));
+    await tester.pump();
+
+    expect(tappedSong?.id, 'song-live');
+  });
 }
 
 Widget _buildResultList({
@@ -109,7 +202,9 @@ Widget _buildResultList({
   bool initialLoading = false,
   bool immersive = false,
   List<Map<String, dynamic>> results = const <Map<String, dynamic>>[],
+  List<SearchSongInfo> songResults = const <SearchSongInfo>[],
   ValueChanged<Map<String, dynamic>>? onTapItem,
+  ValueChanged<SongInfo>? onTapSongItem,
 }) {
   final skin = AppSkinRegistry.builtIn(
     AppThemeAccent.forest,
@@ -118,6 +213,7 @@ Widget _buildResultList({
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
+      playerControllerProvider.overrideWith(_TestPlayerController.new),
     ],
     child: MaterialApp(
       theme: immersive ? AppTheme.light(skin) : null,
@@ -125,18 +221,51 @@ Widget _buildResultList({
         body: OnlineSearchResultList(
           type: type,
           results: results,
+          songResults: songResults,
+          searchKeyword: '歌词',
           error: null,
           initialLoading: initialLoading,
           likedSongKeys: const <String>{},
           loadingMore: false,
           hasMore: true,
           onTapItem: onTapItem ?? (_) {},
+          onTapSongItem: onTapSongItem ?? (_) {},
           onLikeSongItem: (_) async {},
           onMoreSongItem: (_) {},
           onLoadMore: () async {},
         ),
       ),
     ),
+  );
+}
+
+SearchSongInfo _searchSong({
+  String id = 'song-1',
+  String name = '测试歌曲',
+  required String lyricSnippet,
+  required String lyric,
+  List<SearchSongInfo> sublist = const <SearchSongInfo>[],
+}) {
+  return SearchSongInfo(
+    song: SongInfo(
+      name: name,
+      subtitle: '',
+      id: id,
+      duration: 180,
+      mvId: '',
+      album: SongInfoAlbumInfo(name: '测试专辑', id: 'album-1'),
+      artists: <SongInfoArtistInfo>[
+        SongInfoArtistInfo(id: 'artist-1', name: '测试歌手'),
+      ],
+      links: <LinkInfo>[],
+      platform: 'qq',
+      cover: '',
+    ),
+    sublist: sublist,
+    originalType: 1,
+    lyricSnippet: lyricSnippet,
+    lyric: lyric,
+    matchedKeywords: const <String>['歌词'],
   );
 }
 
@@ -196,4 +325,14 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
       ),
     ];
   }
+}
+
+class _TestPlayerController extends PlayerController {
+  @override
+  PlayerPlaybackState build() {
+    return PlayerPlaybackState.initial(const <PlayerTrack>[]);
+  }
+
+  @override
+  Future<void> initialize() async {}
 }

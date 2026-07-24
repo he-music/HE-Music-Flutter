@@ -355,7 +355,5 @@ SongInfo _buildSong(String platform) {
     links: const <LinkInfo>[],
     platform: platform,
     cover: '',
-    sublist: const <SongInfo>[],
-    originalType: 0,
   );
 }

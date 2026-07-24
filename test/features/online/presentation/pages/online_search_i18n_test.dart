@@ -14,6 +14,7 @@ import 'package:he_music_flutter/features/online/presentation/pages/online_searc
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_list.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_suggest_panel.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/features/online/presentation/widgets/search_artist_list_item.dart';
 
 void main() {
@@ -149,8 +150,9 @@ void main() {
                   loadingMore: false,
                   hasMore: true,
                   onTapItem: _noopTapItem,
+                  onTapSongItem: _noopTapSong,
                   onLikeSongItem: _noopLikeSongItem,
-                  onMoreSongItem: _noopTapItem,
+                  onMoreSongItem: _noopTapSong,
                   onLoadMore: _noopLoadMore,
                 ),
               ),
@@ -173,8 +175,9 @@ void main() {
                   loadingMore: false,
                   hasMore: false,
                   onTapItem: _noopTapItem,
+                  onTapSongItem: _noopTapSong,
                   onLikeSongItem: _noopLikeSongItem,
-                  onMoreSongItem: _noopTapItem,
+                  onMoreSongItem: _noopTapSong,
                   onLoadMore: _noopLoadMore,
                 ),
               ),
@@ -264,6 +267,8 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
 
 void _noopTapItem(Map<String, dynamic> item) {}
 
-Future<void> _noopLikeSongItem(Map<String, dynamic> item) async {}
+void _noopTapSong(SongInfo song) {}
+
+Future<void> _noopLikeSongItem(SongInfo song) async {}
 
 Future<void> _noopLoadMore() async {}

@@ -20,7 +20,11 @@ class OnlineSongListItem extends ConsumerWidget {
     this.showActions = true,
     this.artistAlbumText,
     this.subtitleText = '',
+    this.titleSpans,
+    this.artistAlbumSpans,
+    this.subtitleSpans,
     this.tags,
+    this.additionalTags = const <String>[],
     this.showMoreVersionButton = false,
     this.onTap,
     this.onSelectTap,
@@ -40,7 +44,11 @@ class OnlineSongListItem extends ConsumerWidget {
   final bool showActions;
   final String? artistAlbumText;
   final String subtitleText;
+  final List<InlineSpan>? titleSpans;
+  final List<InlineSpan>? artistAlbumSpans;
+  final List<InlineSpan>? subtitleSpans;
   final List<String>? tags;
+  final List<String> additionalTags;
   final bool showMoreVersionButton;
   final VoidCallback? onTap;
   final VoidCallback? onSelectTap;
@@ -56,12 +64,15 @@ class OnlineSongListItem extends ConsumerWidget {
         song: song,
         artistAlbumText: artistAlbumText,
         subtitleText: subtitleText,
+        titleSpans: titleSpans,
+        artistAlbumSpans: artistAlbumSpans,
+        subtitleSpans: subtitleSpans,
         coverUrl: coverUrl,
         coverBytes: coverBytes,
         tags: tags,
+        additionalTags: additionalTags,
         isCurrent: isCurrent,
         showMoreVersionButton: showMoreVersionButton,
-        originalTagLabel: AppI18n.t(config, 'song.tag.original'),
       ),
       isLiked: isLiked,
       selectable: selectable,

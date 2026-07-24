@@ -204,7 +204,5 @@ SongInfo _song() {
     links: <LinkInfo>[],
     platform: 'qq',
     cover: '',
-    sublist: <SongInfo>[],
-    originalType: 0,
   );
 }

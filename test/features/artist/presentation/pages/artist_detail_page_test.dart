@@ -422,8 +422,6 @@ class _TestArtistDetailRepository implements ArtistDetailRepository {
           links: <LinkInfo>[],
           platform: 'qq',
           cover: '',
-          sublist: <SongInfo>[],
-          originalType: 0,
         ),
       ],
     );
@@ -563,8 +561,6 @@ class _PagedArtistDetailRepository extends _TestArtistDetailRepository {
           links: <LinkInfo>[],
           platform: 'qq',
           cover: '',
-          sublist: <SongInfo>[],
-          originalType: 0,
         ),
       ],
     );

@@ -70,6 +70,8 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   final _searchFocusNode = FocusNode();
   final Map<String, List<Map<String, dynamic>>> _searchResultCache =
       <String, List<Map<String, dynamic>>>{};
+  final Map<String, List<SearchSongInfo>> _searchSongResultCache =
+      <String, List<SearchSongInfo>>{};
   final Map<String, OnlineComprehensiveSearchResult> _comprehensiveResultCache =
       <String, OnlineComprehensiveSearchResult>{};
   final Map<String, String> _searchErrorCache = <String, String>{};
@@ -117,6 +119,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       'artist' => SearchType.artist,
       'video' => SearchType.video,
       'mv' => SearchType.video,
+      'lyric' => SearchType.lyric,
       _ => null,
     };
   }
@@ -166,11 +169,15 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     final results = cacheKey == null
         ? const <Map<String, dynamic>>[]
         : (_searchResultCache[cacheKey] ?? const <Map<String, dynamic>>[]);
+    final songResults = cacheKey == null
+        ? const <SearchSongInfo>[]
+        : (_searchSongResultCache[cacheKey] ?? const <SearchSongInfo>[]);
     final comprehensiveResult = cacheKey == null
         ? null
         : _comprehensiveResultCache[cacheKey];
     final error = cacheKey == null ? null : _searchErrorCache[cacheKey];
-    final initialLoading = loading && results.isEmpty && error == null;
+    final initialLoading =
+        loading && results.isEmpty && songResults.isEmpty && error == null;
     final loadingMore =
         cacheKey != null && _loadingMoreCacheKeys.contains(cacheKey);
     final hasMore = cacheKey != null && (_hasMoreCache[cacheKey] ?? false);
@@ -246,26 +253,21 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                           availableTypes: availableTypes,
                           loading: loading,
                           results: results,
+                          songResults: songResults,
+                          searchKeyword: effectiveKeyword,
                           comprehensiveResult: comprehensiveResult,
                           error: error,
                           initialLoading: initialLoading,
                           likedSongKeys: likedSongKeys,
-                          onTapItem: (type, item) async {
-                            if (type == SearchType.song) {
-                              await _playSong(item);
-                              return;
-                            }
-                            openSearchDetail(
-                              context: context,
-                              type: type,
-                              item: item,
-                              fallbackPlatformId: _selectedPlatformId,
-                              localeCode: ref
-                                  .read(appConfigProvider)
-                                  .localeCode,
-                              onError: AppMessageService.showWarning,
-                            );
-                          },
+                          onTapItem: (type, item) => openSearchDetail(
+                            context: context,
+                            type: type,
+                            item: item,
+                            fallbackPlatformId: _selectedPlatformId,
+                            localeCode: ref.read(appConfigProvider).localeCode,
+                            onError: AppMessageService.showWarning,
+                          ),
+                          onTapSongItem: (song) => unawaited(_playSong(song)),
                           onLikeSongItem: _toggleSongLike,
                           onMoreSongItem: _showSongActions,
                           onMoreSection: _openMoreSection,
@@ -318,10 +320,12 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         _suggestKeywords = const <String>[];
       });
     }
+    final searchType = _selectedType;
+    final platformId = _selectedPlatformId;
     final cacheKey = _cacheKey(
       keyword: keyword,
-      type: _selectedType,
-      platformId: _selectedPlatformId,
+      type: searchType,
+      platformId: platformId,
     );
     if (_loadingCacheKeys.contains(cacheKey)) {
       return;
@@ -331,13 +335,11 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       _searchErrorCache.remove(cacheKey);
     });
     try {
-      if (_selectedType == SearchType.comprehensive) {
+      final repository = ref.read(onlineSearchRepositoryProvider);
+      if (searchType == SearchType.comprehensive) {
         final result = await ref
             .read(onlineSearchRepositoryProvider)
-            .comprehensiveSearch(
-              keyword: keyword,
-              platform: _selectedPlatformId,
-            );
+            .comprehensiveSearch(keyword: keyword, platform: platformId);
         if (!mounted) {
           return;
         }
@@ -350,23 +352,41 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         await _appendSearchHistory(keyword);
         return;
       }
-      final results = await ref
-          .read(onlineSearchRepositoryProvider)
-          .searchMusic(
-            keyword: keyword,
-            platform: _selectedPlatformId,
-            type: _selectedType.apiType,
-            pageIndex: 1,
-            pageSize: _searchPageSize,
-          );
+      if (_usesSearchSongResults(searchType)) {
+        final page = await _fetchSearchSongPage(
+          type: searchType,
+          keyword: keyword,
+          platformId: platformId,
+          pageIndex: 1,
+        );
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _activeSearchKeyword = keyword;
+          _searchSongResultCache[cacheKey] = page.items;
+          _nextPageCache[cacheKey] = page.pageIndex + 1;
+          _hasMoreCache[cacheKey] = page.hasMore;
+          _searchErrorCache.remove(cacheKey);
+        });
+        await _appendSearchHistory(keyword);
+        return;
+      }
+      final page = await repository.searchMusic(
+        keyword: keyword,
+        platform: platformId,
+        type: searchType.apiType,
+        pageIndex: 1,
+        pageSize: _searchPageSize,
+      );
       if (!mounted) {
         return;
       }
       setState(() {
         _activeSearchKeyword = keyword;
-        _searchResultCache[cacheKey] = results;
-        _nextPageCache[cacheKey] = 2;
-        _hasMoreCache[cacheKey] = results.length >= _searchPageSize;
+        _searchResultCache[cacheKey] = page.items;
+        _nextPageCache[cacheKey] = page.pageIndex + 1;
+        _hasMoreCache[cacheKey] = page.hasMore;
         _searchErrorCache.remove(cacheKey);
       });
       await _appendSearchHistory(keyword);
@@ -375,7 +395,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         return;
       }
       setState(() {
-        if (!_searchResultCache.containsKey(cacheKey)) {
+        if (!_hasCachedResult(cacheKey, searchType)) {
           _searchErrorCache[cacheKey] = '$error';
         }
       });
@@ -417,9 +437,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       type: _selectedType,
       platformId: _selectedPlatformId,
     );
-    final hasCachedResult = _selectedType == SearchType.comprehensive
-        ? _comprehensiveResultCache.containsKey(cacheKey)
-        : _searchResultCache.containsKey(cacheKey);
+    final hasCachedResult = _hasCachedResult(cacheKey, _selectedType);
     if (hasCachedResult || _loadingCacheKeys.contains(cacheKey)) {
       return;
     }
@@ -430,6 +448,8 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     if (_selectedType == SearchType.comprehensive) {
       return;
     }
+    final searchType = _selectedType;
+    final platformId = _selectedPlatformId;
     final keyword = _effectiveSearchKeyword();
     final cacheKey = _currentCacheKey();
     if (keyword.isEmpty || cacheKey == null) {
@@ -443,19 +463,43 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         !(_hasMoreCache[cacheKey] ?? false)) {
       return;
     }
-    final currentResults = _searchResultCache[cacheKey];
-    if (currentResults == null || currentResults.isEmpty) {
-      return;
-    }
     final pageIndex = _nextPageCache[cacheKey] ?? 2;
     setState(() => _loadingMoreCacheKeys.add(cacheKey));
     try {
-      final nextList = await ref
+      if (_usesSearchSongResults(searchType)) {
+        final currentResults = _searchSongResultCache[cacheKey];
+        if (currentResults == null || currentResults.isEmpty) {
+          return;
+        }
+        final page = await _fetchSearchSongPage(
+          type: searchType,
+          keyword: keyword,
+          platformId: platformId,
+          pageIndex: pageIndex,
+        );
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _searchSongResultCache[cacheKey] = <SearchSongInfo>[
+            ...currentResults,
+            ...page.items,
+          ];
+          _nextPageCache[cacheKey] = page.pageIndex + 1;
+          _hasMoreCache[cacheKey] = page.hasMore;
+        });
+        return;
+      }
+      final currentResults = _searchResultCache[cacheKey];
+      if (currentResults == null || currentResults.isEmpty) {
+        return;
+      }
+      final page = await ref
           .read(onlineSearchRepositoryProvider)
           .searchMusic(
             keyword: keyword,
-            platform: _selectedPlatformId,
-            type: _selectedType.apiType,
+            platform: platformId,
+            type: searchType.apiType,
             pageIndex: pageIndex,
             pageSize: _searchPageSize,
           );
@@ -465,10 +509,10 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       setState(() {
         _searchResultCache[cacheKey] = <Map<String, dynamic>>[
           ...currentResults,
-          ...nextList,
+          ...page.items,
         ];
-        _nextPageCache[cacheKey] = pageIndex + 1;
-        _hasMoreCache[cacheKey] = nextList.length >= _searchPageSize;
+        _nextPageCache[cacheKey] = page.pageIndex + 1;
+        _hasMoreCache[cacheKey] = page.hasMore;
       });
     } catch (error) {
       _showErrorMessage('$error');
@@ -477,6 +521,29 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         setState(() => _loadingMoreCacheKeys.remove(cacheKey));
       }
     }
+  }
+
+  Future<OnlineSearchPageResult<SearchSongInfo>> _fetchSearchSongPage({
+    required SearchType type,
+    required String keyword,
+    required String platformId,
+    required int pageIndex,
+  }) {
+    final repository = ref.read(onlineSearchRepositoryProvider);
+    if (type == SearchType.lyric) {
+      return repository.searchLyrics(
+        keyword: keyword,
+        platform: platformId,
+        pageIndex: pageIndex,
+        pageSize: _searchPageSize,
+      );
+    }
+    return repository.searchSongs(
+      keyword: keyword,
+      platform: platformId,
+      pageIndex: pageIndex,
+      pageSize: _searchPageSize,
+    );
   }
 
   Future<void> _loadSearchHistory() async {
@@ -714,9 +781,8 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         .toList(growable: false);
   }
 
-  void _showSongActions(Map<String, dynamic> item) {
-    final platform = resolveSearchPlatform(item, _selectedPlatformId);
-    final song = searchSongInfo(item);
+  void _showSongActions(SongInfo song) {
+    final platform = resolveSearchSongPlatform(song, _selectedPlatformId);
     final artists = song.artists;
     final albumId = song.album?.id.trim() ?? '';
     final albumTitle = song.album?.name.trim() ?? '';
@@ -743,35 +809,34 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       token: config.authToken ?? '',
       platforms: platforms,
       platformId: platform,
-      songId: text(item['id']),
-      cover: text(item['cover']) == '-' ? '' : text(item['cover']),
+      songId: song.id,
+      cover: song.cover,
       size: 300,
     );
     showSearchSongActions(
       context: context,
-      song: item,
+      song: song,
       coverUrl: coverUrl.isEmpty ? null : coverUrl,
-      hasMv: songHasMv(item),
+      hasMv: song.hasMv,
       sourceLabel: AppI18n.format(config, 'song.source', <String, String>{
         'platform': resolvePlatformLabel(platform, platforms: platforms),
       }),
-      onPlay: () => unawaited(_playSong(item)),
-      onPlayNext: () => unawaited(_queuePlayNext(item)),
-      onAddToPlaylist: () => unawaited(_appendToQueue(item)),
+      onPlay: () => unawaited(_playSong(song)),
+      onPlayNext: () => unawaited(_queuePlayNext(song)),
+      onAddToPlaylist: () => unawaited(_appendToQueue(song)),
       onDownload: platform.trim().toLowerCase() == 'local' || qualities.isEmpty
           ? null
           : () => unawaited(
               _downloadSongFromSearch(
-                item: item,
                 song: song,
                 artworkUrl: coverUrl.isEmpty ? null : coverUrl,
                 qualities: qualities,
               ),
             ),
-      onAddToUserPlaylist: () => unawaited(_addToUserPlaylist(item)),
+      onAddToUserPlaylist: () => unawaited(_addToUserPlaylist(song)),
       onWatchMv: () => openSearchSongMvDetail(
         context: context,
-        item: item,
+        song: song,
         fallbackPlatformId: _selectedPlatformId,
         localeCode: config.localeCode,
         onError: AppMessageService.showWarning,
@@ -789,7 +854,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
               title: song.title,
             )
           : null,
-      onViewComment: canViewComment ? () => _openCommentPage(item) : null,
+      onViewComment: canViewComment ? () => _openCommentPage(song) : null,
       albumActionLabel: canViewAlbum
           ? AppI18n.t(config, 'player.action.view_album')
           : null,
@@ -813,7 +878,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
             ),
       onCopySongName: () => unawaited(
         copySearchSongName(
-          item: item,
+          song: song,
           localeCode: config.localeCode,
           onError: AppMessageService.showWarning,
           onSuccess: AppMessageService.showSuccess,
@@ -821,7 +886,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       ),
       onCopySongShareLink: () => unawaited(
         copySearchSongShareLink(
-          item: item,
+          song: song,
           fallbackPlatformId: _selectedPlatformId,
           localeCode: config.localeCode,
           onError: AppMessageService.showWarning,
@@ -830,7 +895,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       ),
       onSearchSameName: () => unawaited(
         searchBySameSongName(
-          item: item,
+          song: song,
           controller: _searchController,
           onSearch: _search,
           localeCode: config.localeCode,
@@ -839,7 +904,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       ),
       onCopySongId: () => unawaited(
         copySearchSongId(
-          item: item,
+          song: song,
           localeCode: config.localeCode,
           onError: AppMessageService.showWarning,
           onSuccess: AppMessageService.showSuccess,
@@ -849,12 +914,11 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   }
 
   Future<void> _downloadSongFromSearch({
-    required Map<String, dynamic> item,
     required SongInfo song,
     required String? artworkUrl,
     required List<PlayerQualityOption> qualities,
   }) async {
-    final platform = resolveSearchPlatform(item, _selectedPlatformId);
+    final platform = resolveSearchSongPlatform(song, _selectedPlatformId);
     final config = ref.read(appConfigProvider);
     final selected = await showDownloadQualitySheet(
       context: context,
@@ -902,9 +966,9 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     return const <String, String>{};
   }
 
-  Future<void> _toggleSongLike(Map<String, dynamic> item) async {
-    final songId = text(item['id']);
-    final platform = resolveSearchPlatform(item, _selectedPlatformId);
+  Future<void> _toggleSongLike(SongInfo song) async {
+    final songId = song.id;
+    final platform = resolveSearchSongPlatform(song, _selectedPlatformId);
     final liked = ref.read(
       favoriteSongStatusProvider.select(
         (state) => state.songKeys.contains('$songId|$platform'),
@@ -937,15 +1001,15 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     context.push(uri.toString());
   }
 
-  void _openCommentPage(Map<String, dynamic> item) {
-    final id = text(item['id']);
-    if (id == '-') {
+  void _openCommentPage(SongInfo song) {
+    final id = song.id.trim();
+    if (id.isEmpty) {
       AppMessageService.showWarning(
         AppI18n.t(ref.read(appConfigProvider), 'search.invalid_song'),
       );
       return;
     }
-    final platform = resolveSearchPlatform(item, _selectedPlatformId);
+    final platform = resolveSearchSongPlatform(song, _selectedPlatformId);
     if (!_platformSupportsFeature(
       platformId: platform,
       featureFlag: PlatformFeatureSupportFlag.getCommentList,
@@ -961,15 +1025,15 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         'id': id,
         'resource_type': 'song',
         'platform': platform,
-        'title': songTitle(item),
+        'title': song.title,
       },
     );
     context.push(uri.toString());
   }
 
-  Future<void> _playSong(Map<String, dynamic> item) async {
+  Future<void> _playSong(SongInfo song) async {
     try {
-      final track = await _buildPlayerTrack(item);
+      final track = await _buildPlayerTrack(song);
       await ref
           .read(playerControllerProvider.notifier)
           .insertNextAndPlay(track);
@@ -978,9 +1042,9 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     }
   }
 
-  Future<void> _queuePlayNext(Map<String, dynamic> item) async {
+  Future<void> _queuePlayNext(SongInfo song) async {
     try {
-      final track = await _buildPlayerTrack(item);
+      final track = await _buildPlayerTrack(song);
       await ref.read(playerControllerProvider.notifier).insertNextTrack(track);
       AppMessageService.showSuccess(
         AppI18n.t(ref.read(appConfigProvider), 'search.queue.next_added'),
@@ -990,9 +1054,9 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     }
   }
 
-  Future<void> _appendToQueue(Map<String, dynamic> item) async {
+  Future<void> _appendToQueue(SongInfo song) async {
     try {
-      final track = await _buildPlayerTrack(item);
+      final track = await _buildPlayerTrack(song);
       await ref.read(playerControllerProvider.notifier).appendTrack(track);
       AppMessageService.showSuccess(
         AppI18n.t(ref.read(appConfigProvider), 'search.queue.appended'),
@@ -1002,8 +1066,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     }
   }
 
-  Future<void> _addToUserPlaylist(Map<String, dynamic> item) async {
-    final song = searchSongInfo(item);
+  Future<void> _addToUserPlaylist(SongInfo song) async {
     final id = _safeValue(song.id);
     if (id == '-') {
       AppMessageService.showWarning(
@@ -1016,15 +1079,14 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       ref: ref,
       song: IdPlatformInfo(
         id: id,
-        platform: resolveSearchPlatform(item, _selectedPlatformId),
+        platform: resolveSearchSongPlatform(song, _selectedPlatformId),
       ),
     );
   }
 
-  Future<PlayerTrack> _buildPlayerTrack(Map<String, dynamic> item) async {
-    final song = searchSongInfo(item);
+  Future<PlayerTrack> _buildPlayerTrack(SongInfo song) async {
     final id = _safeValue(song.id);
-    final platform = resolveSearchPlatform(item, _selectedPlatformId);
+    final platform = resolveSearchSongPlatform(song, _selectedPlatformId);
     if (id == '-') {
       throw StateError(
         AppI18n.t(ref.read(appConfigProvider), 'search.invalid_song'),
@@ -1075,6 +1137,20 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     required String platformId,
   }) {
     return '${keyword.toLowerCase()}|${type.apiType}|$platformId';
+  }
+
+  bool _hasCachedResult(String cacheKey, SearchType type) {
+    if (type == SearchType.comprehensive) {
+      return _comprehensiveResultCache.containsKey(cacheKey);
+    }
+    if (_usesSearchSongResults(type)) {
+      return _searchSongResultCache.containsKey(cacheKey);
+    }
+    return _searchResultCache.containsKey(cacheKey);
+  }
+
+  bool _usesSearchSongResults(SearchType type) {
+    return type == SearchType.song || type == SearchType.lyric;
   }
 
   String? _currentCacheKey() {
@@ -1193,16 +1269,24 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       SearchType.album,
       SearchType.artist,
       SearchType.video,
+      SearchType.lyric,
     ];
     if (platforms.isEmpty) {
-      return ordered.where((type) => type != SearchType.comprehensive).toList();
+      return ordered
+          .where(
+            (type) =>
+                type != SearchType.comprehensive && type != SearchType.lyric,
+          )
+          .toList(growable: false);
     }
+    final selectedPlatform = platforms.where(
+      (platform) => platform.id == _selectedPlatformId,
+    );
+    final platform = selectedPlatform.isEmpty
+        ? platforms.first
+        : selectedPlatform.first;
     return ordered
-        .where(
-          (type) => platforms.any(
-            (platform) => platform.supports(type.requiredPlatformFeatureFlag),
-          ),
-        )
+        .where((type) => platform.supports(type.requiredPlatformFeatureFlag))
         .toList(growable: false);
   }
 

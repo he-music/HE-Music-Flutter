@@ -99,7 +99,5 @@ SongInfo _song() {
     links: <LinkInfo>[],
     platform: 'netease',
     cover: '',
-    sublist: <SongInfo>[],
-    originalType: 0,
   );
 }

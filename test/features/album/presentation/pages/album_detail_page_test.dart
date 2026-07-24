@@ -298,8 +298,6 @@ class _FakeAlbumDetailRepository implements AlbumDetailRepository {
           links: <LinkInfo>[],
           platform: 'qq',
           cover: '',
-          sublist: <SongInfo>[],
-          originalType: 0,
         ),
         SongInfo(
           name: '专辑第二首',
@@ -314,8 +312,6 @@ class _FakeAlbumDetailRepository implements AlbumDetailRepository {
           links: <LinkInfo>[],
           platform: 'qq',
           cover: '',
-          sublist: <SongInfo>[],
-          originalType: 0,
         ),
       ],
     );

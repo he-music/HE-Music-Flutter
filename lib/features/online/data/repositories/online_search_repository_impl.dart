@@ -2,6 +2,7 @@ import '../../data/datasources/search_history_data_source.dart';
 import '../../data/online_api_client.dart';
 import '../../domain/repositories/online_search_repository.dart';
 import '../../presentation/pages/online_search_models.dart';
+import '../../../../shared/models/he_music_models.dart';
 
 /// OnlineSearchRepository 的实现，委托给 OnlineApiClient 和 SearchHistoryDataSource。
 class OnlineSearchRepositoryImpl implements OnlineSearchRepository {
@@ -46,10 +47,10 @@ class OnlineSearchRepositoryImpl implements OnlineSearchRepository {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> searchMusic({
+  Future<OnlineSearchPageResult<Map<String, dynamic>>> searchMusic({
     required String keyword,
     required String platform,
-    String type = 'song',
+    required String type,
     int pageIndex = 1,
     int pageSize = 30,
   }) {
@@ -57,6 +58,36 @@ class OnlineSearchRepositoryImpl implements OnlineSearchRepository {
       keyword: keyword,
       platform: platform,
       type: type,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
+  }
+
+  @override
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchSongs({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) {
+    return _apiClient.searchSongs(
+      keyword: keyword,
+      platform: platform,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
+  }
+
+  @override
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) {
+    return _apiClient.searchLyrics(
+      keyword: keyword,
+      platform: platform,
       pageIndex: pageIndex,
       pageSize: pageSize,
     );

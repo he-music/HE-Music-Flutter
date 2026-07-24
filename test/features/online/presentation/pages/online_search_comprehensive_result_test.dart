@@ -9,6 +9,11 @@ import 'package:he_music_flutter/features/online/presentation/pages/online_searc
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_page.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
+import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 
 void main() {
@@ -28,11 +33,14 @@ void main() {
             availableTypes: const <SearchType>[SearchType.comprehensive],
             loading: true,
             results: const <Map<String, dynamic>>[],
+            songResults: const <SearchSongInfo>[],
+            searchKeyword: '',
             comprehensiveResult: null,
             error: null,
             initialLoading: true,
             likedSongKeys: const <String>{},
             onTapItem: (_, _) {},
+            onTapSongItem: (_) {},
             onLikeSongItem: (_) async {},
             onMoreSongItem: (_) {},
             onMoreSection: (_) {},
@@ -97,25 +105,8 @@ void main() {
                 },
               ],
             ),
-            song: OnlineComprehensiveSearchSection(
-              items: const <Map<String, dynamic>>[
-                <String, dynamic>{
-                  'id': 'song-1',
-                  'platform': 'qq',
-                  'name': 'Love Story',
-                  'artist': 'Taylor Swift',
-                  'artists': <Map<String, dynamic>>[
-                    <String, dynamic>{'id': 'artist-1', 'name': 'Taylor Swift'},
-                  ],
-                  'album': <String, dynamic>{
-                    'id': 'album-1',
-                    'name': 'Fearless',
-                  },
-                  'cover': '',
-                  'duration': 235,
-                  'links': <Map<String, dynamic>>[],
-                },
-              ],
+            song: const OnlineComprehensiveSearchSection<SearchSongInfo>(
+              items: <SearchSongInfo>[_searchSong],
             ),
             playlist: OnlineComprehensiveSearchSection(
               items: const <Map<String, dynamic>>[
@@ -158,6 +149,7 @@ void main() {
           ),
           likedSongKeys: const <String>{},
           onTapItem: (type, item) {},
+          onTapSongItem: (_) {},
           onLikeSongItem: (_) async {},
           onMoreSongItem: (_) {},
           onMoreSection: (_) {},
@@ -221,13 +213,23 @@ void main() {
                 ],
                 hasMore: true,
               ),
-              song: const OnlineComprehensiveSearchSection(),
-              playlist: const OnlineComprehensiveSearchSection(),
-              album: const OnlineComprehensiveSearchSection(),
-              video: const OnlineComprehensiveSearchSection(),
+              song: const OnlineComprehensiveSearchSection<SearchSongInfo>(),
+              playlist:
+                  const OnlineComprehensiveSearchSection<
+                    Map<String, dynamic>
+                  >(),
+              album:
+                  const OnlineComprehensiveSearchSection<
+                    Map<String, dynamic>
+                  >(),
+              video:
+                  const OnlineComprehensiveSearchSection<
+                    Map<String, dynamic>
+                  >(),
             ),
             likedSongKeys: const <String>{},
             onTapItem: (type, item) {},
+            onTapSongItem: (_) {},
             onLikeSongItem: (_) async {},
             onMoreSongItem: (_) {},
             onMoreSection: (type) => tappedType = type,
@@ -250,13 +252,83 @@ void main() {
       expect(tappedType, SearchType.artist);
     },
   );
+
+  testWidgets(
+    'song recommendation highlights text and passes nested SongInfo',
+    (tester) async {
+      SongInfo? tappedSong;
+      await tester.pumpWidget(
+        _buildApp(
+          child: OnlineSearchComprehensiveResult(
+            result: const OnlineComprehensiveSearchResult(
+              keyword: 'Love',
+              bestMatch: <BestMatchRecommendItem>[
+                BestMatchRecommendItem(
+                  resourceType: 'artist',
+                  data: <String, dynamic>{
+                    'id': 'artist-1',
+                    'platform': 'qq',
+                    'name': 'Taylor Swift',
+                    'cover': '',
+                  },
+                ),
+                BestMatchRecommendItem(resourceType: 'song', data: _searchSong),
+              ],
+            ),
+            likedSongKeys: const <String>{},
+            onTapItem: (_, _) {},
+            onTapSongItem: (song) => tappedSong = song,
+            onLikeSongItem: (_) async {},
+            onMoreSongItem: (_) {},
+            onMoreSection: (_) {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final title = tester.widget<Text>(find.text('Love Story'));
+      final titleSpan = title.textSpan! as TextSpan;
+      expect(
+        titleSpan.children!.whereType<TextSpan>().any(
+          (span) => span.style?.fontWeight == FontWeight.w600,
+        ),
+        isTrue,
+      );
+      await tester.tap(find.text('Love Story'));
+      await tester.pump();
+      expect(tappedSong?.id, 'song-1');
+    },
+  );
 }
+
+const _searchSong = SearchSongInfo(
+  song: SongInfo(
+    name: 'Love Story',
+    subtitle: '',
+    id: 'song-1',
+    duration: 235,
+    mvId: '',
+    album: SongInfoAlbumInfo(id: 'album-1', name: 'Fearless'),
+    artists: <SongInfoArtistInfo>[
+      SongInfoArtistInfo(id: 'artist-1', name: 'Taylor Swift'),
+    ],
+    links: <LinkInfo>[],
+    platform: 'qq',
+    cover: '',
+  ),
+  sublist: <SearchSongInfo>[],
+  originalType: 0,
+  lyricSnippet: '',
+  lyric: '',
+  matchedKeywords: <String>['Love', 'Taylor Swift'],
+);
 
 Widget _buildApp({required Widget child}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
+      playerControllerProvider.overrideWith(_TestPlayerController.new),
     ],
     child: MaterialApp(home: Scaffold(body: child)),
   );
@@ -292,4 +364,14 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
       ),
     ];
   }
+}
+
+class _TestPlayerController extends PlayerController {
+  @override
+  PlayerPlaybackState build() {
+    return PlayerPlaybackState.initial(const <PlayerTrack>[]);
+  }
+
+  @override
+  Future<void> initialize() async {}
 }

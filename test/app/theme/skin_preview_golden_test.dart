@@ -312,7 +312,5 @@ SongInfo _song(String id, String title, String artist, String album) {
     links: const <LinkInfo>[],
     platform: 'platform-1',
     cover: '',
-    sublist: const <SongInfo>[],
-    originalType: 0,
   );
 }

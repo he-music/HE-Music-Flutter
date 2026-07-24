@@ -1,7 +1,7 @@
 import '../../../../shared/models/he_music_models.dart';
 import '../../domain/entities/online_platform.dart';
 
-enum SearchType { comprehensive, song, playlist, album, artist, video }
+enum SearchType { comprehensive, song, playlist, album, artist, video, lyric }
 
 extension SearchTypeApi on SearchType {
   String get apiType {
@@ -12,6 +12,7 @@ extension SearchTypeApi on SearchType {
       SearchType.album => 'album',
       SearchType.artist => 'artist',
       SearchType.video => 'mv',
+      SearchType.lyric => 'lyric',
     };
   }
 }
@@ -26,6 +27,7 @@ extension SearchTypePlatformFeature on SearchType {
       SearchType.album => PlatformFeatureSupportFlag.searchAlbum,
       SearchType.artist => PlatformFeatureSupportFlag.searchSinger,
       SearchType.video => PlatformFeatureSupportFlag.searchMv,
+      SearchType.lyric => PlatformFeatureSupportFlag.searchLyric,
     };
   }
 }
@@ -39,6 +41,7 @@ extension SearchTypeI18n on SearchType {
       SearchType.album => 'search.type.album',
       SearchType.artist => 'search.type.artist',
       SearchType.video => 'search.type.video',
+      SearchType.lyric => 'search.type.lyric',
     };
   }
 }
@@ -47,14 +50,34 @@ extension SearchTypeComprehensiveSection on SearchType {
   bool get supportsStandaloneSearch => this != SearchType.comprehensive;
 }
 
-class OnlineComprehensiveSearchSection {
+class OnlineSearchPageResult<T> {
+  const OnlineSearchPageResult({
+    required this.platform,
+    required this.keyword,
+    required this.items,
+    required this.pageIndex,
+    required this.pageSize,
+    required this.totalCount,
+    required this.hasMore,
+  });
+
+  final String platform;
+  final String keyword;
+  final List<T> items;
+  final int pageIndex;
+  final int pageSize;
+  final int totalCount;
+  final bool hasMore;
+}
+
+class OnlineComprehensiveSearchSection<T> {
   const OnlineComprehensiveSearchSection({
-    this.items = const <Map<String, dynamic>>[],
+    this.items = const [],
     this.hasMore = false,
     this.totalCount = 0,
   });
 
-  final List<Map<String, dynamic>> items;
+  final List<T> items;
   final bool hasMore;
   final int totalCount;
 
@@ -70,7 +93,7 @@ class BestMatchRecommendItem {
 
   /// 推荐类型: artist | song | playlist | album | mv
   final String resourceType;
-  final Map<String, dynamic> data;
+  final Object data;
 
   /// 将 resourceType 映射为 SearchType，用于复用现有渲染逻辑
   SearchType? get searchType {
@@ -89,53 +112,40 @@ class OnlineComprehensiveSearchResult {
   const OnlineComprehensiveSearchResult({
     required this.keyword,
     this.bestMatch = const <BestMatchRecommendItem>[],
-    this.song = const OnlineComprehensiveSearchSection(),
-    this.playlist = const OnlineComprehensiveSearchSection(),
-    this.album = const OnlineComprehensiveSearchSection(),
-    this.video = const OnlineComprehensiveSearchSection(),
-    this.artist = const OnlineComprehensiveSearchSection(),
+    this.song = const OnlineComprehensiveSearchSection<SearchSongInfo>(),
+    this.playlist =
+        const OnlineComprehensiveSearchSection<Map<String, dynamic>>(),
+    this.album = const OnlineComprehensiveSearchSection<Map<String, dynamic>>(),
+    this.video = const OnlineComprehensiveSearchSection<Map<String, dynamic>>(),
+    this.artist =
+        const OnlineComprehensiveSearchSection<Map<String, dynamic>>(),
   });
 
   final String keyword;
   final List<BestMatchRecommendItem> bestMatch;
-  final OnlineComprehensiveSearchSection song;
-  final OnlineComprehensiveSearchSection playlist;
-  final OnlineComprehensiveSearchSection album;
-  final OnlineComprehensiveSearchSection video;
-  final OnlineComprehensiveSearchSection artist;
+  final OnlineComprehensiveSearchSection<SearchSongInfo> song;
+  final OnlineComprehensiveSearchSection<Map<String, dynamic>> playlist;
+  final OnlineComprehensiveSearchSection<Map<String, dynamic>> album;
+  final OnlineComprehensiveSearchSection<Map<String, dynamic>> video;
+  final OnlineComprehensiveSearchSection<Map<String, dynamic>> artist;
 
   bool get hasBestMatch => bestMatch.isNotEmpty;
-
-  OnlineComprehensiveSearchSection sectionOf(SearchType type) {
-    return switch (type) {
-      SearchType.artist => artist,
-      SearchType.song => song,
-      SearchType.playlist => playlist,
-      SearchType.album => album,
-      SearchType.video => video,
-      SearchType.comprehensive => const OnlineComprehensiveSearchSection(),
-    };
-  }
 }
 
 String displayTitle(SearchType type, Map<String, dynamic> item) {
-  if (type == SearchType.song) {
-    return searchSongInfo(item).name;
-  }
   return switch (type) {
     SearchType.comprehensive => '-',
     SearchType.playlist => searchPlaylistInfo(item).name,
     SearchType.album => searchAlbumInfo(item).name,
     SearchType.artist => searchArtistInfo(item).name,
     SearchType.video => searchVideoInfo(item).name,
-    SearchType.song => searchSongInfo(item).name,
+    SearchType.song || SearchType.lyric => '-',
   };
 }
 
 String displaySubtitle(SearchType type, Map<String, dynamic> item) {
   return switch (type) {
     SearchType.comprehensive => '-',
-    SearchType.song => songSubtitle(item),
     SearchType.playlist =>
       searchPlaylistInfo(item).creator.isEmpty
           ? '-'
@@ -143,6 +153,7 @@ String displaySubtitle(SearchType type, Map<String, dynamic> item) {
     SearchType.album => _artistNames(searchAlbumInfo(item).artists),
     SearchType.artist => _artistSearchSubtitle(searchArtistInfo(item)),
     SearchType.video => _videoSearchSubtitle(searchVideoInfo(item)),
+    SearchType.song || SearchType.lyric => '-',
   };
 }
 
@@ -158,118 +169,8 @@ String artistVideoCount(Map<String, dynamic> item) {
   return _countText(searchArtistInfo(item).mvCount);
 }
 
-String songTitle(Map<String, dynamic> item) {
-  return _safeText(searchSongInfo(item).name);
-}
-
-String songSubtitle(Map<String, dynamic> item) {
-  return _safeText(searchSongInfo(item).artist);
-}
-
-String songAlias(Map<String, dynamic> item) {
-  return _safeText(searchSongInfo(item).subtitle);
-}
-
-String songAlbum(Map<String, dynamic> item) {
-  return _safeText(searchSongInfo(item).album?.name);
-}
-
-String songAlbumId(Map<String, dynamic> item) {
-  return _safeText(searchSongInfo(item).album?.id);
-}
-
-String songPrimaryArtistId(Map<String, dynamic> item) {
-  final artists = searchSongInfo(item).artists;
-  if (artists.isEmpty) {
-    return '-';
-  }
-  return _safeText(artists.first.id);
-}
-
-String songDurationText(Map<String, dynamic> item) {
-  final seconds = searchSongInfo(item).duration;
-  if (seconds <= 0) {
-    return '--:--';
-  }
-  final minute = seconds ~/ 60;
-  final second = seconds % 60;
-  final minuteText = minute.toString().padLeft(2, '0');
-  final secondText = second.toString().padLeft(2, '0');
-  return '$minuteText:$secondText';
-}
-
-String songArtistAlbumText(Map<String, dynamic> item) {
-  final artist = songSubtitle(item);
-  final album = songAlbum(item);
-  if (artist == '-' && album == '-') {
-    return '-';
-  }
-  if (artist == '-') {
-    return album;
-  }
-  if (album == '-') {
-    return artist;
-  }
-  return '$artist - $album';
-}
-
-bool songHasMoreVersion(Map<String, dynamic> item) {
-  return searchSongInfo(item).sublist.isNotEmpty;
-}
-
-String songMvId(Map<String, dynamic> item) {
-  return _safeText(searchSongInfo(item).mvId);
-}
-
-List<Map<String, dynamic>> songSublist(Map<String, dynamic> item) {
-  final value = item['sublist'];
-  if (value is! List || value.isEmpty) {
-    return const <Map<String, dynamic>>[];
-  }
-  return value
-      .map((entry) => mergeSongWithParent(item, _asMap(entry)))
-      .toList(growable: false);
-}
-
-Map<String, dynamic> mergeSongWithParent(
-  Map<String, dynamic> parent,
-  Map<String, dynamic> song,
-) {
-  final merged = <String, dynamic>{...parent, ...song};
-  merged['platform'] = _pick(merged['platform'], parent['platform']);
-  merged['cover'] = _pick(merged['cover'], parent['cover']);
-  merged['subtitle'] = _pick(merged['subtitle'], parent['subtitle']);
-  merged['artists'] = _pick(merged['artists'], parent['artists']);
-  merged['album'] = _pick(merged['album'], parent['album']);
-  return merged;
-}
-
-dynamic _pick(dynamic value, dynamic fallback) {
-  final parsed = text(value);
-  if (parsed == '-') {
-    return fallback;
-  }
-  return value;
-}
-
-bool songIsOriginal(Map<String, dynamic> item) {
-  return searchSongInfo(item).originalType == 1;
-}
-
-bool songHasMv(Map<String, dynamic> item) {
-  final mvId = _safeText(searchSongInfo(item).mvId);
-  return mvId != '-' && mvId != '0';
-}
-
 String artistText(dynamic value) {
   return _safeText(_artistNames(_artistsFromDynamic(value)));
-}
-
-SongInfo searchSongInfo(Map<String, dynamic> item) {
-  return SongInfo.fromMap(
-    item,
-    fallbackPlatform: _safePlatform(item['platform']),
-  );
 }
 
 PlaylistInfo searchPlaylistInfo(Map<String, dynamic> item) {
@@ -387,14 +288,4 @@ String _artistNames(List<SongInfoArtistInfo> artists) {
     return '';
   }
   return names.join('/');
-}
-
-Map<String, dynamic> _asMap(dynamic value) {
-  if (value is Map<String, dynamic>) {
-    return value;
-  }
-  if (value is Map) {
-    return value.map((key, entry) => MapEntry('$key', entry));
-  }
-  return <String, dynamic>{};
 }

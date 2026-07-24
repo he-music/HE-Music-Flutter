@@ -145,8 +145,6 @@ class _FakeSongDetailRepository implements SongDetailRepository {
         links: const <LinkInfo>[],
         platform: 'qq',
         cover: '',
-        sublist: const <SongInfo>[],
-        originalType: 0,
       ),
       publishTime: '2024-01-01',
       language: '国语',

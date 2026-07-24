@@ -438,8 +438,6 @@ class _TestPlaylistDetailRepository implements PlaylistDetailRepository {
     links: <LinkInfo>[],
     platform: 'qq',
     cover: '',
-    sublist: <SongInfo>[],
-    originalType: 0,
   );
 
   @override

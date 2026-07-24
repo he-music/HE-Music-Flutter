@@ -94,8 +94,6 @@ class SongInfo {
     required this.links,
     required this.platform,
     required this.cover,
-    required this.sublist,
-    required this.originalType,
     this.path,
     this.size,
     this.quality,
@@ -112,8 +110,6 @@ class SongInfo {
   final List<LinkInfo> links;
   final String platform;
   final String cover;
-  final List<SongInfo> sublist;
-  final int originalType;
   final String? path;
   final int? size;
   final String? quality;
@@ -172,12 +168,58 @@ class SongInfo {
           ? fallbackPlatform
           : _string(raw['platform']),
       cover: _cover(raw),
-      sublist: _songs(raw['sublist'], fallbackPlatform),
-      originalType: _int(raw['original_type']),
       path: _nullableString(raw['path']),
       size: _nullableInt(raw['size']),
       quality: _nullableString(raw['quality']),
       alias: _nullableString(raw['alias']),
+    );
+  }
+}
+
+class SearchSongInfo {
+  const SearchSongInfo({
+    required this.song,
+    required this.sublist,
+    required this.originalType,
+    required this.lyricSnippet,
+    required this.lyric,
+    required this.matchedKeywords,
+  });
+
+  final SongInfo song;
+  final List<SearchSongInfo> sublist;
+  final int originalType;
+  final String lyricSnippet;
+  final String lyric;
+  final List<String> matchedKeywords;
+
+  factory SearchSongInfo.fromMap(
+    Map<String, dynamic> raw, {
+    String fallbackPlatform = '',
+  }) {
+    final songPayload = _stringKeyedMap(raw['song']);
+    if (songPayload.isEmpty) {
+      throw const FormatException('Invalid search song payload: missing song');
+    }
+    final sublist = raw['sublist'];
+    return SearchSongInfo(
+      song: SongInfo.fromMap(songPayload, fallbackPlatform: fallbackPlatform),
+      sublist: sublist is List
+          ? sublist
+                .map(_stringKeyedMap)
+                .where((item) => item.isNotEmpty)
+                .map(
+                  (item) => SearchSongInfo.fromMap(
+                    item,
+                    fallbackPlatform: fallbackPlatform,
+                  ),
+                )
+                .toList(growable: false)
+          : const <SearchSongInfo>[],
+      originalType: _int(raw['original_type']),
+      lyricSnippet: _string(raw['lyric_snippet']),
+      lyric: _string(raw['lyric']),
+      matchedKeywords: _strings(raw['matched_keywords']),
     );
   }
 }
@@ -654,8 +696,6 @@ List<SongInfo> _songs(dynamic value, String fallbackPlatform) {
           links: const <LinkInfo>[],
           platform: fallbackPlatform,
           cover: '',
-          sublist: const <SongInfo>[],
-          originalType: 0,
         );
       })
       .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
@@ -682,6 +722,26 @@ String _platform(Map<String, dynamic> raw, String fallbackPlatform) {
 }
 
 String _string(dynamic value) => '${value ?? ''}'.trim();
+
+Map<String, dynamic> _stringKeyedMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map((key, entry) => MapEntry('$key', entry));
+  }
+  return const <String, dynamic>{};
+}
+
+List<String> _strings(dynamic value) {
+  if (value is! List) {
+    return const <String>[];
+  }
+  return value
+      .map(_string)
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
 
 String? _nullableString(dynamic value) {
   final result = _string(value);

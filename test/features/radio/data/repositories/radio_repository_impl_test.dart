@@ -53,8 +53,6 @@ SongInfo _makeSongInfo(String id) => SongInfo(
   links: const [],
   platform: 'netease',
   cover: '',
-  sublist: const [],
-  originalType: 0,
 );
 
 class _FakeRadioApiClient extends RadioApiClient {

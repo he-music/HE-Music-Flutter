@@ -62,8 +62,6 @@ SongInfo _makeSongInfo(String id, String name) => SongInfo(
   links: const [],
   platform: 'netease',
   cover: '',
-  sublist: const [],
-  originalType: 0,
 );
 
 class _FakeSongDetailApiClient extends SongDetailApiClient {

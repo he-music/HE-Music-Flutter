@@ -12,6 +12,7 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/features/online/data/datasources/search_history_data_source.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_bars.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_page.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -20,6 +21,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 
 void main() {
   testWidgets(
@@ -53,7 +55,7 @@ void main() {
 
       expect(client.comprehensiveSearchCallCount, 1);
 
-      await tester.tap(find.text('Songs'));
+      await tester.tap(find.text('Songs').first);
       await tester.pump();
       await tester.pump();
 
@@ -106,6 +108,95 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('lyric search entry is hidden without current platform support', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(initialKeyword: 'Taylor Swift'),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final bar = tester.widget<SearchTypeBar>(find.byType(SearchTypeBar));
+    expect(bar.types, isNot(contains(SearchType.lyric)));
+    expect(find.text('Lyrics'), findsNothing);
+  });
+
+  testWidgets(
+    'supported current platform shows lyric entry last and searches',
+    (tester) async {
+      final client = _SearchPageOnlineApiClient();
+      await tester.pumpWidget(
+        _buildOnlineSearchApp(
+          initialKeyword: 'Love',
+          client: client,
+          platformsFuture: Future<List<OnlinePlatform>>.value(<OnlinePlatform>[
+            OnlinePlatform(
+              id: 'qq',
+              name: 'QQ音乐',
+              shortName: 'QQ',
+              status: 1,
+              featureSupportFlag:
+                  _searchPlatforms.single.featureSupportFlag |
+                  PlatformFeatureSupportFlag.searchLyric,
+            ),
+          ]),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      final bar = tester.widget<SearchTypeBar>(find.byType(SearchTypeBar));
+      expect(bar.types.last, SearchType.lyric);
+
+      await tester.ensureVisible(find.text('Lyrics'));
+      await tester.tap(find.text('Lyrics'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(client.lyricSearchCallCount, 1);
+      expect(find.text('Love Story'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'lyric search pagination follows server page index and has more',
+    (tester) async {
+      final client = _PagingSearchPageOnlineApiClient();
+      await tester.pumpWidget(
+        _buildOnlineSearchApp(
+          initialKeyword: 'Love',
+          initialType: 'lyric',
+          client: client,
+          platformsFuture: Future<List<OnlinePlatform>>.value(<OnlinePlatform>[
+            _lyricSearchPlatform,
+          ]),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(client.requestedLyricPages, <int>[1]);
+
+      final songList = tester.widget<SongListComponent>(
+        find.byType(SongListComponent),
+      );
+      expect(songList.hasMore, isTrue);
+      await songList.onLoadMore?.call();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(client.requestedLyricPages, <int>[1, 4]);
+      final updatedSongList = tester.widget<SongListComponent>(
+        find.byType(SongListComponent),
+      );
+      expect(updatedSongList.itemCount, 11);
+      expect(updatedSongList.hasMore, isFalse);
+    },
+  );
 }
 
 Widget _buildOnlineSearchApp({
@@ -202,10 +293,21 @@ final _searchPlatforms = <OnlinePlatform>[
   ),
 ];
 
+final _lyricSearchPlatform = OnlinePlatform(
+  id: 'qq',
+  name: 'QQ音乐',
+  shortName: 'QQ',
+  status: 1,
+  featureSupportFlag:
+      _searchPlatforms.single.featureSupportFlag |
+      PlatformFeatureSupportFlag.searchLyric,
+);
+
 class _SearchPageOnlineApiClient extends OnlineApiClient {
   _SearchPageOnlineApiClient() : super(Dio());
 
   int comprehensiveSearchCallCount = 0;
+  int lyricSearchCallCount = 0;
 
   @override
   Future<List<String>> fetchHotKeywords({String? platform}) async {
@@ -243,54 +345,151 @@ class _SearchPageOnlineApiClient extends OnlineApiClient {
           },
         ],
       ),
-      song: OnlineComprehensiveSearchSection(
-        items: const <Map<String, dynamic>>[
-          <String, dynamic>{
-            'id': 'song-1',
-            'platform': 'qq',
-            'name': 'Love Story',
-            'artist': 'Taylor Swift',
-            'artists': <Map<String, dynamic>>[
-              <String, dynamic>{'id': 'artist-1', 'name': 'Taylor Swift'},
-            ],
-            'album': <String, dynamic>{'id': 'album-1', 'name': 'Fearless'},
-            'cover': '',
-            'duration': 235,
-            'links': <Map<String, dynamic>>[],
-          },
-        ],
+      song: const OnlineComprehensiveSearchSection<SearchSongInfo>(
+        items: <SearchSongInfo>[_searchSong],
       ),
     );
   }
 
   @override
-  Future<List<Map<String, dynamic>>> searchMusic({
+  Future<OnlineSearchPageResult<Map<String, dynamic>>> searchMusic({
     required String keyword,
     required String platform,
-    String type = 'song',
+    required String type,
     int pageIndex = 1,
     int pageSize = 30,
   }) async {
-    if (type == 'song') {
-      return const <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'song-1',
-          'platform': 'qq',
-          'name': 'Love Story',
-          'artist': 'Taylor Swift',
-          'artists': <Map<String, dynamic>>[
-            <String, dynamic>{'id': 'artist-1', 'name': 'Taylor Swift'},
-          ],
-          'album': <String, dynamic>{'id': 'album-1', 'name': 'Fearless'},
-          'cover': '',
-          'duration': 235,
-          'links': <Map<String, dynamic>>[],
-        },
-      ];
-    }
-    return const <Map<String, dynamic>>[];
+    return OnlineSearchPageResult<Map<String, dynamic>>(
+      platform: platform,
+      keyword: keyword,
+      items: const <Map<String, dynamic>>[],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 0,
+      hasMore: false,
+    );
+  }
+
+  @override
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchSongs({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    return OnlineSearchPageResult<SearchSongInfo>(
+      platform: platform,
+      keyword: keyword,
+      items: const <SearchSongInfo>[_searchSong],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 1,
+      hasMore: false,
+    );
+  }
+
+  @override
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    lyricSearchCallCount += 1;
+    return OnlineSearchPageResult<SearchSongInfo>(
+      platform: platform,
+      keyword: keyword,
+      items: const <SearchSongInfo>[_searchSong],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 1,
+      hasMore: false,
+    );
   }
 }
+
+class _PagingSearchPageOnlineApiClient extends _SearchPageOnlineApiClient {
+  final List<int> requestedLyricPages = <int>[];
+
+  @override
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    requestedLyricPages.add(pageIndex);
+    if (pageIndex == 1) {
+      return OnlineSearchPageResult<SearchSongInfo>(
+        platform: platform,
+        keyword: keyword,
+        items: List<SearchSongInfo>.generate(
+          10,
+          (index) => _searchSongForPage(index + 1),
+        ),
+        pageIndex: 3,
+        pageSize: pageSize,
+        totalCount: 11,
+        hasMore: true,
+      );
+    }
+    return OnlineSearchPageResult<SearchSongInfo>(
+      platform: platform,
+      keyword: keyword,
+      items: <SearchSongInfo>[_searchSongForPage(11)],
+      pageIndex: 4,
+      pageSize: pageSize,
+      totalCount: 11,
+      hasMore: false,
+    );
+  }
+}
+
+SearchSongInfo _searchSongForPage(int index) {
+  return SearchSongInfo(
+    song: SongInfo(
+      name: '分页歌曲 $index',
+      subtitle: '',
+      id: 'page-song-$index',
+      duration: 180,
+      mvId: '',
+      album: const SongInfoAlbumInfo(id: 'album-1', name: '分页专辑'),
+      artists: const <SongInfoArtistInfo>[
+        SongInfoArtistInfo(id: 'artist-1', name: '分页歌手'),
+      ],
+      links: const <LinkInfo>[],
+      platform: 'qq',
+      cover: '',
+    ),
+    sublist: const <SearchSongInfo>[],
+    originalType: 0,
+    lyricSnippet: '分页歌词 $index',
+    lyric: '',
+    matchedKeywords: const <String>['分页'],
+  );
+}
+
+const _searchSong = SearchSongInfo(
+  song: SongInfo(
+    name: 'Love Story',
+    subtitle: '',
+    id: 'song-1',
+    duration: 235,
+    mvId: '',
+    album: SongInfoAlbumInfo(id: 'album-1', name: 'Fearless'),
+    artists: <SongInfoArtistInfo>[
+      SongInfoArtistInfo(id: 'artist-1', name: 'Taylor Swift'),
+    ],
+    links: <LinkInfo>[],
+    platform: 'qq',
+    cover: '',
+  ),
+  sublist: <SearchSongInfo>[],
+  originalType: 0,
+  lyricSnippet: 'Love Story',
+  lyric: 'We were both young when I first saw you',
+  matchedKeywords: <String>['Love'],
+);
 
 class _SearchHistoryDataSourceStub extends SearchHistoryDataSource {
   const _SearchHistoryDataSourceStub();
@@ -299,6 +498,14 @@ class _SearchHistoryDataSourceStub extends SearchHistoryDataSource {
   Future<List<String>> listKeywords() async {
     return const <String>['周杰伦'];
   }
+
+  @override
+  Future<List<String>> appendKeyword(String keyword) async {
+    return <String>[keyword];
+  }
+
+  @override
+  Future<void> clearKeywords() async {}
 }
 
 class _StaticSearchDefaultPlaceholderController

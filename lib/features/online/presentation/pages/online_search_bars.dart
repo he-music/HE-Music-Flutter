@@ -152,16 +152,19 @@ class SearchTypeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: types
-          .map(
-            (tab) => _SimpleTab(
-              label: AppI18n.tByLocaleCode(localeCode, tab.labelKey),
-              selected: selectedType == tab,
-              onTap: () => onChanged(tab),
-            ),
-          )
-          .toList(growable: false),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: types
+            .map(
+              (tab) => _SimpleTab(
+                label: AppI18n.tByLocaleCode(localeCode, tab.labelKey),
+                selected: selectedType == tab,
+                onTap: () => onChanged(tab),
+              ),
+            )
+            .toList(growable: false),
+      ),
     );
   }
 }

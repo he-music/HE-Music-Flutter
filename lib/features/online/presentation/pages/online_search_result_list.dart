@@ -1,31 +1,30 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../features/player/presentation/providers/player_providers.dart';
-import '../../../../shared/helpers/current_track_helper.dart';
-import '../../../../shared/widgets/online_song_list_item.dart';
+import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
+import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/utils/cover_resolver.dart';
+import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/song_list_component.dart';
 import '../../../../shared/widgets/video_item.dart';
-import '../../../../shared/utils/cover_resolver.dart';
-import '../../../../shared/utils/playlist_song_count_text.dart';
-import '../../../../app/config/app_config_controller.dart';
-import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../domain/entities/online_platform.dart';
 import '../providers/online_providers.dart';
-import 'online_search_models.dart';
+import '../widgets/online_search_song_result_item.dart';
 import '../widgets/search_album_list_item.dart';
 import '../widgets/search_artist_list_item.dart';
 import '../widgets/search_playlist_list_item.dart';
+import 'online_search_models.dart';
 
 class OnlineSearchResultList extends ConsumerStatefulWidget {
   const OnlineSearchResultList({
     required this.type,
     required this.results,
+    this.songResults = const <SearchSongInfo>[],
+    this.searchKeyword = '',
     required this.error,
     required this.initialLoading,
     required this.likedSongKeys,
@@ -35,20 +34,24 @@ class OnlineSearchResultList extends ConsumerStatefulWidget {
     required this.onLikeSongItem,
     required this.onMoreSongItem,
     required this.onLoadMore,
+    required this.onTapSongItem,
     super.key,
   });
 
   final SearchType type;
   final List<Map<String, dynamic>> results;
+  final List<SearchSongInfo> songResults;
+  final String searchKeyword;
   final String? error;
   final bool initialLoading;
   final Set<String> likedSongKeys;
   final bool loadingMore;
   final bool hasMore;
   final ValueChanged<Map<String, dynamic>> onTapItem;
-  final Future<void> Function(Map<String, dynamic>) onLikeSongItem;
-  final ValueChanged<Map<String, dynamic>> onMoreSongItem;
+  final Future<void> Function(SongInfo) onLikeSongItem;
+  final ValueChanged<SongInfo> onMoreSongItem;
   final Future<void> Function() onLoadMore;
+  final ValueChanged<SongInfo> onTapSongItem;
 
   @override
   ConsumerState<OnlineSearchResultList> createState() =>
@@ -58,7 +61,6 @@ class OnlineSearchResultList extends ConsumerStatefulWidget {
 class _OnlineSearchResultListState
     extends ConsumerState<OnlineSearchResultList> {
   final ScrollController _commonScrollController = ScrollController();
-  final Set<String> _expandedSongKeys = <String>{};
   bool _loadingMoreTriggered = false;
 
   @override
@@ -70,11 +72,6 @@ class _OnlineSearchResultListState
   @override
   void didUpdateWidget(covariant OnlineSearchResultList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final changed =
-        oldWidget.type != widget.type || oldWidget.results != widget.results;
-    if (changed) {
-      _expandedSongKeys.clear();
-    }
     if (oldWidget.loadingMore && !widget.loadingMore) {
       _loadingMoreTriggered = false;
     }
@@ -102,10 +99,24 @@ class _OnlineSearchResultListState
         ),
       );
     }
-    if (widget.type == SearchType.song) {
+    if (widget.type == SearchType.song || widget.type == SearchType.lyric) {
       return SongListComponent(
-        itemCount: widget.results.length,
-        itemBuilder: (context, index) => _buildSongGroup(widget.results[index]),
+        itemCount: widget.songResults.length,
+        itemBuilder: (context, index) {
+          final item = widget.songResults[index];
+          return OnlineSearchSongResultItem(
+            key: ValueKey<String>(
+              'search-song-${item.song.id}|${item.song.platform}',
+            ),
+            item: item,
+            searchKeyword: widget.searchKeyword,
+            likedSongKeys: widget.likedSongKeys,
+            allowFullLyric: widget.type == SearchType.lyric,
+            onTapSong: widget.onTapSongItem,
+            onLikeSong: widget.onLikeSongItem,
+            onMoreSong: widget.onMoreSongItem,
+          );
+        },
         initialLoading: widget.initialLoading,
         loadingMore: widget.loadingMore,
         hasMore: widget.hasMore,
@@ -211,89 +222,9 @@ class _OnlineSearchResultListState
     return const SizedBox.shrink();
   }
 
-  Widget _buildSongGroup(Map<String, dynamic> item) {
-    final songKey = _songKey(item);
-    final subSongs = songSublist(item);
-    final expanded = _expandedSongKeys.contains(songKey);
-    final children = <Widget>[
-      _buildSongItem(
-        item: item,
-        showMoreVersion: subSongs.isNotEmpty,
-        onMoreVersionTap: () => _toggleExpand(songKey),
-      ),
-    ];
-    if (expanded) {
-      for (final subSong in subSongs) {
-        children.add(
-          Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: _buildSongItem(
-              item: subSong,
-              showMoreVersion: false,
-              onMoreVersionTap: null,
-            ),
-          ),
-        );
-      }
-    }
-    return Column(children: children);
-  }
-
-  Widget _buildSongItem({
-    required Map<String, dynamic> item,
-    required bool showMoreVersion,
-    required VoidCallback? onMoreVersionTap,
-  }) {
-    final key = _songKey(item);
-    final song = searchSongInfo(item);
-    final subtitle = songAlias(item);
-    final safeSubtitle = subtitle == '-' ? '' : subtitle;
-    final config = ref.read(appConfigProvider);
-    final platforms =
-        ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
-    );
-    final songCover = resolveSongCoverUrl(
-      baseUrl: config.apiBaseUrl,
-      token: config.authToken ?? '',
-      platforms: platforms,
-      platformId: text(item['platform']),
-      songId: text(item['id']),
-      cover: text(item['cover']) == '-' ? '' : text(item['cover']),
-      size: 300,
-    );
-    return OnlineSongListItem(
-      song: song,
-      artistAlbumText: songArtistAlbumText(item),
-      subtitleText: safeSubtitle,
-      coverUrl: songCover.trim().isEmpty ? null : songCover,
-      isCurrent: isCurrentSongTrack(currentTrack, song),
-      showMoreVersionButton: showMoreVersion,
-      isLiked: widget.likedSongKeys.contains(key),
-      onTap: () => widget.onTapItem(item),
-      onLikeTap: () => unawaited(widget.onLikeSongItem(item)),
-      onMoreTap: () => widget.onMoreSongItem(item),
-      onMoreVersionTap: onMoreVersionTap,
-    );
-  }
-
-  void _toggleExpand(String key) {
-    setState(() {
-      if (_expandedSongKeys.contains(key)) {
-        _expandedSongKeys.remove(key);
-        return;
-      }
-      _expandedSongKeys.add(key);
-    });
-  }
-
-  String _songKey(Map<String, dynamic> item) {
-    return '${text(item['id'])}|${text(item['platform'])}';
-  }
-
   void _onCommonScroll() {
     if (widget.type == SearchType.song ||
+        widget.type == SearchType.lyric ||
         widget.loadingMore ||
         !widget.hasMore ||
         _loadingMoreTriggered) {

@@ -443,8 +443,6 @@ void main() {
         links: <LinkInfo>[],
         platform: 'qq',
         cover: '',
-        sublist: <SongInfo>[],
-        originalType: 0,
       ),
     ]);
     await Future<void>.delayed(Duration.zero);
@@ -516,8 +514,6 @@ void main() {
         links: <LinkInfo>[],
         platform: 'qq',
         cover: '',
-        sublist: <SongInfo>[],
-        originalType: 0,
       ),
     ]);
     await Future<void>.delayed(Duration.zero);
@@ -579,8 +575,6 @@ void main() {
         links: <LinkInfo>[],
         platform: 'qq',
         cover: '',
-        sublist: <SongInfo>[],
-        originalType: 0,
       ),
     ]);
     await completion;

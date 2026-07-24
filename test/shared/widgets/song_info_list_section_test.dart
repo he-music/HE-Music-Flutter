@@ -19,8 +19,6 @@ void main() {
       links: [],
       platform: 'qq',
       cover: '',
-      sublist: [],
-      originalType: 0,
     ),
     const SongInfo(
       name: 'Song B',
@@ -33,8 +31,6 @@ void main() {
       links: [],
       platform: 'netease',
       cover: '',
-      sublist: [],
-      originalType: 0,
     ),
   ];
 

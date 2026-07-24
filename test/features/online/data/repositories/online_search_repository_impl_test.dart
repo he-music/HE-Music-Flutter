@@ -4,6 +4,7 @@ import 'package:he_music_flutter/features/online/data/datasources/search_history
 import 'package:he_music_flutter/features/online/data/online_api_client.dart';
 import 'package:he_music_flutter/features/online/data/repositories/online_search_repository_impl.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
+import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
   test('fetchHotKeywords delegates to apiClient', () async {
@@ -29,6 +30,37 @@ void main() {
 
     expect(fake.lastSuggestionKeyword, 'test');
     expect(result, hasLength(1));
+  });
+
+  test('searchSongs delegates typed song search to apiClient', () async {
+    final fake = _FakeOnlineApiClient();
+    final repo = OnlineSearchRepositoryImpl(
+      fake,
+      _FakeSearchHistoryDataSource(),
+    );
+
+    final result = await repo.searchSongs(
+      keyword: '稻香',
+      platform: 'qq',
+      pageIndex: 2,
+      pageSize: 20,
+    );
+
+    expect(fake.lastSearchKind, 'song');
+    expect(result.items.single.song.id, 'song-1');
+  });
+
+  test('searchLyrics delegates typed lyric search to apiClient', () async {
+    final fake = _FakeOnlineApiClient();
+    final repo = OnlineSearchRepositoryImpl(
+      fake,
+      _FakeSearchHistoryDataSource(),
+    );
+
+    final result = await repo.searchLyrics(keyword: '故事', platform: 'qq');
+
+    expect(fake.lastSearchKind, 'lyric');
+    expect(result.items.single.lyricSnippet, '故事的小黄花');
   });
 
   test('fetchDefaultKeywords delegates to apiClient', () async {
@@ -68,7 +100,7 @@ void main() {
     final result = await repo.searchMusic(
       keyword: '稻香',
       platform: 'qq',
-      type: 'song',
+      type: 'playlist',
       pageIndex: 2,
       pageSize: 20,
     );
@@ -77,7 +109,7 @@ void main() {
     expect(fake.lastSearchPlatform, 'qq');
     expect(fake.lastSearchPageIndex, 2);
     expect(fake.lastSearchPageSize, 20);
-    expect(result, hasLength(1));
+    expect(result.items, hasLength(1));
   });
 
   test('getSearchHistory delegates to historyDataSource', () async {
@@ -133,6 +165,7 @@ class _FakeOnlineApiClient extends OnlineApiClient {
   String? lastSearchPlatform;
   int? lastSearchPageIndex;
   int? lastSearchPageSize;
+  String? lastSearchKind;
 
   @override
   Future<List<String>> fetchHotKeywords({String? platform}) async {
@@ -169,10 +202,10 @@ class _FakeOnlineApiClient extends OnlineApiClient {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> searchMusic({
+  Future<OnlineSearchPageResult<Map<String, dynamic>>> searchMusic({
     required String keyword,
     required String platform,
-    String type = 'song',
+    required String type,
     int pageIndex = 1,
     int pageSize = 30,
   }) async {
@@ -180,10 +213,80 @@ class _FakeOnlineApiClient extends OnlineApiClient {
     lastSearchPlatform = platform;
     lastSearchPageIndex = pageIndex;
     lastSearchPageSize = pageSize;
-    return [
-      {'id': '1', 'title': 'Song'},
-    ];
+    return OnlineSearchPageResult<Map<String, dynamic>>(
+      platform: platform,
+      keyword: keyword,
+      items: const <Map<String, dynamic>>[
+        <String, dynamic>{'id': '1', 'title': 'Playlist'},
+      ],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 1,
+      hasMore: false,
+    );
   }
+
+  @override
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchSongs({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    lastSearchKind = 'song';
+    return _searchSongResult(
+      keyword: keyword,
+      platform: platform,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
+  }
+
+  @override
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    lastSearchKind = 'lyric';
+    return _searchSongResult(
+      keyword: keyword,
+      platform: platform,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
+  }
+}
+
+OnlineSearchPageResult<SearchSongInfo> _searchSongResult({
+  required String keyword,
+  required String platform,
+  required int pageIndex,
+  required int pageSize,
+}) {
+  return OnlineSearchPageResult<SearchSongInfo>(
+    platform: platform,
+    keyword: keyword,
+    items: <SearchSongInfo>[
+      SearchSongInfo(
+        song: SongInfo.fromMap(<String, dynamic>{
+          'id': 'song-1',
+          'name': '稻香',
+          'platform': platform,
+        }),
+        sublist: const <SearchSongInfo>[],
+        originalType: 1,
+        lyricSnippet: '故事的小黄花',
+        lyric: '',
+        matchedKeywords: <String>[keyword],
+      ),
+    ],
+    pageIndex: pageIndex,
+    pageSize: pageSize,
+    totalCount: 1,
+    hasMore: false,
+  );
 }
 
 class _FakeSearchHistoryDataSource extends SearchHistoryDataSource {
@@ -237,10 +340,10 @@ class _ThrowingOnlineApiClient extends OnlineApiClient {
   }) => throw Exception('network error');
 
   @override
-  Future<List<Map<String, dynamic>>> searchMusic({
+  Future<OnlineSearchPageResult<Map<String, dynamic>>> searchMusic({
     required String keyword,
     required String platform,
-    String type = 'song',
+    required String type,
     int pageIndex = 1,
     int pageSize = 30,
   }) => throw Exception('network error');

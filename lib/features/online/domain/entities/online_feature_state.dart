@@ -9,7 +9,7 @@ class OnlineFeatureState {
   });
 
   final bool loading;
-  final List<Map<String, dynamic>> searchResults;
+  final List<Object> searchResults;
   final List<Map<String, dynamic>> comments;
   final Map<String, dynamic>? profile;
   final String? message;
@@ -17,7 +17,7 @@ class OnlineFeatureState {
 
   OnlineFeatureState copyWith({
     bool? loading,
-    List<Map<String, dynamic>>? searchResults,
+    List<Object>? searchResults,
     List<Map<String, dynamic>>? comments,
     Map<String, dynamic>? profile,
     String? message,
@@ -37,7 +37,7 @@ class OnlineFeatureState {
 
   static const initial = OnlineFeatureState(
     loading: false,
-    searchResults: <Map<String, dynamic>>[],
+    searchResults: <Object>[],
     comments: <Map<String, dynamic>>[],
   );
 }

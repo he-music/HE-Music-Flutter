@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/song_actions_sheet.dart';
-import 'online_search_models.dart';
 
 Future<void> showSearchSongActions({
   required BuildContext context,
   BuildContext? anchorContext,
   Offset? anchorPosition,
-  required Map<String, dynamic> song,
+  required SongInfo song,
   required String? coverUrl,
   required bool hasMv,
   required String sourceLabel,
@@ -28,8 +28,8 @@ Future<void> showSearchSongActions({
   required VoidCallback onSearchSameName,
   required VoidCallback onCopySongId,
 }) {
-  final title = songTitle(song);
-  final subtitle = songSubtitle(song);
+  final title = song.title;
+  final subtitle = song.artist;
   return showSongActionsSheet(
     context: context,
     anchorContext: anchorContext,

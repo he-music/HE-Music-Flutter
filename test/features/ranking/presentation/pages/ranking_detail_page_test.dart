@@ -207,8 +207,6 @@ class _FakeRankingRepository implements RankingRepository {
           links: <LinkInfo>[],
           platform: 'qq',
           cover: 'https://example.com/song-1.jpg',
-          sublist: <SongInfo>[],
-          originalType: 0,
         ),
         SongInfo(
           name: '榜单第二首',
@@ -223,8 +221,6 @@ class _FakeRankingRepository implements RankingRepository {
           links: <LinkInfo>[],
           platform: 'qq',
           cover: 'https://example.com/song-2.jpg',
-          sublist: <SongInfo>[],
-          originalType: 0,
         ),
       ],
       hasMore: false,
@@ -249,8 +245,7 @@ class _TestFavoriteSongStatus extends FavoriteSongStatusController {
   }
 }
 
-class _TestFavoriteCollectionStatus
-    extends FavoriteCollectionStatusController {
+class _TestFavoriteCollectionStatus extends FavoriteCollectionStatusController {
   @override
   FavoriteCollectionStatusState build() {
     return FavoriteCollectionStatusState.initial;

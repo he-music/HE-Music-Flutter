@@ -289,7 +289,5 @@ SongInfo _song([String id = 'song-1']) {
     links: <LinkInfo>[],
     platform: 'qq',
     cover: '',
-    sublist: <SongInfo>[],
-    originalType: 0,
   );
 }

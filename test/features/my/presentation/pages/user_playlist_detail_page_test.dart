@@ -338,8 +338,6 @@ class _FakeUserPlaylistDetailRepository
         links: <LinkInfo>[],
         platform: 'qq',
         cover: 'https://example.com/song-1.jpg',
-        sublist: <SongInfo>[],
-        originalType: 0,
       ),
       SongInfo(
         name: '用户歌单第二首',
@@ -354,8 +352,6 @@ class _FakeUserPlaylistDetailRepository
         links: <LinkInfo>[],
         platform: 'qq',
         cover: 'https://example.com/song-2.jpg',
-        sublist: <SongInfo>[],
-        originalType: 0,
       ),
     ];
   }

@@ -1,4 +1,5 @@
 import '../../data/online_api_client.dart';
+import '../../../../shared/models/he_music_models.dart';
 import '../../presentation/pages/online_search_models.dart';
 
 /// 在线搜索功能的抽象接口。
@@ -26,11 +27,27 @@ abstract class OnlineSearchRepository {
     required String platform,
   });
 
-  /// 按类型搜索（song / playlist / album / artist / mv）。
-  Future<List<Map<String, dynamic>>> searchMusic({
+  /// 搜索歌单、专辑、歌手或 MV 等非歌曲资源。
+  Future<OnlineSearchPageResult<Map<String, dynamic>>> searchMusic({
     required String keyword,
     required String platform,
-    String type = 'song',
+    required String type,
+    int pageIndex = 1,
+    int pageSize = 30,
+  });
+
+  /// 搜索歌曲，返回包含搜索元数据的歌曲包装结果。
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchSongs({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  });
+
+  /// 根据歌词内容搜索歌曲。
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchLyrics({
+    required String keyword,
+    required String platform,
     int pageIndex = 1,
     int pageSize = 30,
   });

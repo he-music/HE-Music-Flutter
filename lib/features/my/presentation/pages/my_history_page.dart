@@ -228,8 +228,6 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
       links: const <LinkInfo>[],
       platform: item.platform?.trim() ?? '',
       cover: item.artworkUrl,
-      sublist: const <SongInfo>[],
-      originalType: 0,
       path: null,
       size: null,
       quality: null,

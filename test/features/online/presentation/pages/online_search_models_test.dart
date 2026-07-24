@@ -10,4 +10,16 @@ void main() {
       PlatformFeatureSupportFlag.searchMv,
     );
   });
+
+  test('lyric search maps to the int64 lyric capability', () {
+    expect(SearchType.lyric.apiType, 'lyric');
+    expect(
+      SearchType.lyric.requiredPlatformFeatureFlag,
+      PlatformFeatureSupportFlag.searchLyric,
+    );
+    expect(
+      PlatformFeatureSupportFlag.searchLyric,
+      BigInt.parse('281474976710656'),
+    );
+  });
 }

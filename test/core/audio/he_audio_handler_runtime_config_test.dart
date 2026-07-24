@@ -716,8 +716,6 @@ void main() {
                 links: <LinkInfo>[],
                 platform: 'qq',
                 cover: '',
-                sublist: <SongInfo>[],
-                originalType: 0,
               ),
             ];
           },
@@ -827,8 +825,6 @@ void main() {
                 links: <LinkInfo>[],
                 platform: 'qq',
                 cover: '',
-                sublist: <SongInfo>[],
-                originalType: 0,
               ),
             ];
           },
@@ -928,8 +924,6 @@ void main() {
                 links: <LinkInfo>[],
                 platform: 'qq',
                 cover: 'https://img.example.com/{x}/cover.jpg',
-                sublist: <SongInfo>[],
-                originalType: 0,
               ),
             ];
           },
