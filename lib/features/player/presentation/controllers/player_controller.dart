@@ -45,6 +45,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
   late PlayerStreamManager _streamManager;
 
   bool _initialized = false;
+  Future<void>? _initializing;
   int _trackSwitchRequestId = 0;
   int _lyricHighlightColorRequestId = 0;
   int _latestManualSkipTransitionId = -1;
@@ -155,25 +156,39 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     );
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
     if (_initialized) {
-      return;
+      return Future<void>.value();
     }
-    _streamManager.bindStreams();
-    await _historyManager.hydrateHistoryCount(this);
-    await _applyPlayMode(state.playMode);
-    final snapshot = await _queueManager.hydrateQueue(this);
-    // 恢复本地歌曲封面（重启后 artworkBytes 丢失，从磁盘缓存重新加载）
-    if (snapshot != null && state.queue.isNotEmpty) {
-      await _restoreLocalArtwork();
-      await _syncQueueToAudioPlayer(
-        queue: state.queue,
-        currentIndex: state.currentIndex,
-        autoplay: false,
-        restoreProgress: true,
-      );
+    final initializing = _initializing;
+    if (initializing != null) {
+      return initializing;
     }
-    _initialized = true;
+    final future = _initialize();
+    _initializing = future;
+    return future;
+  }
+
+  Future<void> _initialize() async {
+    try {
+      _streamManager.bindStreams();
+      await _historyManager.hydrateHistoryCount(this);
+      await _applyPlayMode(state.playMode);
+      final snapshot = await _queueManager.hydrateQueue(this);
+      // 恢复本地歌曲封面（重启后 artworkBytes 丢失，从磁盘缓存重新加载）
+      if (snapshot != null && state.queue.isNotEmpty) {
+        await _restoreLocalArtwork();
+        await _syncQueueToAudioPlayer(
+          queue: state.queue,
+          currentIndex: state.currentIndex,
+          autoplay: false,
+          restoreProgress: true,
+        );
+      }
+      _initialized = true;
+    } finally {
+      _initializing = null;
+    }
   }
 
   void resetHistoryCount() {

@@ -59,11 +59,17 @@ class PlayerStreamManager {
   StreamSubscription<dynamic>? _customEventSubscription;
   StreamSubscription<OverlayMessage>? _overlayMessageSub;
 
+  bool _bound = false;
   bool _awaitingFreshPosition = false;
   int? _suppressedCurrentIndexEvent;
 
   /// 绑定所有音频流。在 initialize() 时调用。
   void bindStreams() {
+    // 初始化失败后允许重试，但同一个管理器不能重复订阅播放流。
+    if (_bound) {
+      return;
+    }
+    _bound = true;
     final audioPlayer = _audioPlayerReader();
     final callback = _callbackReader();
 

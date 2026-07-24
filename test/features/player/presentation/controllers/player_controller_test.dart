@@ -10,6 +10,7 @@ import 'package:he_music_flutter/core/audio/audio_player_port.dart';
 import 'package:he_music_flutter/core/audio/audio_track.dart';
 import 'package:he_music_flutter/core/audio/he_audio_handler.dart';
 import 'package:he_music_flutter/features/online/data/online_api_client.dart';
+import 'package:he_music_flutter/features/player/data/datasources/player_queue_data_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_history_item.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
@@ -25,6 +26,52 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  test('并发初始化期间应保持持久化歌曲且只绑定一次播放流', () async {
+    const queueDataSource = PlayerQueueDataSource();
+    await queueDataSource.saveQueue(
+      queue: _buildQueue(),
+      currentIndex: 1,
+      playMode: PlayerPlayMode.sequence,
+      isRadioMode: false,
+    );
+    final pendingQueueLoad = Completer<void>();
+    final audioPlayer = _ReplayingStartupAudioPlayerPort()
+      ..setQueueCompleter = pendingQueueLoad;
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(audioPlayer),
+      ],
+    );
+    addTearDown(container.dispose);
+    addTearDown(audioPlayer.dispose);
+    final controller = container.read(playerControllerProvider.notifier);
+
+    final first = controller.initialize();
+    await audioPlayer.setQueueStarted.future;
+    expect(container.read(playerControllerProvider).currentTrack?.id, 'song-2');
+    final visibleTrackIds = <String?>[];
+    final subscription = container.listen(playerControllerProvider, (
+      previous,
+      next,
+    ) {
+      visibleTrackIds.add(next.currentTrack?.id);
+    });
+    addTearDown(subscription.close);
+
+    final second = controller.initialize();
+    expect(identical(first, second), isTrue);
+    pendingQueueLoad.complete();
+    await Future.wait(<Future<void>>[first, second]);
+
+    expect(audioPlayer.currentIndexListenCount, 1);
+    expect(audioPlayer.setShuffleCallCount, 2);
+    expect(audioPlayer.setQueueCallCount, 1);
+    expect(visibleTrackIds, isNot(contains('song-1')));
+    expect(visibleTrackIds, isNot(contains(null)));
+    expect(container.read(playerControllerProvider).currentTrack?.id, 'song-2');
   });
 
   test(
@@ -961,6 +1008,9 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   String? lastSetQueueRadioPlatform;
   int? lastSetQueueRadioPageIndex;
   Completer<void>? setQueueCompleter;
+  final Completer<void> setQueueStarted = Completer<void>();
+  int setQueueCallCount = 0;
+  bool hasLoadedQueue = false;
 
   @override
   Stream<bool> get playingStream => _playingController.stream;
@@ -998,13 +1048,19 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
     String? currentRadioPlatform,
     int? currentRadioPageIndex,
   }) async {
+    setQueueCallCount += 1;
+    hasLoadedQueue = false;
     lastQueueTracks = List<AudioTrack>.from(tracks);
     lastQueueInitialIndex = initialIndex;
     lastSetQueueIsRadioMode = isRadioMode;
     lastSetQueueRadioId = currentRadioId;
     lastSetQueueRadioPlatform = currentRadioPlatform;
     lastSetQueueRadioPageIndex = currentRadioPageIndex;
+    if (!setQueueStarted.isCompleted) {
+      setQueueStarted.complete();
+    }
     await setQueueCompleter?.future;
+    hasLoadedQueue = true;
   }
 
   @override
@@ -1087,6 +1143,32 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
 
   void emitCustomEvent(Map<String, dynamic> event) {
     _customEventController.add(event);
+  }
+}
+
+class _ReplayingStartupAudioPlayerPort extends _FakeAudioPlayerPort {
+  int currentIndexListenCount = 0;
+  int setShuffleCallCount = 0;
+
+  @override
+  Stream<int?> get currentIndexStream {
+    currentIndexListenCount += 1;
+    return Stream<int?>.value(0);
+  }
+
+  @override
+  Future<void> setShuffle(bool enabled) async {
+    setShuffleCallCount += 1;
+    if (hasLoadedQueue) {
+      return;
+    }
+    emitCustomEvent(<String, dynamic>{
+      'type': 'queueState',
+      'transitionId': setShuffleCallCount,
+      'manualSkipTargetActive': false,
+      'tracks': const <Map<String, dynamic>>[],
+      'currentIndex': 0,
+    });
   }
 }
 
