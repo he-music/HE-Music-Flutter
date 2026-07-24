@@ -59,7 +59,7 @@ const _iconAssetNames = <AppSkinIconRole, String>{
   AppSkinIconRole.homeVideo: 'home_video.svg',
   AppSkinIconRole.homeRadio: 'home_radio.svg',
   AppSkinIconRole.search: 'search.svg',
-  AppSkinIconRole.searchSubmit: 'forward.svg',
+  AppSkinIconRole.searchSubmit: 'search.svg',
   AppSkinIconRole.searchHistoryClear: 'song_delete.svg',
   AppSkinIconRole.back: 'back.svg',
   AppSkinIconRole.forward: 'forward.svg',
