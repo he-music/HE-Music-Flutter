@@ -16,6 +16,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/app_network_image.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/video_item.dart';
 
@@ -219,6 +220,8 @@ void main() {
     expect(toggle, findsOneWidget);
     expect(tester.getSize(toggle).height, 32);
     expect(find.byKey(fullLyricKey), findsNothing);
+    final cover = find.byType(AppNetworkImage);
+    final collapsedCoverTop = tester.getTopLeft(cover).dy;
 
     await tester.tap(find.byKey(snippetKey));
     await tester.pump();
@@ -226,6 +229,7 @@ void main() {
     expect(find.byKey(snippetKey), findsNothing);
     expect(tappedSong, isNull);
     expect(find.text('收起歌词'), findsOneWidget);
+    expect(tester.getTopLeft(cover).dy, collapsedCoverTop);
     final fullLyricText = tester.widget<Text>(
       find.descendant(
         of: find.byKey(fullLyricKey),

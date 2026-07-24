@@ -149,6 +149,7 @@ class SongListItem extends StatelessWidget {
     final isSelected = selectable && selected;
     final effectiveOnTap = selectable ? (onSelectTap ?? onTap) : onTap;
     final hasActions = showActions && (onLikeTap != null || onMoreTap != null);
+    final alignCoverToTop = contentAfterSubtitle != null || footer != null;
     final backgroundColor = isCurrent || isSelected
         ? theme.colorScheme.primary.withValues(alpha: isCurrent ? 0.07 : 0.05)
         : Colors.transparent;
@@ -168,7 +169,9 @@ class SongListItem extends StatelessWidget {
                 11,
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: alignCoverToTop
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
                 children: <Widget>[
                   if (selectable) ...<Widget>[
                     _SelectIndicator(selected: selected),
