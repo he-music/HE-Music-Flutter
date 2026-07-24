@@ -109,7 +109,22 @@ make clean          清理构建产物
 make build-apk      构建 Android release APK（按 ABI 拆分）
 make build-aab      构建 Android release AAB
 make release-check  发布前执行检查与测试
+make release VERSION=1.0.4  检查、提交并发布指定版本
 ```
+
+发布正式版本时，确保处于干净且不落后于远端的 `main` 分支，然后执行：
+
+```bash
+make release VERSION=1.0.4
+```
+
+发布相同版本时，脚本会递增 `pubspec.yaml` 的构建号；发布更高版本时，构建号从 `+1` 重新开始。脚本随后执行 `make release-check`，提交并推送版本变更，最后创建并推送对应的 Git Tag。
+
+目标版本不能低于当前 `pubspec.yaml` 版本或远端最高正式 Tag。例如远端已有 `v1.0.3` 时，即使不存在 `v1.0.2`，也不能发布 `v1.0.2`。
+
+重新发布相同版本前，需要先在 GitHub 删除原 Release 和远端 Tag。脚本确认远端同名 Tag 已不存在后，会删除本地同名 Tag 并重新指向最新发布提交。脚本在产生远端变更前会要求确认；仅在已经明确授权的非交互环境中使用 `./scripts/release.sh 1.0.4 --yes`。
+
+Android Release 使用分 ABI APK。Flutter 会将 ABI 编号写入实际 `versionCode` 的千位，因此 `pubspec.yaml` 中的构建号 `+1` 在 arm64-v8a APK 中显示为 `+2001`，属于预期行为。
 
 涉及 Retrofit、Drift 或 JSON 模型生成代码的改动，通常需要执行：
 

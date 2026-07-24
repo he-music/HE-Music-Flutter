@@ -15,6 +15,7 @@
 - `make gen`：通过 `build_runner` 重新生成代码。
 - `make build-apk` / `make build-aab`：生成 Android Release 包。
 - `make release-check`：发布前执行 `analyze` 和 `test` 校验。
+- 用户明确要求发布正式版本时，确认目标版本号后执行 `./scripts/release.sh <x.y.z> --yes`；该脚本负责检查、版本提交、推送和创建 Tag。
 
 ## 编码风格与命名约定
 遵循 `analysis_options.yaml` 中启用的 `flutter_lints` 规则。Dart 代码使用标准 2 空格缩进。文件名保持 `snake_case.dart`，类、枚举和类型别名使用 `UpperCamelCase`，方法、变量和 provider 使用 `lowerCamelCase`。保持现有的 feature-first 结构，优先沿用当前 Riverpod、GoRouter 和 repository 模式，不要额外引入平行抽象层。

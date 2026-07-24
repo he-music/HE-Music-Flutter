@@ -5,7 +5,7 @@ ifneq ($(strip $(API_BASE_URL)),)
 DART_DEFINE_ARGS += "--dart-define=API_BASE_URL=$(API_BASE_URL)"
 endif
 
-.PHONY: help get upgrade run analyze test format fix gen skin-previews player-style-previews clean build-apk build-aab release-check
+.PHONY: help get upgrade run analyze test format fix gen skin-previews player-style-previews clean build-apk build-aab release-check release
 
 help:
 	@printf "\n常用命令:\n"
@@ -22,7 +22,8 @@ help:
 	@printf "  make clean          清理构建产物\n"
 	@printf "  make build-apk      构建 Android release APK（按 ABI 拆分）\n"
 	@printf "  make build-aab      构建 Android release AAB\n"
-	@printf "  make release-check  发布前执行检查与测试\n\n"
+	@printf "  make release-check  发布前执行检查与测试\n"
+	@printf "  make release VERSION=1.0.4  检查、提交并发布指定版本\n\n"
 
 get:
 	$(FLUTTER) pub get
@@ -64,3 +65,7 @@ build-aab:
 	$(FLUTTER) build appbundle --release $(DART_DEFINE_ARGS)
 
 release-check: analyze test
+
+release:
+	@test -n "$(VERSION)" || (echo "错误：请指定版本，例如 make release VERSION=1.0.4" >&2; exit 2)
+	./scripts/release.sh "$(VERSION)"
