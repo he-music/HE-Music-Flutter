@@ -86,7 +86,8 @@ void main() {
         final bottomSheet = tester.widget<BottomSheet>(
           find.byType(BottomSheet),
         );
-        expect(bottomSheet.backgroundColor, testCase.sheet.backgroundColor);
+        expect(bottomSheet.backgroundColor, Colors.transparent);
+        expect(_playerSheetStyle(tester), testCase.sheet);
         expect(sheetColorScheme?.surface, testCase.sheet.backgroundColor);
         expect(
           sheetColorScheme?.surfaceContainerHighest,
@@ -134,6 +135,105 @@ void main() {
       }
     },
   );
+
+  testWidgets('open player sheet follows app brightness changes', (
+    tester,
+  ) async {
+    final themeMode = ValueNotifier<ThemeMode>(ThemeMode.light);
+    var sheetBuildCount = 0;
+    addTearDown(themeMode.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(
+            () => _PlayerConfigController(AppPlayerStyleRegistry.classicId),
+          ),
+        ],
+        child: ValueListenableBuilder<ThemeMode>(
+          valueListenable: themeMode,
+          builder: (context, mode, child) => MaterialApp(
+            theme: ThemeData.light(),
+            darkTheme: ThemeData.dark(),
+            themeMode: mode,
+            home: AppPlayerStyleBoundary(
+              child: Builder(
+                builder: (context) => FilledButton(
+                  onPressed: () => showPlayerStyledBottomSheet<void>(
+                    context: context,
+                    builder: (sheetContext) {
+                      sheetBuildCount += 1;
+                      return TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('Close'),
+                      );
+                    },
+                  ),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(_playerSheetStyle(tester), AppPlayerSheetStyle.light);
+    expect(_renderedTextColor(tester, 'Close'), const Color(0xFF151515));
+    expect(
+      _playerSheetHandleColor(tester),
+      AppPlayerSheetStyle.light.handleColor,
+    );
+    final initialSheetBuildCount = sheetBuildCount;
+
+    themeMode.value = ThemeMode.dark;
+    await tester.pumpAndSettle();
+    expect(_playerSheetStyle(tester), AppPlayerSheetStyle.dark);
+    expect(_renderedTextColor(tester, 'Close'), const Color(0xFFF5F5F5));
+    expect(
+      _playerSheetHandleColor(tester),
+      AppPlayerSheetStyle.dark.handleColor,
+    );
+    expect(sheetBuildCount, initialSheetBuildCount);
+    expect(
+      find.byKey(
+        const ValueKey<String>('player-system-ui-overlay-style-guard'),
+      ),
+      findsOne,
+    );
+
+    themeMode.value = ThemeMode.light;
+    await tester.pumpAndSettle();
+    expect(_playerSheetStyle(tester), AppPlayerSheetStyle.light);
+    expect(_renderedTextColor(tester, 'Close'), const Color(0xFF151515));
+    expect(sheetBuildCount, initialSheetBuildCount);
+
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+  });
+}
+
+AppPlayerSheetStyle _playerSheetStyle(WidgetTester tester) {
+  return tester
+      .widget<PlayerSheetSurface>(find.byType(PlayerSheetSurface))
+      .style;
+}
+
+Color? _renderedTextColor(WidgetTester tester, String text) {
+  final richText = tester.widget<RichText>(
+    find.descendant(of: find.text(text), matching: find.byType(RichText)),
+  );
+  return richText.text.style?.color;
+}
+
+Color? _playerSheetHandleColor(WidgetTester tester) {
+  final handle = tester.widget<DecoratedBox>(
+    find.byKey(const ValueKey<String>('player-sheet-drag-handle')),
+  );
+  return (handle.decoration as BoxDecoration).color;
 }
 
 class _PlayerConfigController extends AppConfigController {
