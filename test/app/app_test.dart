@@ -94,6 +94,45 @@ void main() {
     );
   });
 
+  testWidgets('startup loading omits legacy gradient for immersive skin', (
+    tester,
+  ) async {
+    final startup = Completer<void>();
+    final router = _createStartupTestRouter();
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildStartupLoadingApp(
+        router: router,
+        startup: startup,
+        skinId: 'city_sound_creator',
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('HE-Music'), findsOneWidget);
+    expect(_legacyGradientFinder, findsNothing);
+  });
+
+  testWidgets('startup loading keeps legacy gradient for classic skin', (
+    tester,
+  ) async {
+    final startup = Completer<void>();
+    final router = _createStartupTestRouter();
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildStartupLoadingApp(
+        router: router,
+        startup: startup,
+        skinId: 'classic',
+      ),
+    );
+    await tester.pump();
+
+    expect(_legacyGradientFinder, findsOneWidget);
+  });
+
   testWidgets('startup 401 pushes login and system back returns home', (
     tester,
   ) async {
@@ -258,17 +297,54 @@ Widget _buildApp({required AppThemeMode themeMode, String localeCode = 'zh'}) {
   );
 }
 
+Widget _buildStartupLoadingApp({
+  required GoRouter router,
+  required Completer<void> startup,
+  required String skinId,
+}) {
+  return ProviderScope(
+    overrides: [
+      appConfigProvider.overrideWith(
+        () => _TestAppConfigController(
+          themeMode: AppThemeMode.light,
+          localeCode: 'zh',
+          skinId: skinId,
+        ),
+      ),
+      appRouterProvider.overrideWithValue(router),
+      appStartupProvider.overrideWith((ref) => startup.future),
+      appConfigDataSourceProvider.overrideWithValue(
+        const _TestAppConfigDataSource(autoCheckUpdates: false),
+      ),
+    ],
+    child: const HeMusicApp(enableStartupGateInTests: true),
+  );
+}
+
+final Finder _legacyGradientFinder = find.byWidgetPredicate(
+  (widget) =>
+      widget is DecoratedBox &&
+      widget.decoration is BoxDecoration &&
+      (widget.decoration as BoxDecoration).gradient is LinearGradient,
+);
+
 class _TestAppConfigController extends AppConfigController {
-  _TestAppConfigController({required this.themeMode, required this.localeCode});
+  _TestAppConfigController({
+    required this.themeMode,
+    required this.localeCode,
+    this.skinId = 'classic',
+  });
 
   final AppThemeMode themeMode;
   final String localeCode;
+  final String skinId;
 
   @override
   AppConfigState build() {
     return AppConfigState.initial.copyWith(
       localeCode: localeCode,
       themeMode: themeMode,
+      skinId: skinId,
     );
   }
 }

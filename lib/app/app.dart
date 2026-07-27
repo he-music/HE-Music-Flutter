@@ -306,18 +306,21 @@ class _StartupScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final showLegacyGradient = theme.scaffoldBackgroundColor.a != 0;
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              theme.colorScheme.surface,
-              theme.colorScheme.primaryContainer.withValues(alpha: 0.24),
-              theme.colorScheme.surfaceContainerLowest,
-            ],
-          ),
+          gradient: showLegacyGradient
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    theme.colorScheme.surface,
+                    theme.colorScheme.primaryContainer.withValues(alpha: 0.24),
+                    theme.colorScheme.surfaceContainerLowest,
+                  ],
+                )
+              : null,
         ),
         child: Center(
           child: ConstrainedBox(
