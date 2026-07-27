@@ -24,7 +24,7 @@
 使用 `flutter_test` 编写单元测试和组件测试。测试文件命名为 `*_test.dart`，并尽量与被测源码路径对应。测试描述应聚焦具体行为，例如 `testWidgets('home shell renders with two tabs', ...)`。提交 PR 前至少运行 `make test`，代码变更同时运行 `make analyze`。
 
 ## 提交与 Pull Request 规范
-当前历史中可见的提交格式是 Conventional Commits 风格，例如 `feat: init`；后续继续使用简短前缀，如 `feat:`、`fix:`、`refactor:`、`docs:`。PR 说明应写清改动范围、列出已执行命令，并关联相关 issue。涉及 UI 的改动应附截图或录屏；涉及配置或资源调整时，请明确说明如 `assets/app_config.json` 或 `env/` 的变化。
+当前历史中可见的提交格式是 Conventional Commits 风格，例如 `feat: init`；后续继续使用简短前缀，如 `feat:`、`fix:`、`refactor:`、`docs:`。提交消息的描述使用中文，并以清楚、完整地表达逻辑变更为准，不必刻意压缩到极短。PR 说明应写清改动范围、列出已执行命令，并关联相关 issue。涉及 UI 的改动应附截图或录屏；涉及配置或资源调整时，请明确说明如 `assets/app_config.json` 或 `env/` 的变化。
 
 ## 配置提示
 不要在源码中硬编码环境相关值。执行 `flutter run` 时必须传入参数 `--dart-define-from-file=.env`。新增资源后要同步更新 `pubspec.yaml` 中的 assets 声明。涉及 Retrofit 或 JSON 模型生成代码的改动，通常都需要执行 `make gen`。生成图片时，使用 `openai-image-api` 这个 skill。
