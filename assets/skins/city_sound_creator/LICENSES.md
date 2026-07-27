@@ -3,8 +3,8 @@
 ## Release status
 
 - Light provider source: approved by the user on 2026-07-17.
-- Dark provider source: approved by the user on 2026-07-17.
-- Production derivatives: 2x processing, technical inspection, and user approval completed on 2026-07-17.
+- Original dark provider source and derivative: approved by the user on 2026-07-17; the source remains as a palette/provenance reference and its derivative was replaced on 2026-07-27.
+- Deterministic dark grade source, replacement production derivative, real UI previews, player previews, and existing Rive alignment: approved by the user on 2026-07-27.
 - Runtime packaging: `pubspec.yaml` declares only runtime production assets (wallpaper derivatives, real UI previews, and the SVG catalog); provider sources and review files are excluded.
 
 ## Generation provider
@@ -26,7 +26,7 @@
 - Reference 2: light V3 approved-direction candidate, SHA-256 `206eb595d63f92034d91075a587895ee96f2acf0831851c76f9c66d5ef6ea59e`.
 - Approval: user approved the provider original on 2026-07-17.
 
-## Dark provider source
+## Original dark provider source
 
 - Path: `assets/skins/city_sound_creator/sources/wallpaper_dark_provider_v2.png`.
 - Actual dimensions: `941x1672`.
@@ -36,6 +36,19 @@
 - Reference 1: approved light V5 provider source, SHA-256 `6716a96c0e87206237c020d1d5268d0dcdf0b11c351860b2e1c8b25f47a24808`.
 - Reference 2: dark V1 palette concept, SHA-256 `a00b2a1eaaf84396a453e5d614c5e30fb04f227a6eb10dae94b8935ffbcdb8f8`.
 - Approval: user approved the provider original on 2026-07-17.
+- Current role: retained as the approved night-palette reference; it is no longer the geometry or production-derivative source.
+
+## Deterministic dark grade correction
+
+- Path: `assets/skins/city_sound_creator/sources/wallpaper_dark_graded_v1.png`.
+- Actual dimensions: `941x1672`.
+- SHA-256: `5d6b1dc447f70dfc2c05be26e87fd649a4d69b290345838b86864568a09949f0`.
+- Geometry source: approved `wallpaper_light_provider_v5.png`, SHA-256 `6716a96c0e87206237c020d1d5268d0dcdf0b11c351860b2e1c8b25f47a24808`.
+- Palette reference: original `wallpaper_dark_provider_v2.png`, SHA-256 `2442efaa998af1a23c51f160a32b06e484d0a739645a9a5f8ec3bfb43e9d8e2d`.
+- Processing: deterministic ImageMagick HSL channel math, saturation multiplier `0.90`, continuous lightness curve, and `8%` `#101413` color blend.
+- Geometry contract: every output pixel reads only the same input coordinate; no spatial transform, crop, resize, blur, sharpen, generative edit, face restoration, or local redraw is used.
+- Deterministic output: PNG time/date metadata is stripped; an independent full replay passed byte comparison and produced the same SHA-256.
+- Candidate visual approval: approved on 2026-07-27.
 
 ## Production processing
 
@@ -45,7 +58,7 @@
 - Backend: ImageMagick `7.1.2-13 Q16-HDRI`, arm64.
 - Parameters: exact `1882x3344` resize, PNG output, `quality=95`, no crop, no sharpening, no generative enhancement.
 - Face restoration: disabled; the processing pipeline has no face-restoration stage.
-- Processing count: one production upscale per approved provider original.
+- Processing count: one current production upscale per approved source; the replacement dark derivative uses the approved deterministic grade source.
 
 ### Light production derivative
 
@@ -60,14 +73,15 @@
 
 - Path: `assets/skins/city_sound_creator/wallpaper_dark.png`.
 - Actual dimensions: `1882x3344`.
-- SHA-256: `3b2cd675bc05b23fc37f98587d6da017f7a0bf4734d2e5ccc381e4b99eceef17`.
-- Source: `wallpaper_dark_provider_v2.png`.
+- SHA-256: `4364a6fdd1e14e7f854ff599aed1f8bb349734d10e759d602b69fc131ed46706`.
+- Source: `wallpaper_dark_graded_v1.png`.
 - Scale: `2x`.
 - Upscaled: `true`.
+- Output normalization: PNG time/date metadata stripped; a second independent resize produced the same bytes and SHA-256.
 
 ## Technical inspection
 
-The 2x derivatives were inspected at full frame and in local detail crops on 2026-07-17.
+The original 2x derivatives were inspected at full frame and in local detail crops on 2026-07-17.
 
 - Face and light/dark character identity: pass.
 - Hands, fingers, and sampler interaction: pass.
@@ -75,6 +89,14 @@ The 2x derivatives were inspected at full frame and in local detail crops on 202
 - Halos, jagged edges, amplified noise, and invented detail: no blocking issue found.
 - Text, logos, signatures, watermarks, and extra people: no blocking issue found.
 - Final user approval of the 2x derivatives: approved on 2026-07-17.
+
+The replacement dark derivative was inspected at full frame and local detail on 2026-07-27.
+
+- Source/production dimensions, hashes, deterministic replay, and zero spatial-transform contract: pass.
+- Face, hands, headphones, waveform display, turntable, sampler, plants, and record shelf: pass.
+- Halos, jagged edges, amplified noise, invented detail, text, logos, watermarks, and extra people: no blocking issue found.
+- Alignment against the light source: same pixel geometry by construction; blink/side-by-side review passed.
+- Replacement dark derivative approval: approved by the user on 2026-07-27 after real UI, player-preview, and existing Rive alignment review.
 
 ## Semantic icon catalog
 
@@ -105,7 +127,7 @@ The 2x derivatives were inspected at full frame and in local detail crops on 202
 - Test fonts: Roboto Regular, Medium, and Bold plus a 14 KB Chinese glyph subset derived from Android Open Source Project's Droid Sans Fallback, all under Apache License 2.0. The files, subset glyph manifest, provenance, and license are retained under `test/assets/fonts/` and are not declared as runtime assets.
 - Material fallback icons: loaded from the Material Icons font already declared by Flutter's `uses-material-design` contract.
 - Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
-- Approval: the user approved the original real-UI preview stage on 2026-07-17; the later contrast revision remains pending visual confirmation.
+- Approval: the user approved the original real-UI preview stage on 2026-07-17 and the current light/dark preview pair with the replacement dark wallpaper on 2026-07-27.
 
 ### Light real UI preview
 
@@ -117,7 +139,7 @@ The 2x derivatives were inspected at full frame and in local detail crops on 202
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `77136963c91d9bbfdef548a9f12436678899e91a5957d20abe354288801e1b11`.
+- SHA-256: `cfce9449a03bed6447f0f78e31efa7e24f29615d682d16bc4c47f322cff0886e`.
 
 ## Rive ambient animation
 
@@ -143,9 +165,9 @@ The 2x derivatives were inspected at full frame and in local detail crops on 202
   runtime loaded and rendered 120 preview frames and entered `ambient_loop`;
   the Flutter runtime integration tests load the bundled bytes and named State
   Machine.
-- Approval: the user approved V2 for an in-App trial on 2026-07-20. Final
-  Android visual, lifecycle, frame pacing, GPU, and memory acceptance remains
-  pending.
+- Approval: the user approved V2 for an in-App trial on 2026-07-20 and approved
+  its alignment with the replacement dark wallpaper on 2026-07-27. Final Android
+  lifecycle, frame pacing, GPU, and memory acceptance remains pending.
 
 ## Usage note
 

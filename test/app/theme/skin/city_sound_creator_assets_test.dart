@@ -21,12 +21,12 @@ const _light = _WallpaperContract(
 const _dark = _WallpaperContract(
   sourcePath:
       'assets/skins/city_sound_creator/sources/'
-      'wallpaper_dark_provider_v2.png',
+      'wallpaper_dark_graded_v1.png',
   sourceHash:
-      '2442efaa998af1a23c51f160a32b06e484d0a739645a9a5f8ec3bfb43e9d8e2d',
+      '5d6b1dc447f70dfc2c05be26e87fd649a4d69b290345838b86864568a09949f0',
   productionPath: 'assets/skins/city_sound_creator/wallpaper_dark.png',
   productionHash:
-      '3b2cd675bc05b23fc37f98587d6da017f7a0bf4734d2e5ccc381e4b99eceef17',
+      '4364a6fdd1e14e7f854ff599aed1f8bb349734d10e759d602b69fc131ed46706',
 );
 
 const _lightPreview = _PreviewContract(
@@ -36,7 +36,7 @@ const _lightPreview = _PreviewContract(
 
 const _darkPreview = _PreviewContract(
   path: 'assets/skins/city_sound_creator/preview_dark.png',
-  hash: '77136963c91d9bbfdef548a9f12436678899e91a5957d20abe354288801e1b11',
+  hash: 'cfce9449a03bed6447f0f78e31efa7e24f29615d682d16bc4c47f322cff0886e',
 );
 
 const _iconDirectory = 'assets/skins/city_sound_creator/icons';
@@ -66,9 +66,14 @@ void main() {
     expect(provenance, contains('upscaled=true'));
     expect(provenance, contains('ImageMagick `7.1.2-13 Q16-HDRI`'));
     expect(provenance, contains('Face restoration: disabled'));
+    expect(provenance, contains('Deterministic dark grade correction'));
+    expect(provenance, contains('no spatial transform'));
     expect(
       provenance,
-      contains('Final user approval of the 2x derivatives: approved'),
+      contains(
+        'Replacement dark derivative approval: approved by the user on '
+        '2026-07-27',
+      ),
     );
   });
 
