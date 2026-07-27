@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/router/app_router.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/features/video/playback/providers/video_playback_surface_provider.dart';
 import 'package:he_music_flutter/features/video/playback/entities/video_playback_surface.dart';
 import 'package:he_music_flutter/features/video/playback/entities/video_surface_state.dart';
@@ -32,6 +35,7 @@ import 'package:he_music_flutter/features/video/presentation/providers/video_det
 import 'package:he_music_flutter/features/video/presentation/providers/video_feed_providers.dart';
 import 'package:he_music_flutter/features/video/presentation/providers/video_plaza_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/app_back_button.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:toastification/toastification.dart';
@@ -58,6 +62,36 @@ void main() {
     expect(overlayStyle.statusBarIconBrightness, Brightness.light);
     expect(overlayStyle.statusBarBrightness, Brightness.dark);
     expect(overlayStyle.statusBarColor, Colors.transparent);
+  });
+
+  testWidgets('video detail uses white material back icon under city skin', (
+    tester,
+  ) async {
+    final repository = _FakeVideoDetailRepository(
+      detail: _buildDetail(id: 'mv-1', url: 'https://example.com/mv-1.mp4'),
+    );
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        repository: repository,
+        factory: _FakeVideoPlaybackSurfaceFactory(),
+        theme: AppTheme.light(citySoundCreatorSkin()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final backArea = find.byKey(
+      const ValueKey<String>('video-detail-back-button'),
+    );
+    final backButton = tester.widget<AppBackButton>(
+      find.descendant(of: backArea, matching: find.byType(AppBackButton)),
+    );
+    expect(backButton.icon, Icons.arrow_back_rounded);
+    expect(backButton.iconColor, Colors.white);
+    expect(
+      find.descendant(of: backArea, matching: find.byType(SvgPicture)),
+      findsNothing,
+    );
   });
 
   testWidgets('video detail progress drag delegates seekTo to session', (
@@ -122,8 +156,26 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.high_quality_rounded));
     await tester.pumpAndSettle();
+
+    final overlayStyleGuard = tester
+        .widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+          find.byKey(
+            const ValueKey<String>('video-detail-system-ui-overlay-guard'),
+          ),
+        );
+    expect(overlayStyleGuard.value.statusBarIconBrightness, Brightness.light);
+    expect(overlayStyleGuard.value.statusBarBrightness, Brightness.dark);
+    expect(overlayStyleGuard.value.statusBarColor, Colors.transparent);
+
     await tester.tap(find.text('720P'));
     await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('video-detail-system-ui-overlay-guard'),
+      ),
+      findsNothing,
+    );
 
     expect(factory.sessions, hasLength(2));
 
@@ -551,6 +603,12 @@ void main() {
         ),
       ),
     );
+    final backButtonBuilder = topButtonBar!.whereType<Builder>().single;
+    final fullscreenBackButton =
+        backButtonBuilder.builder(tester.element(find.byType(VideoDetailPage)))
+            as AppBackButton;
+    expect(fullscreenBackButton.icon, Icons.arrow_back_rounded);
+    expect(fullscreenBackButton.iconColor, Colors.white);
 
     expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
   });
@@ -767,6 +825,7 @@ void main() {
 Widget _buildTestApp({
   required VideoDetailRepository repository,
   required VideoPlaybackSurfaceFactory factory,
+  ThemeData? theme,
   List<OnlinePlatform>? feedPlatforms,
   VideoPlazaApiClient? feedApiClient,
   VideoFeedController Function()? feedControllerFactory,
@@ -785,8 +844,9 @@ Widget _buildTestApp({
         videoFeedControllerProvider.overrideWith(feedControllerFactory),
       videoPlaybackSurfaceFactoryProvider.overrideWithValue(factory),
     ],
-    child: const MaterialApp(
-      home: VideoDetailPage(id: 'mv-1', platform: 'qq', title: '测试 MV'),
+    child: MaterialApp(
+      theme: theme,
+      home: const VideoDetailPage(id: 'mv-1', platform: 'qq', title: '测试 MV'),
     ),
   );
 }

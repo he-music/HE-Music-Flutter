@@ -581,6 +581,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
                 'video-detail-fullscreen-back-button',
               ),
               tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              icon: Icons.arrow_back_rounded,
               iconColor: Colors.white,
               iconSize: 20,
               onPressed: () async {
@@ -924,7 +925,23 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
   void _showQualitySheet(VideoDetailContent content) {
     final selectedLink = _selectedLink(content);
     final config = ref.read(appConfigProvider);
-    showModalBottomSheet<void>(
+    final overlayEntry = OverlayEntry(
+      builder: (context) => const Positioned.fill(
+        child: ExcludeSemantics(
+          child: IgnorePointer(
+            child: AnnotatedRegion<SystemUiOverlayStyle>(
+              key: ValueKey<String>('video-detail-system-ui-overlay-guard'),
+              value: _videoOverlayStyle,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Modal route 位于视频页之上，弹层存续期间需要持续提供视频页的系统栏样式。
+    Overlay.of(context, rootOverlay: true).insert(overlayEntry);
+    final sheetFuture = showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {
@@ -969,6 +986,13 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
           ),
         );
       },
+    );
+    unawaited(
+      sheetFuture.whenComplete(() {
+        overlayEntry
+          ..remove()
+          ..dispose();
+      }),
     );
   }
 
@@ -1255,6 +1279,7 @@ class _BackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppBackButton(
       onPressed: onTap,
+      icon: Icons.arrow_back_rounded,
       iconColor: Colors.white,
       backgroundColor: Colors.black.withValues(alpha: 0.26),
       iconSize: 18,
