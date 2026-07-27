@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_theme.dart';
 import 'package:he_music_flutter/features/download/presentation/widgets/download_quality_sheet.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_quality_option.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
@@ -112,4 +116,72 @@ void main() {
       expect(selected?.name, '320MP3');
     },
   );
+
+  testWidgets('download quality sheet follows player sheet brightness', (
+    tester,
+  ) async {
+    final cases = <({Brightness brightness, AppPlayerSheetStyle sheet})>[
+      (brightness: Brightness.light, sheet: AppPlayerSheetStyle.light),
+      (brightness: Brightness.dark, sheet: AppPlayerSheetStyle.dark),
+    ];
+    const qualities = <PlayerQualityOption>[
+      PlayerQualityOption(
+        name: 'FLAC',
+        quality: 999,
+        format: 'flac',
+        url: 'https://example.com/song.flac',
+        description: '无损音质',
+        sizeBytes: 123456789,
+      ),
+    ];
+
+    for (final testCase in cases) {
+      PlayerQualityOption? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildAppPlayerStyleTheme(
+            AppPlayerStyleRegistry.instance.resolve(
+              AppPlayerStyleRegistry.classicId,
+            ),
+            sheetBrightness: testCase.brightness,
+          ),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: FilledButton(
+                onPressed: () async {
+                  selected = await showDownloadQualitySheet(
+                    context: context,
+                    qualities: qualities,
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        _renderedTextColor(tester, 'Choose Quality'),
+        testCase.sheet.foregroundColor,
+      );
+      expect(
+        _renderedTextColor(tester, 'FLAC · 无损音质'),
+        testCase.sheet.foregroundColor,
+      );
+
+      await tester.tap(find.text('FLAC'));
+      await tester.pumpAndSettle();
+      expect(selected, qualities.single);
+    }
+  });
+}
+
+Color? _renderedTextColor(WidgetTester tester, String text) {
+  final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+  return paragraph.text.style?.color;
 }
