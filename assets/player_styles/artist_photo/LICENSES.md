@@ -24,9 +24,9 @@
 
 - `assets/player_styles/classic/preview.png`: `8b0fef14a2587320651f413462b01e0382a7024d76b6dd23853721e1da20d4e4`.
 - `assets/player_styles/fluid/preview.png`: `9372377ff1a0ac675fa0afa315b3d49f13479fac60d9378699c4b72d92f47ee2`.
-- `assets/player_styles/vinyl/preview.png`: `17d6744b13dd502e94db7c7023a8edc1908e4c56b403e6e1c639ca9599318217`.
+- `assets/player_styles/vinyl/preview.png`: `1efb183cd1c9e7fdab4856d7f385808d7b14f3a6111fdb9cf556b2d408b71847`.
 - `assets/player_styles/cassette/preview.png`: `bfc4da4a241af07d79a67b4f946c509eca47891da450592cb00c68be625a59f9`.
 - `assets/player_styles/artist_photo/preview.png`: `bf838e1efb3b5de55d8b4918ae83492951d7078d4facc4a7b32240a8f6aab88a`.
 - Technical inspection: all five previews render readable fixed Chinese text, metadata badges, playback time and controls without blank regions or overflow; classic, fluid, vinyl, cassette and artist-photo subjects are visually distinct.
-- Replacement inspection: regenerated on 2026-07-27; only the artist-photo mobile preview and desktop golden changed, while the other four style previews and both artist-photo fallback goldens remained byte-identical.
+- Replacement inspection: regenerated on 2026-07-27; only the vinyl mobile preview and desktop golden changed, while the other four style previews and both artist-photo fallback goldens remained byte-identical.
 - Review status: automated golden and technical inspection completed; final product visual approval completed by the user on 2026-07-27.

@@ -90,7 +90,7 @@ class _VinylPlayerStageState extends ConsumerState<VinylPlayerStage>
               clipBehavior: Clip.none,
               children: <Widget>[
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.center,
                   child: RotationTransition(
                     key: const ValueKey<String>('vinyl-record-rotation'),
                     turns: _rotationController,

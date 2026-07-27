@@ -8,6 +8,25 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/features/player/presentation/styles/vinyl_player_stage.dart';
 
 void main() {
+  testWidgets('vinyl record is centered in the player stage', (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        playerControllerProvider.overrideWith(_VinylTestController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(_buildStage(container, track: _trackA));
+
+    final stageCenter = tester.getCenter(
+      find.byKey(const ValueKey<String>('vinyl-player-stage')),
+    );
+    final recordCenter = tester.getCenter(
+      find.byKey(const ValueKey<String>('vinyl-record-rotation')),
+    );
+    expect(recordCenter, stageCenter);
+  });
+
   testWidgets('vinyl rotation pauses and resumes from the current angle', (
     tester,
   ) async {
