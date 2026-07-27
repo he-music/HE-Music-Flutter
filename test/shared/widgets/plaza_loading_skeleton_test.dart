@@ -165,6 +165,26 @@ void main() {
       // 封面 1 + 时长覆盖 2 + 文字 3 = 6
       expect(find.byType(SkeletonBox), findsNWidgets(6));
     });
+
+    testWidgets('普通主题下不绘制 item 背景', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const SizedBox(width: 400, height: 120, child: VideoCardSkeleton()),
+        ),
+      );
+
+      final theme = Theme.of(tester.element(find.byType(VideoCardSkeleton)));
+      final background = find.descendant(
+        of: find.byType(VideoCardSkeleton),
+        matching: find.byWidgetPredicate((widget) {
+          final decoration = widget is Container ? widget.decoration : null;
+          return decoration is BoxDecoration &&
+              decoration.color ==
+                  theme.colorScheme.surface.withValues(alpha: 0.76);
+        }),
+      );
+      expect(background, findsNothing);
+    });
   });
 
   group('KeywordWrapSkeleton', () {

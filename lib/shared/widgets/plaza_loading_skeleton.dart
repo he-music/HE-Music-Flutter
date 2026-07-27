@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/skin/app_skin_surface.dart';
 import '../layout/adaptive_media_grid_spec.dart';
 import '../layout/ranking_layout_spec.dart';
 import 'animated_skeleton.dart';
@@ -187,7 +188,7 @@ class PlazaVideoListSkeleton extends StatelessWidget {
       itemCount: itemCount,
       separatorBuilder: (_, _) => const SizedBox(height: 6),
       itemBuilder: (context, index) {
-        return const VideoCardSkeleton();
+        return const AppSkinContentSurface(child: VideoCardSkeleton());
       },
     );
   }
@@ -332,13 +333,9 @@ class VideoCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.76),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Row(
+    return const Padding(
+      padding: EdgeInsets.all(8),
+      child: Row(
         children: <Widget>[
           Stack(
             children: <Widget>[

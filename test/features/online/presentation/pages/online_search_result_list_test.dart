@@ -98,12 +98,16 @@ void main() {
         SearchType.artist,
         SearchType.playlist,
         SearchType.album,
+        SearchType.video,
       ]) {
         await tester.pumpWidget(
           _buildResultList(type: type, initialLoading: true, immersive: true),
         );
 
-        expect(find.byType(AppSkinSurface), findsNWidgets(8));
+        expect(
+          find.byType(AppSkinSurface),
+          findsNWidgets(type == SearchType.video ? 4 : 8),
+        );
         expect(find.byType(BackdropFilter), findsNothing);
       }
     },
