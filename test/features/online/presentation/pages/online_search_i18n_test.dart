@@ -124,6 +124,24 @@ void main() {
     await tester.pump();
 
     expect(_findSkinIcon(AppSkinIconRole.search), findsNWidgets(2));
+    final searchBoxIcon = tester.widget<AppSkinIcon>(
+      find.descendant(
+        of: find.byType(SearchTopBox),
+        matching: _findSkinIcon(AppSkinIconRole.search),
+      ),
+    );
+    expect(
+      searchBoxIcon.color,
+      Theme.of(tester.element(find.byType(SearchTopBox))).colorScheme.primary,
+    );
+    expect(searchBoxIcon.size, 18);
+    final placeholder = find.byWidgetPredicate(
+      (widget) => widget is RichText && widget.text.toPlainText() == '搜索',
+    );
+    expect(
+      tester.getTopLeft(placeholder).dx,
+      closeTo(tester.getTopLeft(find.byType(EditableText)).dx, 1),
+    );
 
     await tester.enterText(find.byType(TextField), '稻香');
     await tester.pump();

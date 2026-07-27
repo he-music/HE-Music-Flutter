@@ -64,12 +64,12 @@ class SearchTopBox extends StatelessWidget {
                   ),
                   prefixIcon: AppSkinIcon(
                     role: AppSkinIconRole.search,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
+                    size: 18,
+                    color: theme.colorScheme.primary,
                   ),
                   prefixIconConstraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
+                    minWidth: 30,
+                    minHeight: 30,
                   ),
                   suffixIcon: value.text.trim().isEmpty
                       ? null
@@ -96,7 +96,7 @@ class SearchTopBox extends StatelessWidget {
                 Positioned.fill(
                   child: IgnorePointer(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(42, 0, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(34, 0, 16, 0),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: RichText(

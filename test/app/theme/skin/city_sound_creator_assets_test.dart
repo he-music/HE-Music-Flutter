@@ -114,7 +114,9 @@ void main() {
       expect(descriptor, isNotNull, reason: '$role must use a themed SVG');
       expect(descriptor!.type, AppSkinAssetType.svg);
       final preservesOriginalColors =
-          role == AppSkinIconRole.back || role == AppSkinIconRole.forward;
+          role == AppSkinIconRole.back ||
+          role == AppSkinIconRole.forward ||
+          role == AppSkinIconRole.searchSubmit;
       expect(
         descriptor.themeColorSource?.toARGB32(),
         preservesOriginalColors ? null : _iconSourceColorValue,
@@ -143,7 +145,7 @@ void main() {
 
     expect(
       skin.icons[AppSkinIconRole.searchSubmit]!.asset.descriptor,
-      skin.icons[AppSkinIconRole.search]!.asset.descriptor,
+      skin.icons[AppSkinIconRole.forward]!.asset.descriptor,
     );
 
     expect(catalogPaths, hasLength(55));
