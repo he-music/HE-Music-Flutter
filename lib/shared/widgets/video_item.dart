@@ -33,59 +33,61 @@ class VideoListItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final config = ref.watch(appConfigProvider);
-    return Material(
-      color: theme.colorScheme.surface.withValues(alpha: 0.76),
-      borderRadius: BorderRadius.circular(_videoCardRadius + 2),
-      child: InkWell(
-        onTap: onTap,
+    return AppSkinContentSurface(
+      child: Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(_videoCardRadius + 2),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: <Widget>[
-              SizedBox(
-                width: 156,
-                height: 88,
-                child: _VideoCover(
-                  url: coverUrl,
-                  duration: duration,
-                  playCount: playCount,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: SizedBox(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(_videoCardRadius + 2),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: <Widget>[
+                SizedBox(
+                  width: 156,
                   height: 88,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        (creator ?? '').trim().isEmpty
-                            ? AppI18n.t(config, 'common.unknown_author')
-                            : creator!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
+                  child: _VideoCover(
+                    url: coverUrl,
+                    duration: duration,
+                    playCount: playCount,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 88,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          (creator ?? '').trim().isEmpty
+                              ? AppI18n.t(config, 'common.unknown_author')
+                              : creator!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

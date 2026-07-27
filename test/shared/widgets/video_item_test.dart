@@ -15,6 +15,22 @@ void main() {
       expect(find.text('MV Title'), findsOneWidget);
     });
 
+    testWidgets('普通主题下不绘制 item 背景', (tester) async {
+      await tester.pumpWidget(
+        _wrap(VideoListItem(title: 'T', coverUrl: '', onTap: () {})),
+      );
+
+      final material = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byType(VideoListItem),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(material.color, Colors.transparent);
+    });
+
     testWidgets('应显示 creator', (tester) async {
       await tester.pumpWidget(
         _wrap(

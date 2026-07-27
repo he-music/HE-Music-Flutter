@@ -65,27 +65,27 @@ void main() {
     expect(tappedItem?['id'], 'mv-1');
   });
 
-  testWidgets(
-    'immersive artist playlist and album results use content surfaces',
-    (tester) async {
-      for (final type in <SearchType>[
-        SearchType.artist,
-        SearchType.playlist,
-        SearchType.album,
-      ]) {
-        await tester.pumpWidget(
-          _buildResultList(
-            type: type,
-            results: <Map<String, dynamic>>[_resultForType(type)],
-            immersive: true,
-          ),
-        );
+  testWidgets('immersive non-song results use content surfaces', (
+    tester,
+  ) async {
+    for (final type in <SearchType>[
+      SearchType.artist,
+      SearchType.playlist,
+      SearchType.album,
+      SearchType.video,
+    ]) {
+      await tester.pumpWidget(
+        _buildResultList(
+          type: type,
+          results: <Map<String, dynamic>>[_resultForType(type)],
+          immersive: true,
+        ),
+      );
 
-        expect(find.byType(AppSkinSurface), findsOneWidget);
-        expect(find.byType(BackdropFilter), findsNothing);
-      }
-    },
-  );
+      expect(find.byType(AppSkinSurface), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsNothing);
+    }
+  });
 
   testWidgets(
     'immersive search skeleton items use zero-blur content surfaces',
@@ -408,6 +408,15 @@ Map<String, dynamic> _resultForType(SearchType type) {
         <String, dynamic>{'id': 'artist-1', 'name': '测试歌手'},
       ],
       'cover': '',
+    },
+    SearchType.video => <String, dynamic>{
+      'id': 'mv-1',
+      'platform': 'qq',
+      'name': '测试视频',
+      'creator': '测试作者',
+      'cover': '',
+      'duration': 120,
+      'play_count': '88',
     },
     _ => throw ArgumentError.value(type, 'type'),
   };
