@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_player_style_models.dart';
 import 'app_player_style_theme.dart';
@@ -12,12 +13,35 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   bool showDragHandle = true,
 }) {
   final inheritedTheme = Theme.of(context);
+  final playerStyleTheme = inheritedTheme.extension<AppPlayerStyleTheme>();
   final sheetBrightness =
-      inheritedTheme.extension<AppPlayerStyleTheme>()?.sheetBrightness ??
-      inheritedTheme.brightness;
+      playerStyleTheme?.sheetBrightness ?? inheritedTheme.brightness;
   final sheet = AppPlayerSheetStyle.forBrightness(sheetBrightness);
   final sheetTheme = buildAppPlayerSheetTheme(sheet, sheetBrightness);
-  return showModalBottomSheet<T>(
+  final systemOverlayStyle = playerStyleTheme?.package.systemOverlayStyle;
+  final overlayEntry = systemOverlayStyle == null
+      ? null
+      : OverlayEntry(
+          builder: (_) => Positioned.fill(
+            child: ExcludeSemantics(
+              child: IgnorePointer(
+                child: AnnotatedRegion<SystemUiOverlayStyle>(
+                  key: const ValueKey<String>(
+                    'player-system-ui-overlay-style-guard',
+                  ),
+                  value: systemOverlayStyle,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        );
+
+  // Modal route 位于播放器之上，弹层存续期间需要持续提供播放器的系统栏样式。
+  if (overlayEntry != null) {
+    Overlay.of(context, rootOverlay: true).insert(overlayEntry);
+  }
+  final sheetFuture = showModalBottomSheet<T>(
     context: context,
     useRootNavigator: useRootNavigator,
     useSafeArea: useSafeArea,
@@ -38,6 +62,14 @@ Future<T?> showPlayerStyledBottomSheet<T>({
       ),
     ),
   );
+  if (overlayEntry == null) {
+    return sheetFuture;
+  }
+  return sheetFuture.whenComplete(() {
+    overlayEntry
+      ..remove()
+      ..dispose();
+  });
 }
 
 class PlayerSheetSurface extends StatelessWidget {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -10,7 +11,7 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart
 
 void main() {
   testWidgets(
-    'player sheet preserves result and uses shared light dark colors',
+    'player sheet preserves result, colors, and system overlay style',
     (tester) async {
       final cases =
           <({ThemeMode mode, String playerStyleId, AppPlayerSheetStyle sheet})>[
@@ -108,10 +109,28 @@ void main() {
           find.byKey(const ValueKey<String>('player-sheet-surface')),
           findsOne,
         );
+        final overlayStyleGuard = tester
+            .widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+              find.byKey(
+                const ValueKey<String>('player-system-ui-overlay-style-guard'),
+              ),
+            );
+        expect(
+          overlayStyleGuard.value,
+          AppPlayerStyleRegistry.instance
+              .resolve(testCase.playerStyleId)
+              .systemOverlayStyle,
+        );
 
         await tester.tap(find.text('Close'));
         await tester.pumpAndSettle();
         expect(result, 7);
+        expect(
+          find.byKey(
+            const ValueKey<String>('player-system-ui-overlay-style-guard'),
+          ),
+          findsNothing,
+        );
       }
     },
   );
