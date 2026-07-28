@@ -264,8 +264,7 @@ class _FakeMyOverviewRepository implements MyOverviewRepository {
   }
 }
 
-class _TestFavoriteCollectionStatus
-    extends FavoriteCollectionStatusController {
+class _TestFavoriteCollectionStatus extends FavoriteCollectionStatusController {
   @override
   FavoriteCollectionStatusState build() {
     return FavoriteCollectionStatusState.initial;

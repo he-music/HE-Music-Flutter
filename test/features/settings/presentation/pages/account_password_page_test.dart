@@ -221,10 +221,7 @@ Future<void> _pumpToast(WidgetTester tester) async {
 }
 
 class _TestAppConfigController extends AppConfigController {
-  _TestAppConfigController({
-    required this.authToken,
-    required this.localeCode,
-  });
+  _TestAppConfigController({required this.authToken, required this.localeCode});
 
   final String? authToken;
   final String localeCode;

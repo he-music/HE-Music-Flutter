@@ -5,9 +5,7 @@ import 'package:flutter/services.dart';
 /// 通过 Method Channel 调用原生 Swift 代码查询 MPMediaQuery。
 /// 返回的每个 track 包含：id, title, artist, album, duration, filePath, mimeType, size。
 class IosMediaLibraryScanner {
-  static const _channel = MethodChannel(
-    'com.hemusic.music/media_library',
-  );
+  static const _channel = MethodChannel('com.hemusic.music/media_library');
 
   /// 请求媒体库访问权限
   Future<bool> requestPermission() async {

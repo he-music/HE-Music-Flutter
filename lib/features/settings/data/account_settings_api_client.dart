@@ -11,10 +11,7 @@ class AccountSettingsApiClient {
   }) async {
     await _dio.put(
       '/v1/user/info',
-      data: <String, dynamic>{
-        'nickname': nickname,
-        'avatar': ?avatarUrl,
-      },
+      data: <String, dynamic>{'nickname': nickname, 'avatar': ?avatarUrl},
     );
   }
 

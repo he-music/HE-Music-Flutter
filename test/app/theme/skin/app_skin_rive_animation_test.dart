@@ -24,9 +24,7 @@ void main() {
   testWidgets('disabled and reduced motion states do not load Rive', (
     tester,
   ) async {
-    tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.resumed,
-    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final resolver = _CountingFailureResolver();
 
     await tester.pumpWidget(_testApp(resolver: resolver, enabled: false));
@@ -44,9 +42,7 @@ void main() {
   testWidgets('asset failure keeps the static background fallback', (
     tester,
   ) async {
-    tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.resumed,
-    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final resolver = _CountingFailureResolver();
 
     await tester.pumpWidget(_testApp(resolver: resolver));
@@ -60,9 +56,7 @@ void main() {
   testWidgets('bundled Rive pauses without recreating its controller', (
     tester,
   ) async {
-    tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.resumed,
-    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final resolver = _BundledRiveResolver();
 
     await tester.pumpWidget(_testApp(resolver: resolver));
@@ -75,16 +69,12 @@ void main() {
     expect(controller.active, isTrue);
     expect(resolver.loadCount, 1);
 
-    tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.paused,
-    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
     expect(controller.active, isFalse);
     expect(find.byType(rive.RiveWidget), findsNothing);
 
-    tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.resumed,
-    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(controller.active, isTrue);
     expect(

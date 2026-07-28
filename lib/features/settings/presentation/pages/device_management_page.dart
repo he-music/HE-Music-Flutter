@@ -76,9 +76,8 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     }
 
     return RefreshIndicator(
-      onRefresh: () => ref
-          .read(deviceManagementControllerProvider.notifier)
-          .loadDevices(),
+      onRefresh: () =>
+          ref.read(deviceManagementControllerProvider.notifier).loadDevices(),
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
@@ -86,11 +85,9 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              AppI18n.format(
-                config,
-                'settings.device_management.count',
-                {'count': '${state.deviceCount}'},
-              ),
+              AppI18n.format(config, 'settings.device_management.count', {
+                'count': '${state.deviceCount}',
+              }),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -115,10 +112,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                     : () => _confirmBatchDelete(context, config),
                 icon: const Icon(Icons.delete_sweep_outlined),
                 label: Text(
-                  AppI18n.t(
-                    config,
-                    'settings.device_management.batch_delete',
-                  ),
+                  AppI18n.t(config, 'settings.device_management.batch_delete'),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.error,
@@ -177,10 +171,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
           AppI18n.t(config, 'settings.device_management.batch_delete'),
         ),
         content: Text(
-          AppI18n.t(
-            config,
-            'settings.device_management.batch_delete_confirm',
-          ),
+          AppI18n.t(config, 'settings.device_management.batch_delete_confirm'),
         ),
         actions: [
           TextButton(
@@ -268,7 +259,8 @@ class _DeviceCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   // 位置 + 时间
                   DefaultTextStyle(
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style:
+                        Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ) ??
                         const TextStyle(),
@@ -300,10 +292,7 @@ class _DeviceCard extends StatelessWidget {
             // 操作按钮
             if (isCurrent)
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: colorScheme.primary,
                   borderRadius: BorderRadius.circular(4),
@@ -323,10 +312,7 @@ class _DeviceCard extends StatelessWidget {
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline),
                 color: colorScheme.error,
-                tooltip: AppI18n.t(
-                  config,
-                  'settings.device_management.delete',
-                ),
+                tooltip: AppI18n.t(config, 'settings.device_management.delete'),
               ),
           ],
         ),
@@ -360,25 +346,19 @@ class _DeviceCard extends StatelessWidget {
     }
     if (diff < 3600) {
       final minutes = diff ~/ 60;
-      return AppI18n.format(
-        config,
-        'settings.device_management.minutes_ago',
-        {'count': '$minutes'},
-      );
+      return AppI18n.format(config, 'settings.device_management.minutes_ago', {
+        'count': '$minutes',
+      });
     }
     if (diff < 86400) {
       final hours = diff ~/ 3600;
-      return AppI18n.format(
-        config,
-        'settings.device_management.hours_ago',
-        {'count': '$hours'},
-      );
+      return AppI18n.format(config, 'settings.device_management.hours_ago', {
+        'count': '$hours',
+      });
     }
     final days = diff ~/ 86400;
-    return AppI18n.format(
-      config,
-      'settings.device_management.days_ago',
-      {'count': '$days'},
-    );
+    return AppI18n.format(config, 'settings.device_management.days_ago', {
+      'count': '$days',
+    });
   }
 }

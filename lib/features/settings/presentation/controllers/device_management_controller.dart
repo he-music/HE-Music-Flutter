@@ -36,8 +36,7 @@ class DeviceManagementState {
   }
 }
 
-class DeviceManagementController
-    extends Notifier<DeviceManagementState> {
+class DeviceManagementController extends Notifier<DeviceManagementState> {
   @override
   DeviceManagementState build() {
     Future.microtask(loadDevices);
@@ -91,5 +90,5 @@ class DeviceManagementController
 
 final deviceManagementControllerProvider =
     NotifierProvider<DeviceManagementController, DeviceManagementState>(
-  DeviceManagementController.new,
-);
+      DeviceManagementController.new,
+    );
