@@ -221,6 +221,7 @@ void main() {
       expect(state.currentIndex, 0);
       expect(state.isPlaying, isFalse);
       expect(state.isLoading, isFalse);
+      expect(state.isPlaybackSessionActive, isFalse);
       expect(state.position, Duration.zero);
       expect(state.volume, 1.0);
       expect(state.speed, 1.0);
@@ -259,10 +260,12 @@ void main() {
       final state = PlayerPlaybackState.initial(tracks);
       final updated = state.copyWith(
         isPlaying: true,
+        isPlaybackSessionActive: true,
         position: const Duration(seconds: 30),
         volume: 0.8,
       );
       expect(updated.isPlaying, isTrue);
+      expect(updated.isPlaybackSessionActive, isTrue);
       expect(updated.position, const Duration(seconds: 30));
       expect(updated.volume, 0.8);
       // 未指定的字段应保持原值

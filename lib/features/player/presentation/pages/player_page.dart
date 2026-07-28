@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,10 +10,12 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/router/app_route_observers.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../../../app/theme/player/app_player_style_registry.dart';
+import '../../../../core/device/screen_wake_lock.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
 import '../../../../shared/helpers/song_artist_navigation_helper.dart';
@@ -62,7 +65,8 @@ enum _PlayerOrientationPreference {
 
 enum _PlayerMoreAction { openStyleSelection, enterLandscape }
 
-class _PlayerPageState extends ConsumerState<PlayerPage> {
+class _PlayerPageState extends ConsumerState<PlayerPage>
+    with WidgetsBindingObserver, RouteAware {
   static const _pageCount = 2;
   late final PageController _pageController = PageController();
   final GlobalKey _lyricPageKey = GlobalKey(debugLabel: 'player-lyric-page');
@@ -72,17 +76,64 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   bool _isLandscapeSystemUiActive = false;
   _PlayerOrientationPreference _orientationPreference =
       _PlayerOrientationPreference.systemManaged;
+  late final ScreenWakeLockPort _screenWakeLockPort;
+  late bool _isPlaybackSessionActive;
+  AppLifecycleState? _appLifecycleState;
+  PageRoute<dynamic>? _pageRoute;
+  bool _isCurrentPageRoute = false;
+  bool _isDisposed = false;
+  bool _desiredWakeLockEnabled = false;
+  bool? _appliedWakeLockEnabled;
+  bool? _inFlightWakeLockTarget;
+  bool _isWakeLockSyncRunning = false;
 
   @override
   void initState() {
     super.initState();
+    _screenWakeLockPort = ref.read(screenWakeLockPortProvider);
+    _isPlaybackSessionActive = ref.read(
+      playerControllerProvider.select((state) => state.isPlaybackSessionActive),
+    );
+    _appLifecycleState = WidgetsBinding.instance.lifecycleState;
+    WidgetsBinding.instance.addObserver(this);
+    ref.listenManual<bool>(
+      playerControllerProvider.select((state) => state.isPlaybackSessionActive),
+      (previous, next) {
+        _isPlaybackSessionActive = next;
+        _requestWakeLockSync();
+      },
+      fireImmediately: false,
+    );
     Future.microtask(() {
       ref.read(playerControllerProvider.notifier).initialize();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextRoute = ModalRoute.of(context);
+    if (nextRoute is! PageRoute<dynamic> || identical(nextRoute, _pageRoute)) {
+      return;
+    }
+    final previousRoute = _pageRoute;
+    if (previousRoute != null) {
+      appPageRouteObserver.unsubscribe(this);
+    }
+    _pageRoute = nextRoute;
+    appPageRouteObserver.subscribe(this, nextRoute);
+  }
+
+  @override
   void dispose() {
+    final pageRoute = _pageRoute;
+    if (pageRoute != null) {
+      appPageRouteObserver.unsubscribe(this);
+    }
+    WidgetsBinding.instance.removeObserver(this);
+    _isCurrentPageRoute = false;
+    _isDisposed = true;
+    _requestWakeLockSync();
     if (_usesMobileOrientationControls) {
       unawaited(
         SystemChrome.setPreferredOrientations(const <DeviceOrientation>[]),
@@ -91,6 +142,98 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     }
     _pageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appLifecycleState = state;
+    _requestWakeLockSync();
+  }
+
+  @override
+  void didPush() {
+    _setCurrentPageRoute(true);
+  }
+
+  @override
+  void didPopNext() {
+    _setCurrentPageRoute(true);
+  }
+
+  @override
+  void didPushNext() {
+    _setCurrentPageRoute(false);
+  }
+
+  @override
+  void didPop() {
+    _setCurrentPageRoute(false);
+  }
+
+  void _setCurrentPageRoute(bool isCurrent) {
+    if (_isCurrentPageRoute == isCurrent) {
+      return;
+    }
+    _isCurrentPageRoute = isCurrent;
+    _requestWakeLockSync();
+  }
+
+  void _requestWakeLockSync() {
+    if (!_isMobileTargetPlatform) {
+      return;
+    }
+    _desiredWakeLockEnabled =
+        !_isDisposed &&
+        _appLifecycleState == AppLifecycleState.resumed &&
+        _isCurrentPageRoute &&
+        _isPlaybackSessionActive;
+    if (_isWakeLockSyncRunning || !_needsWakeLockSync) {
+      return;
+    }
+    unawaited(_drainWakeLockSync());
+  }
+
+  bool get _isMobileTargetPlatform =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+
+  bool get _needsWakeLockSync {
+    if (_desiredWakeLockEnabled) {
+      return _appliedWakeLockEnabled != true;
+    }
+    return _appliedWakeLockEnabled == true || _inFlightWakeLockTarget == true;
+  }
+
+  // 串行执行平台调用，快速状态变化始终继续收敛到最后一个目标。
+  Future<void> _drainWakeLockSync() async {
+    _isWakeLockSyncRunning = true;
+    var failed = false;
+    try {
+      while (_needsWakeLockSync) {
+        final target = _desiredWakeLockEnabled;
+        _inFlightWakeLockTarget = target;
+        try {
+          await _screenWakeLockPort.setEnabled(target);
+          _appliedWakeLockEnabled = target;
+        } catch (error, stackTrace) {
+          failed = true;
+          developer.log(
+            'Screen wake lock sync failed',
+            name: 'PlayerPage',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          return;
+        } finally {
+          _inFlightWakeLockTarget = null;
+        }
+      }
+    } finally {
+      _isWakeLockSyncRunning = false;
+      if (!failed && _needsWakeLockSync) {
+        unawaited(_drainWakeLockSync());
+      }
+    }
   }
 
   @override

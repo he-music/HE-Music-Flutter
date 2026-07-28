@@ -19,6 +19,7 @@ class PlayerStreamManager {
     required Future<void> Function(int? nextIndex) onCurrentIndexChanged,
     required void Function(dynamic event) onCustomEvent,
     required Future<void> Function() onPlaybackCompleted,
+    required void Function(bool isPlaying) onPlayingChanged,
     required void Function(Object error, StackTrace stack) onStreamError,
     required void Function(Duration duration) onDurationChanged,
     required void Function(OverlayMessage message) onOverlayMessage,
@@ -29,6 +30,7 @@ class PlayerStreamManager {
        _onCurrentIndexChanged = onCurrentIndexChanged,
        _onCustomEvent = onCustomEvent,
        _onPlaybackCompleted = onPlaybackCompleted,
+       _onPlayingChanged = onPlayingChanged,
        _onStreamError = onStreamError,
        _onDurationChanged = onDurationChanged,
        _onOverlayMessage = onOverlayMessage;
@@ -40,6 +42,7 @@ class PlayerStreamManager {
   final Future<void> Function(int? nextIndex) _onCurrentIndexChanged;
   final void Function(dynamic event) _onCustomEvent;
   final Future<void> Function() _onPlaybackCompleted;
+  final void Function(bool isPlaying) _onPlayingChanged;
   final void Function(Object error, StackTrace stack) _onStreamError;
   final void Function(Duration duration) _onDurationChanged;
   final void Function(OverlayMessage message) _onOverlayMessage;
@@ -74,7 +77,7 @@ class PlayerStreamManager {
     final callback = _callbackReader();
 
     _playingSubscription = audioPlayer.playingStream.listen((isPlaying) {
-      callback.updateState((s) => s.copyWith(isPlaying: isPlaying));
+      _onPlayingChanged(isPlaying);
     }, onError: _handleStreamError);
 
     _loadingSubscription = audioPlayer.loadingStream.listen((isLoading) {

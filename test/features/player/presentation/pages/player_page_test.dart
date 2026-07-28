@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,8 +9,10 @@ import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
+import 'package:he_music_flutter/app/router/app_route_observers.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
+import 'package:he_music_flutter/core/device/screen_wake_lock.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
@@ -38,6 +42,285 @@ void main() {
       expect(color, AppLyricHighlightColor.sky.color);
     },
   );
+
+  for (final platform in <TargetPlatform>[
+    TargetPlatform.android,
+    TargetPlatform.iOS,
+  ]) {
+    testWidgets('$platform 前台播放器活动会话启用常亮', (tester) async {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final wakeLock = _RecordingScreenWakeLockPort();
+
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _WakeLockPlayerController.new,
+          screenWakeLockPort: wakeLock,
+        ),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(wakeLock.calls, <bool>[true]);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
+
+  testWidgets('播放器分页和 PopupRoute 不释放常亮', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final wakeLock = _RecordingScreenWakeLockPort();
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _WakeLockPlayerController.new,
+        screenWakeLockPort: wakeLock,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    final pager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('player-mobile-pager')),
+    );
+    pager.controller!.jumpToPage(1);
+    await tester.pumpAndSettle();
+    expect(find.byType(PlayerLyricPage), findsOneWidget);
+    expect(wakeLock.calls, <bool>[true]);
+
+    final playerContext = tester.element(find.byType(PlayerPage));
+    showModalBottomSheet<void>(
+      context: playerContext,
+      builder: (context) => const SizedBox(
+        key: ValueKey<String>('wake-lock-test-sheet'),
+        height: 100,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(wakeLock.calls, <bool>[true]);
+    debugDefaultTargetPlatformOverride = null;
+    Navigator.of(
+      tester.element(
+        find.byKey(const ValueKey<String>('wake-lock-test-sheet')),
+      ),
+    ).pop();
+    await tester.pumpAndSettle();
+
+    showDialog<void>(
+      context: playerContext,
+      builder: (context) =>
+          const AlertDialog(key: ValueKey<String>('wake-lock-test-dialog')),
+    );
+    await tester.pumpAndSettle();
+    expect(wakeLock.calls, <bool>[true]);
+  });
+
+  testWidgets('生命周期离开 resumed 时释放，恢复后重新启用', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final wakeLock = _RecordingScreenWakeLockPort();
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _WakeLockPlayerController.new,
+        screenWakeLockPort: wakeLock,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    for (final state in <AppLifecycleState>[
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.detached,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+      await tester.pump();
+      expect(wakeLock.calls.last, isFalse, reason: '$state');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(wakeLock.calls.last, isTrue, reason: '$state -> resumed');
+    }
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('完整 PageRoute 覆盖时先释放，返回后恢复且销毁不重复释放', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final ownershipEvents = <String>[];
+    final wakeLock = _RecordingScreenWakeLockPort(
+      onCall: (enabled) {
+        ownershipEvents.add('music:$enabled');
+      },
+    );
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _WakeLockPlayerController.new,
+        screenWakeLockPort: wakeLock,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    final navigator = Navigator.of(tester.element(find.byType(PlayerPage)));
+    navigator.push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => _WakeOwnershipProbe(events: ownershipEvents),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(ownershipEvents, <String>[
+      'music:true',
+      'music:false',
+      'video:true',
+    ]);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(ownershipEvents.last, 'music:true');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(ownershipEvents.last, 'music:false');
+    expect(ownershipEvents.where((event) => event == 'music:false').length, 2);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('会话暂停和恢复分别释放与重新启用常亮', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final wakeLock = _RecordingScreenWakeLockPort();
+    late _WakeLockPlayerController controller;
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: () {
+          controller = _WakeLockPlayerController();
+          return controller;
+        },
+        screenWakeLockPort: wakeLock,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    controller.setPlaybackSessionActive(false);
+    await tester.pump();
+    controller.setPlaybackSessionActive(true);
+    await tester.pump();
+
+    expect(wakeLock.calls, <bool>[true, false, true]);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('快速会话变化按顺序调用并收敛到最后目标', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final firstCall = Completer<void>();
+    final secondCall = Completer<void>();
+    final wakeLock = _RecordingScreenWakeLockPort(nextCompletion: firstCall);
+    late _WakeLockPlayerController controller;
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: () {
+          controller = _WakeLockPlayerController();
+          return controller;
+        },
+        screenWakeLockPort: wakeLock,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(wakeLock.calls, <bool>[true]);
+
+    controller.setPlaybackSessionActive(false);
+    wakeLock.nextCompletion = secondCall;
+    firstCall.complete();
+    await tester.pump();
+    expect(wakeLock.calls, <bool>[true, false]);
+
+    controller.setPlaybackSessionActive(true);
+    secondCall.complete();
+    await tester.pump();
+    expect(wakeLock.calls, <bool>[true, false, true]);
+
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('无活动会话时不申请常亮', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final wakeLock = _RecordingScreenWakeLockPort();
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        screenWakeLockPort: wakeLock,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(wakeLock.calls, isEmpty);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('非移动平台不调用常亮端口', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final wakeLock = _RecordingScreenWakeLockPort();
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _WakeLockPlayerController.new,
+        screenWakeLockPort: wakeLock,
+      ),
+    );
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    expect(wakeLock.calls, isEmpty);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('常亮端口失败不影响页面且后续状态可重试', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final wakeLock = _RecordingScreenWakeLockPort(failuresRemaining: 1);
+    late _WakeLockPlayerController controller;
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: () {
+          controller = _WakeLockPlayerController();
+          return controller;
+        },
+        screenWakeLockPort: wakeLock,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    controller.setPlaybackSessionActive(false);
+    await tester.pump();
+    controller.setPlaybackSessionActive(true);
+    await tester.pump();
+
+    expect(wakeLock.calls, <bool>[true, true]);
+    expect(find.byType(PlayerPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   testWidgets('player more sheet shows add to playlist for online track', (
     tester,
@@ -1402,6 +1685,7 @@ Widget _buildPlayerTestApp({
   required PlayerController Function() controllerFactory,
   BigInt? featureSupportFlag,
   AppConfigState? config,
+  ScreenWakeLockPort? screenWakeLockPort,
 }) {
   return ProviderScope(
     overrides: [
@@ -1411,6 +1695,8 @@ Widget _buildPlayerTestApp({
         ),
       ),
       playerControllerProvider.overrideWith(controllerFactory),
+      if (screenWakeLockPort != null)
+        screenWakeLockPortProvider.overrideWithValue(screenWakeLockPort),
       artistPhotoCacheProvider.overrideWith(_EmptyArtistPhotoCache.new),
       onlinePlatformsProvider.overrideWith(
         () => _TestOnlinePlatformsController(
@@ -1422,7 +1708,10 @@ Widget _buildPlayerTestApp({
         ),
       ),
     ],
-    child: const MaterialApp(home: AppPlayerStyleBoundary(child: PlayerPage())),
+    child: MaterialApp(
+      navigatorObservers: <NavigatorObserver>[appPageRouteObserver],
+      home: const AppPlayerStyleBoundary(child: PlayerPage()),
+    ),
   );
 }
 
@@ -1510,6 +1799,65 @@ class _OnlineTrackPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _WakeLockPlayerController extends _OnlineTrackPlayerController {
+  @override
+  PlayerPlaybackState build() {
+    return super.build().copyWith(isPlaybackSessionActive: true);
+  }
+
+  void setPlaybackSessionActive(bool active) {
+    state = state.copyWith(isPlaybackSessionActive: active);
+  }
+}
+
+class _RecordingScreenWakeLockPort implements ScreenWakeLockPort {
+  _RecordingScreenWakeLockPort({
+    this.failuresRemaining = 0,
+    this.onCall,
+    this.nextCompletion,
+  });
+
+  final List<bool> calls = <bool>[];
+  final void Function(bool enabled)? onCall;
+  int failuresRemaining;
+  Completer<void>? nextCompletion;
+
+  @override
+  Future<void> setEnabled(bool enabled) async {
+    calls.add(enabled);
+    onCall?.call(enabled);
+    if (failuresRemaining > 0) {
+      failuresRemaining -= 1;
+      throw StateError('wake lock failed');
+    }
+    final completion = nextCompletion;
+    nextCompletion = null;
+    await completion?.future;
+  }
+}
+
+class _WakeOwnershipProbe extends StatefulWidget {
+  const _WakeOwnershipProbe({required this.events});
+
+  final List<String> events;
+
+  @override
+  State<_WakeOwnershipProbe> createState() => _WakeOwnershipProbeState();
+}
+
+class _WakeOwnershipProbeState extends State<_WakeOwnershipProbe> {
+  @override
+  void initState() {
+    super.initState();
+    widget.events.add('video:true');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: SizedBox.expand());
+  }
 }
 
 class _LocalTrackPlayerController extends PlayerController {

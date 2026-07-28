@@ -14,6 +14,7 @@ class PlayerPlaybackState {
     required this.historyCount,
     required this.isPlaying,
     required this.isLoading,
+    required this.isPlaybackSessionActive,
     required this.position,
     required this.duration,
     required this.volume,
@@ -40,6 +41,7 @@ class PlayerPlaybackState {
   final int historyCount;
   final bool isPlaying;
   final bool isLoading;
+  final bool isPlaybackSessionActive;
   final Duration position;
   final Duration duration;
   final double volume;
@@ -85,6 +87,7 @@ class PlayerPlaybackState {
     int? historyCount,
     bool? isPlaying,
     bool? isLoading,
+    bool? isPlaybackSessionActive,
     Duration? position,
     Duration? duration,
     double? volume,
@@ -123,6 +126,8 @@ class PlayerPlaybackState {
       historyCount: historyCount ?? this.historyCount,
       isPlaying: isPlaying ?? this.isPlaying,
       isLoading: isLoading ?? this.isLoading,
+      isPlaybackSessionActive:
+          isPlaybackSessionActive ?? this.isPlaybackSessionActive,
       position: position ?? this.position,
       duration: duration ?? this.duration,
       volume: volume ?? this.volume,
@@ -173,6 +178,7 @@ class PlayerPlaybackState {
       historyCount: 0,
       isPlaying: false,
       isLoading: false,
+      isPlaybackSessionActive: false,
       position: Duration.zero,
       duration: Duration.zero,
       volume: defaultPlayerVolume,

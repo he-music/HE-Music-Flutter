@@ -52,6 +52,7 @@ PlayerPlaybackState _state({
     historyCount: 0,
     isPlaying: false,
     isLoading: false,
+    isPlaybackSessionActive: false,
     position: Duration.zero,
     duration: duration,
     volume: 1.0,

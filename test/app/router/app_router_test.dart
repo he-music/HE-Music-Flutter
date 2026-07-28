@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,7 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/core/network/api_dio_provider.dart';
+import 'package:he_music_flutter/core/device/screen_wake_lock.dart';
 import 'package:he_music_flutter/features/auth/presentation/pages/login_page.dart';
 import 'package:he_music_flutter/features/auth/presentation/pages/qr_login_scan_page.dart';
 import 'package:he_music_flutter/features/home/presentation/widgets/discover_home_tab.dart';
@@ -32,6 +34,7 @@ import 'package:he_music_flutter/features/playlist/presentation/pages/playlist_d
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/pages/player_page.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/account_password_page.dart';
@@ -42,6 +45,46 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets(
+    'root GoRouter observer distinguishes PageRoute from PopupRoute',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final wakeLock = _RecordingScreenWakeLockPort();
+
+      await tester.pumpWidget(
+        _buildRouterTestApp(
+          initialLocation: AppRoutes.player,
+          playerControllerFactory: _ActiveTestPlayerController.new,
+          screenWakeLockPort: wakeLock,
+        ),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      final playerContext = tester.element(find.byType(PlayerPage));
+      showDialog<void>(
+        context: playerContext,
+        builder: (context) => const AlertDialog(content: Text('route popup')),
+      );
+      await tester.pumpAndSettle();
+      expect(wakeLock.calls, <bool>[true]);
+      Navigator.of(tester.element(find.text('route popup'))).pop();
+      await tester.pumpAndSettle();
+
+      final router = GoRouter.of(playerContext);
+      router.push(AppRoutes.settings);
+      await tester.pumpAndSettle();
+      expect(wakeLock.calls, <bool>[true, false]);
+
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(wakeLock.calls, <bool>[true, false, true]);
+
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
+
   testWidgets('content route keeps mini player visible', (tester) async {
     await tester.pumpWidget(
       _buildRouterTestApp(initialLocation: AppRoutes.online),
@@ -303,12 +346,20 @@ void main() {
   });
 }
 
-Widget _buildRouterTestApp({required String initialLocation}) {
+Widget _buildRouterTestApp({
+  required String initialLocation,
+  PlayerController Function()? playerControllerFactory,
+  ScreenWakeLockPort? screenWakeLockPort,
+}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       apiDioProvider.overrideWithValue(Dio()),
-      playerControllerProvider.overrideWith(_TestPlayerController.new),
+      playerControllerProvider.overrideWith(
+        playerControllerFactory ?? _TestPlayerController.new,
+      ),
+      if (screenWakeLockPort != null)
+        screenWakeLockPortProvider.overrideWithValue(screenWakeLockPort),
       onlineControllerProvider.overrideWith(_TestOnlineController.new),
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
       searchDefaultPlaceholderProvider.overrideWith(
@@ -394,6 +445,22 @@ class _TestPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _ActiveTestPlayerController extends _TestPlayerController {
+  @override
+  PlayerPlaybackState build() {
+    return super.build().copyWith(isPlaybackSessionActive: true);
+  }
+}
+
+class _RecordingScreenWakeLockPort implements ScreenWakeLockPort {
+  final List<bool> calls = <bool>[];
+
+  @override
+  Future<void> setEnabled(bool enabled) async {
+    calls.add(enabled);
+  }
 }
 
 class _TestOnlineController extends OnlineController {

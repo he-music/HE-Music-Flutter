@@ -116,6 +116,7 @@ void main() {
       expect(state.currentTrack?.id, 'song-2');
       expect(state.currentTrack?.url, isEmpty);
       expect(state.errorMessage, isNull);
+      expect(state.isPlaybackSessionActive, isTrue);
       expect(audioPlayer.lastQueueInitialIndex, 1);
       expect(audioPlayer.lastQueueTracks[1].url, isEmpty);
     },
@@ -227,6 +228,208 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     state = container.read(playerControllerProvider);
     expect(state.duration, const Duration(minutes: 3));
+  });
+
+  group('有效播放会话', () {
+    test('playing 流建立会话，loading 保持会话，明确暂停结束会话', () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      await container.read(playerControllerProvider.notifier).initialize();
+
+      audioPlayer.emitPlaying(true);
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(playerControllerProvider).isPlaying, isTrue);
+      expect(
+        container.read(playerControllerProvider).isPlaybackSessionActive,
+        isTrue,
+      );
+
+      audioPlayer.emitLoading(true);
+      audioPlayer.emitLoading(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(playerControllerProvider).isPlaybackSessionActive,
+        isTrue,
+      );
+
+      audioPlayer.emitPlaying(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(playerControllerProvider).isPlaying, isFalse);
+      expect(
+        container.read(playerControllerProvider).isPlaybackSessionActive,
+        isFalse,
+      );
+    });
+
+    test('手动切歌 pending 在底层短暂停止期间保持会话', () async {
+      final harness = await _createTargetPreviewHarness();
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 90, targetIndex: 1),
+      );
+      harness.audioPlayer.emitPlaying(false);
+      await Future<void>.delayed(Duration.zero);
+
+      var state = harness.container.read(playerControllerProvider);
+      expect(state.requestedTransitionId, 90);
+      expect(state.isPlaying, isFalse);
+      expect(state.isPlaybackSessionActive, isTrue);
+
+      harness.audioPlayer.emitCustomEvent(
+        _manualSkipTargetEvent(transitionId: 90, status: 'cleared'),
+      );
+      harness.audioPlayer.emitPlaying(false);
+      await Future<void>.delayed(Duration.zero);
+
+      state = harness.container.read(playerControllerProvider);
+      expect(state.isPlaybackSessionActive, isFalse);
+    });
+
+    test('自动播放的 playAt 在装载和底层 stop 期间保持会话', () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.replaceQueue(
+        _buildQueue(),
+        startIndex: 0,
+        autoplay: false,
+      );
+      final pendingLoad = Completer<void>();
+      audioPlayer.setQueueCompleter = pendingLoad;
+
+      final switching = controller.playAt(1);
+      await Future<void>.delayed(Duration.zero);
+      audioPlayer.emitPlaying(false);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        container.read(playerControllerProvider).isPlaybackSessionActive,
+        isTrue,
+      );
+
+      pendingLoad.complete();
+      await switching;
+      audioPlayer.emitPlaying(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(playerControllerProvider).isPlaybackSessionActive,
+        isFalse,
+      );
+    });
+
+    test('播放中的音质切换保持会话，暂停时切换不建立会话', () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+          playerPlaybackApiClientProvider.overrideWithValue(
+            _FakeOnlineApiClient(handlers: <String, _SongUrlHandler>{}),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.replaceQueue(
+        _buildQualityQueue(),
+        startIndex: 0,
+        autoplay: false,
+      );
+
+      await controller.switchCurrentQualityByName('FLAC');
+      expect(
+        container.read(playerControllerProvider).isPlaybackSessionActive,
+        isFalse,
+      );
+
+      audioPlayer.emitPlaying(true);
+      await Future<void>.delayed(Duration.zero);
+      final pendingSource = Completer<void>();
+      audioPlayer.setSourceCompleter = pendingSource;
+      final switching = controller.switchCurrentQualityByName('320k');
+      await Future<void>.delayed(Duration.zero);
+      audioPlayer.emitPlaying(false);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        container.read(playerControllerProvider).isPlaybackSessionActive,
+        isTrue,
+      );
+
+      pendingSource.complete();
+      await switching;
+    });
+
+    test('最终播放失败和清空队列结束会话', () async {
+      final harness = await _createTargetPreviewHarness();
+      harness.audioPlayer.emitPlaying(true);
+      await Future<void>.delayed(Duration.zero);
+
+      harness.audioPlayer.emitCustomEvent(<String, dynamic>{
+        'type': 'playbackTransitionError',
+        'code': 'globalTransient',
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        harness.container
+            .read(playerControllerProvider)
+            .isPlaybackSessionActive,
+        isFalse,
+      );
+
+      harness.audioPlayer.emitPlaying(true);
+      await Future<void>.delayed(Duration.zero);
+      await harness.container
+          .read(playerControllerProvider.notifier)
+          .clearQueue();
+      expect(
+        harness.container
+            .read(playerControllerProvider)
+            .isPlaybackSessionActive,
+        isFalse,
+      );
+      expect(harness.container.read(playerControllerProvider).queue, isEmpty);
+    });
+
+    test('播放命令失败不会留下活动会话', () async {
+      final audioPlayer = _FakeAudioPlayerPort()
+        ..playError = StateError('play failed');
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.replaceQueue(
+        _buildQueue(),
+        startIndex: 0,
+        autoplay: false,
+      );
+
+      await expectLater(controller.togglePlayPause(), throwsStateError);
+      expect(
+        container.read(playerControllerProvider).isPlaybackSessionActive,
+        isFalse,
+      );
+    });
   });
 
   group('manualSkipTarget', () {
@@ -489,6 +692,7 @@ void main() {
       expect(state.requestedTrack, isNull);
       expect(state.displayTrack, isNull);
       expect(state.isTrackTransitioning, isFalse);
+      expect(state.isPlaybackSessionActive, isFalse);
     });
   });
 
@@ -563,6 +767,7 @@ void main() {
       expect(state.currentTrack?.id, 'song-2');
       expect(state.currentTrack?.url, isEmpty);
       expect(state.errorMessage, isNull);
+      expect(state.isPlaybackSessionActive, isTrue);
       expect(audioPlayer.lastQueueInitialIndex, 1);
       expect(audioPlayer.lastQueueTracks[1].id, 'song-2');
       expect(audioPlayer.lastQueueTracks[1].url, isEmpty);
@@ -1070,6 +1275,8 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   String? lastSetQueueRadioPlatform;
   int? lastSetQueueRadioPageIndex;
   Completer<void>? setQueueCompleter;
+  Completer<void>? setSourceCompleter;
+  Object? playError;
   final Completer<void> setQueueStarted = Completer<void>();
   int setQueueCallCount = 0;
   bool hasLoadedQueue = false;
@@ -1131,6 +1338,7 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
     lastSetSourceTrack = track;
     lastQueueTracks = <AudioTrack>[track];
     lastQueueInitialIndex = 0;
+    await setSourceCompleter?.future;
   }
 
   @override
@@ -1145,7 +1353,12 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   Future<void> seekToPrevious() async {}
 
   @override
-  Future<void> play() async {}
+  Future<void> play() async {
+    final error = playError;
+    if (error != null) {
+      throw error;
+    }
+  }
 
   @override
   Future<void> pause() async {}

@@ -49,6 +49,7 @@ import '../../features/video/presentation/pages/video_detail_page.dart';
 import '../../features/video/presentation/pages/video_plaza_page.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../features/player/presentation/widgets/mini_player_bar.dart';
+import 'app_route_observers.dart';
 import 'app_routes.dart';
 
 // Tab Shell 只保留底部导航直接展示的页面。
@@ -313,6 +314,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 GoRouter createAppRouter([String? initialLocation]) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
+    observers: <NavigatorObserver>[appPageRouteObserver],
     initialLocation: initialLocation ?? AppRoutes.home,
     routes: <RouteBase>[
       // ── StatefulShellRoute：底部导航的两个主页面分支 ──
