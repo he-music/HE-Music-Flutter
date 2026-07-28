@@ -623,6 +623,74 @@ void main() {
     },
   );
 
+  test('insertNextAndPlay 退出电台后播放模式事件不应恢复电台上下文', () async {
+    final apiClient = _FakeOnlineApiClient(
+      handlers: <String, Future<Map<String, dynamic>> Function()>{
+        'song-1': () async => const <String, dynamic>{
+          'url': 'https://example.com/song-1.mp3',
+        },
+        'song-2': () async => const <String, dynamic>{
+          'url': 'https://example.com/song-2.mp3',
+        },
+        'song-3': () async => const <String, dynamic>{
+          'url': 'https://example.com/song-3.mp3',
+        },
+      },
+    );
+    final audioPlayer = _FakeAudioPlayerPort();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        playerPlaybackApiClientProvider.overrideWithValue(apiClient),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(playerControllerProvider.notifier);
+    await controller.setPlayMode(PlayerPlayMode.shuffle);
+    await controller.replaceQueue(
+      _buildQueue(),
+      startIndex: 0,
+      autoplay: false,
+      isRadioMode: true,
+      currentRadioId: 'radio-1',
+      currentRadioPlatform: 'qq',
+      currentRadioPageIndex: 1,
+    );
+
+    await controller.insertNextAndPlay(
+      const PlayerTrack(id: 'song-3', title: '第三首', platform: 'qq'),
+    );
+
+    var state = container.read(playerControllerProvider);
+    expect(state.isRadioMode, isFalse);
+    expect(state.playMode, PlayerPlayMode.shuffle);
+    expect(audioPlayer.lastSetQueueIsRadioMode, isFalse);
+    expect(audioPlayer.lastSetQueueRadioId, isNull);
+    expect(audioPlayer.lastSetQueueRadioPlatform, isNull);
+    expect(audioPlayer.lastSetQueueRadioPageIndex, isNull);
+
+    await controller.cyclePlayMode();
+    audioPlayer.emitCustomEvent(<String, dynamic>{
+      ..._queueStateEvent(
+        transitionId: 100,
+        currentIndex: 1,
+        manualSkipTargetActive: false,
+        tracks: state.queue.map(_trackEventMap).toList(growable: false),
+      ),
+      'isRadioMode': audioPlayer.lastSetQueueIsRadioMode,
+      'currentRadioId': audioPlayer.lastSetQueueRadioId,
+      'currentRadioPlatform': audioPlayer.lastSetQueueRadioPlatform,
+      'currentRadioPageIndex': audioPlayer.lastSetQueueRadioPageIndex,
+    });
+    await Future<void>.delayed(Duration.zero);
+
+    state = container.read(playerControllerProvider);
+    expect(state.isRadioMode, isFalse);
+    expect(state.playMode, PlayerPlayMode.single);
+  });
+
   test('radio completion on last track should append next page once', () async {
     final apiClient = _FakeOnlineApiClient(
       handlers: <String, Future<Map<String, dynamic>> Function()>{

@@ -474,7 +474,11 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               playMode: nextPlayMode,
+              isRadioMode: false,
               clearQueueSource: true,
+              clearCurrentRadioId: true,
+              clearCurrentRadioPlatform: true,
+              clearCurrentRadioPageIndex: true,
               clearPreviousPlayModeBeforeRadio: true,
               clearError: true,
             );
@@ -484,10 +488,6 @@ class PlayerController extends Notifier<PlayerPlaybackState>
           queue: resolution.updatedQueue,
           currentAvailableQualities: resolution.availableQualities,
           currentSelectedQualityName: resolution.selectedQualityName,
-          isRadioMode: false,
-          clearCurrentRadioId: true,
-          clearCurrentRadioPlatform: true,
-          clearCurrentRadioPageIndex: true,
           clearError: true,
         );
       },
