@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_theme_accent.dart';
 import '../skins/city_sound_creator_skin.dart';
 import '../skins/classic_skin.dart';
+import '../skins/starlit_melody_skin.dart';
 import 'app_skin_models.dart';
 
 class AppSkinRegistry {
@@ -13,12 +14,18 @@ class AppSkinRegistry {
     return AppSkinRegistry(<AppSkinPackage>[
       classicSkinForAccent(accent),
       citySoundCreatorSkin(),
+      starlitMelodySkin(),
     ]);
   }
 
   static const String classicId = 'classic';
   static const String citySoundCreatorId = 'city_sound_creator';
-  static const Set<String> builtInIds = <String>{classicId, citySoundCreatorId};
+  static const String starlitMelodyId = 'starlit_melody';
+  static const Set<String> builtInIds = <String>{
+    classicId,
+    citySoundCreatorId,
+    starlitMelodyId,
+  };
 
   final Map<String, AppSkinPackage> _skins;
 

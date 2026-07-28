@@ -6,7 +6,7 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/app/theme/skins/classic_skin.dart';
 
 void main() {
-  test('built-in registry resolves classic and city skin', () {
+  test('built-in registry resolves classic, city, and starlit skins', () {
     final registry = AppSkinRegistry.builtIn(AppThemeAccent.cobalt);
 
     expect(
@@ -18,6 +18,7 @@ void main() {
       registry.resolve('city_sound_creator').metadata.id,
       'city_sound_creator',
     );
+    expect(registry.resolve('starlit_melody').metadata.id, 'starlit_melody');
     expect(registry.resolve('missing').metadata.id, 'classic');
   });
 
@@ -34,6 +35,14 @@ void main() {
       isNot(rose.light.colorScheme.primary),
     );
     expect(
+      forest.metadata.lightPreview.descriptor?.path,
+      'assets/skins/classic/preview_light.png',
+    );
+    expect(
+      forest.metadata.darkPreview.descriptor?.path,
+      'assets/skins/classic/preview_dark.png',
+    );
+    expect(
       AppSkinRegistry.builtIn(
         AppThemeAccent.forest,
       ).resolve('city_sound_creator').light.colorScheme.primary,
@@ -41,6 +50,80 @@ void main() {
         AppThemeAccent.rose,
       ).resolve('city_sound_creator').light.colorScheme.primary,
     );
+    expect(
+      AppSkinRegistry.builtIn(
+        AppThemeAccent.forest,
+      ).resolve('starlit_melody').light.colorScheme.primary,
+      AppSkinRegistry.builtIn(
+        AppThemeAccent.rose,
+      ).resolve('starlit_melody').light.colorScheme.primary,
+    );
+  });
+
+  test('starlit evaluation skin customizes light and dark appearance', () {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.cobalt,
+    ).resolve('starlit_melody');
+    final graphite = classicSkinForAccent(AppThemeAccent.graphite);
+
+    expect(skin.metadata.allowsManualAccent, isFalse);
+    expect(
+      skin.metadata.lightPreview.descriptor?.path,
+      'assets/skins/starlit_melody/preview_light.png',
+    );
+    expect(
+      skin.metadata.darkPreview.descriptor?.path,
+      'assets/skins/starlit_melody/preview_dark.png',
+    );
+    expect(
+      skin.light.background.wallpaper.descriptor?.path,
+      'assets/skins/starlit_melody/wallpaper_light.png',
+    );
+    expect(
+      skin.light.background.animation,
+      const AppSkinNoAnimationDescriptor(),
+    );
+    expect(skin.light.colorScheme.primary, const Color(0xFF00677A));
+    expect(skin.light.colorScheme.secondary, const Color(0xFFB72F5B));
+    expect(skin.light.colorScheme.tertiary, const Color(0xFF735C00));
+    expect(skin.light.colorScheme.onSurface, const Color(0xFF17202A));
+    expect(skin.light.colorScheme.onSurfaceVariant, const Color(0xFF46515C));
+    expect(skin.light.surfaces.scrollingContentOpacity, 0);
+    expect(skin.light.colors.cardBackground.a, 0);
+    expect(
+      skin.dark.background.wallpaper.descriptor?.path,
+      'assets/skins/starlit_melody/wallpaper_dark_evaluation.png',
+    );
+    expect(
+      skin.dark.background.animation,
+      const AppSkinNoAnimationDescriptor(),
+    );
+    expect(skin.dark.colorScheme.primary, const Color(0xFF78D5E7));
+    expect(skin.dark.colorScheme.secondary, const Color(0xFFFFB0C8));
+    expect(skin.dark.colorScheme.tertiary, const Color(0xFFF2CE67));
+    expect(skin.dark.colorScheme.onSurface, const Color(0xFFF0EDF5));
+    expect(skin.dark.colorScheme.onSurfaceVariant, const Color(0xFFD3CBD7));
+    expect(skin.dark.colorScheme.surface, const Color(0xFF213A4C));
+    expect(
+      skin.dark.colorScheme.surfaceContainerHighest,
+      const Color(0xFF355A70),
+    );
+    expect(skin.dark.colors.fixedControlSurface, const Color(0xFF294A61));
+    expect(skin.dark.colors.inputBackground, const Color(0xC2294A61));
+    expect(skin.dark.colors.navigationBackground, const Color(0xD1294A61));
+    expect(skin.dark.surfaces.searchOpacity, 0.76);
+    expect(skin.dark.surfaces.miniPlayerOpacity, 0.78);
+    expect(skin.dark.surfaces.navigationOpacity, 0.82);
+    expect(skin.dark.surfaces.scrollingContentOpacity, 0);
+    expect(skin.dark.colors.cardBackground.a, 0);
+    expect(
+      skin.dark.colors.backgroundOverlay,
+      skin.dark.background.overlayColor,
+    );
+    expect(skin.dark.background.fit, skin.light.background.fit);
+    expect(skin.dark.background.alignment, skin.light.background.alignment);
+    expect(skin.dark, isNot(graphite.dark));
+    expect(skin.icons, graphite.icons);
   });
 
   test('registry rejects duplicate ids', () {

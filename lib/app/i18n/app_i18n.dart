@@ -329,6 +329,8 @@ abstract final class AppI18n {
       'settings.skin.classic.description': '保留当前外观与手动主题色',
       'settings.skin.city_sound_creator.name': '城市声场创作者',
       'settings.skin.city_sound_creator.description': '珊瑚红、青绿与中性工作室声场',
+      'settings.skin.starlit_melody.name': '星轨旋律',
+      'settings.skin.starlit_melody.description': '穿行于清晨云海与璀璨星夜之间的旋律列车',
       'settings.lyric_highlight_color': '歌词颜色',
       'settings.lyric_highlight_color.desc': '设置当前高亮歌词的颜色',
       'settings.lyric_highlight_color.option.sky': '天蓝',
@@ -1089,6 +1091,10 @@ abstract final class AppI18n {
       'settings.skin.city_sound_creator.name': 'City Sound Creator',
       'settings.skin.city_sound_creator.description':
           'Coral, teal, and a neutral studio soundscape',
+      'settings.skin.starlit_melody.name': 'Starlit Melody',
+      'settings.skin.starlit_melody.description':
+          'A melody train traveling between dawn clouds and a brilliant '
+          'starlit night',
       'settings.lyric_highlight_color': 'Lyric Highlight Color',
       'settings.lyric_highlight_color.desc':
           'Set the color for highlighted lyric lines',

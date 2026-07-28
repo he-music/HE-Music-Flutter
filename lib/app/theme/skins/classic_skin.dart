@@ -18,8 +18,18 @@ AppSkinPackage classicSkinForAccent(AppThemeAccent accent) {
       nameKey: 'settings.skin.classic.name',
       descriptionKey: 'settings.skin.classic.description',
       allowsManualAccent: true,
-      lightPreview: AppSkinAssetSlot.none(),
-      darkPreview: AppSkinAssetSlot.none(),
+      lightPreview: AppSkinAssetSlot.asset(
+        AppSkinAssetDescriptor(
+          path: 'assets/skins/classic/preview_light.png',
+          type: AppSkinAssetType.rasterImage,
+        ),
+      ),
+      darkPreview: AppSkinAssetSlot.asset(
+        AppSkinAssetDescriptor(
+          path: 'assets/skins/classic/preview_dark.png',
+          type: AppSkinAssetType.rasterImage,
+        ),
+      ),
     ),
     light: _classicBrightnessConfig(
       colorScheme: lightScheme,

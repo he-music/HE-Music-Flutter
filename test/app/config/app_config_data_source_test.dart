@@ -147,6 +147,17 @@ void main() {
     expect(classic.themeAccent, AppThemeAccent.amber);
   });
 
+  test('load preserves the starlit evaluation skin id', () async {
+    const dataSource = AppConfigDataSource();
+    await dataSource.save(
+      AppConfigState.initial.copyWith(skinId: AppSkinRegistry.starlitMelodyId),
+    );
+
+    final state = await dataSource.load();
+
+    expect(state.skinId, AppSkinRegistry.starlitMelodyId);
+  });
+
   test('legacy player background does not migrate to a player style', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'app_config.player_background_style': 'artist_photo',

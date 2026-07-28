@@ -36,35 +36,65 @@ const _previewFontFallback = <String>[_previewCjkFontFamily];
 
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
-  testWidgets(
-    'city sound creator previews match the real home scene',
-    (tester) async {
-      await tester.runAsync(_loadPreviewFonts);
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = _previewSize;
-      addTearDown(tester.view.resetDevicePixelRatio);
-      addTearDown(tester.view.resetPhysicalSize);
+  const previewCases =
+      <
+        ({String name, String skinId, String assetDirectory, bool hasWallpaper})
+      >[
+        (
+          name: 'classic',
+          skinId: AppSkinRegistry.classicId,
+          assetDirectory: 'classic',
+          hasWallpaper: false,
+        ),
+        (
+          name: 'city sound creator',
+          skinId: AppSkinRegistry.citySoundCreatorId,
+          assetDirectory: 'city_sound_creator',
+          hasWallpaper: true,
+        ),
+        (
+          name: 'starlit melody',
+          skinId: AppSkinRegistry.starlitMelodyId,
+          assetDirectory: 'starlit_melody',
+          hasWallpaper: true,
+        ),
+      ];
 
-      for (final brightness in Brightness.values) {
-        final router = createAppRouter(AppRoutes.home);
-        await tester.pumpWidget(_buildPreviewApp(router, brightness));
-        await tester.pumpAndSettle();
-        await _pumpUntilWallpaperDecoded(tester);
+  for (final previewCase in previewCases) {
+    testWidgets(
+      '${previewCase.name} previews match the real home scene',
+      (tester) async {
+        await tester.runAsync(_loadPreviewFonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = _previewSize;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
 
-        await expectLater(
-          find.byKey(_previewKey),
-          matchesGoldenFile(
-            '../../../assets/skins/city_sound_creator/'
-            'preview_${brightness.name}.png',
-          ),
-        );
+        for (final brightness in Brightness.values) {
+          final router = createAppRouter(AppRoutes.home);
+          await tester.pumpWidget(
+            _buildPreviewApp(router, brightness, previewCase.skinId),
+          );
+          await tester.pumpAndSettle();
+          if (previewCase.hasWallpaper) {
+            await _pumpUntilWallpaperDecoded(tester);
+          }
 
-        await tester.pumpWidget(const SizedBox.shrink());
-        router.dispose();
-      }
-    },
-    skip: Platform.isLinux,
-  );
+          await expectLater(
+            find.byKey(_previewKey),
+            matchesGoldenFile(
+              '../../../assets/skins/${previewCase.assetDirectory}/'
+              'preview_${brightness.name}.png',
+            ),
+          );
+
+          await tester.pumpWidget(const SizedBox.shrink());
+          router.dispose();
+        }
+      },
+      skip: Platform.isLinux,
+    );
+  }
 }
 
 Future<void> _pumpUntilWallpaperDecoded(WidgetTester tester) async {
@@ -93,10 +123,10 @@ Future<void> _pumpUntilWallpaperDecoded(WidgetTester tester) async {
   throw TestFailure('皮肤预览壁纸在 15 秒内未完成解码');
 }
 
-Widget _buildPreviewApp(GoRouter router, Brightness brightness) {
+Widget _buildPreviewApp(GoRouter router, Brightness brightness, String skinId) {
   final skin = AppSkinRegistry.builtIn(
     AppConfigState.initial.themeAccent,
-  ).resolve(AppSkinRegistry.citySoundCreatorId);
+  ).resolve(skinId);
   final baseTheme = brightness == Brightness.light
       ? AppTheme.light(skin)
       : AppTheme.dark(skin);
@@ -128,7 +158,7 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(
-        () => _PreviewAppConfigController(brightness),
+        () => _PreviewAppConfigController(brightness, skinId),
       ),
       appRouterProvider.overrideWithValue(router),
       playerControllerProvider.overrideWith(_PreviewPlayerController.new),
@@ -191,9 +221,10 @@ Future<ByteData> _fontData(String path) async {
 }
 
 class _PreviewAppConfigController extends AppConfigController {
-  _PreviewAppConfigController(this.brightness);
+  _PreviewAppConfigController(this.brightness, this.skinId);
 
   final Brightness brightness;
+  final String skinId;
 
   @override
   AppConfigState build() {
@@ -201,7 +232,7 @@ class _PreviewAppConfigController extends AppConfigController {
       themeMode: brightness == Brightness.light
           ? AppThemeMode.light
           : AppThemeMode.dark,
-      skinId: AppSkinRegistry.citySoundCreatorId,
+      skinId: skinId,
       enableSkinAnimation: false,
       localeCode: 'zh',
     );

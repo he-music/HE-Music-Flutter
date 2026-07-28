@@ -31,6 +31,16 @@ void main() {
 
       controller.setSkinId(AppSkinRegistry.citySoundCreatorId);
       await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(appConfigProvider).skinId,
+        AppSkinRegistry.citySoundCreatorId,
+      );
+      controller.setSkinId(AppSkinRegistry.starlitMelodyId);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(appConfigProvider).skinId,
+        AppSkinRegistry.starlitMelodyId,
+      );
       controller.setSkinId(AppSkinRegistry.classicId);
       await Future<void>.delayed(Duration.zero);
 

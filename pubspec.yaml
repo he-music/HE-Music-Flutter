@@ -114,12 +114,18 @@ flutter:
     - assets/player_styles/vinyl/preview.png
     - assets/player_styles/cassette/preview.png
     - assets/player_styles/artist_photo/preview.png
+    - assets/skins/classic/preview_light.png
+    - assets/skins/classic/preview_dark.png
     - assets/skins/city_sound_creator/wallpaper_light.png
     - assets/skins/city_sound_creator/wallpaper_dark.png
     - assets/skins/city_sound_creator/preview_light.png
     - assets/skins/city_sound_creator/preview_dark.png
     - assets/skins/city_sound_creator/ambient.riv
     - assets/skins/city_sound_creator/icons/
+    - assets/skins/starlit_melody/wallpaper_light.png
+    - assets/skins/starlit_melody/wallpaper_dark_evaluation.png
+    - assets/skins/starlit_melody/preview_light.png
+    - assets/skins/starlit_melody/preview_dark.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

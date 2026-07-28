@@ -27,17 +27,11 @@ class SkinSelectionPage extends ConsumerStatefulWidget {
 
 class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
   late AppSkinAssetResolver _assetResolver;
-  late String _appliedSkinId;
-  late String _candidateSkinId;
 
   @override
   void initState() {
     super.initState();
     _assetResolver = widget.assetResolver ?? BundledAppSkinAssetResolver();
-    final config = ref.read(appConfigProvider);
-    final registry = AppSkinRegistry.builtIn(config.themeAccent);
-    _appliedSkinId = registry.normalizeId(config.skinId);
-    _candidateSkinId = _appliedSkinId;
   }
 
   @override
@@ -52,22 +46,43 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final registry = AppSkinRegistry.builtIn(config.themeAccent);
-    final content = ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      itemCount: registry.skins.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final skin = registry.skins[index];
-        return _SkinChoiceCard(
-          skin: skin,
-          selected: skin.metadata.id == _candidateSkinId,
-          applied: skin.metadata.id == _appliedSkinId,
-          localeCode: config.localeCode,
-          assetResolver: _assetResolver,
-          onTap: () {
-            setState(() {
-              _candidateSkinId = skin.metadata.id;
-            });
+    final appliedSkinId = registry.normalizeId(config.skinId);
+    final content = LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = switch (constraints.maxWidth) {
+          < 280 => 1,
+          < 520 => 2,
+          < 720 => 3,
+          _ => 4,
+        };
+        return GridView.builder(
+          key: const ValueKey<String>('skin-selection-grid'),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          itemCount: registry.skins.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            mainAxisExtent: 252,
+          ),
+          itemBuilder: (context, index) {
+            final skin = registry.skins[index];
+            return _SkinSummaryCard(
+              skin: skin,
+              applied: skin.metadata.id == appliedSkinId,
+              localeCode: config.localeCode,
+              assetResolver: _assetResolver,
+              onTap: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => _SkinDetailPage(
+                      skinId: skin.metadata.id,
+                      assetResolver: _assetResolver,
+                    ),
+                  ),
+                );
+              },
+            );
           },
         );
       },
@@ -81,38 +96,13 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
         title: Text(AppI18n.t(config, 'settings.skin.selection.title')),
       ),
       body: content,
-      bottomNavigationBar: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: FilledButton(
-          key: const ValueKey<String>('apply-skin-button'),
-          onPressed: _candidateSkinId == _appliedSkinId
-              ? null
-              : () => _applyCandidate(registry),
-          child: Text(AppI18n.t(config, 'settings.skin.apply')),
-        ),
-      ),
     );
-  }
-
-  void _applyCandidate(AppSkinRegistry registry) {
-    if (!registry.contains(_candidateSkinId)) {
-      setState(() {
-        _candidateSkinId = registry.normalizeId(_candidateSkinId);
-      });
-      return;
-    }
-    ref.read(appConfigProvider.notifier).setSkinId(_candidateSkinId);
-    setState(() {
-      _appliedSkinId = _candidateSkinId;
-    });
   }
 }
 
-class _SkinChoiceCard extends StatelessWidget {
-  const _SkinChoiceCard({
+class _SkinSummaryCard extends StatelessWidget {
+  const _SkinSummaryCard({
     required this.skin,
-    required this.selected,
     required this.applied,
     required this.localeCode,
     required this.assetResolver,
@@ -120,7 +110,6 @@ class _SkinChoiceCard extends StatelessWidget {
   });
 
   final AppSkinPackage skin;
-  final bool selected;
   final bool applied;
   final String localeCode;
   final AppSkinAssetResolver assetResolver;
@@ -130,7 +119,7 @@ class _SkinChoiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Semantics(
-      selected: selected,
+      selected: applied,
       button: true,
       child: Card(
         key: ValueKey<String>('skin-choice-${skin.metadata.id}'),
@@ -139,108 +128,188 @@ class _SkinChoiceCard extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(
-            color: selected ? colorScheme.primary : colorScheme.outlineVariant,
-            width: selected ? 2 : 1,
+            color: applied ? colorScheme.primary : colorScheme.outlineVariant,
+            width: applied ? 2 : 1,
           ),
         ),
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            AppI18n.tByLocaleCode(
-                              localeCode,
-                              skin.metadata.nameKey,
-                            ),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            AppI18n.tByLocaleCode(
-                              localeCode,
-                              skin.metadata.descriptionKey,
-                            ),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          if (applied) ...<Widget>[
-                            const SizedBox(height: 8),
-                            Text(
-                              AppI18n.tByLocaleCode(
-                                localeCode,
-                                'settings.skin.applied',
-                              ),
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(color: colorScheme.primary),
-                            ),
-                          ],
-                        ],
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 88),
+                      child: _SkinPreview(
+                        skin: skin,
+                        brightness: Brightness.light,
+                        assetResolver: assetResolver,
                       ),
                     ),
-                    if (selected) ...<Widget>[
-                      const SizedBox(width: 12),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    AppI18n.tByLocaleCode(localeCode, skin.metadata.nameKey),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Visibility(
+                  visible: applied,
+                  maintainAnimation: true,
+                  maintainSize: true,
+                  maintainState: true,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
                       Icon(
                         Icons.check_circle_rounded,
+                        size: 16,
                         color: colorScheme.primary,
                       ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    for (final brightness in const <Brightness>[
-                      Brightness.light,
-                      Brightness.dark,
-                    ]) ...<Widget>[
-                      if (brightness == Brightness.dark)
-                        const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          children: <Widget>[
-                            Text(
-                              AppI18n.tByLocaleCode(
-                                localeCode,
-                                brightness == Brightness.light
-                                    ? 'my.theme.light'
-                                    : 'my.theme.dark',
-                              ),
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            Align(
-                              alignment: Alignment.topCenter,
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 104,
-                                ),
-                                child: _SkinPreview(
-                                  skin: skin,
-                                  brightness: brightness,
-                                  assetResolver: assetResolver,
-                                ),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          AppI18n.tByLocaleCode(
+                            localeCode,
+                            'settings.skin.applied',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: colorScheme.primary),
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkinDetailPage extends ConsumerWidget {
+  const _SkinDetailPage({required this.skinId, required this.assetResolver});
+
+  final String skinId;
+  final AppSkinAssetResolver assetResolver;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider);
+    final registry = AppSkinRegistry.builtIn(config.themeAccent);
+    final skin = registry.resolve(skinId);
+    final applied = skin.metadata.id == registry.normalizeId(config.skinId);
+    final localeCode = config.localeCode;
+    return Scaffold(
+      appBar: AppBar(
+        leading: const AppBackButton(),
+        title: Text(AppI18n.tByLocaleCode(localeCode, skin.metadata.nameKey)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: <Widget>[
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      for (final brightness in const <Brightness>[
+                        Brightness.light,
+                        Brightness.dark,
+                      ]) ...<Widget>[
+                        if (brightness == Brightness.dark)
+                          const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            children: <Widget>[
+                              Text(
+                                AppI18n.tByLocaleCode(
+                                  localeCode,
+                                  brightness == Brightness.light
+                                      ? 'my.theme.light'
+                                      : 'my.theme.dark',
+                                ),
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.topCenter,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 180,
+                                  ),
+                                  child: _SkinPreview(
+                                    skin: skin,
+                                    brightness: brightness,
+                                    assetResolver: assetResolver,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    AppI18n.tByLocaleCode(
+                      localeCode,
+                      skin.metadata.descriptionKey,
+                    ),
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                key: const ValueKey<String>('apply-skin-button'),
+                onPressed: applied
+                    ? null
+                    : () => ref
+                          .read(appConfigProvider.notifier)
+                          .setSkinId(skin.metadata.id),
+                child: Text(
+                  AppI18n.tByLocaleCode(
+                    localeCode,
+                    applied ? 'settings.skin.applied' : 'settings.skin.apply',
+                  ),
+                ),
+              ),
             ),
           ),
         ),
