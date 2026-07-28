@@ -104,6 +104,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - gh-proxy.json
     - assets/app_config.json
     - assets/icons/logo.png
     - assets/icons/favicon-512x512.png

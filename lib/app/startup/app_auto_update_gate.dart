@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,7 +51,11 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
     }
     _checked = true;
     final config = await ref.read(appConfigDataSourceProvider).load();
-    if (!mounted || !config.autoCheckUpdates) {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_autoRefreshDownloadProxyConfig(config));
+    if (!config.autoCheckUpdates) {
       return;
     }
     await ref.read(updateControllerProvider.notifier).checkForUpdates();
@@ -63,6 +69,16 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
       return;
     }
     await _showAvailableReleaseSheet(config, updateState);
+  }
+
+  Future<void> _autoRefreshDownloadProxyConfig(AppConfigState config) async {
+    try {
+      await ref
+          .read(gitHubDownloadProxyAutoRefreshServiceProvider)
+          .refreshIfNeeded(config);
+    } catch (_) {
+      // 后台刷新失败时继续使用现有有效配置，不打断启动或更新检查。
+    }
   }
 
   Future<void> _showAvailableReleaseSheet(
@@ -82,7 +98,17 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
       ref.read(updateControllerProvider.notifier).resetStatus();
       return;
     }
-    await _showAvailableReleaseSheetNow(config, release);
+    final downloadTarget = await ref
+        .read(updateDownloadTargetServiceProvider)
+        .resolve(release, config);
+    if (!mounted) {
+      return;
+    }
+    await _showAvailableReleaseSheetNow(
+      config,
+      release,
+      downloadTarget?.downloadUrl,
+    );
     if (!mounted) {
       return;
     }
@@ -92,6 +118,7 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
   Future<void> _showAvailableReleaseSheetNow(
     AppConfigState config,
     UpdateRelease release,
+    String? downloadUrl,
   ) async {
     final navigatorContext = widget.navigatorKey.currentContext;
     if (navigatorContext == null) {
@@ -102,6 +129,7 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
       context: navigatorContext,
       config: config,
       release: release,
+      downloadUrl: downloadUrl,
       onOpenUrl: (rawUrl) => _openReleaseUrl(rawUrl, config),
     );
   }

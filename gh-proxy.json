@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "default_proxy_id": "gh-proxy-com",
+  "proxies": [
+    {
+      "id": "gh-proxy-com",
+      "name": "gh-proxy.com",
+      "url_prefix": "https://gh-proxy.com/",
+      "enabled": true
+    }
+  ]
+}

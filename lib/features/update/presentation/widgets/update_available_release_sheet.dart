@@ -8,6 +8,7 @@ Future<void> showUpdateAvailableReleaseSheet({
   required BuildContext context,
   required AppConfigState config,
   required UpdateRelease release,
+  required String? downloadUrl,
   required Future<void> Function(String rawUrl) onOpenUrl,
 }) {
   return showModalBottomSheet<void>(
@@ -38,6 +39,22 @@ Future<void> showUpdateAvailableReleaseSheet({
                 leading: const Icon(Icons.new_releases_outlined),
                 title: Text(release.version.normalized),
                 subtitle: Text(_formatPublishedAt(release.publishedAt)),
+                trailing: downloadUrl == null
+                    ? null
+                    : IconButton(
+                        key: const ValueKey<String>(
+                          'open-official-github-release',
+                        ),
+                        tooltip: AppI18n.t(
+                          config,
+                          'settings.about.view_release',
+                        ),
+                        onPressed: () async {
+                          Navigator.of(sheetContext).pop();
+                          await onOpenUrl(release.htmlUrl);
+                        },
+                        icon: const Icon(Icons.open_in_new_rounded),
+                      ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -57,7 +74,14 @@ Future<void> showUpdateAvailableReleaseSheet({
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(sheetContext).pop(),
-                      child: Text(AppI18n.t(config, 'common.cancel')),
+                      child: Text(
+                        AppI18n.t(
+                          config,
+                          downloadUrl == null
+                              ? 'common.cancel'
+                              : 'common.later',
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -65,10 +89,15 @@ Future<void> showUpdateAvailableReleaseSheet({
                     child: FilledButton(
                       onPressed: () async {
                         Navigator.of(sheetContext).pop();
-                        await onOpenUrl(release.htmlUrl);
+                        await onOpenUrl(downloadUrl ?? release.htmlUrl);
                       },
                       child: Text(
-                        AppI18n.t(config, 'settings.about.open_release'),
+                        AppI18n.t(
+                          config,
+                          downloadUrl == null
+                              ? 'settings.about.open_release'
+                              : 'settings.about.download_update',
+                        ),
                       ),
                     ),
                   ),

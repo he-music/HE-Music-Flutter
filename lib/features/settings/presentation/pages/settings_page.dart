@@ -465,6 +465,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         itemId == SettingsItemIds.desktopLyricLock) {
       return defaultTargetPlatform == TargetPlatform.android;
     }
+    if (itemId == SettingsItemIds.githubDownloadAcceleration) {
+      return defaultTargetPlatform == TargetPlatform.android;
+    }
     final loggedIn = config.authToken?.trim().isNotEmpty ?? false;
     if (itemId == SettingsItemIds.accountLogin) {
       return !loggedIn;

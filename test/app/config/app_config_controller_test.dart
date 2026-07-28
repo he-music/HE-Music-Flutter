@@ -95,6 +95,38 @@ void main() {
     expect(dataSource.saved.playerStyleId, AppPlayerStyleRegistry.classicId);
   });
 
+  test('controller persists download acceleration preferences', () async {
+    final dataSource = _RecordingAppConfigDataSource(AppConfigState.initial);
+    final container = ProviderContainer(
+      overrides: [appConfigDataSourceProvider.overrideWithValue(dataSource)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(appConfigProvider.notifier);
+    await controller.waitUntilHydrated();
+
+    controller.setGitHubDownloadAccelerationEnabled(true);
+    controller.setGitHubDownloadProxyAutoUpdateEnabled(false);
+    controller.setGitHubDownloadProxyId(' proxy-1 ');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      container.read(appConfigProvider).githubDownloadAccelerationEnabled,
+      isTrue,
+    );
+    expect(
+      container.read(appConfigProvider).githubDownloadProxyAutoUpdateEnabled,
+      isFalse,
+    );
+    expect(container.read(appConfigProvider).githubDownloadProxyId, 'proxy-1');
+    expect(dataSource.saved.githubDownloadProxyAutoUpdateEnabled, isFalse);
+    expect(dataSource.saved.githubDownloadProxyId, 'proxy-1');
+
+    controller.setGitHubDownloadProxyId(null);
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(appConfigProvider).githubDownloadProxyId, isNull);
+    expect(dataSource.saved.githubDownloadProxyId, isNull);
+  });
+
   test(
     'unrelated config updates preserve tokens refreshed outside Riverpod',
     () async {

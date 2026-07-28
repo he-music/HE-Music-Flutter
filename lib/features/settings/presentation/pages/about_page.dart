@@ -135,11 +135,19 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     }
   }
 
-  Future<void> _showAvailableReleaseSheet(UpdateRelease release) {
+  Future<void> _showAvailableReleaseSheet(UpdateRelease release) async {
+    final config = ref.read(appConfigProvider);
+    final downloadTarget = await ref
+        .read(updateDownloadTargetServiceProvider)
+        .resolve(release, config);
+    if (!mounted) {
+      return;
+    }
     return showUpdateAvailableReleaseSheet(
       context: context,
-      config: ref.read(appConfigProvider),
+      config: config,
       release: release,
+      downloadUrl: downloadTarget?.downloadUrl,
       onOpenUrl: _openUrl,
     );
   }

@@ -26,6 +26,8 @@ AppConfigState _config({
     localeCode: 'zh',
     onlineAudioQualityPreference: preference,
     autoCheckUpdates: true,
+    githubDownloadAccelerationEnabled: false,
+    githubDownloadProxyAutoUpdateEnabled: true,
     playerStyleId: 'classic',
     lyricHighlightMode: AppLyricHighlightMode.preset,
     lyricHighlightPreset: AppLyricHighlightColor.sky,

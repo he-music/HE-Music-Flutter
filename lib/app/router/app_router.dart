@@ -44,6 +44,7 @@ import '../../features/settings/presentation/pages/about_page.dart';
 import '../../features/settings/presentation/pages/account_password_page.dart';
 import '../../features/settings/presentation/pages/account_profile_page.dart';
 import '../../features/settings/presentation/pages/device_management_page.dart';
+import '../../features/settings/presentation/pages/github_download_acceleration_page.dart';
 import '../../features/video/presentation/pages/video_detail_page.dart';
 import '../../features/video/presentation/pages/video_plaza_page.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -282,6 +283,11 @@ List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
     path: AppRoutes.settingsSkin,
     parentNavigatorKey: rootNavigatorKey,
     builder: (context, state) => const SkinSelectionPage(),
+  ),
+  GoRoute(
+    path: AppRoutes.settingsGitHubDownloadAcceleration,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) => const GitHubDownloadAccelerationPage(),
   ),
   GoRoute(
     path: AppRoutes.settingsProfile,

@@ -22,6 +22,11 @@ const _onlineAudioQualityPreferenceKey =
 const _lastSelectedOnlineAudioQualityNameKey =
     'app_config.last_selected_online_audio_quality';
 const _autoCheckUpdatesKey = 'app_config.auto_check_updates';
+const _githubDownloadAccelerationEnabledKey =
+    'app_config.github_download_acceleration_enabled';
+const _githubDownloadProxyAutoUpdateEnabledKey =
+    'app_config.github_download_proxy_auto_update_enabled';
+const _githubDownloadProxyIdKey = 'app_config.github_download_proxy_id';
 const _playerStyleIdKey = 'app_config.player_style_id';
 const _legacyLyricHighlightColorKey = 'app_config.lyric_highlight_color';
 const _lyricHighlightModeKey = 'app_config.lyric_highlight_mode';
@@ -74,6 +79,10 @@ class AppConfigDataSource {
         prefs.getString(_onlineAudioQualityPreferenceKey),
       ),
       autoCheckUpdates: prefs.getBool(_autoCheckUpdatesKey) ?? true,
+      githubDownloadAccelerationEnabled:
+          prefs.getBool(_githubDownloadAccelerationEnabledKey) ?? false,
+      githubDownloadProxyAutoUpdateEnabled:
+          prefs.getBool(_githubDownloadProxyAutoUpdateEnabledKey) ?? true,
       playerStyleId: playerStyleId,
       lyricHighlightMode: lyricHighlightMode,
       lyricHighlightPreset: _readLyricHighlightPreset(prefs),
@@ -93,6 +102,9 @@ class AppConfigDataSource {
           _readLastSelectedOnlineAudioQualityName(
             prefs.getString(_lastSelectedOnlineAudioQualityNameKey),
           ),
+      githubDownloadProxyId: _readNullableString(
+        prefs.getString(_githubDownloadProxyIdKey),
+      ),
       authToken: authToken,
       clearToken: prefs.containsKey(_authTokenKey) && authToken == null,
       refreshToken: refreshToken,
@@ -115,6 +127,14 @@ class AppConfigDataSource {
       state.onlineAudioQualityPreference.value,
     );
     await prefs.setBool(_autoCheckUpdatesKey, state.autoCheckUpdates);
+    await prefs.setBool(
+      _githubDownloadAccelerationEnabledKey,
+      state.githubDownloadAccelerationEnabled,
+    );
+    await prefs.setBool(
+      _githubDownloadProxyAutoUpdateEnabledKey,
+      state.githubDownloadProxyAutoUpdateEnabled,
+    );
     await prefs.setString(
       _playerStyleIdKey,
       AppPlayerStyleRegistry.instance.normalizeId(state.playerStyleId),
@@ -152,6 +172,12 @@ class AppConfigDataSource {
         lastSelected,
       );
     }
+    final githubDownloadProxyId = state.githubDownloadProxyId?.trim() ?? '';
+    if (githubDownloadProxyId.isEmpty) {
+      await prefs.remove(_githubDownloadProxyIdKey);
+    } else {
+      await prefs.setString(_githubDownloadProxyIdKey, githubDownloadProxyId);
+    }
     final authToken = state.authToken?.trim() ?? '';
     if (authToken.isEmpty) {
       await prefs.remove(_authTokenKey);
@@ -185,11 +211,12 @@ class AppConfigDataSource {
   }
 
   String? _readLastSelectedOnlineAudioQualityName(String? value) {
+    return _readNullableString(value);
+  }
+
+  String? _readNullableString(String? value) {
     final normalized = value?.trim() ?? '';
-    if (normalized.isEmpty) {
-      return null;
-    }
-    return normalized;
+    return normalized.isEmpty ? null : normalized;
   }
 
   String? _readAuthToken(String? value, {required bool hasStoredValue}) {

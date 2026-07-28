@@ -39,6 +39,7 @@ abstract final class SettingsItemIds {
   static const desktopLyricLock = 'desktop-lyric-lock';
   static const language = 'language';
   static const autoCheckUpdates = 'auto-check-updates';
+  static const githubDownloadAcceleration = 'github-download-acceleration';
   static const about = 'about';
   static const accountProfile = 'account-profile';
   static const accountPassword = 'account-password';
@@ -255,6 +256,15 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.toggle,
     icon: Icons.system_update_alt_rounded,
     keywords: <String>['更新', '通用', '自动'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.githubDownloadAcceleration,
+    sectionId: SettingsSectionIds.general,
+    groupId: SettingsGroupIds.generalPreferences,
+    titleKey: 'settings.github_download_acceleration',
+    kind: SettingsItemKind.navigation,
+    icon: Icons.speed_rounded,
+    keywords: <String>['更新', '下载', '加速', 'GitHub', 'Release'],
   ),
   SettingsItemNode(
     id: SettingsItemIds.about,

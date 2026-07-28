@@ -18,6 +18,8 @@ class AppConfigState {
     required this.localeCode,
     required this.onlineAudioQualityPreference,
     required this.autoCheckUpdates,
+    required this.githubDownloadAccelerationEnabled,
+    required this.githubDownloadProxyAutoUpdateEnabled,
     required this.playerStyleId,
     required this.lyricHighlightMode,
     required this.lyricHighlightPreset,
@@ -27,6 +29,7 @@ class AppConfigState {
     required this.enableDesktopLyric,
     required this.enableDesktopLyricLock,
     this.lastSelectedOnlineAudioQualityName,
+    this.githubDownloadProxyId,
     this.authToken,
     this.refreshToken,
     this.tokenExpiresAt,
@@ -41,6 +44,8 @@ class AppConfigState {
   final String localeCode;
   final AppOnlineAudioQuality onlineAudioQualityPreference;
   final bool autoCheckUpdates;
+  final bool githubDownloadAccelerationEnabled;
+  final bool githubDownloadProxyAutoUpdateEnabled;
   final String playerStyleId;
   final AppLyricHighlightMode lyricHighlightMode;
   final AppLyricHighlightColor lyricHighlightPreset;
@@ -50,6 +55,7 @@ class AppConfigState {
   final bool enableDesktopLyric;
   final bool enableDesktopLyricLock;
   final String? lastSelectedOnlineAudioQualityName;
+  final String? githubDownloadProxyId;
   final String? authToken;
   final String? refreshToken;
   final int? tokenExpiresAt;
@@ -64,6 +70,8 @@ class AppConfigState {
     String? localeCode,
     AppOnlineAudioQuality? onlineAudioQualityPreference,
     bool? autoCheckUpdates,
+    bool? githubDownloadAccelerationEnabled,
+    bool? githubDownloadProxyAutoUpdateEnabled,
     String? playerStyleId,
     AppLyricHighlightMode? lyricHighlightMode,
     AppLyricHighlightColor? lyricHighlightPreset,
@@ -75,6 +83,8 @@ class AppConfigState {
     bool? enableDesktopLyricLock,
     String? lastSelectedOnlineAudioQualityName,
     bool clearLastSelectedOnlineAudioQuality = false,
+    String? githubDownloadProxyId,
+    bool clearGitHubDownloadProxyId = false,
     String? authToken,
     bool clearToken = false,
     String? refreshToken,
@@ -92,6 +102,12 @@ class AppConfigState {
       onlineAudioQualityPreference:
           onlineAudioQualityPreference ?? this.onlineAudioQualityPreference,
       autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
+      githubDownloadAccelerationEnabled:
+          githubDownloadAccelerationEnabled ??
+          this.githubDownloadAccelerationEnabled,
+      githubDownloadProxyAutoUpdateEnabled:
+          githubDownloadProxyAutoUpdateEnabled ??
+          this.githubDownloadProxyAutoUpdateEnabled,
       playerStyleId: playerStyleId ?? this.playerStyleId,
       lyricHighlightMode: lyricHighlightMode ?? this.lyricHighlightMode,
       lyricHighlightPreset: lyricHighlightPreset ?? this.lyricHighlightPreset,
@@ -108,6 +124,9 @@ class AppConfigState {
           ? null
           : lastSelectedOnlineAudioQualityName ??
                 this.lastSelectedOnlineAudioQualityName,
+      githubDownloadProxyId: clearGitHubDownloadProxyId
+          ? null
+          : githubDownloadProxyId ?? this.githubDownloadProxyId,
       authToken: clearToken ? null : authToken ?? this.authToken,
       refreshToken: clearToken || clearRefreshToken
           ? null
@@ -127,6 +146,8 @@ class AppConfigState {
     localeCode: 'zh',
     onlineAudioQualityPreference: AppOnlineAudioQuality.auto,
     autoCheckUpdates: true,
+    githubDownloadAccelerationEnabled: false,
+    githubDownloadProxyAutoUpdateEnabled: true,
     playerStyleId: AppPlayerStyleRegistry.classicId,
     lyricHighlightMode: AppLyricHighlightMode.preset,
     lyricHighlightPreset: AppLyricHighlightColor.sky,

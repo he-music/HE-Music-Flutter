@@ -29,6 +29,9 @@ void main() {
         onlineAudioQualityPreference: AppOnlineAudioQuality.flac,
         lastSelectedOnlineAudioQualityName: 'sq',
         autoCheckUpdates: true,
+        githubDownloadAccelerationEnabled: true,
+        githubDownloadProxyAutoUpdateEnabled: false,
+        githubDownloadProxyId: 'proxy-1',
         playerStyleId: AppPlayerStyleRegistry.vinylId,
         lyricHighlightMode: AppLyricHighlightMode.custom,
         lyricHighlightPreset: AppLyricHighlightColor.sky,
@@ -50,6 +53,9 @@ void main() {
     expect(state.onlineAudioQualityPreference, AppOnlineAudioQuality.flac);
     expect(state.lastSelectedOnlineAudioQualityName, 'sq');
     expect(state.autoCheckUpdates, isTrue);
+    expect(state.githubDownloadAccelerationEnabled, isTrue);
+    expect(state.githubDownloadProxyAutoUpdateEnabled, isFalse);
+    expect(state.githubDownloadProxyId, 'proxy-1');
     expect(state.playerStyleId, AppPlayerStyleRegistry.vinylId);
     expect(state.lyricHighlightMode, AppLyricHighlightMode.custom);
     expect(state.lyricHighlightPreset, AppLyricHighlightColor.sky);
@@ -92,6 +98,9 @@ void main() {
     final state = await dataSource.load();
 
     expect(state.autoCheckUpdates, isTrue);
+    expect(state.githubDownloadAccelerationEnabled, isFalse);
+    expect(state.githubDownloadProxyAutoUpdateEnabled, isTrue);
+    expect(state.githubDownloadProxyId, isNull);
     expect(state.lyricHighlightMode, AppConfigState.initial.lyricHighlightMode);
     expect(
       state.lyricHighlightPreset,

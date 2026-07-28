@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -173,6 +174,47 @@ void main() {
     expect(find.text('皮肤动画'), findsOneWidget);
     expect(find.text('黑白模式'), findsOneWidget);
     expect(find.text('播放器背景样式'), findsNothing);
+  });
+
+  testWidgets(
+    'Android general settings show download acceleration after update toggle',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+      });
+      tester.view.physicalSize = const Size(1170, 2532);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(_buildSettingsApp());
+      await tester.pump();
+      await tester.tap(find.text('通用'));
+      await tester.pumpAndSettle();
+
+      final updateTopLeft = tester.getTopLeft(find.text('自动检查更新'));
+      final accelerationTopLeft = tester.getTopLeft(find.text('安装包下载加速'));
+      expect(accelerationTopLeft.dy, greaterThan(updateTopLeft.dy));
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
+
+  testWidgets('non-Android general settings hide download acceleration', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+    });
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp());
+    await tester.pump();
+    await tester.tap(find.text('通用'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('安装包下载加速'), findsNothing);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('immersive skin disables manual accent and shows skin state', (

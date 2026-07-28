@@ -71,6 +71,24 @@ class AppConfigController extends Notifier<AppConfigState> {
     _update(state.copyWith(autoCheckUpdates: value));
   }
 
+  void setGitHubDownloadAccelerationEnabled(bool value) {
+    _update(state.copyWith(githubDownloadAccelerationEnabled: value));
+  }
+
+  void setGitHubDownloadProxyAutoUpdateEnabled(bool value) {
+    _update(state.copyWith(githubDownloadProxyAutoUpdateEnabled: value));
+  }
+
+  void setGitHubDownloadProxyId(String? proxyId) {
+    final normalized = proxyId?.trim() ?? '';
+    _update(
+      state.copyWith(
+        githubDownloadProxyId: normalized.isEmpty ? null : normalized,
+        clearGitHubDownloadProxyId: normalized.isEmpty,
+      ),
+    );
+  }
+
   void setPlayerStyleId(String styleId) {
     final normalized = AppPlayerStyleRegistry.instance.normalizeId(styleId);
     _update(state.copyWith(playerStyleId: normalized));
@@ -212,6 +230,10 @@ class AppConfigController extends Notifier<AppConfigState> {
       localeCode: loaded.localeCode,
       onlineAudioQualityPreference: loaded.onlineAudioQualityPreference,
       autoCheckUpdates: loaded.autoCheckUpdates,
+      githubDownloadAccelerationEnabled:
+          loaded.githubDownloadAccelerationEnabled,
+      githubDownloadProxyAutoUpdateEnabled:
+          loaded.githubDownloadProxyAutoUpdateEnabled,
       playerStyleId: loaded.playerStyleId,
       lyricHighlightMode: loaded.lyricHighlightMode,
       lyricHighlightPreset: loaded.lyricHighlightPreset,
@@ -223,6 +245,8 @@ class AppConfigController extends Notifier<AppConfigState> {
       enableDesktopLyricLock: loaded.enableDesktopLyricLock,
       lastSelectedOnlineAudioQualityName:
           loaded.lastSelectedOnlineAudioQualityName,
+      githubDownloadProxyId: loaded.githubDownloadProxyId,
+      clearGitHubDownloadProxyId: loaded.githubDownloadProxyId == null,
       authToken: accessToken,
       clearToken: accessToken == null,
       refreshToken: refreshToken,

@@ -8,6 +8,7 @@ import 'account_password_page.dart';
 import 'account_profile_page.dart';
 import 'about_page.dart';
 import 'device_management_page.dart';
+import 'github_download_acceleration_page.dart';
 import 'skin_selection_page.dart';
 
 class SettingsNavigationDestination {
@@ -41,6 +42,12 @@ settingsNavigationDestinations = <String, SettingsNavigationDestination>{
     titleKey: 'settings.about.title',
     mobileRoute: AppRoutes.about,
     desktopBuilder: (_) => const AboutPage(embedded: true),
+  ),
+  SettingsItemIds.githubDownloadAcceleration: SettingsNavigationDestination(
+    itemId: SettingsItemIds.githubDownloadAcceleration,
+    titleKey: 'settings.github_download_acceleration.title',
+    mobileRoute: AppRoutes.settingsGitHubDownloadAcceleration,
+    desktopBuilder: (_) => const GitHubDownloadAccelerationPage(embedded: true),
   ),
   SettingsItemIds.deviceManagement: SettingsNavigationDestination(
     itemId: SettingsItemIds.deviceManagement,
