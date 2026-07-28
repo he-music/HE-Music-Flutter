@@ -18,7 +18,7 @@ HE Music Flutter 是一个基于 Flutter 的跨平台音乐应用项目，延续
 - 下载管理：歌曲下载、下载任务管理、歌词与音频元数据写入
 - 账号相关：登录、验证码、二维码扫码登录与确认流程
 - 我的页面：个人信息、收藏、历史记录、用户歌单详情
-- 设置与更新：主题、播放、歌词、设备管理、关于页、GitHub Release 更新检查
+- 设置与更新：主题、播放、歌词、设备管理、关于页、GitHub Release 更新检查与 Android 安装包下载加速
 
 ## 技术栈
 
@@ -162,6 +162,52 @@ cp .env.example .env
 Release 构建由 CI 使用 GitHub Secret `API_BASE_URL` 并通过 `--dart-define` 注入；不要把真实接口地址放到 GitHub Variables，也不要修改仓库中 `assets/app_config.json` 的占位值。
 
 不要在源码中硬编码环境相关值。新增资源后，需要同步更新 `pubspec.yaml` 中的 `flutter.assets` 声明。
+
+### GitHub Release 下载加速配置
+
+仓库根目录的 `gh-proxy.json` 是公开的 Android 安装包下载加速服务列表，同时作为 Flutter Asset 随 App 打包。已安装的 App 可以重新拉取仓库中的同名文件，因此调整服务列表不需要发布新的 App 版本。
+
+```json
+{
+  "schema_version": 1,
+  "revision": 1,
+  "default_proxy_id": "gh-proxy-com",
+  "proxies": [
+    {
+      "id": "gh-proxy-com",
+      "name": "gh-proxy.com",
+      "url_prefix": "https://gh-proxy.com/",
+      "enabled": true
+    }
+  ]
+}
+```
+
+字段说明：
+
+- `schema_version`：配置结构版本，目前固定为整数 `1`。只有字段结构或解析规则不兼容时才升级。
+- `revision`：配置内容修订号，必须是正整数。每次修改服务列表、默认服务或启用状态时都要递增。
+- `default_proxy_id`：推荐服务 ID。对应服务不存在或已停用时，App 会使用第一个启用的服务；没有启用服务时使用 GitHub 官方直链。
+- `proxies[].id`：稳定且唯一的服务标识。已经发布后不要随意修改，否则用户保存的选择会失效。
+- `proxies[].name`：设置页面展示的服务名称。
+- `proxies[].url_prefix`：代理 URL 前缀，必须使用 HTTPS，不能包含账号、密码、查询参数或 fragment，并建议以 `/` 结尾。
+- `proxies[].enabled`：是否允许用户选择该服务。设为 `false` 可以保留配置记录但停止使用。
+
+配置生效规则：
+
+- App 会比较内置配置与本地缓存的 `revision`，使用数值更高的版本；相同时优先缓存，以保留最近成功刷新时间。
+- 远程配置的 `revision` 低于当前生效版本时不会覆盖本地配置。因此 App v3 内置 `revision: 3` 时，即使旧缓存为 `revision: 2`，也会使用 v3 的内置配置。
+- 下载加速默认关闭，服务列表自动更新默认开启。仅当两个开关都开启，且从未成功远程刷新或距上次成功刷新已满 24 小时时，Android App 才会在启动后静默刷新。
+- 手动更新不受 24 小时限制。远程请求失败或配置校验失败时继续使用当前有效配置。
+- 加速只应用于校验通过的 GitHub Release APK 文件直链，不代理 GitHub API、`gh-proxy.json` 请求或 GitHub Release 页面；下载仍由系统默认浏览器完成。
+
+修改配置后可先检查 JSON 格式：
+
+```bash
+python3 -m json.tool gh-proxy.json
+```
+
+`gh-proxy.json` 是公开文件，禁止写入 Token、API Key、证书或其他敏感信息。
 
 ## Android 发布签名
 
