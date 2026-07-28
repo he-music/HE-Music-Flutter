@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:marquee/marquee.dart';
@@ -7,12 +10,15 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../domain/entities/player_quality_option.dart';
 import '../providers/player_providers.dart';
 
+enum PlayerTrackHeaderLayout { standard, mobileLandscape }
+
 class PlayerTrackHeader extends ConsumerWidget {
   const PlayerTrackHeader({
     required this.noTrackText,
     required this.artistSlotWidth,
     required this.onOpenQuality,
     required this.onOpenSpeed,
+    this.layout = PlayerTrackHeaderLayout.standard,
     super.key,
   });
 
@@ -20,9 +26,12 @@ class PlayerTrackHeader extends ConsumerWidget {
   final double artistSlotWidth;
   final VoidCallback onOpenQuality;
   final VoidCallback onOpenSpeed;
+  final PlayerTrackHeaderLayout layout;
 
   /// 共享播放器布局用于预留固定歌曲信息槽位的高度。
   static const double layoutHeight = 58;
+  static const double mobileLandscapeLayoutHeight = 40;
+  static const double mobileLandscapeContentInset = 24;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,6 +44,42 @@ class PlayerTrackHeader extends ConsumerWidget {
       ),
     );
     final track = presentation.displayTrack;
+    final title = track?.title.trim().isNotEmpty == true
+        ? track!.title.trim()
+        : noTrackText;
+    final artist = track?.artist?.trim().isNotEmpty == true
+        ? track!.artist!.trim()
+        : '-';
+    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
+      color: Colors.white,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0,
+    );
+
+    if (layout == PlayerTrackHeaderLayout.mobileLandscape) {
+      return SizedBox(
+        key: const ValueKey<String>('player-track-header'),
+        height: mobileLandscapeLayoutHeight,
+        child: Padding(
+          key: const ValueKey<String>('player-landscape-track-content'),
+          padding: const EdgeInsets.symmetric(
+            horizontal: mobileLandscapeContentInset,
+          ),
+          child: _OverflowMarquee(
+            text: '$title - $artist',
+            style: titleStyle,
+            staticKey: const ValueKey<String>('player-landscape-track-static'),
+            marqueeKey: const ValueKey<String>(
+              'player-landscape-track-marquee',
+            ),
+            startAfter: const Duration(seconds: 5),
+            pauseAfterRound: const Duration(seconds: 5),
+            pauseAtStart: true,
+          ),
+        ),
+      );
+    }
+
     final qualities = ref.watch(
       playerControllerProvider.select(
         (state) => state.currentAvailableQualities,
@@ -52,18 +97,6 @@ class PlayerTrackHeader extends ConsumerWidget {
       playerControllerProvider.select((state) => state.isRadioMode),
     );
     final quality = _findQualityByName(qualities, qualityName);
-    final title = track?.title.trim().isNotEmpty == true
-        ? track!.title.trim()
-        : noTrackText;
-    final artist = track?.artist?.trim().isNotEmpty == true
-        ? track!.artist!.trim()
-        : '-';
-    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
-      color: Colors.white,
-      fontWeight: FontWeight.w600,
-      letterSpacing: 0,
-    );
-
     return SizedBox(
       key: const ValueKey<String>('player-track-header'),
       height: layoutHeight,
@@ -122,7 +155,16 @@ class PlayerTrackHeader extends ConsumerWidget {
                 SizedBox(
                   key: const ValueKey<String>('player-artist-slot'),
                   width: artistSlotWidth,
-                  child: _OverflowMarquee(text: artist),
+                  child: _OverflowMarquee(
+                    text: artist,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0,
+                    ),
+                    staticKey: const ValueKey<String>('player-artist-static'),
+                    marqueeKey: const ValueKey<String>('player-artist-marquee'),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 if (quality != null &&
@@ -161,17 +203,26 @@ class PlayerTrackHeader extends ConsumerWidget {
 }
 
 class _OverflowMarquee extends StatelessWidget {
-  const _OverflowMarquee({required this.text});
+  const _OverflowMarquee({
+    required this.text,
+    required this.style,
+    required this.staticKey,
+    required this.marqueeKey,
+    this.startAfter = const Duration(milliseconds: 600),
+    this.pauseAfterRound = const Duration(seconds: 1),
+    this.pauseAtStart = false,
+  });
 
   final String text;
+  final TextStyle? style;
+  final Key staticKey;
+  final Key marqueeKey;
+  final Duration startAfter;
+  final Duration pauseAfterRound;
+  final bool pauseAtStart;
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: Colors.white.withValues(alpha: 0.72),
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0,
-    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final painter = TextPainter(
@@ -182,7 +233,7 @@ class _OverflowMarquee extends StatelessWidget {
         )..layout();
         if (painter.width <= constraints.maxWidth) {
           return Align(
-            key: const ValueKey<String>('player-artist-static'),
+            key: staticKey,
             alignment: Alignment.centerLeft,
             child: Text(
               text,
@@ -192,20 +243,200 @@ class _OverflowMarquee extends StatelessWidget {
             ),
           );
         }
+        const blankSpace = 28.0;
+        const velocity = 24.0;
+        if (pauseAtStart) {
+          return _StartAlignedMarquee(
+            key: marqueeKey,
+            text: text,
+            style: style,
+            textWidth: painter.width.ceilToDouble(),
+            textScaler: MediaQuery.textScalerOf(context),
+            blankSpace: blankSpace,
+            velocity: velocity,
+            startAfter: startAfter,
+            pauseAfterRound: pauseAfterRound,
+          );
+        }
         return Marquee(
-          key: const ValueKey<String>('player-artist-marquee'),
+          key: marqueeKey,
           text: text,
           style: style,
-          blankSpace: 28,
-          velocity: 24,
-          pauseAfterRound: const Duration(seconds: 1),
-          startAfter: const Duration(milliseconds: 600),
+          blankSpace: blankSpace,
+          velocity: velocity,
+          pauseAfterRound: pauseAfterRound,
+          startAfter: startAfter,
           fadingEdgeStartFraction: 0.04,
           fadingEdgeEndFraction: 0.04,
         );
       },
     );
   }
+}
+
+class _StartAlignedMarquee extends StatefulWidget {
+  const _StartAlignedMarquee({
+    required this.text,
+    required this.style,
+    required this.textWidth,
+    required this.textScaler,
+    required this.blankSpace,
+    required this.velocity,
+    required this.startAfter,
+    required this.pauseAfterRound,
+    super.key,
+  });
+
+  final String text;
+  final TextStyle? style;
+  final double textWidth;
+  final TextScaler textScaler;
+  final double blankSpace;
+  final double velocity;
+  final Duration startAfter;
+  final Duration pauseAfterRound;
+
+  @override
+  State<_StartAlignedMarquee> createState() => _StartAlignedMarqueeState();
+}
+
+class _StartAlignedMarqueeState extends State<_StartAlignedMarquee> {
+  final ScrollController _controller = ScrollController();
+  Timer? _pauseTimer;
+  Completer<void>? _pauseCompleter;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _restart();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StartAlignedMarquee oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text ||
+        oldWidget.style != widget.style ||
+        oldWidget.textWidth != widget.textWidth ||
+        oldWidget.textScaler != widget.textScaler ||
+        oldWidget.blankSpace != widget.blankSpace ||
+        oldWidget.velocity != widget.velocity ||
+        oldWidget.startAfter != widget.startAfter ||
+        oldWidget.pauseAfterRound != widget.pauseAfterRound) {
+      _restart();
+    }
+  }
+
+  @override
+  void dispose() {
+    _generation++;
+    _cancelPause();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      key: const ValueKey<String>('player-landscape-track-scroll'),
+      controller: _controller,
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      child: Row(
+        children: <Widget>[
+          _buildText(copyForSemantics: true),
+          SizedBox(width: widget.blankSpace),
+          ExcludeSemantics(child: _buildText(copyForSemantics: false)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildText({required bool copyForSemantics}) {
+    return SizedBox(
+      width: widget.textWidth,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: copyForSemantics
+            ? Text(
+                widget.text,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                style: widget.style,
+                textScaler: widget.textScaler,
+              )
+            : Text.rich(
+                TextSpan(text: widget.text, style: widget.style),
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                textScaler: widget.textScaler,
+              ),
+      ),
+    );
+  }
+
+  void _restart() {
+    _cancelPause();
+    final generation = ++_generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isCurrent(generation) || !_controller.hasClients) return;
+      _controller.jumpTo(0);
+      unawaited(_run(generation));
+    });
+  }
+
+  Future<void> _run(int generation) async {
+    var pause = widget.startAfter;
+    while (_isCurrent(generation)) {
+      if (pause > Duration.zero) {
+        await _waitForPause(pause);
+      }
+      if (!_isCurrent(generation) || !_controller.hasClients) return;
+
+      final target = math.min(
+        widget.textWidth + widget.blankSpace,
+        _controller.position.maxScrollExtent,
+      );
+      if (target <= 0) return;
+      final duration = Duration(
+        milliseconds: math.max(1, (target / widget.velocity * 1000).round()),
+      );
+      await _controller.animateTo(
+        target,
+        duration: duration,
+        curve: Curves.linear,
+      );
+      if (!_isCurrent(generation) || !_controller.hasClients) return;
+
+      // 第二份文本到达首位时立即归零，视觉位置不变，暂停点始终是完整标题开头。
+      _controller.jumpTo(0);
+      pause = widget.pauseAfterRound;
+    }
+  }
+
+  Future<void> _waitForPause(Duration duration) {
+    final completer = Completer<void>();
+    _pauseCompleter = completer;
+    _pauseTimer = Timer(duration, () {
+      if (!identical(_pauseCompleter, completer)) return;
+      _pauseTimer = null;
+      _pauseCompleter = null;
+      completer.complete();
+    });
+    return completer.future;
+  }
+
+  void _cancelPause() {
+    _pauseTimer?.cancel();
+    _pauseTimer = null;
+    final completer = _pauseCompleter;
+    _pauseCompleter = null;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
+  bool _isCurrent(int generation) => mounted && generation == _generation;
 }
 
 class _PlayerMetadataBadge extends StatelessWidget {

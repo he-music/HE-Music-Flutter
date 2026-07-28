@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,8 +17,10 @@ import 'package:he_music_flutter/features/player/domain/entities/player_quality_
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/pages/player_page.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/artist_photo_provider.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/styles/player_style_stage.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/player_backdrop.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
@@ -386,18 +389,49 @@ void main() {
     );
   });
 
-  test('player artist photo direction follows window shape and width', () {
+  test('player artist photo direction follows window orientation', () {
     expect(
       resolvePlayerArtistPhotoPortraitForTest(const Size(1440, 960)),
       isFalse,
     );
     expect(
       resolvePlayerArtistPhotoPortraitForTest(const Size(700, 420)),
-      isTrue,
+      isFalse,
     );
     expect(
       resolvePlayerArtistPhotoPortraitForTest(const Size(430, 1200)),
       isTrue,
+    );
+  });
+
+  test('player orientation controls only support Android and iOS apps', () {
+    expect(
+      supportsPlayerOrientationControlsForTest(
+        platform: TargetPlatform.android,
+        isWeb: false,
+      ),
+      isTrue,
+    );
+    expect(
+      supportsPlayerOrientationControlsForTest(
+        platform: TargetPlatform.iOS,
+        isWeb: false,
+      ),
+      isTrue,
+    );
+    expect(
+      supportsPlayerOrientationControlsForTest(
+        platform: TargetPlatform.macOS,
+        isWeb: false,
+      ),
+      isFalse,
+    );
+    expect(
+      supportsPlayerOrientationControlsForTest(
+        platform: TargetPlatform.android,
+        isWeb: true,
+      ),
+      isFalse,
     );
   });
 
@@ -496,12 +530,21 @@ void main() {
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
+    tester.view.physicalSize = Size(
+      430 * tester.view.devicePixelRatio,
+      932 * tester.view.devicePixelRatio,
+    );
     tester.view.padding = FakeViewPadding(
+      bottom: 34 * tester.view.devicePixelRatio,
+    );
+    tester.view.viewPadding = FakeViewPadding(
       bottom: 34 * tester.view.devicePixelRatio,
     );
     addTearDown(() {
       tester.binding.setSurfaceSize(null);
+      tester.view.resetPhysicalSize();
       tester.view.resetPadding();
+      tester.view.resetViewPadding();
     });
 
     await tester.pumpWidget(
@@ -539,6 +582,492 @@ void main() {
       );
       expect(tester.takeException(), isNull, reason: '$size');
     }
+  });
+
+  testWidgets('player uses dedicated layout at target landscape viewports', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in const <Size>[
+      Size(932, 430),
+      Size(844, 390),
+      Size(700, 420),
+    ]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-layout')),
+        findsOneWidget,
+        reason: '$size',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-stage')),
+        findsOneWidget,
+        reason: '$size',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-details')),
+        findsOneWidget,
+        reason: '$size',
+      );
+      final exitRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('player-mobile-landscape-exit-button'),
+        ),
+      );
+      final stageRect = tester.getRect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-stage')),
+      );
+      expect(
+        exitRect.right,
+        lessThanOrEqualTo(stageRect.left),
+        reason: '$size',
+      );
+      expect(
+        find.byIcon(Icons.arrow_back_ios_new_rounded),
+        findsOneWidget,
+        reason: '$size',
+      );
+      expect(
+        find.byIcon(Icons.keyboard_arrow_down_rounded),
+        findsNothing,
+        reason: '$size',
+      );
+      expect(
+        find.byIcon(Icons.stay_current_portrait_rounded),
+        findsNothing,
+        reason: '$size',
+      );
+      expect(find.text('在线歌曲 - 测试歌手'), findsOneWidget, reason: '$size');
+      expect(
+        find.byKey(const ValueKey<String>('player-quality-badge')),
+        findsNothing,
+        reason: '$size',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('player-speed-badge')),
+        findsNothing,
+        reason: '$size',
+      );
+      expect(find.byIcon(Icons.repeat_rounded), findsNothing, reason: '$size');
+      expect(
+        find.byIcon(Icons.queue_music_rounded),
+        findsNothing,
+        reason: '$size',
+      );
+      expect(
+        find.byIcon(Icons.more_horiz_rounded),
+        findsNothing,
+        reason: '$size',
+      );
+      expect(
+        find.byIcon(Icons.favorite_border_rounded),
+        findsOneWidget,
+        reason: '$size',
+      );
+      expect(find.byType(PageView), findsNothing, reason: '$size');
+      expect(tester.takeException(), isNull, reason: '$size');
+    }
+  });
+
+  testWidgets('all player styles stay overflow free in mobile landscape', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(700, 420));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final styleId in AppPlayerStyleRegistry.builtInIds) {
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+          config: AppConfigState.initial.copyWith(
+            localeCode: 'en',
+            playerStyleId: styleId,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-layout')),
+        findsOneWidget,
+        reason: styleId,
+      );
+      if (styleId == AppPlayerStyleRegistry.artistPhotoId) {
+        expect(
+          tester.widget<PlayerBackdrop>(find.byType(PlayerBackdrop)).isPortrait,
+          isFalse,
+        );
+        expect(
+          find.byKey(
+            const ValueKey<String>(
+              'player-mobile-landscape-artist-photo-content',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(
+            const ValueKey<String>('player-stage-artist-photo-safe-area'),
+          ),
+          findsNothing,
+        );
+      }
+      expect(tester.takeException(), isNull, reason: styleId);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  });
+
+  testWidgets(
+    'artist photo centers wide lyrics while keeping progress on the left',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(844, 390));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+          config: AppConfigState.initial.copyWith(
+            localeCode: 'en',
+            playerStyleId: AppPlayerStyleRegistry.artistPhotoId,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final layoutRect = tester.getRect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-layout')),
+      );
+      final contentRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>(
+            'player-mobile-landscape-artist-photo-content',
+          ),
+        ),
+      );
+      final progressRect = tester.getRect(
+        find.byKey(const ValueKey<String>('player-progress-slider')),
+      );
+      final controlsRect = tester.getRect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-controls')),
+      );
+
+      expect(contentRect.center.dx, closeTo(layoutRect.center.dx, 0.01));
+      expect(contentRect.width, closeTo(layoutRect.width * 0.64, 0.01));
+      expect(progressRect.center.dx, lessThan(layoutRect.center.dx));
+      expect(controlsRect.center.dx, greaterThan(layoutRect.center.dx));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('mobile landscape respects horizontal and bottom safe areas', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    tester.view.systemGestureInsets = FakeViewPadding(
+      left: 44 * tester.view.devicePixelRatio,
+      right: 24 * tester.view.devicePixelRatio,
+      bottom: 20 * tester.view.devicePixelRatio,
+    );
+    addTearDown(() {
+      tester.binding.setSurfaceSize(null);
+      tester.view.resetSystemGestureInsets();
+    });
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final layoutRect = tester.getRect(
+      find.byKey(const ValueKey<String>('player-mobile-landscape-layout')),
+    );
+    final stageRect = tester.getRect(
+      find.byKey(const ValueKey<String>('player-mobile-landscape-stage')),
+    );
+    final playRect = tester.getRect(find.byIcon(Icons.play_arrow_rounded));
+
+    expect(layoutRect.left, 4);
+    expect(stageRect.left, greaterThanOrEqualTo(44));
+    expect(layoutRect.right, lessThanOrEqualTo(844 - 24));
+    expect(playRect.bottom, lessThanOrEqualTo(390 - 20));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('immersive landscape keeps gestures without hidden bar gaps', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    tester.view.viewPadding = FakeViewPadding(
+      left: 36 * tester.view.devicePixelRatio,
+      top: 44 * tester.view.devicePixelRatio,
+    );
+    tester.view.systemGestureInsets = FakeViewPadding(
+      left: 16 * tester.view.devicePixelRatio,
+      bottom: 20 * tester.view.devicePixelRatio,
+    );
+    addTearDown(() {
+      tester.binding.setSurfaceSize(null);
+      tester.view.resetViewPadding();
+      tester.view.resetSystemGestureInsets();
+    });
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final layoutRect = tester.getRect(
+      find.byKey(const ValueKey<String>('player-mobile-landscape-layout')),
+    );
+    final playRect = tester.getRect(find.byIcon(Icons.play_arrow_rounded));
+
+    expect(layoutRect.left, 4);
+    expect(layoutRect.top, 0);
+    expect(playRect.bottom, lessThanOrEqualTo(390 - 20));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('landscape round trip preserves lyric page and playback state', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    late _OnlineTrackPlayerController playerController;
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: () {
+          playerController = _OnlineTrackPlayerController();
+          return playerController;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final pager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('player-mobile-pager')),
+    );
+    pager.controller!.jumpToPage(1);
+    await tester.pumpAndSettle();
+    final lyricState = tester.state(find.byType(PlayerLyricPage));
+    final playbackBefore = playerController.snapshot;
+
+    await tester.binding.setSurfaceSize(const Size(932, 430));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('player-mobile-landscape-layout')),
+      findsOneWidget,
+    );
+    expect(tester.state(find.byType(PlayerLyricPage)), same(lyricState));
+
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    await tester.pumpAndSettle();
+    final restoredPager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('player-mobile-pager')),
+    );
+    expect(restoredPager.controller!.page, closeTo(1, 0.001));
+    expect(tester.state(find.byType(PlayerLyricPage)), same(lyricState));
+    expect(
+      playerController.snapshot.currentTrack,
+      same(playbackBefore.currentTrack),
+    );
+    expect(playerController.snapshot.isPlaying, playbackBefore.isPlaying);
+    expect(playerController.snapshot.position, playbackBefore.position);
+    expect(playerController.snapshot.queue, same(playbackBefore.queue));
+  });
+
+  testWidgets('mobile landscape actions request and release orientations', (
+    tester,
+  ) async {
+    final orientationRequests = <List<String>>[];
+    final systemUiRequests = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'SystemChrome.setPreferredOrientations') {
+            orientationRequests.add(List<String>.from(call.arguments as List));
+          }
+          if (call.method == 'SystemChrome.setEnabledSystemUIMode' ||
+              call.method == 'SystemChrome.setEnabledSystemUIOverlays') {
+            systemUiRequests.add(call);
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+      debugDefaultTargetPlatformOverride = null;
+      tester.binding.setSurfaceSize(null);
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Landscape Mode'), findsOneWidget);
+    await tester.tap(find.text('Landscape Mode'));
+    await tester.pumpAndSettle();
+    expect(orientationRequests.last, <String>[
+      'DeviceOrientation.landscapeLeft',
+      'DeviceOrientation.landscapeRight',
+    ]);
+
+    await tester.binding.setSurfaceSize(const Size(932, 430));
+    await tester.pumpAndSettle();
+    expect(systemUiRequests.last.method, 'SystemChrome.setEnabledSystemUIMode');
+    expect(systemUiRequests.last.arguments, 'SystemUiMode.immersiveSticky');
+    final systemUiRequestCountBeforeExit = systemUiRequests.length;
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+    await tester.pump();
+    expect(orientationRequests.last, <String>[
+      'DeviceOrientation.portraitUp',
+      'DeviceOrientation.portraitDown',
+    ]);
+    expect(systemUiRequests, hasLength(systemUiRequestCountBeforeExit));
+
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    await tester.pumpAndSettle();
+    expect(
+      systemUiRequests.last.method,
+      'SystemChrome.setEnabledSystemUIOverlays',
+    );
+    expect(systemUiRequests.last.arguments, <String>[
+      'SystemUiOverlay.top',
+      'SystemUiOverlay.bottom',
+    ]);
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Landscape Mode'));
+    await tester.pumpAndSettle();
+    expect(orientationRequests.last, <String>[
+      'DeviceOrientation.landscapeLeft',
+      'DeviceOrientation.landscapeRight',
+    ]);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(orientationRequests.last, isEmpty);
+    expect(
+      systemUiRequests.last.method,
+      'SystemChrome.setEnabledSystemUIOverlays',
+    );
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('automatic rotation enters and leaves immersive system UI', (
+    tester,
+  ) async {
+    final systemUiRequests = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'SystemChrome.setEnabledSystemUIMode' ||
+              call.method == 'SystemChrome.setEnabledSystemUIOverlays') {
+            systemUiRequests.add(call);
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+      debugDefaultTargetPlatformOverride = null;
+      tester.binding.setSurfaceSize(null);
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+
+    await tester.binding.setSurfaceSize(const Size(932, 430));
+    await tester.pump();
+    await tester.pump();
+    expect(systemUiRequests.last.method, 'SystemChrome.setEnabledSystemUIMode');
+    expect(systemUiRequests.last.arguments, 'SystemUiMode.immersiveSticky');
+
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      systemUiRequests.last.method,
+      'SystemChrome.setEnabledSystemUIOverlays',
+    );
+    expect(systemUiRequests.last.arguments, <String>[
+      'SystemUiOverlay.top',
+      'SystemUiOverlay.bottom',
+    ]);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('system back exits mobile landscape before closing player', (
+    tester,
+  ) async {
+    final orientationRequests = <List<String>>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'SystemChrome.setPreferredOrientations') {
+            orientationRequests.add(List<String>.from(call.arguments as List));
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+      debugDefaultTargetPlatformOverride = null;
+      tester.binding.setSurfaceSize(null);
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    await tester.binding.setSurfaceSize(const Size(932, 430));
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(find.byType(PlayerPage), findsOneWidget);
+    expect(orientationRequests.last, <String>[
+      'DeviceOrientation.portraitUp',
+      'DeviceOrientation.portraitDown',
+    ]);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('desktop platform hides landscape mode action', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.binding.setSurfaceSize(null);
+    });
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Landscape Mode'), findsNothing);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('player page opens queue bottom sheet on narrow screen', (
@@ -882,6 +1411,7 @@ Widget _buildPlayerTestApp({
         ),
       ),
       playerControllerProvider.overrideWith(controllerFactory),
+      artistPhotoCacheProvider.overrideWith(_EmptyArtistPhotoCache.new),
       onlinePlatformsProvider.overrideWith(
         () => _TestOnlinePlatformsController(
           featureSupportFlag:
@@ -894,6 +1424,18 @@ Widget _buildPlayerTestApp({
     ],
     child: const MaterialApp(home: AppPlayerStyleBoundary(child: PlayerPage())),
   );
+}
+
+class _EmptyArtistPhotoCache extends ArtistPhotoCache {
+  @override
+  Future<List<String>> fetchPhotos({
+    required String platform,
+    List<String> ids = const <String>[],
+    List<String> names = const <String>[],
+    bool isPortrait = false,
+  }) async {
+    return const <String>[];
+  }
 }
 
 class _TestAppConfigController extends AppConfigController {

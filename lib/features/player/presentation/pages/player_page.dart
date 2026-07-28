@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -17,7 +18,6 @@ import '../../../../shared/helpers/platform_label_helper.dart';
 import '../../../../shared/helpers/song_artist_navigation_helper.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/helpers/user_playlist_song_action_helper.dart';
-import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/utils/share_link_builder.dart';
@@ -54,11 +54,24 @@ class PlayerPage extends ConsumerStatefulWidget {
   ConsumerState<PlayerPage> createState() => _PlayerPageState();
 }
 
+enum _PlayerOrientationPreference {
+  systemManaged,
+  manualLandscape,
+  portraitAfterExit,
+}
+
+enum _PlayerMoreAction { openStyleSelection, enterLandscape }
+
 class _PlayerPageState extends ConsumerState<PlayerPage> {
   static const _pageCount = 2;
   late final PageController _pageController = PageController();
   final GlobalKey _lyricPageKey = GlobalKey(debugLabel: 'player-lyric-page');
   int _currentPage = 0;
+  int? _mobilePageToRestore;
+  PlayerLayoutMode? _lastLayoutMode;
+  bool _isLandscapeSystemUiActive = false;
+  _PlayerOrientationPreference _orientationPreference =
+      _PlayerOrientationPreference.systemManaged;
 
   @override
   void initState() {
@@ -70,6 +83,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   @override
   void dispose() {
+    if (_usesMobileOrientationControls) {
+      unawaited(
+        SystemChrome.setPreferredOrientations(const <DeviceOrientation>[]),
+      );
+      unawaited(_restoreDefaultSystemUi(force: true));
+    }
     _pageController.dispose();
     super.dispose();
   }
@@ -107,7 +126,26 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final usePortraitArtistPhoto = resolvePlayerArtistPhotoPortraitForTest(
       MediaQuery.sizeOf(context),
     );
-    final lyricPage = PlayerLyricPage(
+    final currentLayoutMode = PlayerLayoutSpec.resolve(
+      BoxConstraints.tight(MediaQuery.sizeOf(context)),
+    ).mode;
+    final isMobileLandscape =
+        currentLayoutMode == PlayerLayoutMode.mobileLandscape;
+    final landscapeSafeMinimum = isMobileLandscape
+        ? resolvePlayerLandscapeContentInsets(
+            resolvePlayerLandscapeSafeInsets(
+              size: MediaQuery.sizeOf(context),
+              systemGestureInsets: MediaQuery.systemGestureInsetsOf(context),
+              displayFeatures: MediaQuery.of(context).displayFeatures,
+            ),
+          )
+        : EdgeInsets.zero;
+    final shouldRestorePortraitOnPop =
+        _usesMobileOrientationControls &&
+        (currentLayoutMode == PlayerLayoutMode.mobileLandscape ||
+            _orientationPreference ==
+                _PlayerOrientationPreference.manualLandscape);
+    Widget buildLyricPage() => PlayerLyricPage(
       key: _lyricPageKey,
       emptyText: AppI18n.t(config, 'player.lyrics.empty'),
       onSeek: presentation.isTrackTransitioning ? null : controller.seek,
@@ -115,97 +153,140 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       artworkBytes: presentation.currentTrack?.artworkBytes,
       center: false,
     );
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: PlayerBackdrop(
-              stageKind: playerStyle.stageKind,
-              imageProvider: backdropImageProvider,
-              track: presentation.displayTrack,
-              isPortrait: usePortraitArtistPhoto,
-              artistPhotoImageProviderBuilder:
-                  widget.artistPhotoImageProviderBuilder,
-            ),
-          ),
-          Positioned.fill(
-            child: SafeArea(
-              bottom: true,
-              child: PlayerResponsiveLayout(
-                pageController: _pageController,
-                onPageChanged: (index) {
-                  if (_currentPage == index) {
-                    return;
-                  }
-                  setState(() => _currentPage = index);
-                },
-                topBarBuilder: (context, spec) => _PlayerTopBar(
-                  currentPage: _currentPage,
-                  total: _pageCount,
-                  showPageIndicator: !spec.isDesktop,
-                  onTapDot: _animateToPage,
-                ),
-                mainPlayerBuilder: (context, spec) => _PlayerMetaControlPage(
-                  noTrackText: AppI18n.t(config, 'player.noTrack'),
-                  controller: controller,
-                  layoutSpec: spec,
-                  stageKind: playerStyle.stageKind,
-                  stageMaxWidth: playerStyle.geometry.stageMaxWidth,
-                  track: presentation.displayTrack,
-                  onOpenQueue: _openQueueSheet,
-                  onOpenMore: _openMoreSheet,
-                  onOpenLyrics: () => _animateToPage(1),
-                  onOpenQuality: () async {
-                    final track = ref.read(
-                      playerControllerProvider.select((s) => s.currentTrack),
-                    );
-                    final onlinePlatformId = (track?.platform ?? '').trim();
-                    final currentAvailableQualities =
-                        track != null &&
-                            onlinePlatformId.isNotEmpty &&
-                            onlinePlatformId != 'local'
-                        ? await _resolveSongQualityOptions(
-                            track: track,
-                            platformId: onlinePlatformId,
-                            ref: ref,
-                          )
-                        : ref.read(
-                            playerControllerProvider.select(
-                              (s) => s.currentAvailableQualities,
-                            ),
-                          );
-                    final currentSelectedQuality = ref.read(
-                      playerControllerProvider.select(
-                        (s) => s.currentSelectedQualityName,
-                      ),
-                    );
-                    if (currentAvailableQualities.isEmpty) {
-                      return;
-                    }
-                    if (!context.mounted) {
-                      return;
-                    }
-                    _openQualitySheet(
-                      context,
-                      controller,
-                      currentAvailableQualities,
-                      currentSelectedQuality,
-                    );
-                  },
-                  onOpenSpeed: () {
-                    final speed = ref.read(
-                      playerControllerProvider.select((s) => s.speed),
-                    );
-                    _openSpeedSheet(context, controller, speed);
-                  },
-                ),
-                lyricsBuilder: (context, spec) => lyricPage,
+    return PopScope(
+      canPop: !shouldRestorePortraitOnPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        unawaited(_exitLandscape());
+      },
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        body: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: PlayerBackdrop(
+                stageKind: playerStyle.stageKind,
+                imageProvider: backdropImageProvider,
+                track: presentation.displayTrack,
+                isPortrait: usePortraitArtistPhoto,
+                artistPhotoImageProviderBuilder:
+                    widget.artistPhotoImageProviderBuilder,
               ),
             ),
-          ),
-        ],
+            Positioned.fill(
+              child: SafeArea(
+                left: !isMobileLandscape,
+                top: !isMobileLandscape,
+                right: !isMobileLandscape,
+                bottom: !isMobileLandscape,
+                minimum: landscapeSafeMinimum,
+                child: PlayerResponsiveLayout(
+                  pageController: _pageController,
+                  onLayoutModeResolved: _handleLayoutModeResolved,
+                  onPageChanged: (index) {
+                    final pageToRestore = _mobilePageToRestore;
+                    if (pageToRestore != null && index != pageToRestore) {
+                      return;
+                    }
+                    if (_currentPage == index) {
+                      return;
+                    }
+                    setState(() => _currentPage = index);
+                  },
+                  topBarBuilder: (context, spec) => _PlayerTopBar(
+                    currentPage: _currentPage,
+                    total: _pageCount,
+                    showPageIndicator:
+                        spec.mode == PlayerLayoutMode.mobilePortrait,
+                    onClose: () => unawaited(_closePlayer()),
+                    onTapDot: _animateToPage,
+                  ),
+                  mainPlayerBuilder: (context, spec) => _PlayerMetaControlPage(
+                    noTrackText: AppI18n.t(config, 'player.noTrack'),
+                    controller: controller,
+                    layoutSpec: spec,
+                    stageKind: playerStyle.stageKind,
+                    stageMaxWidth: playerStyle.geometry.stageMaxWidth,
+                    track: presentation.displayTrack,
+                    onOpenQueue: _openQueueSheet,
+                    onOpenMore: _openMoreSheet,
+                    onOpenLyrics: () => _animateToPage(1),
+                    onOpenQuality: () =>
+                        _openCurrentQualitySheet(context, controller),
+                    onOpenSpeed: () {
+                      final speed = ref.read(
+                        playerControllerProvider.select((s) => s.speed),
+                      );
+                      _openSpeedSheet(context, controller, speed);
+                    },
+                  ),
+                  mobileLandscapeBuilder: (context, spec) =>
+                      _PlayerMobileLandscapeLayout(
+                        noTrackText: AppI18n.t(config, 'player.noTrack'),
+                        controller: controller,
+                        layoutSpec: spec,
+                        stageKind: playerStyle.stageKind,
+                        stageMaxWidth: playerStyle.geometry.stageMaxWidth,
+                        track: presentation.displayTrack,
+                        lyrics: buildLyricPage(),
+                        exitLandscapeTooltip: AppI18n.t(
+                          config,
+                          'player.action.exit_landscape',
+                        ),
+                        onExitLandscape: () => unawaited(_exitLandscape()),
+                        onOpenQueue: _openQueueSheet,
+                        onOpenQuality: () =>
+                            _openCurrentQualitySheet(context, controller),
+                        onOpenSpeed: () {
+                          final speed = ref.read(
+                            playerControllerProvider.select((s) => s.speed),
+                          );
+                          _openSpeedSheet(context, controller, speed);
+                        },
+                      ),
+                  lyricsBuilder: (context, spec) => buildLyricPage(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _openCurrentQualitySheet(
+    BuildContext context,
+    PlayerController controller,
+  ) async {
+    final track = ref.read(
+      playerControllerProvider.select((state) => state.currentTrack),
+    );
+    final onlinePlatformId = (track?.platform ?? '').trim();
+    final currentAvailableQualities =
+        track != null &&
+            onlinePlatformId.isNotEmpty &&
+            onlinePlatformId != 'local'
+        ? await _resolveSongQualityOptions(
+            track: track,
+            platformId: onlinePlatformId,
+            ref: ref,
+          )
+        : ref.read(
+            playerControllerProvider.select(
+              (state) => state.currentAvailableQualities,
+            ),
+          );
+    final currentSelectedQuality = ref.read(
+      playerControllerProvider.select(
+        (state) => state.currentSelectedQualityName,
+      ),
+    );
+    if (currentAvailableQualities.isEmpty || !context.mounted) return;
+    _openQualitySheet(
+      context,
+      controller,
+      currentAvailableQualities,
+      currentSelectedQuality,
     );
   }
 
@@ -215,6 +296,116 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOut,
     );
+  }
+
+  void _restoreCurrentPageAfterLayoutChange(int page) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) return;
+      _mobilePageToRestore = null;
+      _currentPage = page;
+      _pageController.jumpToPage(page);
+    });
+  }
+
+  void _handleLayoutModeResolved(PlayerLayoutMode mode) {
+    final previousMode = _lastLayoutMode;
+    if (mode == previousMode) return;
+    _lastLayoutMode = mode;
+    _scheduleSystemUiForLayout(mode);
+    if (mode != PlayerLayoutMode.mobilePortrait &&
+        previousMode == PlayerLayoutMode.mobilePortrait) {
+      _mobilePageToRestore = _currentPage;
+      return;
+    }
+    if (mode == PlayerLayoutMode.mobilePortrait && previousMode != null) {
+      _restoreCurrentPageAfterLayoutChange(
+        _mobilePageToRestore ?? _currentPage,
+      );
+    }
+  }
+
+  void _scheduleSystemUiForLayout(PlayerLayoutMode mode) {
+    if (!_usesMobileOrientationControls) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _lastLayoutMode != mode) return;
+      if (mode == PlayerLayoutMode.mobileLandscape) {
+        unawaited(_enableLandscapeSystemUi());
+      } else {
+        unawaited(_restoreDefaultSystemUi());
+      }
+    });
+  }
+
+  Future<void> _enableLandscapeSystemUi() async {
+    if (!_usesMobileOrientationControls || _isLandscapeSystemUiActive) return;
+    _isLandscapeSystemUiActive = true;
+    try {
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } on PlatformException {
+      _isLandscapeSystemUiActive = false;
+    }
+  }
+
+  Future<void> _restoreDefaultSystemUi({bool force = false}) async {
+    if (!_usesMobileOrientationControls ||
+        (!_isLandscapeSystemUiActive && !force)) {
+      return;
+    }
+    _isLandscapeSystemUiActive = false;
+    try {
+      await SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
+    } on PlatformException {
+      return;
+    }
+  }
+
+  bool get _usesMobileOrientationControls =>
+      supportsPlayerOrientationControlsForTest(
+        platform: defaultTargetPlatform,
+        isWeb: kIsWeb,
+      );
+
+  Future<void> _enterManualLandscape() async {
+    if (!_usesMobileOrientationControls) return;
+    setState(() {
+      _orientationPreference = _PlayerOrientationPreference.manualLandscape;
+    });
+    try {
+      await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } on PlatformException {
+      if (!mounted) return;
+      setState(() {
+        _orientationPreference = _PlayerOrientationPreference.systemManaged;
+      });
+    }
+  }
+
+  Future<void> _exitLandscape() async {
+    if (!_usesMobileOrientationControls) return;
+    setState(() {
+      _orientationPreference = _PlayerOrientationPreference.portraitAfterExit;
+    });
+    await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
+
+  Future<void> _closePlayer() async {
+    if (_usesMobileOrientationControls) {
+      _orientationPreference = _PlayerOrientationPreference.systemManaged;
+      await Future.wait<void>(<Future<void>>[
+        SystemChrome.setPreferredOrientations(const <DeviceOrientation>[]),
+        _restoreDefaultSystemUi(force: true),
+      ]);
+    }
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _openQueueSheet() {
@@ -229,7 +420,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   void _openMoreSheet() {
     final rootContext = context;
     unawaited(
-      showPlayerStyledBottomSheet<bool>(
+      showPlayerStyledBottomSheet<_PlayerMoreAction>(
         context: context,
         showDragHandle: true,
         builder: (sheetContext) => Consumer(
@@ -360,9 +551,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                     icon: Icons.palette_outlined,
                     title: AppI18n.t(config, 'player.action.style'),
                     onTap: () {
-                      Navigator.of(sheetContext).pop(true);
+                      Navigator.of(
+                        sheetContext,
+                      ).pop(_PlayerMoreAction.openStyleSelection);
                     },
                   ),
+                  if (_usesMobileOrientationControls)
+                    PlayerSheetActionTile(
+                      icon: Icons.stay_current_landscape_rounded,
+                      title: AppI18n.t(config, 'player.action.landscape_mode'),
+                      onTap: () {
+                        Navigator.of(
+                          sheetContext,
+                        ).pop(_PlayerMoreAction.enterLandscape);
+                      },
+                    ),
                   PlayerSheetActionTile(
                     icon: Icons.search_rounded,
                     title: AppI18n.t(config, 'player.action.search_same'),
@@ -597,11 +800,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             );
           },
         ),
-      ).then((openStyleSelection) {
-        if (openStyleSelection != true || !mounted || !rootContext.mounted) {
+      ).then((action) {
+        if (action == null || !mounted || !rootContext.mounted) {
           return;
         }
-        _openPlayerStyleSheet(rootContext);
+        switch (action) {
+          case _PlayerMoreAction.openStyleSelection:
+            _openPlayerStyleSheet(rootContext);
+          case _PlayerMoreAction.enterLandscape:
+            unawaited(_enterManualLandscape());
+        }
       }),
     );
   }
@@ -1009,8 +1217,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
 @visibleForTesting
 bool resolvePlayerArtistPhotoPortraitForTest(Size windowSize) {
-  return windowSize.height >= windowSize.width ||
-      windowSize.width < LayoutTokens.desktopBreakpoint;
+  return windowSize.height >= windowSize.width;
+}
+
+@visibleForTesting
+bool supportsPlayerOrientationControlsForTest({
+  required TargetPlatform platform,
+  required bool isWeb,
+}) {
+  if (isWeb) return false;
+  return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 }
 
 class _PlayerTopBar extends StatelessWidget {
@@ -1018,12 +1234,14 @@ class _PlayerTopBar extends StatelessWidget {
     required this.currentPage,
     required this.total,
     required this.showPageIndicator,
+    required this.onClose,
     required this.onTapDot,
   });
 
   final int currentPage;
   final int total;
   final bool showPageIndicator;
+  final VoidCallback onClose;
   final ValueChanged<int> onTapDot;
 
   @override
@@ -1036,7 +1254,7 @@ class _PlayerTopBar extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: IconButton(
-              onPressed: Navigator.of(context).pop,
+              onPressed: onClose,
               style: IconButton.styleFrom(foregroundColor: Colors.white),
               icon: const Icon(Icons.keyboard_arrow_down_rounded),
             ),
@@ -1066,6 +1284,167 @@ class _PlayerTopBar extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _PlayerMobileLandscapeLayout extends StatelessWidget {
+  const _PlayerMobileLandscapeLayout({
+    required this.noTrackText,
+    required this.controller,
+    required this.layoutSpec,
+    required this.stageKind,
+    required this.stageMaxWidth,
+    required this.track,
+    required this.lyrics,
+    required this.exitLandscapeTooltip,
+    required this.onExitLandscape,
+    required this.onOpenQueue,
+    required this.onOpenQuality,
+    required this.onOpenSpeed,
+  });
+
+  final String noTrackText;
+  final PlayerController controller;
+  final PlayerLayoutSpec layoutSpec;
+  final AppPlayerStageKind stageKind;
+  final double stageMaxWidth;
+  final PlayerTrack? track;
+  final Widget lyrics;
+  final String exitLandscapeTooltip;
+  final VoidCallback onExitLandscape;
+  final VoidCallback onOpenQueue;
+  final VoidCallback onOpenQuality;
+  final VoidCallback onOpenSpeed;
+
+  @override
+  Widget build(BuildContext context) {
+    final gap = layoutSpec.verticalGap;
+    final exitRail = SizedBox(
+      key: const ValueKey<String>('player-mobile-landscape-exit-rail'),
+      width: 48,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: IconButton(
+          key: const ValueKey<String>('player-mobile-landscape-exit-button'),
+          onPressed: onExitLandscape,
+          tooltip: exitLandscapeTooltip,
+          style: IconButton.styleFrom(foregroundColor: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
+      ),
+    );
+    final trackHeader = PlayerTrackHeader(
+      noTrackText: noTrackText,
+      artistSlotWidth: layoutSpec.artistSlotWidth,
+      onOpenQuality: onOpenQuality,
+      onOpenSpeed: onOpenSpeed,
+      layout: PlayerTrackHeaderLayout.mobileLandscape,
+    );
+    final controls = Row(
+      key: const ValueKey<String>('player-mobile-landscape-controls'),
+      children: <Widget>[
+        Expanded(
+          child: _PlayerControlSection(
+            controller: controller,
+            compactLayout: true,
+            minimalLayout: true,
+            onOpenQueue: onOpenQueue,
+          ),
+        ),
+        const _PlayerFavoriteButton(),
+      ],
+    );
+
+    if (stageKind == AppPlayerStageKind.artistPhoto) {
+      return Stack(
+        key: const ValueKey<String>('player-mobile-landscape-layout'),
+        children: <Widget>[
+          Column(
+            children: <Widget>[
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Align(
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        key: const ValueKey<String>(
+                          'player-mobile-landscape-artist-photo-content',
+                        ),
+                        width: constraints.maxWidth * 0.64,
+                        child: Column(
+                          children: <Widget>[
+                            trackHeader,
+                            SizedBox(height: gap),
+                            Expanded(child: lyrics),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: gap),
+              Padding(
+                padding: const EdgeInsets.only(left: 56),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Expanded(
+                      flex: 2,
+                      child: _PlayerProgressSection(onSeek: controller.seek),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(flex: 3, child: controls),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Align(alignment: Alignment.topLeft, child: exitRail),
+        ],
+      );
+    }
+
+    return Row(
+      key: const ValueKey<String>('player-mobile-landscape-layout'),
+      children: <Widget>[
+        exitRail,
+        const SizedBox(width: 8),
+        Expanded(
+          key: const ValueKey<String>('player-mobile-landscape-stage'),
+          flex: 2,
+          child: Column(
+            children: <Widget>[
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: gap),
+                  child: PlayerStyleStage(
+                    stageKind: stageKind,
+                    track: track,
+                    maxWidth: stageMaxWidth,
+                  ),
+                ),
+              ),
+              _PlayerProgressSection(onSeek: controller.seek),
+            ],
+          ),
+        ),
+        const SizedBox(width: 24),
+        Expanded(
+          key: const ValueKey<String>('player-mobile-landscape-details'),
+          flex: 3,
+          child: Column(
+            children: <Widget>[
+              trackHeader,
+              SizedBox(height: gap),
+              Expanded(child: lyrics),
+              SizedBox(height: gap),
+              controls,
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1110,16 +1489,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
       key: const ValueKey<String>('player-compact-lyric-preview'),
       child: PlayerCompactLyricSection(onTap: onOpenLyrics),
     );
-    final utilityBar = SizedBox(
-      height: 40,
-      child: Row(
-        children: <Widget>[
-          const _PlayerFavoriteButton(),
-          const Spacer(),
-          _PlayerUtilityRow(onOpenMore: onOpenMore),
-        ],
-      ),
-    );
+    final utilityBar = _PlayerUtilityBar(onOpenMore: onOpenMore);
     final controls = <Widget>[
       utilityBar,
       _PlayerProgressSection(onSeek: controller.seek),
@@ -1207,6 +1577,26 @@ class _PlayerMetaControlPage extends StatelessWidget {
         ),
         ...controls,
       ],
+    );
+  }
+}
+
+class _PlayerUtilityBar extends StatelessWidget {
+  const _PlayerUtilityBar({required this.onOpenMore});
+
+  final VoidCallback onOpenMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: <Widget>[
+          const _PlayerFavoriteButton(),
+          const Spacer(),
+          _PlayerUtilityRow(onOpenMore: onOpenMore),
+        ],
+      ),
     );
   }
 }
@@ -1345,11 +1735,13 @@ class _PlayerControlSection extends ConsumerWidget {
     required this.controller,
     required this.compactLayout,
     required this.onOpenQueue,
+    this.minimalLayout = false,
   });
 
   final PlayerController controller;
   final bool compactLayout;
   final VoidCallback onOpenQueue;
+  final bool minimalLayout;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1371,10 +1763,10 @@ class _PlayerControlSection extends ConsumerWidget {
       compact: compactLayout,
       isPlaying: isPlaying,
       playMode: playMode,
-      showPlayModeButton: !isRadioMode,
+      showPlayModeButton: !minimalLayout && !isRadioMode,
       playModeLocked: isRadioMode,
       isTrackTransitioning: isTrackTransitioning,
-      showQueueButton: !isRadioMode,
+      showQueueButton: !minimalLayout && !isRadioMode,
       onOpenQueue: onOpenQueue,
       onCyclePlayMode: controller.cyclePlayMode,
       onPrevious: controller.playPrevious,

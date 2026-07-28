@@ -163,71 +163,80 @@ class _CassetteLabel extends StatelessWidget {
         borderRadius: BorderRadius.circular(7),
         border: Border.all(color: const Color(0xFFB8AD94)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-        child: Row(
-          children: <Widget>[
-            AspectRatio(
-              aspectRatio: 1,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: image == null
-                    ? const ColoredBox(
-                        color: Color(0xFF34534F),
-                        child: Icon(
-                          Icons.music_note_rounded,
-                          color: Color(0xFFE9E0C9),
-                          size: 18,
-                        ),
-                      )
-                    : Image(
-                        image: image,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ColoredBox(
-                              color: Color(0xFF34534F),
-                              child: Icon(
-                                Icons.music_note_rounded,
-                                color: Color(0xFFE9E0C9),
-                                size: 18,
-                              ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 手机横屏时收紧标签内边距，避免改变磁带主体比例。
+          final verticalPadding = constraints.maxHeight < 46 ? 1.5 : 6.0;
+          return Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 9,
+              vertical: verticalPadding,
+            ),
+            child: Row(
+              children: <Widget>[
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: image == null
+                        ? const ColoredBox(
+                            color: Color(0xFF34534F),
+                            child: Icon(
+                              Icons.music_note_rounded,
+                              color: Color(0xFFE9E0C9),
+                              size: 18,
                             ),
+                          )
+                        : Image(
+                            image: image,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const ColoredBox(
+                                  color: Color(0xFF34534F),
+                                  child: Icon(
+                                    Icons.music_note_rounded,
+                                    color: Color(0xFFE9E0C9),
+                                    size: 18,
+                                  ),
+                                ),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        track?.title ?? '-',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF263532),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
                       ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    track?.title ?? '-',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF263532),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        track?.artist ?? '-',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF52635F),
+                          fontSize: 10,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    track?.artist ?? '-',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF52635F),
-                      fontSize: 10,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

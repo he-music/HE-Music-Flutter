@@ -95,20 +95,111 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('mobile landscape combines title and artist without badges', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildHeaderApp(
+        _ShortArtistController.new,
+        width: 600,
+        layout: PlayerTrackHeaderLayout.mobileLandscape,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('一首很长但必须省略的歌曲标题 - 歌手'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('player-landscape-track-static')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-landscape-track-marquee')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-artist-slot')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-quality-badge')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-speed-badge')),
+      findsNothing,
+    );
+    final headerRect = tester.getRect(
+      find.byKey(const ValueKey<String>('player-track-header')),
+    );
+    final titleRect = tester.getRect(
+      find.byKey(const ValueKey<String>('player-landscape-track-static')),
+    );
+    expect(
+      titleRect.left - headerRect.left,
+      PlayerTrackHeader.mobileLandscapeContentInset,
+    );
+  });
+
+  testWidgets(
+    'overflowing mobile landscape metadata pauses five seconds at its start',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildHeaderApp(
+          _LongArtistController.new,
+          width: 180,
+          layout: PlayerTrackHeaderLayout.mobileLandscape,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('player-landscape-track-static')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('player-landscape-track-marquee')),
+        findsOneWidget,
+      );
+
+      final scroll = tester.widget<SingleChildScrollView>(
+        find.byKey(const ValueKey<String>('player-landscape-track-scroll')),
+      );
+      final controller = scroll.controller!;
+      expect(controller.offset, 0);
+
+      await tester.pump(const Duration(seconds: 4));
+      expect(controller.offset, 0);
+      await tester.pump(const Duration(seconds: 1));
+      expect(controller.offset, 0);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(controller.offset, greaterThan(0));
+
+      await tester.pump(const Duration(seconds: 60));
+      expect(controller.offset, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
 }
 
-Widget _buildHeaderApp(PlayerController Function() controllerFactory) {
+Widget _buildHeaderApp(
+  PlayerController Function() controllerFactory, {
+  double width = 300,
+  PlayerTrackHeaderLayout layout = PlayerTrackHeaderLayout.standard,
+}) {
   return ProviderScope(
     overrides: [playerControllerProvider.overrideWith(controllerFactory)],
-    child: const MaterialApp(
+    child: MaterialApp(
       home: Scaffold(
         body: SizedBox(
-          width: 300,
+          width: width,
           child: PlayerTrackHeader(
             noTrackText: 'No track',
             artistSlotWidth: 100,
             onOpenQuality: _noop,
             onOpenSpeed: _noop,
+            layout: layout,
           ),
         ),
       ),
