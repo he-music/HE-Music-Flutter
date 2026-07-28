@@ -300,10 +300,10 @@ class _ArtistCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final skeleton = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
       ),
       child: const Row(
@@ -325,6 +325,7 @@ class _ArtistCardSkeleton extends StatelessWidget {
         ],
       ),
     );
+    return AppSkinContentSurface(child: skeleton);
   }
 }
 
@@ -460,10 +461,10 @@ class _RankingRowCardSkeleton extends StatelessWidget {
         final rowSpec = resolveRankingRowLayoutSpec(
           maxWidth: constraints.maxWidth,
         );
-        return Container(
+        final skeleton = Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardTheme.color,
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(22),
           ),
           child: Column(
@@ -509,6 +510,7 @@ class _RankingRowCardSkeleton extends StatelessWidget {
             ],
           ),
         );
+        return AppSkinContentSurface(child: skeleton);
       },
     );
   }

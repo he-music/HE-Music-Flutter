@@ -9,6 +9,7 @@ import 'package:he_music_flutter/features/artist/presentation/pages/artist_plaza
 import 'package:he_music_flutter/features/artist/presentation/providers/artist_plaza_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/features/online/presentation/widgets/search_artist_list_item.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
@@ -44,6 +45,13 @@ void main() {
       expect(find.text('QQ'), findsWidgets);
       expect(find.text('全部'), findsOneWidget);
       expect(find.text('测试歌手'), findsOneWidget);
+      final artistMaterial = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(SearchArtistListItem),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(artistMaterial.color, Colors.transparent);
     },
   );
 }

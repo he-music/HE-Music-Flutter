@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/layout/ranking_layout_spec.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
@@ -346,8 +347,8 @@ class _RankingRowCard extends StatelessWidget {
           maxWidth: constraints.maxWidth,
         );
 
-        return Material(
-          color: theme.cardTheme.color,
+        final card = Material(
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(22),
           child: InkWell(
             onTap: () => onTap(ranking),
@@ -407,6 +408,7 @@ class _RankingRowCard extends StatelessWidget {
             ),
           ),
         );
+        return AppSkinContentSurface(child: card);
       },
     );
   }

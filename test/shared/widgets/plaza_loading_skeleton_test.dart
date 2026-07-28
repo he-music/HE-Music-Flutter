@@ -121,6 +121,34 @@ void main() {
     });
   });
 
+  group('PlazaArtistListSkeleton', () {
+    testWidgets('普通主题下不绘制 item 背景', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const SizedBox(
+            width: 400,
+            height: 120,
+            child: PlazaArtistListSkeleton(itemCount: 1),
+          ),
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blue,
+            ).copyWith(surface: Colors.red),
+          ),
+        ),
+      );
+
+      final backgrounds = find.descendant(
+        of: find.byType(PlazaArtistListSkeleton),
+        matching: find.byWidgetPredicate((widget) {
+          final decoration = widget is Container ? widget.decoration : null;
+          return decoration is BoxDecoration && decoration.color == Colors.red;
+        }),
+      );
+      expect(backgrounds, findsNothing);
+    });
+  });
+
   group('PlazaVideoGridSkeleton', () {
     testWidgets('应渲染 GridView', (tester) async {
       await tester.pumpWidget(
@@ -199,6 +227,30 @@ void main() {
     });
   });
 
+  group('RankingGroupsSkeleton', () {
+    testWidgets('普通主题下不绘制 item 背景', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const SizedBox(
+            width: 400,
+            height: 600,
+            child: RankingGroupsSkeleton(),
+          ),
+          theme: ThemeData(cardTheme: const CardThemeData(color: Colors.red)),
+        ),
+      );
+
+      final backgrounds = find.descendant(
+        of: find.byType(RankingGroupsSkeleton),
+        matching: find.byWidgetPredicate((widget) {
+          final decoration = widget is Container ? widget.decoration : null;
+          return decoration is BoxDecoration && decoration.color == Colors.red;
+        }),
+      );
+      expect(backgrounds, findsNothing);
+    });
+  });
+
   group('HotKeywordListSkeleton', () {
     testWidgets('默认应渲染 8 行', (tester) async {
       await tester.pumpWidget(
@@ -231,6 +283,9 @@ void main() {
   });
 }
 
-Widget _wrap(Widget child) {
-  return MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child, {ThemeData? theme}) {
+  return MaterialApp(
+    theme: theme,
+    home: Scaffold(body: child),
+  );
 }

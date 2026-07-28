@@ -154,6 +154,56 @@ void main() {
     },
   );
 
+  testWidgets(
+    'artist detail does not reload tabs whose first result is empty',
+    (tester) async {
+      final repository = _EmptyTabArtistDetailRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            artistDetailRepositoryProvider.overrideWithValue(repository),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+          ],
+          child: _buildTestApp(
+            localeCode: 'zh',
+            child: const ArtistDetailPage(
+              id: 'artist-1',
+              platform: 'qq',
+              title: '测试歌手',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.fetchSongsCallCount, 1);
+
+      await tester.tap(find.text('专辑'));
+      await tester.pumpAndSettle();
+      expect(repository.fetchAlbumsPageCallCount, 1);
+
+      await tester.tap(find.text('视频'));
+      await tester.pumpAndSettle();
+      expect(repository.fetchVideosPageCallCount, 1);
+
+      await tester.tap(find.text('歌曲'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('专辑'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('视频'));
+      await tester.pumpAndSettle();
+
+      expect(repository.fetchSongsCallCount, 1);
+      expect(repository.fetchAlbumsPageCallCount, 1);
+      expect(repository.fetchVideosPageCallCount, 1);
+    },
+  );
+
   testWidgets('artist albums tab shows first page before later pages finish', (
     tester,
   ) async {
@@ -526,6 +576,47 @@ class _PendingTabArtistDetailRepository extends _TestArtistDetailRepository {
         nextPageIndex: 2,
       ),
     );
+  }
+}
+
+class _EmptyTabArtistDetailRepository extends _TestArtistDetailRepository {
+  int fetchAlbumsPageCallCount = 0;
+  int fetchVideosPageCallCount = 0;
+
+  @override
+  Future<ArtistDetailContent> fetchDetail(ArtistDetailRequest request) async {
+    return ArtistDetailContent(
+      info: const ArtistInfo(
+        id: 'artist-1',
+        name: '测试歌手',
+        cover: '',
+        platform: 'qq',
+        description: 'desc',
+        mvCount: '0',
+        songCount: '0',
+        albumCount: '0',
+        alias: '',
+      ),
+      songs: const <SongInfo>[],
+    );
+  }
+
+  @override
+  Future<ArtistDetailPageChunk<AlbumInfo>> fetchAlbumsPage(
+    ArtistDetailRequest request, {
+    required int pageIndex,
+  }) async {
+    fetchAlbumsPageCallCount += 1;
+    return super.fetchAlbumsPage(request, pageIndex: pageIndex);
+  }
+
+  @override
+  Future<ArtistDetailPageChunk<MvInfo>> fetchVideosPage(
+    ArtistDetailRequest request, {
+    required int pageIndex,
+  }) async {
+    fetchVideosPageCallCount += 1;
+    return super.fetchVideosPage(request, pageIndex: pageIndex);
   }
 }
 

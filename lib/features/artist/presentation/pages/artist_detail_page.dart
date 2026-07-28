@@ -74,6 +74,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   bool _albumsLoading = false;
   bool _videosLoading = false;
   // 区分“尚未请求”和“请求成功但为空”，避免切换标签时闪现空状态。
+  bool _songsRequested = false;
   bool _albumsRequested = false;
   bool _videosRequested = false;
   bool _isSongBatchMode = false;
@@ -124,6 +125,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
         }
         setState(() {
           _songs = content.songs;
+          _songsRequested = true;
         });
         final expectedCount = int.tryParse(content.songCount.trim()) ?? 0;
         if (expectedCount > content.songs.length) {
@@ -387,17 +389,17 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
     _lastHandledTabIndex = selectedIndex;
     switch (_ArtistDetailTab.values[selectedIndex]) {
       case _ArtistDetailTab.songs:
-        if (_songs.isEmpty && !_songsLoading && _songsError == null) {
+        if (!_songsRequested && !_songsLoading && _songsError == null) {
           unawaited(_loadSongs());
         }
       case _ArtistDetailTab.albums:
         _setSongBatchMode(false);
-        if (_albums.isEmpty && !_albumsLoading && _albumsError == null) {
+        if (!_albumsRequested && !_albumsLoading && _albumsError == null) {
           unawaited(_loadAlbums());
         }
       case _ArtistDetailTab.videos:
         _setSongBatchMode(false);
-        if (_videos.isEmpty && !_videosLoading && _videosError == null) {
+        if (!_videosRequested && !_videosLoading && _videosError == null) {
           unawaited(_loadVideos());
         }
     }
@@ -411,6 +413,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
       return;
     }
     setState(() {
+      _songsRequested = true;
       _songsLoading = true;
       _songsError = null;
     });
