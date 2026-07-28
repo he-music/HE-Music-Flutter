@@ -469,7 +469,16 @@ class _RadioPlazaLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const PlazaGridSkeleton();
+    return const Column(
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsets.fromLTRB(12, 6, 12, 8),
+          child: PlazaPlatformTabsSkeleton(),
+        ),
+        Divider(height: 1, indent: 12, endIndent: 12),
+        Expanded(child: PlazaGridSkeleton()),
+      ],
+    );
   }
 }
 
