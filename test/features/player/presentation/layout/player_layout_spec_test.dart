@@ -25,6 +25,23 @@ void main() {
     }
   });
 
+  test('player layout spec can disable mobile landscape mode', () {
+    expect(
+      PlayerLayoutSpec.resolve(
+        const BoxConstraints.tightFor(width: 932, height: 430),
+        allowMobileLandscape: false,
+      ).mode,
+      PlayerLayoutMode.desktop,
+    );
+    expect(
+      PlayerLayoutSpec.resolve(
+        const BoxConstraints.tightFor(width: 700, height: 420),
+        allowMobileLandscape: false,
+      ).mode,
+      PlayerLayoutMode.mobilePortrait,
+    );
+  });
+
   test('landscape safe insets combine gestures and edge cutouts', () {
     final insets = resolvePlayerLandscapeSafeInsets(
       size: const Size(844, 390),

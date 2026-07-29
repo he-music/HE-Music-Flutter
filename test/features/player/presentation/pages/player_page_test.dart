@@ -584,6 +584,11 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey<String>('player-compact-lyric-preview')),
+      findsNothing,
+    );
+    expect(find.byType(PlayerLyricPage), findsOneWidget);
+    expect(
       find.byKey(const ValueKey<String>('player-page-indicator')),
       findsNothing,
     );
@@ -1352,6 +1357,45 @@ void main() {
     expect(find.text('Landscape Mode'), findsNothing);
     debugDefaultTargetPlatformOverride = null;
   });
+
+  for (final platform in <TargetPlatform>[
+    TargetPlatform.macOS,
+    TargetPlatform.windows,
+    TargetPlatform.linux,
+  ]) {
+    testWidgets('$platform never uses mobile landscape layout when resized', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+        tester.binding.setSurfaceSize(null);
+      });
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.binding.setSurfaceSize(const Size(932, 430));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-layout')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('player-desktop-primary-pane')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
 
   testWidgets('player page opens queue bottom sheet on narrow screen', (
     tester,

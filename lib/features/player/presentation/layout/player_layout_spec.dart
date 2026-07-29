@@ -63,11 +63,14 @@ class PlayerLayoutSpec {
 
   bool get isMobileLandscape => mode == PlayerLayoutMode.mobileLandscape;
 
-  factory PlayerLayoutSpec.resolve(BoxConstraints constraints) {
+  factory PlayerLayoutSpec.resolve(
+    BoxConstraints constraints, {
+    bool allowMobileLandscape = true,
+  }) {
     final width = constraints.maxWidth;
     final height = constraints.maxHeight;
     final isShort = height < 640;
-    final mode = width > height && isShort
+    final mode = allowMobileLandscape && width > height && isShort
         ? PlayerLayoutMode.mobileLandscape
         : width >= LayoutTokens.desktopBreakpoint
         ? PlayerLayoutMode.desktop

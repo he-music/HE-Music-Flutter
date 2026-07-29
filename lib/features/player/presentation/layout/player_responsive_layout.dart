@@ -10,6 +10,7 @@ class PlayerResponsiveLayout extends StatelessWidget {
     required this.pageController,
     required this.onPageChanged,
     required this.onLayoutModeResolved,
+    required this.allowMobileLandscape,
     required this.topBarBuilder,
     required this.mainPlayerBuilder,
     required this.mobileLandscapeBuilder,
@@ -20,6 +21,7 @@ class PlayerResponsiveLayout extends StatelessWidget {
   final PageController pageController;
   final ValueChanged<int> onPageChanged;
   final ValueChanged<PlayerLayoutMode> onLayoutModeResolved;
+  final bool allowMobileLandscape;
   final PlayerLayoutChildBuilder topBarBuilder;
   final PlayerLayoutChildBuilder mainPlayerBuilder;
   final PlayerLayoutChildBuilder mobileLandscapeBuilder;
@@ -29,7 +31,10 @@ class PlayerResponsiveLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final spec = PlayerLayoutSpec.resolve(constraints);
+        final spec = PlayerLayoutSpec.resolve(
+          constraints,
+          allowMobileLandscape: allowMobileLandscape,
+        );
         onLayoutModeResolved(spec.mode);
         return switch (spec.mode) {
           PlayerLayoutMode.mobilePortrait => _buildMobilePortrait(

@@ -269,8 +269,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final usePortraitArtistPhoto = resolvePlayerArtistPhotoPortraitForTest(
       MediaQuery.sizeOf(context),
     );
+    final allowMobileLandscape = _usesMobileOrientationControls;
     final currentLayoutMode = PlayerLayoutSpec.resolve(
       BoxConstraints.tight(MediaQuery.sizeOf(context)),
+      allowMobileLandscape: allowMobileLandscape,
     ).mode;
     final isMobileLandscape =
         currentLayoutMode == PlayerLayoutMode.mobileLandscape;
@@ -326,6 +328,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 child: PlayerResponsiveLayout(
                   pageController: _pageController,
                   onLayoutModeResolved: _handleLayoutModeResolved,
+                  allowMobileLandscape: allowMobileLandscape,
                   onPageChanged: (index) {
                     final pageToRestore = _mobilePageToRestore;
                     if (pageToRestore != null && index != pageToRestore) {
@@ -434,6 +437,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _animateToPage(int index) {
+    if (!_pageController.hasClients) return;
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 240),
@@ -1628,10 +1632,6 @@ class _PlayerMetaControlPage extends StatelessWidget {
       onOpenQuality: onOpenQuality,
       onOpenSpeed: onOpenSpeed,
     );
-    final lyricPreview = KeyedSubtree(
-      key: const ValueKey<String>('player-compact-lyric-preview'),
-      child: PlayerCompactLyricSection(onTap: onOpenLyrics),
-    );
     final utilityBar = _PlayerUtilityBar(onOpenMore: onOpenMore);
     final controls = <Widget>[
       utilityBar,
@@ -1661,13 +1661,15 @@ class _PlayerMetaControlPage extends StatelessWidget {
           SizedBox(height: gap),
           trackHeader,
           SizedBox(height: gap),
-          lyricPreview,
-          SizedBox(height: gap),
           ...controls,
         ],
       );
     }
 
+    final lyricPreview = KeyedSubtree(
+      key: const ValueKey<String>('player-compact-lyric-preview'),
+      child: PlayerCompactLyricSection(onTap: onOpenLyrics),
+    );
     return Column(
       key: const ValueKey<String>('player-main-fixed-layout'),
       children: <Widget>[
