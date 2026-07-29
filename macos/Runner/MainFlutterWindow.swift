@@ -12,6 +12,7 @@ class MainFlutterWindow: NSWindow {
 
     // 限制最小窗口尺寸（桌面断点 840 + 两侧 padding）
     self.minSize = NSSize(width: 880, height: 540)
+    self.setFrameAutosaveName("MainWindow")
 
     super.awakeFromNib()
   }
