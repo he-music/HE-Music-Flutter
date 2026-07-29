@@ -167,18 +167,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('artist photo cache miss stays neutral while loading', (
+  testWidgets('artist photo cache miss displays the cover while loading', (
     tester,
   ) async {
     final request = Completer<List<String>>();
     final cache = _TestArtistPhotoCache((_) => request.future);
     final container = _createContainer(cache);
+    final cover = _validImageProvider();
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
       _buildArtistBackdrop(
         container,
-        cover: _validImageProvider(),
+        cover: cover,
         photoBuilder: (_) => _validImageProvider(),
       ),
     );
@@ -186,14 +187,18 @@ void main() {
     expect(_artistPhotoStateFinder(ArtistPhotoVisualState.loading), findsOne);
     expect(
       find.byKey(const ValueKey<String>('artist-photo-image-cover')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('artist-photo-neutral-gradient')),
       findsOne,
     );
+    final coverImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('artist-photo-image-cover')),
+        matching: find.byType(Image),
+      ),
+    );
+    expect(coverImage.image, same(cover));
 
     request.complete(const <String>['photo-a']);
+    await tester.pump();
     await tester.pump();
 
     expect(_artistPhotoStateFinder(ArtistPhotoVisualState.photo), findsOne);

@@ -94,7 +94,7 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
     _cacheKey = null;
     _photoUrls = const <String>[];
 
-    // 方向隔离缓存命中时直接恢复，否则请求完成前只显示中性渐变。
+    // 方向隔离缓存命中时直接恢复，否则请求完成前先显示当前封面。
     final cacheKey = _resolveCacheKey(widget.track!);
     if (cacheKey == null) {
       _artistPhotoState = _coverFallbackState;
@@ -152,7 +152,8 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   void _handleCoverDecodeFailure(int generation) {
     if (!mounted ||
         generation != _requestGeneration ||
-        _artistPhotoState != ArtistPhotoVisualState.coverFallback) {
+        (_artistPhotoState != ArtistPhotoVisualState.loading &&
+            _artistPhotoState != ArtistPhotoVisualState.coverFallback)) {
       return;
     }
     setState(() {
@@ -260,7 +261,8 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
       return widget.artistPhotoImageProviderBuilder?.call(url) ??
           CachedNetworkImageProvider(url);
     }
-    if (_artistPhotoState == ArtistPhotoVisualState.coverFallback) {
+    if (_artistPhotoState == ArtistPhotoVisualState.loading ||
+        _artistPhotoState == ArtistPhotoVisualState.coverFallback) {
       return widget.imageProvider;
     }
     return null;
@@ -282,7 +284,8 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
       final url = _photoUrls[photoIndex.clamp(0, _photoUrls.length - 1)];
       return () => _handlePhotoDecodeFailure(generation, url);
     }
-    if (_artistPhotoState == ArtistPhotoVisualState.coverFallback) {
+    if (_artistPhotoState == ArtistPhotoVisualState.loading ||
+        _artistPhotoState == ArtistPhotoVisualState.coverFallback) {
       return () => _handleCoverDecodeFailure(generation);
     }
     return null;
