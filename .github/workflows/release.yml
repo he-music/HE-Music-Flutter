@@ -238,24 +238,68 @@ jobs:
 
           if [ -z "$PREV_TAG" ]; then
             echo "No previous tag found. Generating log from start."
-            git log --pretty=format:"- %s (%h)" > changelog_content.md
+            git log --pretty=format:"%h%x09%s" > changelog_commits.tsv
           else
             echo "Generating log from $PREV_TAG to $CURRENT_TAG"
-            git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" > changelog_content.md
+            git log ${PREV_TAG}..HEAD --pretty=format:"%h%x09%s" > changelog_commits.tsv
           fi
 
-          # 翻译提交类型 (Conventional Commits)
-          sed -i -E 's/^- feat(\(.*\))?:/- ✨ 新增:/g' changelog_content.md
-          sed -i -E 's/^- fix(\(.*\))?:/- 🐞 修复:/g' changelog_content.md
-          sed -i -E 's/^- docs(\(.*\))?:/- 📝 文档:/g' changelog_content.md
-          sed -i -E 's/^- style(\(.*\))?:/- 💄 样式:/g' changelog_content.md
-          sed -i -E 's/^- refactor(\(.*\))?:/- ♻️ 重构:/g' changelog_content.md
-          sed -i -E 's/^- perf(\(.*\))?:/- ⚡️ 性能:/g' changelog_content.md
-          sed -i -E 's/^- test(\(.*\))?:/- ✅ 测试:/g' changelog_content.md
-          sed -i -E 's/^- build(\(.*\))?:/- 📦 构建:/g' changelog_content.md
-          sed -i -E 's/^- ci(\(.*\))?:/- 👷 CI:/g' changelog_content.md
-          sed -i -E 's/^- chore(\(.*\))?:/- 🔧 维护:/g' changelog_content.md
-          sed -i -E 's/^- revert(\(.*\))?:/- ⏪️ 回退:/g' changelog_content.md
+          # 按用户可见性排列 Conventional Commit 分组，组内保持原提交顺序。
+          GROUP_TYPES=(feat fix perf revert refactor style docs test build ci chore other)
+          GROUP_TITLES=(
+            "✨ 新增"
+            "🐞 修复"
+            "⚡️ 性能"
+            "⏪️ 回退"
+            "♻️ 重构"
+            "💄 样式"
+            "📝 文档"
+            "✅ 测试"
+            "📦 构建"
+            "👷 CI"
+            "🔧 维护"
+            "📌 其他"
+          )
+          readonly COMMIT_PATTERN='^([[:alnum:]_-]+)(\(([^)]*)\))?(!)?:[[:space:]]*(.+)$'
+
+          for COMMIT_TYPE in "${GROUP_TYPES[@]}"; do
+            : > "changelog_group_${COMMIT_TYPE}.md"
+          done
+
+          while IFS=$'\t' read -r COMMIT_HASH COMMIT_SUBJECT || [ -n "${COMMIT_HASH}${COMMIT_SUBJECT}" ]; do
+            COMMIT_TYPE="other"
+            COMMIT_SCOPE=""
+            COMMIT_DESCRIPTION="$COMMIT_SUBJECT"
+
+            if [[ "$COMMIT_SUBJECT" =~ $COMMIT_PATTERN ]]; then
+              CANDIDATE_TYPE="${BASH_REMATCH[1]}"
+              case "$CANDIDATE_TYPE" in
+                feat | fix | perf | revert | refactor | style | docs | test | build | ci | chore)
+                  COMMIT_TYPE="$CANDIDATE_TYPE"
+                  COMMIT_SCOPE="${BASH_REMATCH[3]}"
+                  COMMIT_DESCRIPTION="${BASH_REMATCH[5]}"
+                  ;;
+              esac
+            fi
+
+            if [ -n "$COMMIT_SCOPE" ]; then
+              ENTRY=$(printf -- '- `%s` %s (%s)' "$COMMIT_SCOPE" "$COMMIT_DESCRIPTION" "$COMMIT_HASH")
+            else
+              ENTRY=$(printf -- '- %s (%s)' "$COMMIT_DESCRIPTION" "$COMMIT_HASH")
+            fi
+            printf '%s\n' "$ENTRY" >> "changelog_group_${COMMIT_TYPE}.md"
+          done < changelog_commits.tsv
+
+          : > changelog_content.md
+          for GROUP_INDEX in "${!GROUP_TYPES[@]}"; do
+            COMMIT_TYPE="${GROUP_TYPES[$GROUP_INDEX]}"
+            GROUP_FILE="changelog_group_${COMMIT_TYPE}.md"
+            [ -s "$GROUP_FILE" ] || continue
+
+            [ ! -s changelog_content.md ] || printf '\n' >> changelog_content.md
+            printf '### %s\n\n' "${GROUP_TITLES[$GROUP_INDEX]}" >> changelog_content.md
+            cat "$GROUP_FILE" >> changelog_content.md
+          done
 
           # 1. 生成 CHANGELOG.md 的新条目
           # 添加标题和日期
