@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/radio/presentation/pages/radio_plaza_page.dart';
+import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 
 void main() {
@@ -25,6 +26,13 @@ void main() {
     await tester.pump();
 
     expect(find.byType(PlazaPlatformTabsSkeleton), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byType(PlazaPlatformTabsSkeleton),
+        matching: find.byType(SkeletonBox),
+      ),
+      findsNWidgets(12),
+    );
     expect(find.byType(PlazaGridSkeleton), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
 

@@ -473,7 +473,9 @@ class _RadioPlazaLoadingView extends StatelessWidget {
       children: <Widget>[
         Padding(
           padding: EdgeInsets.fromLTRB(12, 6, 12, 8),
-          child: PlazaPlatformTabsSkeleton(),
+          child: PlazaPlatformTabsSkeleton(
+            itemWidths: <double>[48, 52, 44, 58, 50, 62, 46, 56],
+          ),
         ),
         Divider(height: 1, indent: 12, endIndent: 12),
         Expanded(child: PlazaGridSkeleton()),

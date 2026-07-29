@@ -20,23 +20,25 @@ class SectionTitleSkeleton extends StatelessWidget {
 }
 
 class PlazaPlatformTabsSkeleton extends StatelessWidget {
-  const PlazaPlatformTabsSkeleton({super.key});
+  const PlazaPlatformTabsSkeleton({
+    this.itemWidths = const <double>[48, 52, 44, 58],
+    super.key,
+  });
+
+  final List<double> itemWidths;
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       height: 28,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: <Widget>[
-            SkeletonBox(width: 48, height: 28, radius: 14),
-            SizedBox(width: 8),
-            SkeletonBox(width: 52, height: 28, radius: 14),
-            SizedBox(width: 8),
-            SkeletonBox(width: 44, height: 28, radius: 14),
-            SizedBox(width: 8),
-            SkeletonBox(width: 58, height: 28, radius: 14),
+            for (var index = 0; index < itemWidths.length; index++) ...<Widget>[
+              if (index > 0) const SizedBox(width: 8),
+              SkeletonBox(width: itemWidths[index], height: 28, radius: 14),
+            ],
           ],
         ),
       ),
