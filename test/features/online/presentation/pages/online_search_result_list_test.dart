@@ -29,6 +29,12 @@ void main() {
       );
 
       expect(find.byType(PlazaVideoListSkeleton), findsOneWidget);
+      expect(
+        tester
+            .widget<PlazaVideoListSkeleton>(find.byType(PlazaVideoListSkeleton))
+            .itemCount,
+        6,
+      );
     },
   );
 
@@ -106,7 +112,7 @@ void main() {
 
         expect(
           find.byType(AppSkinSurface),
-          findsNWidgets(type == SearchType.video ? 4 : 8),
+          findsNWidgets(type == SearchType.video ? 6 : 8),
         );
         expect(find.byType(BackdropFilter), findsNothing);
       }

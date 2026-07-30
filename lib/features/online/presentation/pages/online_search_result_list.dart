@@ -125,7 +125,7 @@ class _OnlineSearchResultListState
     }
     if (widget.initialLoading) {
       if (widget.type == SearchType.video) {
-        return const PlazaVideoListSkeleton();
+        return const PlazaVideoListSkeleton(itemCount: 6);
       }
       return _SearchResultSkeletonList(type: widget.type);
     }

@@ -12,6 +12,9 @@ import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_feature_state.dart';
 import 'package:he_music_flutter/features/online/presentation/controllers/online_controller.dart';
@@ -140,6 +143,27 @@ void main() {
     expect(find.text('播放'), findsOneWidget);
     expect(find.text('歌词'), findsOneWidget);
     expect(find.text('通用'), findsOneWidget);
+  });
+
+  testWidgets('城市声场设置搜索图标与歌曲搜索样式一致', (tester) async {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.graphite,
+    ).resolve(AppSkinRegistry.citySoundCreatorId);
+
+    await tester.pumpWidget(_buildSettingsApp(theme: AppTheme.light(skin)));
+    await tester.pump();
+
+    final searchIcon = tester.widget<AppSkinIcon>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('settings-search-field')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AppSkinIcon && widget.role == AppSkinIconRole.search,
+        ),
+      ),
+    );
+    expect(searchIcon.size, 18);
+    expect(searchIcon.color, skin.light.colorScheme.primary);
   });
 
   testWidgets('mobile settings opens lyric section with three items', (
@@ -544,9 +568,9 @@ void main() {
   });
 }
 
-Widget _buildSettingsApp({ProviderContainer? container}) {
+Widget _buildSettingsApp({ProviderContainer? container, ThemeData? theme}) {
   final scopeChild = MaterialApp(
-    theme: ThemeData(platform: TargetPlatform.android),
+    theme: theme ?? ThemeData(platform: TargetPlatform.android),
     home: const SettingsPage(),
   );
   if (container == null) {

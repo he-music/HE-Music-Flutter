@@ -124,7 +124,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       key: const ValueKey<String>('settings-search-field'),
       controller: _searchController,
       decoration: InputDecoration(
-        prefixIcon: const AppSkinIcon(role: AppSkinIconRole.search),
+        prefixIcon: AppSkinIcon(
+          role: AppSkinIconRole.search,
+          size: 18,
+          color: Theme.of(context).colorScheme.primary,
+        ),
         hintText: AppI18n.t(config, 'settings.search.hint'),
         border: const OutlineInputBorder(),
         isDense: true,
