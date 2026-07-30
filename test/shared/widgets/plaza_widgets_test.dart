@@ -33,6 +33,57 @@ void main() {
     });
   });
 
+  group('PlazaChoiceChip', () {
+    testWidgets('应使用统一的选中态与未选中态样式', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          Row(
+            children: <Widget>[
+              PlazaChoiceChip(label: '推荐', selected: true, onSelected: () {}),
+              PlazaChoiceChip(label: '华语', selected: false, onSelected: () {}),
+            ],
+          ),
+        ),
+      );
+
+      final theme = Theme.of(tester.element(find.text('推荐')));
+      final selectedChip = tester.widget<ChoiceChip>(
+        find.ancestor(of: find.text('推荐'), matching: find.byType(ChoiceChip)),
+      );
+      final unselectedChip = tester.widget<ChoiceChip>(
+        find.ancestor(of: find.text('华语'), matching: find.byType(ChoiceChip)),
+      );
+
+      expect(selectedChip.selected, isTrue);
+      expect(
+        selectedChip.selectedColor,
+        theme.colorScheme.primary.withValues(alpha: 0.10),
+      );
+      expect(unselectedChip.selected, isFalse);
+      expect(
+        unselectedChip.backgroundColor,
+        theme.colorScheme.surface.withValues(alpha: 0.18),
+      );
+    });
+
+    testWidgets('点击后应触发回调', (tester) async {
+      var selected = false;
+      await tester.pumpWidget(
+        _wrap(
+          PlazaChoiceChip(
+            label: '欧美',
+            selected: false,
+            onSelected: () => selected = true,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('欧美'));
+
+      expect(selected, isTrue);
+    });
+  });
+
   group('PlazaFilterChipRow', () {
     testWidgets('应渲染所有过滤选项', (tester) async {
       const group = FilterInfo(
@@ -91,6 +142,40 @@ void main() {
 
       await tester.tap(find.text('欧美'));
       expect(selected, 'eu');
+    });
+
+    testWidgets('未选中项应使用低透明度主题背景', (tester) async {
+      const group = FilterInfo(
+        id: 'region',
+        platform: 'qq',
+        options: [
+          FilterOptionInfo(value: 'cn', label: '华语'),
+          FilterOptionInfo(value: 'eu', label: '欧美'),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          const SizedBox(
+            width: 400,
+            height: 60,
+            child: PlazaFilterChipRow(
+              group: group,
+              selectedValue: 'cn',
+              onSelect: _noop,
+            ),
+          ),
+        ),
+      );
+
+      final theme = Theme.of(tester.element(find.text('欧美')));
+      final unselectedChip = tester.widget<ChoiceChip>(
+        find.ancestor(of: find.text('欧美'), matching: find.byType(ChoiceChip)),
+      );
+      expect(
+        unselectedChip.backgroundColor,
+        theme.colorScheme.surface.withValues(alpha: 0.18),
+      );
     });
   });
 

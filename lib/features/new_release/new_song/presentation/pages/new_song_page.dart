@@ -16,9 +16,9 @@ import '../../../../../shared/widgets/app_back_button.dart';
 import '../../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
+import '../../../../../shared/widgets/plaza_widgets.dart';
 import '../../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../../shared/widgets/song_info_list_section.dart';
-import '../../../../../shared/widgets/underline_tab.dart';
 import '../../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../../online/domain/entities/online_platform.dart';
 import '../../../../player/presentation/providers/player_providers.dart';
@@ -107,7 +107,7 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
             ),
             const Divider(height: 1),
             if (state.tabsLoading && state.tabs.isEmpty)
-              const UnderlineTabsSkeleton()
+              const PlazaFilterPanelSkeleton(rowCount: 1)
             else
               _ReleaseTabBar(
                 labels: state.tabs
@@ -342,17 +342,19 @@ class _ReleaseTabBar extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return SizedBox(
-      height: 44,
+      height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
         children: labels
             .map(
-              (item) => UnderlineTab(
-                label: item.name,
-                selected: item.id == selectedId,
-                enabled: true,
-                onTap: () => onSelected(item.id),
+              (item) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: PlazaChoiceChip(
+                  label: item.name,
+                  selected: item.id == selectedId,
+                  onSelected: () => onSelected(item.id),
+                ),
               ),
             )
             .toList(growable: false),

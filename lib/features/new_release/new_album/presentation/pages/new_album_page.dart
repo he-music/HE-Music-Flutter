@@ -10,8 +10,8 @@ import '../../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../../shared/widgets/media_grid_card.dart';
 import '../../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
+import '../../../../../shared/widgets/plaza_widgets.dart';
 import '../../../../online/domain/entities/online_platform.dart';
-import '../../../../../shared/widgets/underline_tab.dart';
 import '../../domain/entities/new_album_page_state.dart';
 import '../providers/new_album_page_providers.dart';
 
@@ -78,7 +78,7 @@ class _NewAlbumPageState extends ConsumerState<NewAlbumPage> {
             ),
             const Divider(height: 1),
             if (state.tabsLoading && state.tabs.isEmpty)
-              const UnderlineTabsSkeleton()
+              const PlazaFilterPanelSkeleton(rowCount: 1)
             else
               _ReleaseTabBar(
                 labels: state.tabs
@@ -208,17 +208,19 @@ class _ReleaseTabBar extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return SizedBox(
-      height: 44,
+      height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
         children: labels
             .map(
-              (item) => UnderlineTab(
-                label: item.name,
-                selected: item.id == selectedId,
-                enabled: true,
-                onTap: () => onSelected(item.id),
+              (item) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: PlazaChoiceChip(
+                  label: item.name,
+                  selected: item.id == selectedId,
+                  onSelected: () => onSelected(item.id),
+                ),
               ),
             )
             .toList(growable: false),

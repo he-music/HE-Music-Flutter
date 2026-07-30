@@ -141,6 +141,44 @@ class PlazaLoadMoreRetryCard extends ConsumerWidget {
   }
 }
 
+/// 广场页二级筛选项，统一选中态与透明皮肤下的控件表面。
+class PlazaChoiceChip extends StatelessWidget {
+  const PlazaChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return ChoiceChip(
+      label: Text(label),
+      showCheckmark: false,
+      selectedColor: colorScheme.primary.withValues(alpha: 0.10),
+      backgroundColor: colorScheme.surface.withValues(alpha: 0.18),
+      side: BorderSide(
+        color: selected
+            ? colorScheme.primary.withValues(alpha: 0.30)
+            : colorScheme.outlineVariant,
+      ),
+      labelStyle: theme.textTheme.labelLarge?.copyWith(
+        color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      visualDensity: VisualDensity.compact,
+      selected: selected,
+      onSelected: (_) => onSelected(),
+    );
+  }
+}
+
 /// 过滤器 ChoiceChip 行（用于 Artist、Video 的 FilterInfo 过滤面板）。
 class PlazaFilterChipRow extends StatelessWidget {
   const PlazaFilterChipRow({
@@ -175,7 +213,9 @@ class PlazaFilterChipRow extends StatelessWidget {
                     selected: selected,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     selectedColor: colorScheme.primary.withValues(alpha: 0.10),
-                    backgroundColor: colorScheme.surfaceContainerHighest,
+                    backgroundColor: colorScheme.surface.withValues(
+                      alpha: 0.18,
+                    ),
                     side: BorderSide(
                       width: 0.9,
                       color: selected

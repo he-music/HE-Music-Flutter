@@ -17,6 +17,7 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
+import 'package:he_music_flutter/shared/widgets/plaza_widgets.dart';
 
 void main() {
   testWidgets('new album page shows all skeleton regions on first load', (
@@ -39,7 +40,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(PlazaPlatformTabsSkeleton), findsOneWidget);
-    expect(find.byType(UnderlineTabsSkeleton), findsOneWidget);
+    expect(find.byType(PlazaFilterPanelSkeleton), findsOneWidget);
     expect(find.byType(PlazaGridSkeleton), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
@@ -65,6 +66,7 @@ void main() {
 
     expect(find.text('QQ'), findsOneWidget);
     expect(find.text('推荐'), findsOneWidget);
+    expect(find.byType(PlazaChoiceChip), findsOneWidget);
     expect(find.text('年度新碟'), findsOneWidget);
   });
 }

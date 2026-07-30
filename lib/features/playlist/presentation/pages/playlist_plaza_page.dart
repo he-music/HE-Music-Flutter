@@ -480,7 +480,6 @@ class _CategoryBarState extends State<_CategoryBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final visibleCategories = _resolveVisibleCategories(
       categories: widget.categories,
       selectedCategoryId: widget.selectedCategoryId,
@@ -499,30 +498,10 @@ class _CategoryBarState extends State<_CategoryBar> {
                       (category) => Padding(
                         key: _keyForCategory(category.id),
                         padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(category.name),
-                          showCheckmark: false,
-                          selectedColor: colorScheme.primary.withValues(
-                            alpha: 0.10,
-                          ),
-                          backgroundColor: colorScheme.surfaceContainerHighest,
-                          side: BorderSide(
-                            color: category.id == widget.selectedCategoryId
-                                ? colorScheme.primary.withValues(alpha: 0.30)
-                                : colorScheme.outlineVariant,
-                          ),
-                          labelStyle: theme.textTheme.labelLarge?.copyWith(
-                            color: category.id == widget.selectedCategoryId
-                                ? colorScheme.primary
-                                : colorScheme.onSurfaceVariant,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 0,
-                          ),
-                          visualDensity: VisualDensity.compact,
+                        child: PlazaChoiceChip(
+                          label: category.name,
                           selected: category.id == widget.selectedCategoryId,
-                          onSelected: (_) => widget.onSelected(category.id),
+                          onSelected: () => widget.onSelected(category.id),
                         ),
                       ),
                     )
@@ -535,10 +514,13 @@ class _CategoryBarState extends State<_CategoryBar> {
             onTap: widget.onShowAll,
             borderRadius: BorderRadius.circular(12),
             child: Container(
+              key: const ValueKey<String>(
+                'playlist-plaza-all-categories-button-surface',
+              ),
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
+                color: theme.colorScheme.surface.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -616,7 +598,6 @@ class _CategoryGroupSection extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(
@@ -634,28 +615,10 @@ class _CategoryGroupSection extends StatelessWidget {
             runSpacing: 8,
             children: group.categories
                 .map(
-                  (category) => ChoiceChip(
-                    label: Text(category.name),
-                    showCheckmark: false,
-                    selectedColor: colorScheme.primary.withValues(alpha: 0.10),
-                    backgroundColor: colorScheme.surfaceContainerHighest,
-                    side: BorderSide(
-                      color: category.id == selectedCategoryId
-                          ? colorScheme.primary.withValues(alpha: 0.30)
-                          : colorScheme.outlineVariant,
-                    ),
-                    labelStyle: theme.textTheme.labelLarge?.copyWith(
-                      color: category.id == selectedCategoryId
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 0,
-                    ),
-                    visualDensity: VisualDensity.compact,
+                  (category) => PlazaChoiceChip(
+                    label: category.name,
                     selected: category.id == selectedCategoryId,
-                    onSelected: (_) => onSelected(category.id),
+                    onSelected: () => onSelected(category.id),
                   ),
                 )
                 .toList(growable: false),

@@ -26,6 +26,7 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
+import 'package:he_music_flutter/shared/widgets/plaza_widgets.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 
 void main() {
@@ -40,7 +41,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(PlazaPlatformTabsSkeleton), findsOneWidget);
-    expect(find.byType(UnderlineTabsSkeleton), findsOneWidget);
+    expect(find.byType(PlazaFilterPanelSkeleton), findsOneWidget);
     expect(
       tester
           .widget<SongListComponent>(find.byType(SongListComponent))
@@ -79,6 +80,7 @@ void main() {
 
     expect(find.text('QQ'), findsOneWidget);
     expect(find.text('推荐'), findsOneWidget);
+    expect(find.byType(PlazaChoiceChip), findsOneWidget);
     expect(find.text('今日新歌'), findsOneWidget);
   });
 

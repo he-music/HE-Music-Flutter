@@ -47,6 +47,28 @@ void main() {
       expect(find.text('QQ'), findsWidgets);
       expect(find.text('流行'), findsOneWidget);
       expect(find.text('今日推荐'), findsOneWidget);
+
+      final theme = Theme.of(tester.element(find.text('摇滚')));
+      final unselectedChip = tester.widget<ChoiceChip>(
+        find.ancestor(of: find.text('摇滚'), matching: find.byType(ChoiceChip)),
+      );
+      expect(
+        unselectedChip.backgroundColor,
+        theme.colorScheme.surface.withValues(alpha: 0.18),
+      );
+
+      final allCategoriesButton = tester.widget<Container>(
+        find.byKey(
+          const ValueKey<String>(
+            'playlist-plaza-all-categories-button-surface',
+          ),
+        ),
+      );
+      final buttonDecoration = allCategoriesButton.decoration! as BoxDecoration;
+      expect(
+        buttonDecoration.color,
+        theme.colorScheme.surface.withValues(alpha: 0.18),
+      );
     },
   );
 
@@ -90,6 +112,20 @@ void main() {
       expect(find.text('流行'), findsWidgets);
       expect(find.text('摇滚'), findsWidgets);
       expect(find.text('民谣'), findsWidgets);
+
+      final sheet = find.byType(BottomSheet);
+      final sheetRockLabel = find.descendant(
+        of: sheet,
+        matching: find.text('摇滚'),
+      );
+      final theme = Theme.of(tester.element(sheetRockLabel));
+      final unselectedSheetChip = tester.widget<ChoiceChip>(
+        find.ancestor(of: sheetRockLabel, matching: find.byType(ChoiceChip)),
+      );
+      expect(
+        unselectedSheetChip.backgroundColor,
+        theme.colorScheme.surface.withValues(alpha: 0.18),
+      );
     },
   );
 }

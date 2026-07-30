@@ -341,8 +341,6 @@ class _GroupTabsState extends State<_GroupTabs> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final normalizedSelectedGroupName = widget.selectedGroupName.trim();
 
     return Align(
@@ -364,30 +362,10 @@ class _GroupTabsState extends State<_GroupTabs> {
                   return Padding(
                     key: _keyForGroup(normalizedGroupName),
                     padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(groupName),
-                      showCheckmark: false,
-                      selectedColor: colorScheme.primary.withValues(
-                        alpha: 0.10,
-                      ),
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                      side: BorderSide(
-                        color: selected
-                            ? colorScheme.primary.withValues(alpha: 0.30)
-                            : colorScheme.outlineVariant,
-                      ),
-                      labelStyle: theme.textTheme.labelLarge?.copyWith(
-                        color: selected
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 0,
-                      ),
-                      visualDensity: VisualDensity.compact,
+                    child: PlazaChoiceChip(
+                      label: groupName,
                       selected: selected,
-                      onSelected: (_) => widget.onSelected(group.name),
+                      onSelected: () => widget.onSelected(group.name),
                     ),
                   );
                 })
