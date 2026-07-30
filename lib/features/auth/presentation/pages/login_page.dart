@@ -493,6 +493,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
       );
       return;
     }
+    // 登录请求可能进入验证码路由，先释放焦点，避免返回时键盘短暂弹出。
+    FocusScope.of(context).unfocus();
     setState(() {
       _submitting = true;
     });

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -173,6 +175,27 @@ void main() {
     expect(find.text('二维码登录'), findsNothing);
   });
 
+  testWidgets('password login hides keyboard before request completes', (
+    tester,
+  ) async {
+    final client = _LoginPageTestClient.mobile();
+    await tester.pumpWidget(
+      _buildApp(platform: TargetPlatform.android, client: client),
+    );
+    await tester.pump();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'tester');
+    await tester.enterText(fields.at(1), 'password');
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.tap(find.widgetWithText(FilledButton, '立即登录'));
+    await tester.pump();
+
+    expect(client.loginCallCount, 1);
+    expect(tester.testTextInput.isVisible, isFalse);
+  });
+
   testWidgets('沉浸式皮肤下登录页保留内容但不渲染旧渐变', (tester) async {
     final skin = AppSkinRegistry.builtIn(
       AppThemeAccent.forest,
@@ -235,7 +258,9 @@ class _LoginPageTestClient extends OnlineApiClient {
   final QrLoginSessionResult qrSessionResult;
   int createQrCallCount = 0;
   int statusCallCount = 0;
+  int loginCallCount = 0;
   bool? lastStatusRequestWasSilent;
+  final Completer<Map<String, dynamic>> _loginCompleter = Completer();
 
   factory _LoginPageTestClient.desktop({
     QrLoginSessionResult? qrSessionResult,
@@ -272,6 +297,16 @@ class _LoginPageTestClient extends OnlineApiClient {
   @override
   Future<List<String>> listAuthProviders() async {
     return providers;
+  }
+
+  @override
+  Future<Map<String, dynamic>> login({
+    required String username,
+    required String password,
+    Map<String, dynamic>? deviceInfo,
+  }) {
+    loginCallCount += 1;
+    return _loginCompleter.future;
   }
 
   @override
