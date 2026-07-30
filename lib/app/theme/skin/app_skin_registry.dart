@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../config/app_custom_skin_config.dart';
 import '../../config/app_theme_accent.dart';
 import '../skins/city_sound_creator_skin.dart';
 import '../skins/classic_skin.dart';
+import '../skins/custom_image_skin.dart';
 import '../skins/starlit_melody_skin.dart';
 import 'app_skin_models.dart';
 
@@ -18,9 +20,22 @@ class AppSkinRegistry {
     ]);
   }
 
+  factory AppSkinRegistry.withCustom(
+    AppThemeAccent accent,
+    AppCustomSkinConfig? customSkin,
+  ) {
+    return AppSkinRegistry(<AppSkinPackage>[
+      classicSkinForAccent(accent),
+      citySoundCreatorSkin(),
+      starlitMelodySkin(),
+      if (customSkin != null) customImageSkin(customSkin),
+    ]);
+  }
+
   static const String classicId = 'classic';
   static const String citySoundCreatorId = 'city_sound_creator';
   static const String starlitMelodyId = 'starlit_melody';
+  static const String customImageId = 'custom_image';
   static const Set<String> builtInIds = <String>{
     classicId,
     citySoundCreatorId,

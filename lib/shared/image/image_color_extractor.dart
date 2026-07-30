@@ -5,10 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 
-/// 从 [ImageProvider] 提取主色调列表。
-///
-/// 解码图片后使用 QuantizerCelebi 量化颜色，
-/// 按饱和度和像素数量排序返回最多 [maxColors] 种颜色。
+/// 从图片中提取量化后的代表色，供播放器与自定义皮肤共同使用。
 Future<List<Color>> colorsFromImageProvider(
   ImageProvider<Object>? imageProvider, {
   int maxColors = 12,
@@ -40,10 +37,8 @@ Future<List<Color>> colorsFromImageProvider(
     resized.dispose();
     if (byteData == null) return const <Color>[];
 
-    final pixels = _argbPixelsFromRgbaBytes(byteData);
+    final pixels = argbPixelsFromRgbaBytes(byteData);
     final result = await QuantizerCelebi().quantize(pixels, maxColors);
-
-    // 经典样式优先醒目颜色；流体样式按像素数量保留封面原始气质。
     final sorted = result.colorToCount.entries.toList()
       ..sort((a, b) {
         if (!prioritizeSaturation) {
@@ -60,7 +55,6 @@ Future<List<Color>> colorsFromImageProvider(
   }
 }
 
-/// 缩放解码 [ui.Image] 至 [targetSize]，降低颜色量化开销。
 Future<ui.Image> _decodeImageSized(ui.Image source, Size targetSize) {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
@@ -76,8 +70,8 @@ Future<ui.Image> _decodeImageSized(ui.Image source, Size targetSize) {
   );
 }
 
-/// 将 RGBA 字节数据转换为 ARGB 整数列表，供 QuantizerCelebi 使用。
-List<int> _argbPixelsFromRgbaBytes(ByteData byteData) {
+/// 将 RGBA 字节转换为 QuantizerCelebi 接受的 ARGB32 像素。
+List<int> argbPixelsFromRgbaBytes(ByteData byteData) {
   final pixels = <int>[];
   for (var i = 0; i < byteData.lengthInBytes; i += 4) {
     final r = byteData.getUint8(i);

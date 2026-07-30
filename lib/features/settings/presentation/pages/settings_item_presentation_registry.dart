@@ -24,8 +24,9 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
       ),
       SettingsItemIds.themeAccent: SettingsItemPresentation(
         subtitleBuilder: (config) {
-          final skin = AppSkinRegistry.builtIn(
+          final skin = AppSkinRegistry.withCustom(
             config.themeAccent,
+            config.customSkinConfig,
           ).resolve(config.skinId);
           if (!skin.metadata.allowsManualAccent) {
             return AppI18n.t(config, 'settings.theme_accent.follows_skin');
@@ -42,15 +43,17 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
       SettingsItemIds.skin: SettingsItemPresentation(
         subtitleBuilder: (config) => AppI18n.t(
           config,
-          AppSkinRegistry.builtIn(
+          AppSkinRegistry.withCustom(
             config.themeAccent,
+            config.customSkinConfig,
           ).resolve(config.skinId).metadata.descriptionKey,
         ),
       ),
       SettingsItemIds.skinAnimation: SettingsItemPresentation(
         subtitleBuilder: (config) {
-          final skin = AppSkinRegistry.builtIn(
+          final skin = AppSkinRegistry.withCustom(
             config.themeAccent,
+            config.customSkinConfig,
           ).resolve(config.skinId);
           final supportsAnimation =
               skin.light.background.animation

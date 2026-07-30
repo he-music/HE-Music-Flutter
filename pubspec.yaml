@@ -80,6 +80,8 @@ dependencies:
   toastification: ^3.2.0
   rive: ^0.14.9
   wakelock_plus: 1.6.1
+  image_picker: ^1.2.3
+  image: ^4.8.0
 
 dev_dependencies:
   flutter_test:

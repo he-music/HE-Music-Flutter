@@ -218,8 +218,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Widget _buildItemTile(AppConfigState config, SettingsItemNode item) {
     final navigationDestination = settingsNavigationDestinations[item.id];
-    late final currentSkin = AppSkinRegistry.builtIn(
+    late final currentSkin = AppSkinRegistry.withCustom(
       config.themeAccent,
+      config.customSkinConfig,
     ).resolve(config.skinId);
     late final supportsSkinAnimation =
         currentSkin.light.background.animation

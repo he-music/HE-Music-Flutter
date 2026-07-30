@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'player_artwork_helper.dart';
-import 'player_image_color_helper.dart';
+import '../../../../shared/image/image_color_extractor.dart';
 
 /// 从当前歌曲封面提取适合深色歌词背景的高亮色。
 Future<Color?> loadPlayerLyricHighlightColor({

@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:mesh_gradient/mesh_gradient.dart';
 
-import '../helpers/player_image_color_helper.dart';
+import '../../../../shared/image/image_color_extractor.dart';
 
 /// 使用封面原始色调生成持续流动的播放器背景。
 class FluidPlayerBackdrop extends StatefulWidget {

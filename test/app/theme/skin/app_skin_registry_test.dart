@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
@@ -58,6 +59,38 @@ void main() {
         AppThemeAccent.rose,
       ).resolve('starlit_melody').light.colorScheme.primary,
     );
+  });
+
+  test('custom image skin is registered only when config is available', () {
+    final builtIn = AppSkinRegistry.withCustom(AppThemeAccent.forest, null);
+    final withCustom = AppSkinRegistry.withCustom(
+      AppThemeAccent.forest,
+      _customConfig(),
+    );
+    final custom = withCustom.resolve(AppSkinRegistry.customImageId);
+
+    expect(builtIn.contains(AppSkinRegistry.customImageId), isFalse);
+    expect(withCustom.skins, hasLength(4));
+    expect(custom.metadata.source, AppSkinSource.userGenerated);
+    expect(custom.metadata.allowsManualAccent, isFalse);
+    expect(
+      custom.light.background.wallpaper.descriptor?.source,
+      AppSkinAssetSource.applicationSupport,
+    );
+    expect(custom.light.background.alignment, const Alignment(0.2, -0.3));
+    expect(custom.light.background.overlayColor, Colors.transparent);
+    expect(custom.dark.background.overlayColor, Colors.transparent);
+    expect(
+      custom.light.background.animation,
+      isA<AppSkinNoAnimationDescriptor>(),
+    );
+    expect(custom.icons, classicSkinForAccent(AppThemeAccent.graphite).icons);
+    expect(custom.light.colorScheme.brightness, Brightness.light);
+    expect(custom.dark.colorScheme.brightness, Brightness.dark);
+    expect(custom.light.surfaces.scrollingContentOpacity, 0);
+    expect(custom.dark.surfaces.scrollingContentOpacity, 0);
+    expect(custom.light.colors.cardBackground.a, 0);
+    expect(custom.dark.colors.cardBackground.a, 0);
   });
 
   test('starlit evaluation skin customizes light and dark appearance', () {
@@ -249,4 +282,18 @@ void main() {
     );
     expect(classic.light.colorScheme.brightness, Brightness.light);
   });
+}
+
+AppCustomSkinConfig _customConfig() {
+  return AppCustomSkinConfig(
+    revision: 'revision_1',
+    lightAssetPath: 'skins/custom_image/revision_1/wallpaper_light.jpg',
+    darkAssetPath: 'skins/custom_image/revision_1/wallpaper_dark.jpg',
+    candidateColors: const <int>[0xFF336699],
+    seedColor: 0xFF336699,
+    focalX: 0.2,
+    focalY: -0.3,
+    sourceWidth: 1200,
+    sourceHeight: 1600,
+  );
 }

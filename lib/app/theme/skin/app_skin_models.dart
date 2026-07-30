@@ -3,27 +3,33 @@ import 'package:flutter/material.dart';
 
 enum AppSkinAssetType { rasterImage, svg, rive }
 
+enum AppSkinAssetSource { bundled, applicationSupport }
+
 @immutable
 class AppSkinAssetDescriptor {
   const AppSkinAssetDescriptor({
     required this.path,
     required this.type,
+    this.source = AppSkinAssetSource.bundled,
     this.themeColorSource,
   });
 
   final String path;
   final AppSkinAssetType type;
+  final AppSkinAssetSource source;
   final Color? themeColorSource;
 
   AppSkinAssetDescriptor copyWith({
     String? path,
     AppSkinAssetType? type,
+    AppSkinAssetSource? source,
     Color? themeColorSource,
     bool clearThemeColorSource = false,
   }) {
     return AppSkinAssetDescriptor(
       path: path ?? this.path,
       type: type ?? this.type,
+      source: source ?? this.source,
       themeColorSource: clearThemeColorSource
           ? null
           : themeColorSource ?? this.themeColorSource,
@@ -32,10 +38,20 @@ class AppSkinAssetDescriptor {
 
   bool get isValid {
     final normalized = path.trim();
-    return normalized == path &&
+    if (normalized != path || normalized.contains('..')) {
+      return false;
+    }
+    return switch (source) {
+      AppSkinAssetSource.bundled =>
         normalized.startsWith('assets/skins/') &&
-        !normalized.contains('..') &&
-        normalized.length > 'assets/skins/'.length;
+            normalized.length > 'assets/skins/'.length,
+      AppSkinAssetSource.applicationSupport =>
+        !normalized.startsWith('/') &&
+            !normalized.contains('\\') &&
+            RegExp(
+              r'^skins/custom_image/[a-zA-Z0-9][a-zA-Z0-9_-]{0,95}/wallpaper_(light|dark)\.(jpg|png)$',
+            ).hasMatch(normalized),
+    };
   }
 
   @override
@@ -43,11 +59,12 @@ class AppSkinAssetDescriptor {
     return other is AppSkinAssetDescriptor &&
         other.path == path &&
         other.type == type &&
+        other.source == source &&
         other.themeColorSource == themeColorSource;
   }
 
   @override
-  int get hashCode => Object.hash(path, type, themeColorSource);
+  int get hashCode => Object.hash(path, type, source, themeColorSource);
 }
 
 enum AppSkinAssetSlotKind { inherit, none, asset }
@@ -207,6 +224,7 @@ class AppSkinMetadata {
     required this.allowsManualAccent,
     required this.lightPreview,
     required this.darkPreview,
+    this.source = AppSkinSource.bundled,
   });
 
   final String id;
@@ -215,6 +233,7 @@ class AppSkinMetadata {
   final bool allowsManualAccent;
   final AppSkinAssetSlot lightPreview;
   final AppSkinAssetSlot darkPreview;
+  final AppSkinSource source;
 
   AppSkinMetadata copyWith({
     String? id,
@@ -223,6 +242,7 @@ class AppSkinMetadata {
     bool? allowsManualAccent,
     AppSkinAssetSlot? lightPreview,
     AppSkinAssetSlot? darkPreview,
+    AppSkinSource? source,
   }) {
     return AppSkinMetadata(
       id: id ?? this.id,
@@ -231,6 +251,7 @@ class AppSkinMetadata {
       allowsManualAccent: allowsManualAccent ?? this.allowsManualAccent,
       lightPreview: lightPreview ?? this.lightPreview,
       darkPreview: darkPreview ?? this.darkPreview,
+      source: source ?? this.source,
     );
   }
 
@@ -242,7 +263,8 @@ class AppSkinMetadata {
         other.descriptionKey == descriptionKey &&
         other.allowsManualAccent == allowsManualAccent &&
         other.lightPreview == lightPreview &&
-        other.darkPreview == darkPreview;
+        other.darkPreview == darkPreview &&
+        other.source == source;
   }
 
   @override
@@ -254,9 +276,12 @@ class AppSkinMetadata {
       allowsManualAccent,
       lightPreview,
       darkPreview,
+      source,
     );
   }
 }
+
+enum AppSkinSource { bundled, userGenerated }
 
 @immutable
 class AppSkinColors {

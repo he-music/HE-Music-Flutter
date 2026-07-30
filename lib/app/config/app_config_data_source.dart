@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 
+import 'app_custom_skin_config.dart';
 import 'app_config_state.dart';
 import 'app_lyric_font_preset.dart';
 import 'app_lyric_highlight_color.dart';
@@ -14,6 +15,7 @@ import '../theme/skin/app_skin_registry.dart';
 const _themeModeKey = 'app_config.theme_mode';
 const _themeAccentKey = 'app_config.theme_accent';
 const _skinIdKey = 'app_config.skin_id';
+const _customSkinKey = 'app_config.custom_skin';
 const _skinAnimationEnabledKey = 'app_config.skin_animation_enabled';
 const _monochromeKey = 'app_config.monochrome';
 const _localeKey = 'app_config.locale';
@@ -55,7 +57,15 @@ class AppConfigDataSource {
     );
     final tokenExpiresAt = prefs.getInt(_tokenExpiresAtKey);
     final lyricHighlightMode = _readLyricHighlightMode(prefs);
-    final skinId = _readSkinId(prefs.getString(_skinIdKey));
+    final storedCustomSkin = prefs.getString(_customSkinKey);
+    final customSkin = AppCustomSkinConfig.tryDecode(storedCustomSkin);
+    if (prefs.containsKey(_customSkinKey) && customSkin == null) {
+      await prefs.remove(_customSkinKey);
+    }
+    final skinId = _readSkinId(
+      prefs.getString(_skinIdKey),
+      hasCustomSkin: customSkin != null,
+    );
     final playerStyleId = AppPlayerStyleRegistry.instance.normalizeId(
       prefs.getString(_playerStyleIdKey),
     );
@@ -70,6 +80,7 @@ class AppConfigDataSource {
       themeMode: _readThemeMode(prefs.getString(_themeModeKey)),
       themeAccent: AppThemeAccent.fromValue(prefs.getString(_themeAccentKey)),
       skinId: skinId,
+      customSkinConfig: customSkin,
       enableSkinAnimation:
           prefs.getBool(_skinAnimationEnabledKey) ??
           AppConfigState.initial.enableSkinAnimation,
@@ -119,6 +130,12 @@ class AppConfigDataSource {
     await prefs.setString(_themeModeKey, state.themeMode.name);
     await prefs.setString(_themeAccentKey, state.themeAccent.value);
     await prefs.setString(_skinIdKey, state.skinId);
+    final customSkin = state.customSkinConfig;
+    if (customSkin == null) {
+      await prefs.remove(_customSkinKey);
+    } else {
+      await prefs.setString(_customSkinKey, customSkin.encode());
+    }
     await prefs.setBool(_skinAnimationEnabledKey, state.enableSkinAnimation);
     await prefs.setBool(_monochromeKey, state.isMonochrome);
     await prefs.setString(_localeKey, state.localeCode);
@@ -210,6 +227,65 @@ class AppConfigDataSource {
     await prefs.setInt(_tokenExpiresAtKey, expiresAt);
   }
 
+  /// 自定义皮肤配置与当前皮肤 ID 使用可回滚的独立提交边界。
+  Future<void> replaceCustomSkin(AppCustomSkinConfig config) async {
+    final prefs = await SharedPreferences.getInstance();
+    final previousCustom = prefs.getString(_customSkinKey);
+    final previousSkin = prefs.getString(_skinIdKey);
+    try {
+      if (!await prefs.setString(_customSkinKey, config.encode())) {
+        throw StateError('保存自定义皮肤配置失败');
+      }
+      if (!await prefs.setString(_skinIdKey, AppSkinRegistry.customImageId)) {
+        throw StateError('应用自定义皮肤失败');
+      }
+    } catch (error) {
+      final restoredCustom = previousCustom == null
+          ? await prefs.remove(_customSkinKey)
+          : await prefs.setString(_customSkinKey, previousCustom);
+      final restoredSkin = previousSkin == null
+          ? await prefs.remove(_skinIdKey)
+          : await prefs.setString(_skinIdKey, previousSkin);
+      if (!restoredCustom || !restoredSkin) {
+        throw StateError('自定义皮肤保存失败且旧配置恢复失败');
+      }
+      throw StateError('自定义皮肤保存失败: $error');
+    }
+  }
+
+  /// 返回删除后应继续使用的皮肤 ID。
+  Future<String> deleteCustomSkin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getString(_skinIdKey);
+    final normalized = AppSkinRegistry.builtInIds.contains(current)
+        ? current!
+        : AppSkinRegistry.classicId;
+    final fallbackToClassic = current == AppSkinRegistry.customImageId;
+    if (fallbackToClassic &&
+        !await prefs.setString(_skinIdKey, AppSkinRegistry.classicId)) {
+      throw StateError('回退经典皮肤失败');
+    }
+    if (!await prefs.remove(_customSkinKey)) {
+      if (fallbackToClassic &&
+          !await prefs.setString(_skinIdKey, AppSkinRegistry.customImageId)) {
+        throw StateError('删除自定义皮肤失败且旧皮肤恢复失败');
+      }
+      throw StateError('删除自定义皮肤配置失败');
+    }
+    return fallbackToClassic ? AppSkinRegistry.classicId : normalized;
+  }
+
+  Future<void> clearInvalidCustomSkin({required bool fallbackToClassic}) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (fallbackToClassic &&
+        !await prefs.setString(_skinIdKey, AppSkinRegistry.classicId)) {
+      throw StateError('回退经典皮肤失败');
+    }
+    if (!await prefs.remove(_customSkinKey)) {
+      throw StateError('清理损坏的自定义皮肤配置失败');
+    }
+  }
+
   String? _readLastSelectedOnlineAudioQualityName(String? value) {
     return _readNullableString(value);
   }
@@ -239,10 +315,14 @@ class AppConfigDataSource {
     return AppConfigState.initial.themeMode;
   }
 
-  String _readSkinId(String? value) {
-    return AppSkinRegistry.builtInIds.contains(value)
-        ? value!
-        : AppSkinRegistry.classicId;
+  String _readSkinId(String? value, {required bool hasCustomSkin}) {
+    if (AppSkinRegistry.builtInIds.contains(value)) {
+      return value!;
+    }
+    if (hasCustomSkin && value == AppSkinRegistry.customImageId) {
+      return value!;
+    }
+    return AppSkinRegistry.classicId;
   }
 
   String _readLocaleCode(String? value) {

@@ -9,7 +9,7 @@ import '../../../../core/audio/audio_spectrum_frame.dart';
 import '../../domain/entities/player_track.dart';
 import '../controllers/realtime_spectrum_controller.dart';
 import '../helpers/player_artwork_helper.dart';
-import '../helpers/player_image_color_helper.dart';
+import '../../../../shared/image/image_color_extractor.dart';
 
 const List<Color> radialSpectrumFallbackPalette = <Color>[
   Color(0xFF82DDCA),

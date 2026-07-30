@@ -331,6 +331,27 @@ abstract final class AppI18n {
       'settings.skin.city_sound_creator.description': '珊瑚红、青绿与中性工作室声场',
       'settings.skin.starlit_melody.name': '星轨旋律',
       'settings.skin.starlit_melody.description': '穿行于清晨云海与璀璨星夜之间的旋律列车',
+      'settings.skin.custom.name': '自定义皮肤',
+      'settings.skin.custom.description': '使用个人图片生成的亮暗背景与主题色',
+      'settings.skin.custom.create': '创建自定义皮肤',
+      'settings.skin.custom.choose': '从相册选择图片',
+      'settings.skin.custom.choose.file': '选择图片',
+      'settings.skin.custom.replace': '更换图片',
+      'settings.skin.custom.swap': '交换亮暗版本',
+      'settings.skin.custom.delete': '删除自定义皮肤',
+      'settings.skin.custom.delete.confirm_title': '删除自定义皮肤？',
+      'settings.skin.custom.delete.confirm_message': '图片背景与取色设置将从此设备移除。',
+      'settings.skin.custom.applied': '自定义皮肤已应用',
+      'settings.skin.custom.error.pick': '无法打开图片选择器，请检查相册权限后重试',
+      'settings.skin.custom.error.file_too_large': '图片不能超过 32 MiB',
+      'settings.skin.custom.error.too_many_pixels': '图片像素不能超过 8000 万',
+      'settings.skin.custom.error.animated': '请选择静态图片，不支持动态图片',
+      'settings.skin.custom.error.no_visible_pixels': '图片没有可用于生成皮肤的可见内容',
+      'settings.skin.custom.error.unsupported': '图片格式不受支持或文件已损坏',
+      'settings.skin.custom.error.processing': '无法生成亮暗背景，请换一张图片重试',
+      'settings.skin.custom.error.save': '自定义皮肤保存失败，原皮肤未改变',
+      'settings.skin.custom.error.delete': '自定义皮肤删除失败',
+      'settings.skin.custom.error.cleanup': '皮肤已删除，残留图片将在下次启动时清理',
       'settings.lyric_highlight_color': '歌词颜色',
       'settings.lyric_highlight_color.desc': '设置当前高亮歌词的颜色',
       'settings.lyric_highlight_color.option.sky': '天蓝',
@@ -1108,6 +1129,38 @@ abstract final class AppI18n {
       'settings.skin.starlit_melody.description':
           'A melody train traveling between dawn clouds and a brilliant '
           'starlit night',
+      'settings.skin.custom.name': 'Custom Skin',
+      'settings.skin.custom.description':
+          'Light and dark backgrounds generated from your image',
+      'settings.skin.custom.create': 'Create Custom Skin',
+      'settings.skin.custom.choose': 'Choose from Photos',
+      'settings.skin.custom.choose.file': 'Choose Image',
+      'settings.skin.custom.replace': 'Replace Image',
+      'settings.skin.custom.swap': 'Swap Light and Dark',
+      'settings.skin.custom.delete': 'Delete Custom Skin',
+      'settings.skin.custom.delete.confirm_title': 'Delete custom skin?',
+      'settings.skin.custom.delete.confirm_message':
+          'The image backgrounds and color settings will be removed from this device.',
+      'settings.skin.custom.applied': 'Custom skin applied',
+      'settings.skin.custom.error.pick':
+          'Could not open Photos. Check photo access and try again.',
+      'settings.skin.custom.error.file_too_large':
+          'The image must be no larger than 32 MiB.',
+      'settings.skin.custom.error.too_many_pixels':
+          'The image must contain no more than 80 million pixels.',
+      'settings.skin.custom.error.animated':
+          'Choose a still image. Animated images are not supported.',
+      'settings.skin.custom.error.no_visible_pixels':
+          'The image has no visible content for a skin.',
+      'settings.skin.custom.error.unsupported':
+          'The image format is unsupported or the file is damaged.',
+      'settings.skin.custom.error.processing':
+          'Could not generate the light and dark backgrounds.',
+      'settings.skin.custom.error.save':
+          'Could not save the custom skin. The previous skin is unchanged.',
+      'settings.skin.custom.error.delete': 'Could not delete the custom skin.',
+      'settings.skin.custom.error.cleanup':
+          'The skin was deleted. Remaining images will be cleaned up next launch.',
       'settings.lyric_highlight_color': 'Lyric Highlight Color',
       'settings.lyric_highlight_color.desc':
           'Set the color for highlighted lyric lines',

@@ -31,7 +31,7 @@
 	<key>NSAppleMusicUsageDescription</key>
 	<string>用于扫描本地音乐文件。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>用于将封面图片保存到系统图库。</string>
+	<string>用于从系统相册选择自定义皮肤图片。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

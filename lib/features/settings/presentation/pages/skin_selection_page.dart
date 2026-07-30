@@ -10,6 +10,7 @@ import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_registry.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import 'custom_skin_editor_page.dart';
 
 class SkinSelectionPage extends ConsumerStatefulWidget {
   const SkinSelectionPage({
@@ -45,7 +46,10 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
-    final registry = AppSkinRegistry.builtIn(config.themeAccent);
+    final registry = AppSkinRegistry.withCustom(
+      config.themeAccent,
+      config.customSkinConfig,
+    );
     final appliedSkinId = registry.normalizeId(config.skinId);
     final content = LayoutBuilder(
       builder: (context, constraints) {
@@ -58,7 +62,8 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
         return GridView.builder(
           key: const ValueKey<String>('skin-selection-grid'),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          itemCount: registry.skins.length,
+          itemCount:
+              registry.skins.length + (config.customSkinConfig == null ? 1 : 0),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: 12,
@@ -66,6 +71,17 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
             mainAxisExtent: 252,
           ),
           itemBuilder: (context, index) {
+            if (index == registry.skins.length) {
+              return _CreateCustomSkinCard(
+                localeCode: config.localeCode,
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        CustomSkinEditorPage(assetResolver: _assetResolver),
+                  ),
+                ),
+              );
+            }
             final skin = registry.skins[index];
             return _SkinSummaryCard(
               skin: skin,
@@ -75,10 +91,15 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
               onTap: () {
                 Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
-                    builder: (_) => _SkinDetailPage(
-                      skinId: skin.metadata.id,
-                      assetResolver: _assetResolver,
-                    ),
+                    builder: (_) => switch (skin.metadata.source) {
+                      AppSkinSource.bundled => _SkinDetailPage(
+                        skinId: skin.metadata.id,
+                        assetResolver: _assetResolver,
+                      ),
+                      AppSkinSource.userGenerated => CustomSkinEditorPage(
+                        assetResolver: _assetResolver,
+                      ),
+                    },
                   ),
                 );
               },
@@ -96,6 +117,54 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
         title: Text(AppI18n.t(config, 'settings.skin.selection.title')),
       ),
       body: content,
+    );
+  }
+}
+
+class _CreateCustomSkinCard extends StatelessWidget {
+  const _CreateCustomSkinCard({required this.localeCode, required this.onTap});
+
+  final String localeCode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      key: const ValueKey<String>('create-custom-skin'),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: colors.outlineVariant),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(
+                Icons.add_photo_alternate_outlined,
+                size: 44,
+                color: colors.primary,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                AppI18n.tByLocaleCode(
+                  localeCode,
+                  'settings.skin.custom.create',
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -209,7 +278,10 @@ class _SkinDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    final registry = AppSkinRegistry.builtIn(config.themeAccent);
+    final registry = AppSkinRegistry.withCustom(
+      config.themeAccent,
+      config.customSkinConfig,
+    );
     final skin = registry.resolve(skinId);
     final applied = skin.metadata.id == registry.normalizeId(config.skinId);
     final localeCode = config.localeCode;
@@ -334,6 +406,9 @@ class _SkinPreview extends StatelessWidget {
     final preview = brightness == Brightness.dark
         ? skin.metadata.darkPreview
         : skin.metadata.lightPreview;
+    final previewAlignment = brightness == Brightness.dark
+        ? skin.dark.background.alignment
+        : skin.light.background.alignment;
     final suffix = '${skin.metadata.id}-${brightness.name}';
     return AspectRatio(
       aspectRatio: 9 / 16,
@@ -346,6 +421,7 @@ class _SkinPreview extends StatelessWidget {
             _ResolvedSkinPreview(
               descriptor: preview.descriptor,
               assetResolver: assetResolver,
+              alignment: previewAlignment,
               imageKey: ValueKey<String>('skin-preview-image-$suffix'),
               fallback: KeyedSubtree(
                 key: ValueKey<String>('skin-preview-live-$suffix'),
@@ -363,12 +439,14 @@ class _ResolvedSkinPreview extends StatefulWidget {
   const _ResolvedSkinPreview({
     required this.descriptor,
     required this.assetResolver,
+    required this.alignment,
     required this.imageKey,
     required this.fallback,
   });
 
   final AppSkinAssetDescriptor? descriptor;
   final AppSkinAssetResolver assetResolver;
+  final Alignment alignment;
   final Key imageKey;
   final Widget fallback;
 
@@ -411,6 +489,7 @@ class _ResolvedSkinPreviewState extends State<_ResolvedSkinPreview> {
           key: widget.imageKey,
           image: imageProvider,
           fit: BoxFit.cover,
+          alignment: widget.alignment,
           filterQuality: FilterQuality.medium,
           excludeFromSemantics: true,
           errorBuilder: (_, _, _) => widget.fallback,

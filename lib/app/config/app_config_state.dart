@@ -1,4 +1,5 @@
 import 'app_environment.dart';
+import 'app_custom_skin_config.dart';
 import 'app_lyric_font_preset.dart';
 import 'app_lyric_highlight_color.dart';
 import 'app_lyric_highlight_mode.dart';
@@ -13,6 +14,7 @@ class AppConfigState {
     required this.themeMode,
     required this.themeAccent,
     required this.skinId,
+    this.customSkinConfig,
     required this.enableSkinAnimation,
     required this.isMonochrome,
     required this.localeCode,
@@ -39,6 +41,7 @@ class AppConfigState {
   final AppThemeMode themeMode;
   final AppThemeAccent themeAccent;
   final String skinId;
+  final AppCustomSkinConfig? customSkinConfig;
   final bool enableSkinAnimation;
   final bool isMonochrome;
   final String localeCode;
@@ -65,6 +68,8 @@ class AppConfigState {
     AppThemeMode? themeMode,
     AppThemeAccent? themeAccent,
     String? skinId,
+    AppCustomSkinConfig? customSkinConfig,
+    bool clearCustomSkinConfig = false,
     bool? enableSkinAnimation,
     bool? isMonochrome,
     String? localeCode,
@@ -96,6 +101,9 @@ class AppConfigState {
       themeMode: themeMode ?? this.themeMode,
       themeAccent: themeAccent ?? this.themeAccent,
       skinId: skinId ?? this.skinId,
+      customSkinConfig: clearCustomSkinConfig
+          ? null
+          : customSkinConfig ?? this.customSkinConfig,
       enableSkinAnimation: enableSkinAnimation ?? this.enableSkinAnimation,
       isMonochrome: isMonochrome ?? this.isMonochrome,
       localeCode: localeCode ?? this.localeCode,

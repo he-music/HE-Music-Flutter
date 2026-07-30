@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../domain/entities/player_track.dart';
-import '../helpers/player_image_color_helper.dart';
+import '../../../../shared/image/image_color_extractor.dart';
 import '../providers/artist_photo_provider.dart';
 import '../styles/fluid_player_backdrop.dart';
 

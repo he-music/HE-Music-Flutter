@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
+import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
@@ -158,6 +159,45 @@ void main() {
     expect(state.skinId, AppSkinRegistry.starlitMelodyId);
   });
 
+  test(
+    'custom skin config and id round trip without changing accent',
+    () async {
+      const dataSource = AppConfigDataSource();
+      final custom = _customConfig();
+      await dataSource.save(
+        AppConfigState.initial.copyWith(
+          skinId: AppSkinRegistry.customImageId,
+          customSkinConfig: custom,
+          themeAccent: AppThemeAccent.amber,
+        ),
+      );
+
+      final state = await dataSource.load();
+
+      expect(state.skinId, AppSkinRegistry.customImageId);
+      expect(state.customSkinConfig, custom);
+      expect(state.themeAccent, AppThemeAccent.amber);
+    },
+  );
+
+  test(
+    'damaged custom config is cleared without replacing a built-in skin',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'app_config.skin_id': AppSkinRegistry.citySoundCreatorId,
+        'app_config.custom_skin': '{invalid',
+      });
+      const dataSource = AppConfigDataSource();
+
+      final state = await dataSource.load();
+      final prefs = await SharedPreferences.getInstance();
+
+      expect(state.skinId, AppSkinRegistry.citySoundCreatorId);
+      expect(state.customSkinConfig, isNull);
+      expect(prefs.containsKey('app_config.custom_skin'), isFalse);
+    },
+  );
+
   test('legacy player background does not migrate to a player style', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'app_config.player_background_style': 'artist_photo',
@@ -213,4 +253,18 @@ void main() {
     expect(state.refreshToken, 'fresh-refresh-token');
     expect(state.tokenExpiresAt, 123);
   });
+}
+
+AppCustomSkinConfig _customConfig() {
+  return AppCustomSkinConfig(
+    revision: 'revision_1',
+    lightAssetPath: 'skins/custom_image/revision_1/wallpaper_light.jpg',
+    darkAssetPath: 'skins/custom_image/revision_1/wallpaper_dark.jpg',
+    candidateColors: const <int>[0xFF123456, 0xFF654321],
+    seedColor: 0xFF123456,
+    focalX: 0,
+    focalY: 0,
+    sourceWidth: 1200,
+    sourceHeight: 1600,
+  );
 }

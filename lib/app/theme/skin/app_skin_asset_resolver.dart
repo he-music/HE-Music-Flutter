@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'app_skin_models.dart';
 
@@ -24,10 +27,15 @@ abstract interface class AppSkinAssetResolver {
 }
 
 class BundledAppSkinAssetResolver implements AppSkinAssetResolver {
-  BundledAppSkinAssetResolver({AssetBundle? bundle})
-    : _bundle = bundle ?? rootBundle;
+  BundledAppSkinAssetResolver({
+    AssetBundle? bundle,
+    Future<Directory> Function()? applicationSupportDirectory,
+  }) : _bundle = bundle ?? rootBundle,
+       _applicationSupportDirectory =
+           applicationSupportDirectory ?? getApplicationSupportDirectory;
 
   final AssetBundle _bundle;
+  final Future<Directory> Function() _applicationSupportDirectory;
 
   @override
   Future<AppSkinAssetLoadResult> load(AppSkinAssetDescriptor descriptor) async {
@@ -37,9 +45,24 @@ class BundledAppSkinAssetResolver implements AppSkinAssetResolver {
       );
     }
     try {
-      return AppSkinAssetLoadSuccess(await _bundle.load(descriptor.path));
+      final bytes = switch (descriptor.source) {
+        AppSkinAssetSource.bundled => await _bundle.load(descriptor.path),
+        AppSkinAssetSource.applicationSupport => await _loadManagedFile(
+          descriptor.path,
+        ),
+      };
+      return AppSkinAssetLoadSuccess(bytes);
     } catch (error, stackTrace) {
       return AppSkinAssetLoadFailure(error, stackTrace);
     }
+  }
+
+  Future<ByteData> _loadManagedFile(String relativePath) async {
+    final root = await _applicationSupportDirectory();
+    final file = File(
+      p.joinAll(<String>[root.path, ...relativePath.split('/')]),
+    );
+    final bytes = await file.readAsBytes();
+    return ByteData.sublistView(bytes);
   }
 }

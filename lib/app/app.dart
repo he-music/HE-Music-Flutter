@@ -35,8 +35,9 @@ class HeMusicApp extends ConsumerWidget {
     if (!isTestBinding) ref.watch(overlayLyricsBindingProvider);
     final appRouter = ref.watch(appRouterProvider);
     final appConfig = ref.watch(appConfigProvider);
-    final skin = AppSkinRegistry.builtIn(
+    final skin = AppSkinRegistry.withCustom(
       appConfig.themeAccent,
+      appConfig.customSkinConfig,
     ).resolve(appConfig.skinId);
     return MaterialApp.router(
       title: AppI18n.t(appConfig, 'app.title'),

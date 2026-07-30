@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_asset_resolver.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
@@ -90,6 +91,191 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('当前使用').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('catalog exposes one create slot and opens the image editor', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [appConfigProvider.overrideWith(_TestAppConfigController.new)],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(_buildApp(container, const SkinSelectionPage()));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('create-custom-skin')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('create-custom-skin')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('choose-custom-skin-image')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('saved custom skin replaces the create slot with one entry', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_CustomAppConfigController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        container,
+        SkinSelectionPage(assetResolver: _PreviewResolver()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('create-custom-skin')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('skin-choice-custom_image')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Image>(
+            find.byKey(
+              const ValueKey<String>('skin-preview-image-custom_image-light'),
+            ),
+          )
+          .alignment,
+      const Alignment(0.25, -0.5),
+    );
+  });
+
+  testWidgets('saved custom editor exposes previews, swatches, and commands', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_CustomAppConfigController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        container,
+        SkinSelectionPage(assetResolver: _PreviewResolver()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('skin-choice-custom_image')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('custom-preview-light')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('custom-preview-dark')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('swap-custom-skin-brightness')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('replace-custom-skin-image')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('delete-custom-skin')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey<String>('apply-custom-skin')),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    final secondSwatch = find.byKey(
+      const ValueKey<String>('custom-skin-color-4286023841'),
+    );
+    await tester.ensureVisible(secondSwatch);
+    await tester.pump();
+    await tester.tap(secondSwatch);
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey<String>('apply-custom-skin')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('delete-custom-skin')));
+    await tester.pumpAndSettle();
+    expect(find.text('删除自定义皮肤？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saved custom skin can be reapplied without editing', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_CustomAppConfigController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        container,
+        SkinSelectionPage(assetResolver: _PreviewResolver()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('skin-choice-city_sound_creator')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('apply-skin-button')));
+    await tester.pump();
+    expect(
+      container.read(appConfigProvider).skinId,
+      AppSkinRegistry.citySoundCreatorId,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('skin-choice-custom_image')),
+    );
+    await tester.pumpAndSettle();
+
+    final applyButton = find.byKey(const ValueKey<String>('apply-custom-skin'));
+    expect(tester.widget<FilledButton>(applyButton).onPressed, isNotNull);
+
+    await tester.tap(applyButton);
+    await tester.pump();
+    expect(
+      container.read(appConfigProvider).skinId,
+      AppSkinRegistry.customImageId,
+    );
+    expect(tester.widget<FilledButton>(applyButton).onPressed, isNull);
   });
 
   testWidgets('starlit detail uses product copy and can be applied', (
@@ -394,6 +580,29 @@ Widget _buildApp(ProviderContainer container, Widget home) {
 class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() => AppConfigState.initial;
+
+  @override
+  void setSkinId(String skinId) {
+    state = state.copyWith(skinId: skinId);
+  }
+}
+
+class _CustomAppConfigController extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial.copyWith(
+    skinId: AppSkinRegistry.customImageId,
+    customSkinConfig: AppCustomSkinConfig(
+      revision: 'revision_1',
+      lightAssetPath: 'skins/custom_image/revision_1/wallpaper_light.jpg',
+      darkAssetPath: 'skins/custom_image/revision_1/wallpaper_dark.jpg',
+      candidateColors: const <int>[0xFF336699, 0xFF7788A1],
+      seedColor: 0xFF336699,
+      focalX: 0.25,
+      focalY: -0.5,
+      sourceWidth: 1200,
+      sourceHeight: 1600,
+    ),
+  );
 
   @override
   void setSkinId(String skinId) {

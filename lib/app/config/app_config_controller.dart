@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/token_refresh_interceptor.dart';
+import '../theme/skin/app_custom_skin_store.dart';
 import 'app_config_data_source.dart';
 import 'app_config_state.dart';
+import 'app_custom_skin_config.dart';
 import 'app_lyric_font_preset.dart';
 import 'app_lyric_highlight_color.dart';
 import 'app_lyric_highlight_mode.dart';
@@ -14,6 +18,7 @@ import '../theme/skin/app_skin_registry.dart';
 
 class AppConfigController extends Notifier<AppConfigState> {
   late final Future<void> _hydrationFuture;
+  Future<void> _persistenceQueue = Future<void>.value();
 
   @override
   AppConfigState build() {
@@ -42,10 +47,52 @@ class AppConfigController extends Notifier<AppConfigState> {
   }
 
   void setSkinId(String skinId) {
-    final normalized = AppSkinRegistry.builtInIds.contains(skinId)
-        ? skinId
-        : AppSkinRegistry.classicId;
+    final normalized = AppSkinRegistry.withCustom(
+      state.themeAccent,
+      state.customSkinConfig,
+    ).normalizeId(skinId);
     _update(state.copyWith(skinId: normalized));
+  }
+
+  Future<void> applyCustomSkin(AppCustomSkinConfig config) async {
+    final store = ref.read(appCustomSkinStoreProvider);
+    if (!await store.validateConfig(config)) {
+      throw StateError('自定义皮肤资源不可用');
+    }
+    await _enqueuePersistence(() async {
+      await ref.read(appConfigDataSourceProvider).replaceCustomSkin(config);
+      if (!ref.mounted) {
+        return;
+      }
+      state = _withLiveTokens(
+        state.copyWith(
+          skinId: AppSkinRegistry.customImageId,
+          customSkinConfig: config,
+        ),
+      );
+    });
+    if (!ref.mounted) {
+      return;
+    }
+    unawaited(store.cleanupOrphans(config).catchError((_) {}));
+  }
+
+  Future<void> deleteCustomSkin() async {
+    await _enqueuePersistence(() async {
+      final nextSkinId = await ref
+          .read(appConfigDataSourceProvider)
+          .deleteCustomSkin();
+      if (!ref.mounted) {
+        return;
+      }
+      state = _withLiveTokens(
+        state.copyWith(skinId: nextSkinId, clearCustomSkinConfig: true),
+      );
+    });
+    if (!ref.mounted) {
+      return;
+    }
+    await ref.read(appCustomSkinStoreProvider).deleteAll();
   }
 
   void setEnableSkinAnimation(bool value) {
@@ -197,24 +244,36 @@ class AppConfigController extends Notifier<AppConfigState> {
   }
 
   void _update(AppConfigState next, {bool persist = true}) {
-    final accessToken = globalTokenHolder.accessToken;
-    final refreshToken = globalTokenHolder.refreshToken;
-    final effective = next.copyWith(
-      authToken: accessToken,
-      clearToken: accessToken == null,
-      refreshToken: refreshToken,
-      tokenExpiresAt: globalTokenHolder.expiresAt,
-      clearRefreshToken: refreshToken == null,
-    );
+    final effective = _withLiveTokens(next);
     state = effective;
     if (!persist) {
       return;
     }
-    _persist(effective);
+    _persist();
   }
 
   Future<void> _hydrate() async {
     final loaded = await ref.read(appConfigDataSourceProvider).load();
+    var customSkin = loaded.customSkinConfig;
+    var skinId = loaded.skinId;
+    final store = ref.read(appCustomSkinStoreProvider);
+    if (customSkin != null && !await store.validateConfig(customSkin)) {
+      final fallbackToClassic = skinId == AppSkinRegistry.customImageId;
+      try {
+        await ref
+            .read(appConfigDataSourceProvider)
+            .clearInvalidCustomSkin(fallbackToClassic: fallbackToClassic);
+      } catch (_) {
+        // 损坏配置不能阻断启动，内存状态仍回退到可用皮肤。
+      }
+      customSkin = null;
+      if (fallbackToClassic) {
+        skinId = AppSkinRegistry.classicId;
+      }
+    }
+    if (!ref.mounted) {
+      return;
+    }
     // 刷新拦截器可能已更新全局 token，水合时必须优先保留实时值。
     globalTokenHolder.accessToken ??= loaded.authToken;
     globalTokenHolder.refreshToken ??= loaded.refreshToken;
@@ -224,7 +283,9 @@ class AppConfigController extends Notifier<AppConfigState> {
     state = state.copyWith(
       themeMode: loaded.themeMode,
       themeAccent: loaded.themeAccent,
-      skinId: loaded.skinId,
+      skinId: skinId,
+      customSkinConfig: customSkin,
+      clearCustomSkinConfig: customSkin == null,
       enableSkinAnimation: loaded.enableSkinAnimation,
       isMonochrome: loaded.isMonochrome,
       localeCode: loaded.localeCode,
@@ -253,17 +314,51 @@ class AppConfigController extends Notifier<AppConfigState> {
       clearRefreshToken: refreshToken == null,
       tokenExpiresAt: globalTokenHolder.expiresAt ?? loaded.tokenExpiresAt,
     );
+    try {
+      await store.cleanupOrphans(customSkin);
+    } catch (_) {
+      // 孤儿资源留待下次启动重试，不影响配置水合。
+    }
   }
 
-  void _persist(AppConfigState value) {
-    Future.microtask(() async {
-      await ref.read(appConfigDataSourceProvider).save(value);
-    });
+  AppConfigState _withLiveTokens(AppConfigState next) {
+    final accessToken = globalTokenHolder.accessToken;
+    final refreshToken = globalTokenHolder.refreshToken;
+    return next.copyWith(
+      authToken: accessToken,
+      clearToken: accessToken == null,
+      refreshToken: refreshToken,
+      tokenExpiresAt: globalTokenHolder.expiresAt,
+      clearRefreshToken: refreshToken == null,
+    );
+  }
+
+  Future<T> _enqueuePersistence<T>(Future<T> Function() operation) {
+    final result = _persistenceQueue.then((_) => operation());
+    _persistenceQueue = result.then<void>((_) {}, onError: (_, _) {});
+    return result;
+  }
+
+  void _persist() {
+    unawaited(
+      _enqueuePersistence(() async {
+        if (!ref.mounted) {
+          return;
+        }
+        await ref
+            .read(appConfigDataSourceProvider)
+            .save(_withLiveTokens(state));
+      }).catchError((_) {}),
+    );
   }
 }
 
 final appConfigDataSourceProvider = Provider<AppConfigDataSource>((ref) {
   return const AppConfigDataSource();
+});
+
+final appCustomSkinStoreProvider = Provider<AppCustomSkinStore>((ref) {
+  return AppCustomSkinStore();
 });
 
 final appConfigProvider = NotifierProvider<AppConfigController, AppConfigState>(
