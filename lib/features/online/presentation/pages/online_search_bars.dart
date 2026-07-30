@@ -29,7 +29,6 @@ class SearchTopBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fill = theme.colorScheme.surface.withValues(alpha: 0.92);
     final borderRadius = BorderRadius.circular(16);
     final secondary = placeholderSecondary?.trim() ?? '';
     return SizedBox(
@@ -45,7 +44,6 @@ class SearchTopBox extends StatelessWidget {
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: fill,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   border: OutlineInputBorder(
                     borderRadius: borderRadius,

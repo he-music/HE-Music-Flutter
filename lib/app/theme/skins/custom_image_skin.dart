@@ -55,6 +55,8 @@ AppSkinBrightnessConfig _brightnessConfig({
   required Alignment alignment,
 }) {
   final isDark = scheme.brightness == Brightness.dark;
+  final searchOpacity = isDark ? 0.82 : 0.84;
+  final fixedControlSurface = scheme.surfaceContainerHigh;
   return AppSkinBrightnessConfig(
     colorScheme: scheme,
     colors: AppSkinColors(
@@ -65,21 +67,21 @@ AppSkinBrightnessConfig _brightnessConfig({
       cardBackground: scheme.surfaceContainerHigh.withValues(
         alpha: isDark ? 0.62 : 0.6,
       ),
-      inputBackground: scheme.surfaceContainerHighest,
+      inputBackground: fixedControlSurface.withValues(alpha: searchOpacity),
       navigationBackground: scheme.surface,
       navigationIndicator: scheme.primaryContainer,
       bottomSheetBackground: scheme.surface,
       dialogBackground: scheme.surfaceContainerHigh,
       divider: scheme.outlineVariant,
       snackBarBackground: scheme.inverseSurface,
-      fixedControlSurface: scheme.surfaceContainerHigh,
+      fixedControlSurface: fixedControlSurface,
       scrollingContentSurface: scheme.surfaceContainer,
       border: scheme.outlineVariant,
       selectionIndicator: scheme.primary,
       shadow: Colors.black,
     ),
     surfaces: AppSkinSurfaces(
-      searchOpacity: isDark ? 0.82 : 0.88,
+      searchOpacity: searchOpacity,
       miniPlayerOpacity: isDark ? 0.86 : 0.9,
       navigationOpacity: isDark ? 0.9 : 0.94,
       scrollingContentOpacity: isDark ? 0.62 : 0.6,

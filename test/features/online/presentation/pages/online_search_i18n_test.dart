@@ -135,6 +135,18 @@ void main() {
       Theme.of(tester.element(find.byType(SearchTopBox))).colorScheme.primary,
     );
     expect(searchBoxIcon.size, 18);
+    final inputDecorator = tester.widget<InputDecorator>(
+      find.descendant(
+        of: find.byType(SearchTopBox),
+        matching: find.byType(InputDecorator),
+      ),
+    );
+    expect(
+      inputDecorator.decoration.fillColor,
+      Theme.of(
+        tester.element(find.byType(SearchTopBox)),
+      ).inputDecorationTheme.fillColor,
+    );
     final placeholder = find.byWidgetPredicate(
       (widget) => widget is RichText && widget.text.toPlainText() == '搜索',
     );

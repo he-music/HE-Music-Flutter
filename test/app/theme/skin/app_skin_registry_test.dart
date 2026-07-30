@@ -91,6 +91,16 @@ void main() {
     expect(custom.dark.surfaces.scrollingContentOpacity, 0.62);
     expect(custom.light.colors.cardBackground.a, 0.6);
     expect(custom.dark.colors.cardBackground.a, 0.62);
+    expect(custom.light.surfaces.searchOpacity, 0.84);
+    expect(custom.dark.surfaces.searchOpacity, 0.82);
+    expect(
+      custom.light.colors.inputBackground,
+      custom.light.colors.fixedControlSurface.withValues(alpha: 0.84),
+    );
+    expect(
+      custom.dark.colors.inputBackground,
+      custom.dark.colors.fixedControlSurface.withValues(alpha: 0.82),
+    );
   });
 
   test('starlit evaluation skin customizes light and dark appearance', () {
