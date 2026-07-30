@@ -64,7 +64,12 @@ void main() {
 
     await _verifyPauseAndResume(handler, player, rawStats);
 
-    await _playTrack(handler, fixture.lowLocalTrack);
+    await _verifyStoppedTrackChangeAndResume(
+      handler,
+      player,
+      rawStats,
+      nextTrack: fixture.lowLocalTrack,
+    );
     await _verifyRepeatedStartStop(handler, player, rawStats, cycles: 20);
 
     final rssBefore = ProcessInfo.currentRss;
@@ -255,6 +260,46 @@ Future<void> _verifyRepeatedStartStop(
       reason: '停止频谱期间播放时间轴不得出现明显停顿。',
     );
   }
+}
+
+Future<void> _verifyStoppedTrackChangeAndResume(
+  HeAudioHandler handler,
+  AudioPlayer player,
+  _RawFftStats rawStats, {
+  required AudioTrack nextTrack,
+}) async {
+  final beforeStop = rawStats.count;
+  await handler.startSpectrumCapture();
+  await _waitFor(
+    () => rawStats.count > beforeStop,
+    timeout: const Duration(seconds: 3),
+    description: '等待后台切歌前产生 FFT',
+  );
+  await handler.stopSpectrumCapture();
+  await _expectRawCaptureStopped(rawStats);
+
+  await _playTrack(handler, nextTrack);
+  await Future<void>.delayed(const Duration(milliseconds: 400));
+
+  final beforeResume = rawStats.count;
+  final positionBeforeResume = player.position;
+  final resumeWatch = Stopwatch()..start();
+  await handler.startSpectrumCapture();
+  await _waitFor(
+    () => rawStats.count > beforeResume,
+    timeout: const Duration(seconds: 3),
+    description: '等待后台切歌后恢复 FFT',
+  );
+  resumeWatch.stop();
+
+  expect(player.playing, isTrue, reason: '后台切歌后恢复频谱不得改变播放状态。');
+  expect(
+    (player.position - positionBeforeResume).inMilliseconds,
+    greaterThanOrEqualTo(resumeWatch.elapsedMilliseconds - 250),
+    reason: '后台切歌后恢复频谱期间播放时间轴不得出现明显停顿。',
+  );
+  await handler.stopSpectrumCapture();
+  await _expectRawCaptureStopped(rawStats);
 }
 
 Future<void> _expectRawCaptureStopped(_RawFftStats rawStats) async {

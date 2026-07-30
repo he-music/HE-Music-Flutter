@@ -70,6 +70,7 @@ typedef struct JATapStorage {
     int _visualizerCaptureRate;
     int _visualizerCaptureSize;
     int _visualizerTapCaptureSize;
+    BOOL _visualizerTapPrepared;
     int _visualizerSamplingRate;
     BOOL _enqueuedAll;
     NSDictionary<NSString *, NSObject *> *_icyMetadata;
@@ -144,6 +145,7 @@ typedef struct JATapStorage {
     _visualizerCaptureRate = 0;
     _visualizerCaptureSize = 0;
     _visualizerTapCaptureSize = 0;
+    _visualizerTapPrepared = NO;
     _visualizerSamplingRate = 0;
     _enqueuedAll = NO;
     _icyMetadata = @{};
@@ -392,12 +394,12 @@ typedef struct JATapStorage {
     _visualizerCaptureRate = captureRate;
     _visualizerEnableWaveform = enableWaveform;
     _visualizerEnableFft = enableFft;
+    _visualizerTapPrepared = YES;
     [self ensureTap];
 }
 
 - (void)stopVisualizer {
     if (![self isVisualizerEnabled]) return;
-    _visualizerCaptureSize = 0;
     _visualizerCaptureRate = 0;
     _visualizerEnableWaveform = NO;
     _visualizerEnableFft = NO;
@@ -411,7 +413,6 @@ typedef struct JATapStorage {
         return;
     }
 
-    NSLog(@"Releasing old tap");
     // release old tap
     AVMutableAudioMixInputParameters *inputParams = _tapPlayerItem.audioMix.inputParameters[0];
     MTAudioProcessingTapRef tap = inputParams.audioTapProcessor;
@@ -432,13 +433,13 @@ typedef struct JATapStorage {
         // The old item is no longer playing, so its tap can be removed safely.
         [self releaseTap];
     }
-    if (![self isVisualizerEnabled] || !item) return;
+    // 停止 FFT 后仍把透传 tap 迁移到新 item，避免恢复时修改播放中的 audioMix。
+    if (!_visualizerTapPrepared || !item) return;
     if (item == _tapPlayerItem) return;
     if (item.status != AVPlayerItemStatusReadyToPlay) {
         _tapPlayerItem = nil;
         return;
     }
-    NSLog(@"### ensureTap tracks:%d", item.tracks.count);
     if (item.tracks.count == 0) return;
     AVAssetTrack *track = item.tracks[0];
     AVMutableAudioMixInputParameters *inputParams = [AVMutableAudioMixInputParameters audioMixInputParametersWithTrack:track];
@@ -450,13 +451,14 @@ typedef struct JATapStorage {
     callbacks.process = processTap;
     callbacks.unprepare = unprepareTap;
     callbacks.finalize = finalizeTap;
-    MTAudioProcessingTapRef tap;
+    MTAudioProcessingTapRef tap = NULL;
     OSStatus err = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap);
     if (err || !tap) {
         NSLog(@"Failed to create tap");
         return;
     }
     inputParams.audioTapProcessor = tap;
+    CFRelease(tap);
     AVMutableAudioMix *audioMix = [AVMutableAudioMix audioMix];
     audioMix.inputParameters = @[inputParams];
     item.audioMix = audioMix;
@@ -467,7 +469,7 @@ typedef struct JATapStorage {
 static void initTap(MTAudioProcessingTapRef tap, void *clientInfo, void **tapStorageOut) {
     JATapStorage *storage = calloc(1, sizeof(JATapStorage));
     AudioPlayer *self = (__bridge AudioPlayer *)clientInfo;
-    storage->self = clientInfo;
+    storage->self = (__bridge_retained void *)self;
     storage->captureSize = self.visualizerCaptureSize;
     storage->waveform = calloc(1, self.visualizerCaptureSize);
     storage->fft = calloc(1, self.visualizerCaptureSize);
@@ -523,10 +525,12 @@ static void processTap(MTAudioProcessingTapRef tap, CMItemCount frameCount, MTAu
     UInt8 *fftMag = (UInt8*)storage->fft;
     [AndroidFFT doFft:fftMag :waveform :captureSize];
 
+    // 主线程执行前 tap 可能已销毁，异步块只能持有独立快照。
+    NSData *waveformData = [NSData dataWithBytes:(void *)waveform length:captureSize];
+    NSData *fftData = [NSData dataWithBytes:(void *)fftMag length:captureSize];
+    int samplingRate = (int)(storage->samplingRate);
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSData *data = [NSData dataWithBytes:(void *)waveform length:captureSize];
-        NSData *data2 = [NSData dataWithBytes:(void *)fftMag length:captureSize];
-        [self broadcastVisualizerCapture:data :data2 samplingRate:(int)(storage->samplingRate)];
+        [self broadcastVisualizerCapture:waveformData :fftData samplingRate:samplingRate];
     });
 }
 
@@ -535,14 +539,17 @@ static void unprepareTap(MTAudioProcessingTapRef tap) {
 
 static void finalizeTap(MTAudioProcessingTapRef tap) {
     JATapStorage *storage = (JATapStorage *)MTAudioProcessingTapGetStorage(tap);
+    void *retainedSelf = storage->self;
     storage->self = NULL;
     free(storage->waveform);
     free(storage->fft);
     free(storage);
+    if (retainedSelf) {
+        CFBridgingRelease(retainedSelf);
+    }
 }
 
 - (int)visualizerCaptureSize {
-    NSLog(@"get visualizerCaptureSize -> %d", _visualizerCaptureSize);
     return _visualizerCaptureSize;
 }
 
@@ -1587,6 +1594,7 @@ static void finalizeTap(MTAudioProcessingTapRef tap) {
         // NSInternalInconsistencyException: 'Sending a message before the FlutterEngine has been run.'
         //[self broadcastPlaybackEvent];
     }
+    _visualizerTapPrepared = NO;
     [self releaseTap];
     if (_timeObserver) {
         [_player removeTimeObserver:_timeObserver];
