@@ -335,12 +335,8 @@ class _AccountCard extends StatelessWidget {
               ? AppI18n.tByLocaleCode(localeCode, 'my.profile.logged_in')
               : '@${username!.trim()}')
         : AppI18n.tByLocaleCode(localeCode, 'my.profile.login_hint');
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      padding: const EdgeInsets.all(18),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: <Widget>[
           AppNetworkAvatar(
@@ -400,14 +396,9 @@ class _AccountCardLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    return Padding(
       key: const ValueKey<String>('my-account-loading-skeleton'),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: const Row(
         children: <Widget>[
           SkeletonBox(width: 60, height: 60, radius: 30),
