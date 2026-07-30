@@ -1,6 +1,10 @@
+import 'dart:collection';
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/he_music_models.dart';
+import '../../utils/in_flight_request_cache.dart';
 
 /// 通用过滤广场分页结果。
 class FilterPlazaPageResult<T> {
@@ -98,6 +102,18 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
       <String, List<FilterInfo>>{};
   final Map<String, Map<String, String>> _selectedFilterCache =
       <String, Map<String, String>>{};
+  final InFlightRequestCache<String, List<FilterInfo>> _filterRequests =
+      InFlightRequestCache<String, List<FilterInfo>>();
+  final InFlightRequestCache<
+    ({String platformId, String filters, int pageIndex}),
+    FilterPlazaPageResult<T>
+  >
+  _pageRequests =
+      InFlightRequestCache<
+        ({String platformId, String filters, int pageIndex}),
+        FilterPlazaPageResult<T>
+      >();
+  int _requestVersion = 0;
 
   @override
   FilterPlazaState<T> build() {
@@ -127,10 +143,12 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
     if (normalizedPlatformId.isEmpty) {
       return;
     }
+    final requestVersion = ++_requestVersion;
     state = state.copyWith(
       selectedPlatformId: normalizedPlatformId,
       filtersLoading: true,
       itemsLoading: true,
+      loadingMore: false,
       filterGroups: const <FilterInfo>[],
       selectedFilters: const <String, String>{},
       items: <T>[],
@@ -141,6 +159,9 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
     );
     try {
       final filterGroups = await _loadFilters(normalizedPlatformId);
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       final selectedFilters = _resolveSelectedFilters(
         platformId: normalizedPlatformId,
         filterGroups: filterGroups,
@@ -154,8 +175,12 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
       await _loadFirstPage(
         platformId: normalizedPlatformId,
         selectedFilters: selectedFilters,
+        requestVersion: requestVersion,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(
         filtersLoading: false,
         itemsLoading: false,
@@ -179,6 +204,7 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
         state.items.isNotEmpty) {
       return;
     }
+    final requestVersion = ++_requestVersion;
     final nextFilters = <String, String>{
       ...state.selectedFilters,
       normalizedGroupId: normalizedValue,
@@ -187,6 +213,7 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
     state = state.copyWith(
       selectedFilters: nextFilters,
       itemsLoading: true,
+      loadingMore: false,
       items: <T>[],
       hasMore: false,
       pageIndex: 1,
@@ -196,8 +223,12 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
       await _loadFirstPage(
         platformId: platformId,
         selectedFilters: nextFilters,
+        requestVersion: requestVersion,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(itemsLoading: false, itemsErrorMessage: '$error');
     }
   }
@@ -211,8 +242,10 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
       await selectPlatform(platformId);
       return;
     }
+    final requestVersion = ++_requestVersion;
     state = state.copyWith(
       itemsLoading: true,
+      loadingMore: false,
       items: <T>[],
       hasMore: false,
       pageIndex: 1,
@@ -222,8 +255,12 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
       await _loadFirstPage(
         platformId: platformId,
         selectedFilters: state.selectedFilters,
+        requestVersion: requestVersion,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(itemsLoading: false, itemsErrorMessage: '$error');
     }
   }
@@ -236,15 +273,27 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
         !state.hasMore) {
       return;
     }
+    final requestVersion = _requestVersion;
     state = state.copyWith(loadingMore: true, clearItemsError: true);
     try {
       final currentPageIndex = state.pageIndex;
       final currentItems = state.items;
-      final result = await fetchContent(
-        platform: platformId,
-        filters: state.selectedFilters,
-        pageIndex: currentPageIndex,
+      final currentFilters = state.selectedFilters;
+      final result = await _pageRequests.run(
+        (
+          platformId: platformId,
+          filters: _filtersKey(currentFilters),
+          pageIndex: currentPageIndex,
+        ),
+        () => fetchContent(
+          platform: platformId,
+          filters: currentFilters,
+          pageIndex: currentPageIndex,
+        ),
       );
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(
         loadingMore: false,
         items: <T>[...currentItems, ...result.list],
@@ -252,6 +301,9 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
         pageIndex: currentPageIndex + 1,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(loadingMore: false, itemsErrorMessage: '$error');
     }
   }
@@ -261,9 +313,11 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
     if (cached != null && cached.isNotEmpty) {
       return cached;
     }
-    final groups = await fetchFilters(platformId);
-    _filterCache[platformId] = groups;
-    return groups;
+    return _filterRequests.run(platformId, () async {
+      final groups = await fetchFilters(platformId);
+      _filterCache[platformId] = groups;
+      return groups;
+    });
   }
 
   Map<String, String> _resolveSelectedFilters({
@@ -289,12 +343,23 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
   Future<void> _loadFirstPage({
     required String platformId,
     required Map<String, String> selectedFilters,
+    required int requestVersion,
   }) async {
-    final result = await fetchContent(
-      platform: platformId,
-      filters: selectedFilters,
-      pageIndex: 1,
+    final result = await _pageRequests.run(
+      (
+        platformId: platformId,
+        filters: _filtersKey(selectedFilters),
+        pageIndex: 1,
+      ),
+      () => fetchContent(
+        platform: platformId,
+        filters: selectedFilters,
+        pageIndex: 1,
+      ),
     );
+    if (requestVersion != _requestVersion) {
+      return;
+    }
     state = state.copyWith(
       itemsLoading: false,
       items: result.list,
@@ -302,5 +367,9 @@ abstract class FilterPlazaController<T> extends Notifier<FilterPlazaState<T>> {
       pageIndex: 2,
       clearItemsError: true,
     );
+  }
+
+  String _filtersKey(Map<String, String> filters) {
+    return jsonEncode(SplayTreeMap<String, String>.of(filters));
   }
 }

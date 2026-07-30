@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,6 +48,37 @@ void main() {
     expect(state.pageIndex, 3);
     expect(state.hasMore, false);
     expect(state.lastId, 'page-2');
+  });
+
+  test('A-B-A reuses pending A requests and keeps A content', () async {
+    final client = _ControlledPlaylistPlazaApiClient();
+    final container = ProviderContainer(
+      overrides: [playlistPlazaApiClientProvider.overrideWithValue(client)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(playlistPlazaControllerProvider.notifier);
+
+    final firstA = controller.selectPlatform('a');
+    final loadingB = controller.selectPlatform('b');
+    final secondA = controller.selectPlatform('a');
+
+    expect(client.categoryCallsFor('a'), 1);
+    expect(client.categoryCallsFor('b'), 1);
+
+    client.completeCategories('a');
+    await client.firstPageStarted('a');
+    expect(client.firstPageCallsFor('a'), 1);
+    client.completeFirstPage('a');
+    await Future.wait(<Future<void>>[firstA, secondA]);
+
+    client.completeCategories('b');
+    await loadingB;
+
+    final state = container.read(playlistPlazaControllerProvider);
+    expect(state.selectedPlatformId, 'a');
+    expect(state.selectedCategoryId, 'a-category');
+    expect(state.playlists.single.platform, 'a');
+    expect(client.firstPageCallsFor('b'), 0);
   });
 }
 
@@ -121,6 +154,92 @@ class _FakePlaylistPlazaApiClient extends PlaylistPlazaApiClient {
       ],
       hasMore: false,
       lastId: 'page-2',
+    );
+  }
+}
+
+class _ControlledPlaylistPlazaApiClient extends PlaylistPlazaApiClient {
+  _ControlledPlaylistPlazaApiClient() : super(Dio());
+
+  final Map<String, int> _categoryCalls = <String, int>{};
+  final Map<String, int> _firstPageCalls = <String, int>{};
+  final Map<String, Completer<List<PlaylistCategoryGroup>>> _categoryRequests =
+      <String, Completer<List<PlaylistCategoryGroup>>>{};
+  final Map<String, Completer<PlaylistPlazaPageResult>> _firstPageRequests =
+      <String, Completer<PlaylistPlazaPageResult>>{};
+  final Map<String, Completer<void>> _firstPageStarted =
+      <String, Completer<void>>{};
+
+  int categoryCallsFor(String platform) => _categoryCalls[platform] ?? 0;
+
+  int firstPageCallsFor(String platform) => _firstPageCalls[platform] ?? 0;
+
+  Future<void> firstPageStarted(String platform) {
+    return (_firstPageStarted[platform] ??= Completer<void>()).future;
+  }
+
+  @override
+  Future<List<PlaylistCategoryGroup>> fetchCategories({
+    required String platform,
+  }) {
+    _categoryCalls.update(platform, (count) => count + 1, ifAbsent: () => 1);
+    return (_categoryRequests[platform] ??=
+            Completer<List<PlaylistCategoryGroup>>())
+        .future;
+  }
+
+  @override
+  Future<PlaylistPlazaPageResult> fetchCategoryPlaylists({
+    required String platform,
+    required String categoryId,
+    int pageIndex = 1,
+    int pageSize = 30,
+    String? lastId,
+  }) {
+    _firstPageCalls.update(platform, (count) => count + 1, ifAbsent: () => 1);
+    final started = _firstPageStarted[platform] ??= Completer<void>();
+    if (!started.isCompleted) {
+      started.complete();
+    }
+    return (_firstPageRequests[platform] ??=
+            Completer<PlaylistPlazaPageResult>())
+        .future;
+  }
+
+  void completeCategories(String platform) {
+    _categoryRequests[platform]!.complete(<PlaylistCategoryGroup>[
+      PlaylistCategoryGroup(
+        name: '$platform-group',
+        categories: <CategoryInfo>[
+          CategoryInfo(
+            name: '$platform-category',
+            id: '$platform-category',
+            platform: platform,
+          ),
+        ],
+      ),
+    ]);
+  }
+
+  void completeFirstPage(String platform) {
+    _firstPageRequests[platform]!.complete(
+      PlaylistPlazaPageResult(
+        list: <PlaylistInfo>[
+          PlaylistInfo(
+            name: '$platform-playlist',
+            id: '$platform-playlist',
+            cover: '',
+            creator: '',
+            songCount: '1',
+            playCount: '1',
+            platform: platform,
+            description: '',
+            songs: const <SongInfo>[],
+          ),
+        ],
+        hasMore: false,
+        lastId: '',
+      ),
     );
   }
 }

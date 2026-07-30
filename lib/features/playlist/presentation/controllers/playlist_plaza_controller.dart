@@ -1,15 +1,30 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/utils/in_flight_request_cache.dart';
 import '../../data/providers/playlist_plaza_providers.dart';
 import '../../domain/entities/playlist_category_group.dart';
 import '../../domain/entities/playlist_plaza_state.dart';
+import '../../domain/entities/playlist_plaza_page_result.dart';
 import '../providers/playlist_plaza_providers.dart';
 
 class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
   final Map<String, List<PlaylistCategoryGroup>> _categoryCache =
       <String, List<PlaylistCategoryGroup>>{};
   final Map<String, String> _selectedCategoryCache = <String, String>{};
+  final InFlightRequestCache<String, List<PlaylistCategoryGroup>>
+  _categoryRequests =
+      InFlightRequestCache<String, List<PlaylistCategoryGroup>>();
+  final InFlightRequestCache<
+    ({String platformId, String categoryId, int pageIndex, String lastId}),
+    PlaylistPlazaPageResult
+  >
+  _pageRequests =
+      InFlightRequestCache<
+        ({String platformId, String categoryId, int pageIndex, String lastId}),
+        PlaylistPlazaPageResult
+      >();
+  int _requestVersion = 0;
 
   @override
   PlaylistPlazaState build() {
@@ -31,12 +46,14 @@ class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
     if (normalizedPlatformId.isEmpty) {
       return;
     }
+    final requestVersion = ++_requestVersion;
     state = state.copyWith(
       selectedPlatformId: normalizedPlatformId,
       categoriesLoading: true,
       playlistsLoading: true,
+      loadingMore: false,
       categoryGroups: const <PlaylistCategoryGroup>[],
-      selectedCategoryId: null,
+      clearSelectedCategory: true,
       playlists: const <PlaylistInfo>[],
       hasMore: false,
       pageIndex: 1,
@@ -46,6 +63,9 @@ class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
     );
     try {
       final groups = await _loadCategories(normalizedPlatformId);
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       final selectedCategoryId = _resolveCategoryId(
         platformId: normalizedPlatformId,
         groups: groups,
@@ -67,8 +87,12 @@ class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
       await _loadFirstPage(
         platformId: normalizedPlatformId,
         categoryId: selectedCategoryId,
+        requestVersion: requestVersion,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(
         categoriesLoading: false,
         playlistsLoading: false,
@@ -88,10 +112,12 @@ class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
         state.playlists.isNotEmpty) {
       return;
     }
+    final requestVersion = ++_requestVersion;
     _selectedCategoryCache[platformId] = normalizedCategoryId;
     state = state.copyWith(
       selectedCategoryId: normalizedCategoryId,
       playlistsLoading: true,
+      loadingMore: false,
       playlists: const <PlaylistInfo>[],
       hasMore: false,
       pageIndex: 1,
@@ -102,8 +128,12 @@ class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
       await _loadFirstPage(
         platformId: platformId,
         categoryId: normalizedCategoryId,
+        requestVersion: requestVersion,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(
         playlistsLoading: false,
         playlistsErrorMessage: '$error',
@@ -138,16 +168,29 @@ class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
         !state.hasMore) {
       return;
     }
+    final requestVersion = _requestVersion;
     state = state.copyWith(loadingMore: true, clearPlaylistsError: true);
     try {
       final currentPageIndex = state.pageIndex;
       final currentPlaylists = state.playlists;
-      final result = await _apiClient.fetchCategoryPlaylists(
-        platform: platformId,
-        categoryId: categoryId,
-        pageIndex: currentPageIndex,
-        lastId: state.lastId,
+      final currentLastId = state.lastId;
+      final result = await _pageRequests.run(
+        (
+          platformId: platformId,
+          categoryId: categoryId,
+          pageIndex: currentPageIndex,
+          lastId: currentLastId,
+        ),
+        () => _apiClient.fetchCategoryPlaylists(
+          platform: platformId,
+          categoryId: categoryId,
+          pageIndex: currentPageIndex,
+          lastId: currentLastId,
+        ),
       );
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       final nextPlaylists = <PlaylistInfo>[...currentPlaylists, ...result.list];
       final nextPageIndex = currentPageIndex + 1;
       state = state.copyWith(
@@ -158,6 +201,9 @@ class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
         pageIndex: nextPageIndex,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(
         loadingMore: false,
         playlistsErrorMessage: '$error',
@@ -170,20 +216,34 @@ class PlaylistPlazaController extends Notifier<PlaylistPlazaState> {
     if (cached != null && cached.isNotEmpty) {
       return cached;
     }
-    final groups = await _apiClient.fetchCategories(platform: platformId);
-    _categoryCache[platformId] = groups;
-    return groups;
+    return _categoryRequests.run(platformId, () async {
+      final groups = await _apiClient.fetchCategories(platform: platformId);
+      _categoryCache[platformId] = groups;
+      return groups;
+    });
   }
 
   Future<void> _loadFirstPage({
     required String platformId,
     required String categoryId,
+    required int requestVersion,
   }) async {
-    final result = await _apiClient.fetchCategoryPlaylists(
-      platform: platformId,
-      categoryId: categoryId,
-      pageIndex: 1,
+    final result = await _pageRequests.run(
+      (
+        platformId: platformId,
+        categoryId: categoryId,
+        pageIndex: 1,
+        lastId: '',
+      ),
+      () => _apiClient.fetchCategoryPlaylists(
+        platform: platformId,
+        categoryId: categoryId,
+        pageIndex: 1,
+      ),
     );
+    if (requestVersion != _requestVersion) {
+      return;
+    }
     state = state.copyWith(
       playlistsLoading: false,
       playlists: result.list,

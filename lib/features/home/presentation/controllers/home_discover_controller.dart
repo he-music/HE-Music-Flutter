@@ -8,6 +8,7 @@ import '../../domain/entities/home_discover_state.dart';
 import '../../domain/entities/home_platform.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
+import '../../../../shared/utils/in_flight_request_cache.dart';
 import '../providers/home_discover_providers.dart';
 
 class HomeDiscoverController extends Notifier<HomeDiscoverState> {
@@ -15,6 +16,9 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
   Future<void>? _initializing;
   final Map<String, List<HomeDiscoverSection>> _discoverCacheByPlatform =
       <String, List<HomeDiscoverSection>>{};
+  final InFlightRequestCache<String, List<HomeDiscoverSection>>
+  _discoverRequests = InFlightRequestCache<String, List<HomeDiscoverSection>>();
+  int _requestVersion = 0;
 
   @override
   HomeDiscoverState build() {
@@ -62,29 +66,39 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
   }
 
   Future<void> selectPlatform(String platformId) async {
-    if (platformId == state.selectedPlatformId) {
+    final normalizedPlatformId = platformId.trim();
+    if (normalizedPlatformId.isEmpty ||
+        normalizedPlatformId == state.selectedPlatformId) {
       return;
     }
-    final cached = _discoverCacheByPlatform[platformId];
+    final requestVersion = ++_requestVersion;
+    final cached = _discoverCacheByPlatform[normalizedPlatformId];
     if (cached != null) {
       state = state.copyWith(
         loading: false,
-        selectedPlatformId: platformId,
+        selectedPlatformId: normalizedPlatformId,
         sections: cached,
         clearError: true,
       );
       return;
     }
-    await _loadDiscover(platformId, state.platforms);
+    await _loadDiscover(normalizedPlatformId, state.platforms, requestVersion);
   }
 
   Future<void> _loadInitialData() async {
+    final requestVersion = ++_requestVersion;
     state = state.copyWith(loading: true, clearError: true);
     try {
       final platforms = await _resolvePlatforms();
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       final selected = _resolveSelectedPlatform(platforms);
-      await _loadDiscover(selected.id, platforms);
+      await _loadDiscover(selected.id, platforms, requestVersion);
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(loading: false, errorMessage: '$error');
     }
   }
@@ -92,6 +106,7 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
   Future<void> _loadDiscover(
     String platformId,
     List<HomePlatform> platforms,
+    int requestVersion,
   ) async {
     // 平台列表已由 startup 预加载，发现页内容请求期间也应立即展示平台标签。
     state = state.copyWith(
@@ -101,8 +116,14 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
       clearError: true,
     );
     try {
-      final sections = await _apiClient.fetchDiscoverSections(platformId);
-      _discoverCacheByPlatform[platformId] = sections;
+      final sections = await _discoverRequests.run(platformId, () async {
+        final result = await _apiClient.fetchDiscoverSections(platformId);
+        _discoverCacheByPlatform[platformId] = result;
+        return result;
+      });
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         platforms: platforms,
@@ -111,6 +132,9 @@ class HomeDiscoverController extends Notifier<HomeDiscoverState> {
         clearError: true,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         platforms: platforms,

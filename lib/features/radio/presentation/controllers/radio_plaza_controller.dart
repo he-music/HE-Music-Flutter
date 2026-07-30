@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/utils/in_flight_request_cache.dart';
 import '../../data/providers/radio_providers.dart';
 import '../../domain/repositories/radio_repository.dart';
 import '../providers/radio_providers.dart';
@@ -72,6 +73,9 @@ class RadioPlazaController extends Notifier<RadioPlazaState> {
   final Map<String, List<RadioGroupInfo>> _groupCache =
       <String, List<RadioGroupInfo>>{};
   final Map<String, String> _selectedGroupCache = <String, String>{};
+  final InFlightRequestCache<String, List<RadioGroupInfo>> _groupRequests =
+      InFlightRequestCache<String, List<RadioGroupInfo>>();
+  int _requestVersion = 0;
 
   @override
   RadioPlazaState build() {
@@ -97,6 +101,7 @@ class RadioPlazaController extends Notifier<RadioPlazaState> {
     if (normalizedPlatformId.isEmpty) {
       return;
     }
+    final requestVersion = ++_requestVersion;
     final cachedGroups = _groupCache[normalizedPlatformId];
     if (cachedGroups != null) {
       final selectedGroupName = _resolveSelectedGroupName(
@@ -120,10 +125,16 @@ class RadioPlazaController extends Notifier<RadioPlazaState> {
       clearError: true,
     );
     try {
-      final groups = await _repository.fetchGroups(
-        platform: normalizedPlatformId,
-      );
-      _groupCache[normalizedPlatformId] = groups;
+      final groups = await _groupRequests.run(normalizedPlatformId, () async {
+        final result = await _repository.fetchGroups(
+          platform: normalizedPlatformId,
+        );
+        _groupCache[normalizedPlatformId] = result;
+        return result;
+      });
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       final selectedGroupName = _resolveSelectedGroupName(
         normalizedPlatformId,
         groups,
@@ -135,6 +146,9 @@ class RadioPlazaController extends Notifier<RadioPlazaState> {
         clearError: true,
       );
     } catch (error) {
+      if (requestVersion != _requestVersion) {
+        return;
+      }
       state = state.copyWith(
         loading: false,
         groups: const <RadioGroupInfo>[],

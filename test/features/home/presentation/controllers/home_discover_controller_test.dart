@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_discover_section.dart';
+import 'package:he_music_flutter/features/home/domain/entities/home_discover_item.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_platform.dart';
 import 'package:he_music_flutter/features/home/presentation/providers/home_discover_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
@@ -102,6 +103,36 @@ void main() {
     expect(recoveredState.selectedPlatformId, 'qq');
     expect(apiClient.fetchDiscoverCallCount, 1);
   });
+
+  test('A-B-A 复用进行中的 A 请求并忽略晚到的 B 数据', () async {
+    final apiClient = _ControlledHomeDiscoverApiClient();
+    final container = ProviderContainer(
+      overrides: [
+        homeDiscoverApiClientProvider.overrideWithValue(apiClient),
+        onlinePlatformsProvider.overrideWith(_TwoOnlinePlatformsController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(onlinePlatformsProvider.future);
+    final controller = container.read(homeDiscoverControllerProvider.notifier);
+
+    final firstA = controller.initialize();
+    await apiClient.requestStarted('a');
+    final loadingB = controller.selectPlatform('b');
+    final secondA = controller.selectPlatform('a');
+
+    expect(apiClient.callsFor('a'), 1);
+    expect(apiClient.callsFor('b'), 1);
+
+    apiClient.complete('a');
+    await Future.wait(<Future<void>>[firstA, secondA]);
+    apiClient.complete('b');
+    await loadingB;
+
+    final state = container.read(homeDiscoverControllerProvider);
+    expect(state.selectedPlatformId, 'a');
+    expect(state.sections.single.key, 'a');
+  });
 }
 
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
@@ -151,6 +182,23 @@ class _RecoveringOnlinePlatformsController extends OnlinePlatformsController {
   }
 }
 
+class _TwoOnlinePlatformsController extends OnlinePlatformsController {
+  @override
+  Future<List<OnlinePlatform>> build() async {
+    return <OnlinePlatform>[_platform('a'), _platform('b')];
+  }
+
+  OnlinePlatform _platform(String id) {
+    return OnlinePlatform(
+      id: id,
+      name: id.toUpperCase(),
+      shortName: id.toUpperCase(),
+      status: 1,
+      featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
+    );
+  }
+}
+
 class _DelayedHomeDiscoverApiClient extends HomeDiscoverApiClient {
   _DelayedHomeDiscoverApiClient() : super(Dio());
 
@@ -176,5 +224,41 @@ class _DelayedHomeDiscoverApiClient extends HomeDiscoverApiClient {
 
   void complete() {
     _response.complete(const <HomeDiscoverSection>[]);
+  }
+}
+
+class _ControlledHomeDiscoverApiClient extends HomeDiscoverApiClient {
+  _ControlledHomeDiscoverApiClient() : super(Dio());
+
+  final Map<String, int> _calls = <String, int>{};
+  final Map<String, Completer<void>> _started = <String, Completer<void>>{};
+  final Map<String, Completer<List<HomeDiscoverSection>>> _requests =
+      <String, Completer<List<HomeDiscoverSection>>>{};
+
+  int callsFor(String platform) => _calls[platform] ?? 0;
+
+  Future<void> requestStarted(String platform) {
+    return (_started[platform] ??= Completer<void>()).future;
+  }
+
+  @override
+  Future<List<HomeDiscoverSection>> fetchDiscoverSections(String platformId) {
+    _calls.update(platformId, (count) => count + 1, ifAbsent: () => 1);
+    final started = _started[platformId] ??= Completer<void>();
+    if (!started.isCompleted) {
+      started.complete();
+    }
+    return (_requests[platformId] ??= Completer<List<HomeDiscoverSection>>())
+        .future;
+  }
+
+  void complete(String platform) {
+    _requests[platform]!.complete(<HomeDiscoverSection>[
+      HomeDiscoverSection(
+        key: platform,
+        titleKey: platform,
+        type: HomeDiscoverItemType.song,
+      ),
+    ]);
   }
 }

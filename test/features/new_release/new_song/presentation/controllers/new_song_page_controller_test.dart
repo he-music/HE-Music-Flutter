@@ -132,6 +132,42 @@ void main() {
     ]);
     await selection;
   });
+
+  test('A-B-A reuses pending A tabs and ignores late B tabs', () async {
+    final client = _FakeNewSongApiClient()
+      ..holdTabs('qq')
+      ..holdTabs('kg');
+    final container = ProviderContainer(
+      overrides: [
+        newSongApiClientProvider.overrideWithValue(client),
+        onlinePlatformsProvider.overrideWith(
+          _TestOnlinePlatformsController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(newSongPageControllerProvider.notifier);
+
+    final firstA = controller.selectPlatform('qq');
+    await client.tabsStarted('qq');
+    final loadingB = controller.selectPlatform('kg');
+    await client.tabsStarted('kg');
+    final secondA = controller.selectPlatform('qq');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(client.fetchTabsCalls.where((item) => item == 'qq'), hasLength(1));
+    expect(client.fetchTabsCalls.where((item) => item == 'kg'), hasLength(1));
+
+    client.completeHeldTabs('qq');
+    await Future.wait(<Future<void>>[firstA, secondA]);
+    client.completeHeldTabs('kg');
+    await loadingB;
+
+    final state = container.read(newSongPageControllerProvider);
+    expect(state.selectedPlatformId, 'qq');
+    expect(state.songs.single.platform, 'qq');
+    expect(client.fetchSongsCalls, <String>['qq|recommend|1']);
+  });
 }
 
 class _FakeNewSongApiClient extends NewSongApiClient {
@@ -140,10 +176,35 @@ class _FakeNewSongApiClient extends NewSongApiClient {
   final List<String> fetchTabsCalls = <String>[];
   final List<String> fetchSongsCalls = <String>[];
   Completer<List<NewReleaseTab>>? delayedTabs;
+  final Map<String, Completer<List<NewReleaseTab>>> _heldTabs =
+      <String, Completer<List<NewReleaseTab>>>{};
+  final Map<String, Completer<void>> _tabsStarted = <String, Completer<void>>{};
+
+  void holdTabs(String platform) {
+    _heldTabs[platform] = Completer<List<NewReleaseTab>>();
+  }
+
+  Future<void> tabsStarted(String platform) {
+    return (_tabsStarted[platform] ??= Completer<void>()).future;
+  }
+
+  void completeHeldTabs(String platform) {
+    _heldTabs[platform]!.complete(<NewReleaseTab>[
+      NewReleaseTab(id: 'recommend', name: '推荐', platform: platform),
+    ]);
+  }
 
   @override
   Future<List<NewReleaseTab>> fetchTabs({required String platform}) async {
     fetchTabsCalls.add(platform);
+    final started = _tabsStarted[platform] ??= Completer<void>();
+    if (!started.isCompleted) {
+      started.complete();
+    }
+    final held = _heldTabs[platform];
+    if (held != null) {
+      return held.future;
+    }
     if (platform == 'kg' && delayedTabs != null) {
       return delayedTabs!.future;
     }

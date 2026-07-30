@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,6 +86,32 @@ void main() {
     expect(stateAfterRetry.errorMessage, isNull);
     expect(stateAfterRetry.groups, isNotEmpty);
   });
+
+  test('A-B-A reuses pending A request and ignores late B response', () async {
+    final client = _ControlledRadioApiClient();
+    final container = ProviderContainer(
+      overrides: [radioApiClientProvider.overrideWithValue(client)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(radioPlazaControllerProvider.notifier);
+
+    final firstA = controller.selectPlatform('a');
+    final loadingB = controller.selectPlatform('b');
+    final secondA = controller.selectPlatform('a');
+
+    expect(client.callsFor('a'), 1);
+    expect(client.callsFor('b'), 1);
+
+    client.complete('a');
+    await Future.wait(<Future<void>>[firstA, secondA]);
+    client.complete('b');
+    await loadingB;
+
+    final state = container.read(radioPlazaControllerProvider);
+    expect(state.selectedPlatformId, 'a');
+    expect(state.groups.single.platform, 'a');
+    expect(state.groups.single.radios.single.platform, 'a');
+  });
 }
 
 class _FakeRadioApiClient extends RadioApiClient {
@@ -114,5 +142,38 @@ class _FakeRadioApiClient extends RadioApiClient {
         ],
       ),
     ];
+  }
+}
+
+class _ControlledRadioApiClient extends RadioApiClient {
+  _ControlledRadioApiClient() : super(Dio());
+
+  final Map<String, int> _calls = <String, int>{};
+  final Map<String, Completer<List<RadioGroupInfo>>> _requests =
+      <String, Completer<List<RadioGroupInfo>>>{};
+
+  int callsFor(String platform) => _calls[platform] ?? 0;
+
+  @override
+  Future<List<RadioGroupInfo>> fetchGroups({required String platform}) {
+    _calls.update(platform, (count) => count + 1, ifAbsent: () => 1);
+    return (_requests[platform] ??= Completer<List<RadioGroupInfo>>()).future;
+  }
+
+  void complete(String platform) {
+    _requests[platform]!.complete(<RadioGroupInfo>[
+      RadioGroupInfo(
+        name: '$platform-group',
+        platform: platform,
+        radios: <RadioInfo>[
+          RadioInfo(
+            name: '$platform-radio',
+            id: '$platform-radio',
+            cover: '',
+            platform: platform,
+          ),
+        ],
+      ),
+    ]);
   }
 }

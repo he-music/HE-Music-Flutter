@@ -49,6 +49,7 @@ class PlaylistPlazaState {
     String? lastId,
     String? categoriesErrorMessage,
     String? playlistsErrorMessage,
+    bool clearSelectedCategory = false,
     bool clearCategoriesError = false,
     bool clearPlaylistsError = false,
   }) {
@@ -58,7 +59,9 @@ class PlaylistPlazaState {
       playlistsLoading: playlistsLoading ?? this.playlistsLoading,
       loadingMore: loadingMore ?? this.loadingMore,
       categoryGroups: categoryGroups ?? this.categoryGroups,
-      selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,
+      selectedCategoryId: clearSelectedCategory
+          ? null
+          : selectedCategoryId ?? this.selectedCategoryId,
       playlists: playlists ?? this.playlists,
       hasMore: hasMore ?? this.hasMore,
       pageIndex: pageIndex ?? this.pageIndex,
