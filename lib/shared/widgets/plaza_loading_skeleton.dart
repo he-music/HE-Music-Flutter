@@ -29,17 +29,24 @@ class PlazaPlatformTabsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 28,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: <Widget>[
-            for (var index = 0; index < itemWidths.length; index++) ...<Widget>[
-              if (index > 0) const SizedBox(width: 8),
-              SkeletonBox(width: itemWidths[index], height: 28, radius: 14),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        height: 28,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: <Widget>[
+              for (
+                var index = 0;
+                index < itemWidths.length;
+                index++
+              ) ...<Widget>[
+                if (index > 0) const SizedBox(width: 8),
+                SkeletonBox(width: itemWidths[index], height: 28, radius: 14),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

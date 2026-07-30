@@ -20,6 +20,28 @@ void main() {
 
       expect(find.byType(SkeletonBox), findsNWidgets(4));
     });
+
+    testWidgets('宽屏下应与容器左侧对齐', (tester) async {
+      const hostKey = ValueKey<String>('platform-tabs-skeleton-host');
+      await tester.pumpWidget(
+        _wrap(
+          const Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              key: hostKey,
+              width: 600,
+              child: Column(children: <Widget>[PlazaPlatformTabsSkeleton()]),
+            ),
+          ),
+        ),
+      );
+
+      final hostLeft = tester.getTopLeft(find.byKey(hostKey)).dx;
+      final firstItemLeft = tester
+          .getTopLeft(find.byType(SkeletonBox).first)
+          .dx;
+      expect(firstItemLeft, hostLeft);
+    });
   });
 
   group('UnderlineTabsSkeleton', () {
