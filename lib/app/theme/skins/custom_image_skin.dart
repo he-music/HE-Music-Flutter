@@ -62,7 +62,9 @@ AppSkinBrightnessConfig _brightnessConfig({
       canvasBackground: Colors.transparent,
       wallpaperFallback: scheme.surface,
       backgroundOverlay: Colors.transparent,
-      cardBackground: scheme.surfaceContainerHigh.withValues(alpha: 0),
+      cardBackground: scheme.surfaceContainerHigh.withValues(
+        alpha: isDark ? 0.62 : 0.6,
+      ),
       inputBackground: scheme.surfaceContainerHighest,
       navigationBackground: scheme.surface,
       navigationIndicator: scheme.primaryContainer,
@@ -80,7 +82,7 @@ AppSkinBrightnessConfig _brightnessConfig({
       searchOpacity: isDark ? 0.82 : 0.88,
       miniPlayerOpacity: isDark ? 0.86 : 0.9,
       navigationOpacity: isDark ? 0.9 : 0.94,
-      scrollingContentOpacity: 0,
+      scrollingContentOpacity: isDark ? 0.62 : 0.6,
       bottomSheetOpacity: 0.96,
     ),
     geometry: const AppSkinGeometry(

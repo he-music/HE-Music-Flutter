@@ -323,6 +323,8 @@ abstract final class AppI18n {
       'settings.skin.animation': '皮肤动画',
       'settings.skin.animation.desc': '显示当前皮肤的环境动画',
       'settings.skin.animation.static': '当前皮肤为静态皮肤',
+      'settings.skin.content_background': '显示内容背景',
+      'settings.skin.content_background.desc': '为卡片和列表项显示半透明背景',
       'settings.skin.apply': '应用',
       'settings.skin.applied': '当前使用',
       'settings.skin.classic.name': '经典',
@@ -1117,6 +1119,9 @@ abstract final class AppI18n {
       'settings.skin.animation': 'Skin Animation',
       'settings.skin.animation.desc': 'Show ambient animation for this skin',
       'settings.skin.animation.static': 'The current skin is static',
+      'settings.skin.content_background': 'Show Content Backgrounds',
+      'settings.skin.content_background.desc':
+          'Show translucent backgrounds for cards and list items',
       'settings.skin.apply': 'Apply',
       'settings.skin.applied': 'Currently applied',
       'settings.skin.classic.name': 'Classic',

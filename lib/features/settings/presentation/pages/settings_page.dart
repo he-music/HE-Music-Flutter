@@ -275,6 +275,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             : null,
         highlighted: _highlightedItemId == item.id,
       ),
+      SettingsItemIds.contentBackground => SettingsSwitchTile(
+        icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
+        title: AppI18n.t(config, item.titleKey),
+        subtitle: settingsItemSubtitle(item.id, config),
+        value: config.showContentBackground,
+        onChanged: (value) => ref
+            .read(appConfigProvider.notifier)
+            .setShowContentBackground(value),
+        highlighted: _highlightedItemId == item.id,
+      ),
       SettingsItemIds.monochrome => SettingsSwitchTile(
         icon: item.icon,
         iconRole: settingsItemIconRole(item.id),

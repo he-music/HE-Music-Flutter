@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
@@ -80,26 +81,28 @@ class _ComprehensiveSkeletonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 58,
-      child: Row(
-        children: <Widget>[
-          SkeletonBox(width: 50, height: 50, radius: 10),
-          SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                SkeletonBox(width: 164, height: 15, radius: 7),
-                SizedBox(height: 8),
-                SkeletonBox(width: 112, height: 12, radius: 6),
-              ],
+    return const AppSkinContentSurface(
+      child: SizedBox(
+        height: 58,
+        child: Row(
+          children: <Widget>[
+            SkeletonBox(width: 50, height: 50, radius: 10),
+            SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  SkeletonBox(width: 164, height: 15, radius: 7),
+                  SizedBox(height: 8),
+                  SkeletonBox(width: 112, height: 12, radius: 6),
+                ],
+              ),
             ),
-          ),
-          SizedBox(width: 8),
-          SkeletonBox(width: 28, height: 28, radius: 14),
-        ],
+            SizedBox(width: 8),
+            SkeletonBox(width: 28, height: 28, radius: 14),
+          ],
+        ),
       ),
     );
   }

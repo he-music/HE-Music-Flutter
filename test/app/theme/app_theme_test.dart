@@ -80,4 +80,39 @@ void main() {
       isA<PredictiveBackPageTransitionsBuilder>(),
     );
   });
+
+  test('content background preference changes only content surfaces', () {
+    final registry = AppSkinRegistry.builtIn(AppThemeAccent.cobalt);
+
+    for (final skinId in <String>[
+      AppSkinRegistry.classicId,
+      AppSkinRegistry.citySoundCreatorId,
+      AppSkinRegistry.starlitMelodyId,
+    ]) {
+      final skin = registry.resolve(skinId);
+      final hidden = AppTheme.light(skin);
+      final visible = AppTheme.light(skin, showContentBackground: true);
+
+      expect(hidden.cardTheme.color?.a, 0);
+      expect(visible.cardTheme.color, skin.light.colors.cardBackground);
+      expect(hidden.extension<AppSkinTheme>()?.showContentBackground, isFalse);
+      expect(visible.extension<AppSkinTheme>()?.showContentBackground, isTrue);
+      expect(
+        hidden.inputDecorationTheme.fillColor,
+        visible.inputDecorationTheme.fillColor,
+      );
+      expect(
+        hidden.navigationBarTheme.backgroundColor,
+        visible.navigationBarTheme.backgroundColor,
+      );
+      expect(
+        hidden.bottomSheetTheme.backgroundColor,
+        visible.bottomSheetTheme.backgroundColor,
+      );
+      expect(
+        hidden.dialogTheme.backgroundColor,
+        visible.dialogTheme.backgroundColor,
+      );
+    }
+  });
 }

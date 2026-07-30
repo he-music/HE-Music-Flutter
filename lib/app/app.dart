@@ -44,8 +44,14 @@ class HeMusicApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       scrollBehavior: const AppScrollBehavior(),
       themeMode: _toThemeMode(appConfig.themeMode),
-      theme: AppTheme.light(skin),
-      darkTheme: AppTheme.dark(skin),
+      theme: AppTheme.light(
+        skin,
+        showContentBackground: appConfig.showContentBackground,
+      ),
+      darkTheme: AppTheme.dark(
+        skin,
+        showContentBackground: appConfig.showContentBackground,
+      ),
       locale: _resolveLocale(appConfig.localeCode),
       supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[

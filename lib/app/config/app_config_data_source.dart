@@ -17,6 +17,7 @@ const _themeAccentKey = 'app_config.theme_accent';
 const _skinIdKey = 'app_config.skin_id';
 const _customSkinKey = 'app_config.custom_skin';
 const _skinAnimationEnabledKey = 'app_config.skin_animation_enabled';
+const _showContentBackgroundKey = 'app_config.show_content_background';
 const _monochromeKey = 'app_config.monochrome';
 const _localeKey = 'app_config.locale';
 const _onlineAudioQualityPreferenceKey =
@@ -84,6 +85,9 @@ class AppConfigDataSource {
       enableSkinAnimation:
           prefs.getBool(_skinAnimationEnabledKey) ??
           AppConfigState.initial.enableSkinAnimation,
+      showContentBackground:
+          prefs.getBool(_showContentBackgroundKey) ??
+          AppConfigState.initial.showContentBackground,
       isMonochrome: prefs.getBool(_monochromeKey) ?? false,
       localeCode: _readLocaleCode(prefs.getString(_localeKey)),
       onlineAudioQualityPreference: AppOnlineAudioQuality.fromValue(
@@ -137,6 +141,7 @@ class AppConfigDataSource {
       await prefs.setString(_customSkinKey, customSkin.encode());
     }
     await prefs.setBool(_skinAnimationEnabledKey, state.enableSkinAnimation);
+    await prefs.setBool(_showContentBackgroundKey, state.showContentBackground);
     await prefs.setBool(_monochromeKey, state.isMonochrome);
     await prefs.setString(_localeKey, state.localeCode);
     await prefs.setString(

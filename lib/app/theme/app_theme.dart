@@ -15,11 +15,23 @@ abstract final class AppTheme {
         },
       );
 
-  static ThemeData light(AppSkinPackage skin) =>
-      _buildTheme(config: skin.light, icons: skin.icons);
+  static ThemeData light(
+    AppSkinPackage skin, {
+    bool showContentBackground = false,
+  }) => _buildTheme(
+    config: skin.light,
+    icons: skin.icons,
+    showContentBackground: showContentBackground,
+  );
 
-  static ThemeData dark(AppSkinPackage skin) =>
-      _buildTheme(config: skin.dark, icons: skin.icons);
+  static ThemeData dark(
+    AppSkinPackage skin, {
+    bool showContentBackground = false,
+  }) => _buildTheme(
+    config: skin.dark,
+    icons: skin.icons,
+    showContentBackground: showContentBackground,
+  );
 
   static SystemUiOverlayStyle systemOverlayStyleForBrightness(
     Brightness brightness,
@@ -36,6 +48,7 @@ abstract final class AppTheme {
   static ThemeData _buildTheme({
     required AppSkinBrightnessConfig config,
     required AppSkinIconCatalog icons,
+    required bool showContentBackground,
   }) {
     final brightness = config.colorScheme.brightness;
     final colorScheme = config.colorScheme;
@@ -88,7 +101,11 @@ abstract final class AppTheme {
           ? _immersivePageTransitionsTheme
           : const PageTransitionsTheme(),
       extensions: <ThemeExtension<dynamic>>[
-        AppSkinTheme(config: config, icons: icons),
+        AppSkinTheme(
+          config: config,
+          icons: icons,
+          showContentBackground: showContentBackground,
+        ),
       ],
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -104,7 +121,9 @@ abstract final class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
-        color: colors.cardBackground,
+        color: showContentBackground
+            ? colors.cardBackground
+            : colors.cardBackground.withValues(alpha: 0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(geometry.cardRadius),
         ),

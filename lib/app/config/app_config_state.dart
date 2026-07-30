@@ -16,6 +16,7 @@ class AppConfigState {
     required this.skinId,
     this.customSkinConfig,
     required this.enableSkinAnimation,
+    required this.showContentBackground,
     required this.isMonochrome,
     required this.localeCode,
     required this.onlineAudioQualityPreference,
@@ -43,6 +44,7 @@ class AppConfigState {
   final String skinId;
   final AppCustomSkinConfig? customSkinConfig;
   final bool enableSkinAnimation;
+  final bool showContentBackground;
   final bool isMonochrome;
   final String localeCode;
   final AppOnlineAudioQuality onlineAudioQualityPreference;
@@ -71,6 +73,7 @@ class AppConfigState {
     AppCustomSkinConfig? customSkinConfig,
     bool clearCustomSkinConfig = false,
     bool? enableSkinAnimation,
+    bool? showContentBackground,
     bool? isMonochrome,
     String? localeCode,
     AppOnlineAudioQuality? onlineAudioQualityPreference,
@@ -105,6 +108,8 @@ class AppConfigState {
           ? null
           : customSkinConfig ?? this.customSkinConfig,
       enableSkinAnimation: enableSkinAnimation ?? this.enableSkinAnimation,
+      showContentBackground:
+          showContentBackground ?? this.showContentBackground,
       isMonochrome: isMonochrome ?? this.isMonochrome,
       localeCode: localeCode ?? this.localeCode,
       onlineAudioQualityPreference:
@@ -150,6 +155,7 @@ class AppConfigState {
     themeAccent: AppThemeAccent.forest,
     skinId: 'classic',
     enableSkinAnimation: true,
+    showContentBackground: false,
     isMonochrome: false,
     localeCode: 'zh',
     onlineAudioQualityPreference: AppOnlineAudioQuality.auto,

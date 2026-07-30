@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/config/app_config_state.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
@@ -651,25 +652,27 @@ class _SongRowSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: const <Widget>[
-          SkeletonBox(width: 56, height: 56, radius: 16),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                SkeletonBox(width: double.infinity, height: 14, radius: 7),
-                SizedBox(height: 8),
-                SkeletonBox(width: 168, height: 12, radius: 6),
-              ],
+    return const AppSkinContentSurface(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: <Widget>[
+            SkeletonBox(width: 56, height: 56, radius: 16),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SkeletonBox(width: double.infinity, height: 14, radius: 7),
+                  SizedBox(height: 8),
+                  SkeletonBox(width: 168, height: 12, radius: 6),
+                ],
+              ),
             ),
-          ),
-          SizedBox(width: 12),
-          SkeletonBox(width: 18, height: 18, radius: 9),
-        ],
+            SizedBox(width: 12),
+            SkeletonBox(width: 18, height: 18, radius: 9),
+          ],
+        ),
       ),
     );
   }

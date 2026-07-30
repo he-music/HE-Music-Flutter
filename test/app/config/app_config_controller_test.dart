@@ -61,29 +61,26 @@ void main() {
     },
   );
 
-  test(
-    'controller normalizes an unknown skin and persists animation choice',
-    () async {
-      final dataSource = _RecordingAppConfigDataSource(AppConfigState.initial);
-      final container = ProviderContainer(
-        overrides: [appConfigDataSourceProvider.overrideWithValue(dataSource)],
-      );
-      addTearDown(container.dispose);
-      final controller = container.read(appConfigProvider.notifier);
-      await controller.waitUntilHydrated();
+  test('controller persists global skin display preferences', () async {
+    final dataSource = _RecordingAppConfigDataSource(AppConfigState.initial);
+    final container = ProviderContainer(
+      overrides: [appConfigDataSourceProvider.overrideWithValue(dataSource)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(appConfigProvider.notifier);
+    await controller.waitUntilHydrated();
 
-      controller.setSkinId('unknown');
-      controller.setEnableSkinAnimation(false);
-      await Future<void>.delayed(Duration.zero);
+    controller.setSkinId('unknown');
+    controller.setEnableSkinAnimation(false);
+    controller.setShowContentBackground(true);
+    await Future<void>.delayed(Duration.zero);
 
-      expect(
-        container.read(appConfigProvider).skinId,
-        AppSkinRegistry.classicId,
-      );
-      expect(container.read(appConfigProvider).enableSkinAnimation, isFalse);
-      expect(dataSource.saved.enableSkinAnimation, isFalse);
-    },
-  );
+    expect(container.read(appConfigProvider).skinId, AppSkinRegistry.classicId);
+    expect(container.read(appConfigProvider).enableSkinAnimation, isFalse);
+    expect(container.read(appConfigProvider).showContentBackground, isTrue);
+    expect(dataSource.saved.enableSkinAnimation, isFalse);
+    expect(dataSource.saved.showContentBackground, isTrue);
+  });
 
   test('controller normalizes and persists player style ids', () async {
     final dataSource = _RecordingAppConfigDataSource(AppConfigState.initial);

@@ -165,7 +165,7 @@ void main() {
     expect((decoratedBox.decoration as BoxDecoration).boxShadow, isEmpty);
   });
 
-  testWidgets('content surface is enabled only when wallpaper is visible', (
+  testWidgets('content surface follows preference for classic and immersive', (
     tester,
   ) async {
     final registry = AppSkinRegistry.builtIn(AppThemeAccent.forest);
@@ -184,6 +184,17 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.light(classic, showContentBackground: true),
+        home: const AppSkinContentSurface(
+          child: SizedBox(width: 100, height: 40),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AppSkinSurface), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
         theme: AppTheme.light(immersive),
         home: const AppSkinContentSurface(
           child: SizedBox(width: 100, height: 40),
@@ -192,24 +203,56 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byType(AppSkinSurface), findsOneWidget);
+    var decoration =
+        tester
+                .widget<DecoratedBox>(
+                  find.descendant(
+                    of: find.byType(AppSkinSurface),
+                    matching: find.byType(DecoratedBox),
+                  ),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(decoration.color?.a, 0);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(immersive, showContentBackground: true),
+        home: const AppSkinContentSurface(
+          child: SizedBox(width: 100, height: 40),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    decoration =
+        tester
+                .widget<DecoratedBox>(
+                  find.descendant(
+                    of: find.byType(AppSkinSurface),
+                    matching: find.byType(DecoratedBox),
+                  ),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(decoration.color?.a, 0.6);
     expect(find.byType(BackdropFilter), findsNothing);
   });
 
-  test(
-    'transparent scrolling surfaces delegate readability to the overlay',
-    () {
-      final skin = AppSkinRegistry.builtIn(
-        AppThemeAccent.forest,
-      ).resolve(AppSkinRegistry.citySoundCreatorId);
+  test('city skin owns enabled content surface styles', () {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.forest,
+    ).resolve(AppSkinRegistry.citySoundCreatorId);
 
-      for (final config in <AppSkinBrightnessConfig>[skin.light, skin.dark]) {
-        expect(config.surfaces.scrollingContentOpacity, 0);
-        expect(config.colors.cardBackground.a, 0);
-        expect(config.colors.backgroundOverlay, config.background.overlayColor);
-      }
+    for (final config in <AppSkinBrightnessConfig>[skin.light, skin.dark]) {
+      final expectedOpacity = config.colorScheme.brightness == Brightness.light
+          ? 0.6
+          : 0.62;
+      expect(config.surfaces.scrollingContentOpacity, expectedOpacity);
+      expect(config.colors.cardBackground.a, expectedOpacity);
+      expect(config.colors.backgroundOverlay, config.background.overlayColor);
+    }
 
-      expect(skin.light.background.overlayColor, const Color(0x7AFFFFFF));
-      expect(skin.dark.background.overlayColor, const Color(0x42111615));
-    },
-  );
+    expect(skin.light.background.overlayColor, const Color(0x7AFFFFFF));
+    expect(skin.dark.background.overlayColor, const Color(0x42111615));
+  });
 }

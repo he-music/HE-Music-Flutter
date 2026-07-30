@@ -99,6 +99,10 @@ class AppConfigController extends Notifier<AppConfigState> {
     _update(state.copyWith(enableSkinAnimation: value));
   }
 
+  void setShowContentBackground(bool value) {
+    _update(state.copyWith(showContentBackground: value));
+  }
+
   void toggleMonochrome() {
     _update(state.copyWith(isMonochrome: !state.isMonochrome));
   }
@@ -287,6 +291,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       customSkinConfig: customSkin,
       clearCustomSkinConfig: customSkin == null,
       enableSkinAnimation: loaded.enableSkinAnimation,
+      showContentBackground: loaded.showContentBackground,
       isMonochrome: loaded.isMonochrome,
       localeCode: loaded.localeCode,
       onlineAudioQualityPreference: loaded.onlineAudioQualityPreference,

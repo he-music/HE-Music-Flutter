@@ -67,6 +67,10 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
           );
         },
       ),
+      SettingsItemIds.contentBackground: SettingsItemPresentation(
+        subtitleBuilder: (config) =>
+            AppI18n.t(config, 'settings.skin.content_background.desc'),
+      ),
       SettingsItemIds.monochrome: SettingsItemPresentation(
         subtitleBuilder: (config) =>
             AppI18n.t(config, 'settings.monochrome.desc'),
@@ -161,6 +165,7 @@ AppSkinIconRole settingsItemIconRole(String itemId) {
     SettingsItemIds.themeAccent => AppSkinIconRole.settingsThemeAccent,
     SettingsItemIds.skin => AppSkinIconRole.settingsSkin,
     SettingsItemIds.skinAnimation => AppSkinIconRole.settingsSkinAnimation,
+    SettingsItemIds.contentBackground => AppSkinIconRole.settingsSkin,
     SettingsItemIds.monochrome => AppSkinIconRole.settingsMonochrome,
     SettingsItemIds.onlineAudioQuality => AppSkinIconRole.settingsAudioQuality,
     SettingsItemIds.lyricHighlightColor =>

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_theme_accent.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_discover_item.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_discover_section.dart';
@@ -12,6 +15,49 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/layout/adaptive_media_grid_spec.dart';
 
 void main() {
+  testWidgets('loading song rows use content surfaces', (tester) async {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.forest,
+    ).resolve(AppSkinRegistry.citySoundCreatorId);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(skin, showContentBackground: true),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DiscoverSections(
+              loadingText: 'loading',
+              emptyText: 'empty',
+              retryText: 'retry',
+              titleOf: (section) => section.titleKey,
+              sectionActionOf: (_) => null,
+              state: const HomeDiscoverState(
+                loading: true,
+                platforms: <HomePlatform>[],
+                selectedPlatformId: 'qq',
+                sections: <HomeDiscoverSection>[],
+              ),
+              onRetry: () {},
+              onTapSong: (songs, index) {},
+              onTapAlbum: (_) {},
+              onTapPlaylist: (_) {},
+              onTapVideo: (_) {},
+              onMoreSong: (_) {},
+              isSongLiked: (_) => false,
+              onLikeSong: (_) async {},
+              isCurrentSong: (_) => false,
+              config: AppConfigState.initial,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(AppSkinContentSurface), findsNWidgets(4));
+    expect(find.byType(AppSkinSurface), findsNWidgets(4));
+    expect(find.byType(BackdropFilter), findsNothing);
+  });
+
   testWidgets('new song and new album sections render more actions', (
     tester,
   ) async {

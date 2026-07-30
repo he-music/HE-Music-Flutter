@@ -25,6 +25,7 @@ void main() {
         themeAccent: AppThemeAccent.ocean,
         skinId: AppSkinRegistry.citySoundCreatorId,
         enableSkinAnimation: false,
+        showContentBackground: true,
         isMonochrome: true,
         localeCode: 'en',
         onlineAudioQualityPreference: AppOnlineAudioQuality.flac,
@@ -49,6 +50,7 @@ void main() {
     expect(state.themeAccent, AppThemeAccent.ocean);
     expect(state.skinId, AppSkinRegistry.citySoundCreatorId);
     expect(state.enableSkinAnimation, isFalse);
+    expect(state.showContentBackground, isTrue);
     expect(state.isMonochrome, isTrue);
     expect(state.localeCode, 'en');
     expect(state.onlineAudioQualityPreference, AppOnlineAudioQuality.flac);
@@ -112,6 +114,7 @@ void main() {
     expect(state.enableWordByWordLyric, isTrue);
     expect(state.skinId, AppSkinRegistry.classicId);
     expect(state.enableSkinAnimation, isTrue);
+    expect(state.showContentBackground, isFalse);
   });
 
   test('load should normalize and persist an unknown skin id', () async {

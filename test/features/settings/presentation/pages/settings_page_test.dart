@@ -16,6 +16,7 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_feature_state.dart';
 import 'package:he_music_flutter/features/online/presentation/controllers/online_controller.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/features/settings/domain/settings_catalog.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_page.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_item_presentation_registry.dart';
 import 'package:toastification/toastification.dart';
@@ -88,6 +89,10 @@ void main() {
       ),
       'Prefer the last manual selection, hires; otherwise use '
       '320mp3 > hires > flac > 128mp3',
+    );
+    expect(
+      settingsItemSubtitle(SettingsItemIds.contentBackground, config),
+      'Show translucent backgrounds for cards and list items',
     );
   });
 
@@ -172,8 +177,43 @@ void main() {
     expect(find.text('主题色'), findsOneWidget);
     expect(find.text('皮肤'), findsOneWidget);
     expect(find.text('皮肤动画'), findsOneWidget);
+    expect(find.text('显示内容背景'), findsOneWidget);
     expect(find.text('黑白模式'), findsOneWidget);
     expect(find.text('播放器背景样式'), findsNothing);
+  });
+
+  testWidgets('content background switch defaults off and updates config', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp(container: container));
+    await tester.pump();
+    await tester.tap(find.text('外观'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(appConfigProvider).showContentBackground, isFalse);
+    await tester.tap(find.text('显示内容背景'));
+    await tester.pump();
+    expect(container.read(appConfigProvider).showContentBackground, isTrue);
+  });
+
+  testWidgets('content background setting is searchable', (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp());
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('settings-search-field')),
+      '卡片背景',
+    );
+    await tester.pump();
+
+    expect(find.text('外观 / 显示内容背景'), findsOneWidget);
   });
 
   testWidgets(

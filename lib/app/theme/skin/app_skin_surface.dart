@@ -53,7 +53,9 @@ class AppSkinSurface extends StatelessWidget {
       AppSkinSurfaceRole.miniPlayer => config.surfaces.miniPlayerOpacity,
       AppSkinSurfaceRole.navigation => config.surfaces.navigationOpacity,
       AppSkinSurfaceRole.scrollingContent =>
-        config.surfaces.scrollingContentOpacity,
+        skinTheme.showContentBackground
+            ? config.surfaces.scrollingContentOpacity
+            : 0,
       AppSkinSurfaceRole.bottomSheet => config.surfaces.bottomSheetOpacity,
     };
     final blurSigma = switch (role) {
@@ -100,7 +102,7 @@ class AppSkinSurface extends StatelessWidget {
   }
 }
 
-/// 仅在透明页面露出全局壁纸时，为滚动内容提供稳定的可读性表面。
+/// 为共享滚动内容应用当前皮肤定义的可选内容表面。
 class AppSkinContentSurface extends StatelessWidget {
   const AppSkinContentSurface({required this.child, this.padding, super.key});
 
@@ -111,7 +113,8 @@ class AppSkinContentSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final skinTheme = Theme.of(context).extension<AppSkinTheme>();
     if (skinTheme == null ||
-        skinTheme.config.colors.scaffoldBackground.a != 0) {
+        (!skinTheme.showContentBackground &&
+            skinTheme.config.colors.scaffoldBackground.a != 0)) {
       return child;
     }
     return AppSkinSurface(

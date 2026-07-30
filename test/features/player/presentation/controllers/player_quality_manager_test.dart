@@ -22,6 +22,7 @@ AppConfigState _config({
     themeAccent: AppThemeAccent.cobalt,
     skinId: 'classic',
     enableSkinAnimation: true,
+    showContentBackground: false,
     isMonochrome: false,
     localeCode: 'zh',
     onlineAudioQualityPreference: preference,

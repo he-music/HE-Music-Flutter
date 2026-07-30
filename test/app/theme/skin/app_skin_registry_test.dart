@@ -87,10 +87,10 @@ void main() {
     expect(custom.icons, classicSkinForAccent(AppThemeAccent.graphite).icons);
     expect(custom.light.colorScheme.brightness, Brightness.light);
     expect(custom.dark.colorScheme.brightness, Brightness.dark);
-    expect(custom.light.surfaces.scrollingContentOpacity, 0);
-    expect(custom.dark.surfaces.scrollingContentOpacity, 0);
-    expect(custom.light.colors.cardBackground.a, 0);
-    expect(custom.dark.colors.cardBackground.a, 0);
+    expect(custom.light.surfaces.scrollingContentOpacity, 0.6);
+    expect(custom.dark.surfaces.scrollingContentOpacity, 0.62);
+    expect(custom.light.colors.cardBackground.a, 0.6);
+    expect(custom.dark.colors.cardBackground.a, 0.62);
   });
 
   test('starlit evaluation skin customizes light and dark appearance', () {
@@ -121,8 +121,8 @@ void main() {
     expect(skin.light.colorScheme.tertiary, const Color(0xFF735C00));
     expect(skin.light.colorScheme.onSurface, const Color(0xFF17202A));
     expect(skin.light.colorScheme.onSurfaceVariant, const Color(0xFF46515C));
-    expect(skin.light.surfaces.scrollingContentOpacity, 0);
-    expect(skin.light.colors.cardBackground.a, 0);
+    expect(skin.light.surfaces.scrollingContentOpacity, 0.6);
+    expect(skin.light.colors.cardBackground.a, 0.6);
     expect(
       skin.dark.background.wallpaper.descriptor?.path,
       'assets/skins/starlit_melody/wallpaper_dark_evaluation.png',
@@ -147,8 +147,8 @@ void main() {
     expect(skin.dark.surfaces.searchOpacity, 0.76);
     expect(skin.dark.surfaces.miniPlayerOpacity, 0.78);
     expect(skin.dark.surfaces.navigationOpacity, 0.82);
-    expect(skin.dark.surfaces.scrollingContentOpacity, 0);
-    expect(skin.dark.colors.cardBackground.a, 0);
+    expect(skin.dark.surfaces.scrollingContentOpacity, 0.62);
+    expect(skin.dark.colors.cardBackground.a, 0.62);
     expect(
       skin.dark.colors.backgroundOverlay,
       skin.dark.background.overlayColor,

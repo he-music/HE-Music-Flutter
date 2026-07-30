@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_theme_accent.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_comprehensive_result.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_bars.dart';
@@ -57,6 +61,25 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('comprehensive skeleton rows use content surfaces', (
+    tester,
+  ) async {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.forest,
+    ).resolve(AppSkinRegistry.citySoundCreatorId);
+
+    await tester.pumpWidget(
+      _buildApp(
+        theme: AppTheme.light(skin, showContentBackground: true),
+        child: const OnlineSearchComprehensiveSkeleton(),
+      ),
+    );
+
+    expect(find.byType(AppSkinContentSurface), findsNWidgets(6));
+    expect(find.byType(AppSkinSurface), findsNWidgets(6));
+    expect(find.byType(BackdropFilter), findsNothing);
+  });
 
   testWidgets('platform refresh keeps the loaded platform tabs visible', (
     tester,
@@ -379,14 +402,17 @@ const _searchSongWithLyricSnippet = SearchSongInfo(
   matchedKeywords: <String>['Love'],
 );
 
-Widget _buildApp({required Widget child}) {
+Widget _buildApp({required Widget child, ThemeData? theme}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
     ],
-    child: MaterialApp(home: Scaffold(body: child)),
+    child: MaterialApp(
+      theme: theme,
+      home: Scaffold(body: child),
+    ),
   );
 }
 

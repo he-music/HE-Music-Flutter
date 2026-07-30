@@ -30,6 +30,7 @@ abstract final class SettingsItemIds {
   static const themeAccent = 'theme-accent';
   static const skin = 'skin';
   static const skinAnimation = 'skin-animation';
+  static const contentBackground = 'content-background';
   static const monochrome = 'monochrome';
   static const onlineAudioQuality = 'online-audio-quality';
   static const lyricHighlightColor = 'lyric-highlight-color';
@@ -175,6 +176,15 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.toggle,
     icon: Icons.animation_rounded,
     keywords: <String>['皮肤', '动画', '动态', 'animation'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.contentBackground,
+    sectionId: SettingsSectionIds.appearance,
+    groupId: SettingsGroupIds.appearanceTheme,
+    titleKey: 'settings.skin.content_background',
+    kind: SettingsItemKind.toggle,
+    icon: Icons.layers_outlined,
+    keywords: <String>['内容背景', '卡片背景', '列表背景', 'item', 'surface'],
   ),
   SettingsItemNode(
     id: SettingsItemIds.monochrome,
