@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_player_style_models.dart';
+import 'classic_player_style.dart';
 
 const AppPlayerStylePackage cassettePlayerStyle = AppPlayerStylePackage(
   metadata: AppPlayerStyleMetadata(
@@ -11,8 +12,8 @@ const AppPlayerStylePackage cassettePlayerStyle = AppPlayerStylePackage(
   ),
   stageKind: AppPlayerStageKind.cassette,
   colors: AppPlayerStyleColors(
-    backgroundStart: Color(0xFF253D3B),
-    backgroundEnd: Color(0xFF0B1212),
+    backgroundStart: classicPlayerBackgroundStart,
+    backgroundEnd: classicPlayerBackgroundEnd,
     foreground: Color(0xFFF5F1E8),
     secondaryForeground: Color(0xBFD8D6CC),
     accent: Color(0xFFE9C75C),

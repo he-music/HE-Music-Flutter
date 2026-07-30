@@ -12,6 +12,8 @@ import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/router/app_route_observers.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
+import 'package:he_music_flutter/core/audio/audio_spectrum_frame.dart';
+import 'package:he_music_flutter/core/audio/audio_spectrum_port.dart';
 import 'package:he_music_flutter/core/device/screen_wake_lock.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -20,6 +22,8 @@ import 'package:he_music_flutter/features/player/domain/entities/player_playback
 import 'package:he_music_flutter/features/player/domain/entities/player_quality_option.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/controllers/realtime_spectrum_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_audio_provider.dart';
 import 'package:he_music_flutter/features/player/presentation/pages/player_page.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/artist_photo_provider.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
@@ -217,6 +221,141 @@ void main() {
     await tester.pump();
 
     expect(wakeLock.calls, <bool>[true, false, true]);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('环形频谱按竖屏歌词页、横屏和生命周期启停捕获', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final spectrum = _RecordingRealtimeSpectrumController();
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _SpectrumPlayerController.new,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.radialSpectrumId,
+        ),
+        spectrumController: spectrum,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true]);
+
+    final pager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('player-mobile-pager')),
+    );
+    pager.controller!.jumpToPage(1);
+    await tester.pumpAndSettle();
+    expect(spectrum.visibility, <bool>[true, false]);
+
+    await tester.binding.setSurfaceSize(const Size(932, 430));
+    await tester.pump();
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true, false, true]);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true, false, true, false]);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true, false, true, false, true]);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('环形频谱在 PopupRoute 保持捕获，PageRoute 覆盖时停止并在返回后恢复', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final spectrum = _RecordingRealtimeSpectrumController();
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _SpectrumPlayerController.new,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.radialSpectrumId,
+        ),
+        spectrumController: spectrum,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true]);
+
+    final playerContext = tester.element(find.byType(PlayerPage));
+    showDialog<void>(
+      context: playerContext,
+      builder: (context) =>
+          const AlertDialog(key: ValueKey<String>('spectrum-test-dialog')),
+    );
+    await tester.pumpAndSettle();
+    expect(spectrum.visibility, <bool>[true]);
+
+    Navigator.of(
+      tester.element(
+        find.byKey(const ValueKey<String>('spectrum-test-dialog')),
+      ),
+    ).pop();
+    await tester.pumpAndSettle();
+
+    final navigator = Navigator.of(tester.element(find.byType(PlayerPage)));
+    navigator.push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            const Scaffold(key: ValueKey<String>('spectrum-covering-page')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(spectrum.visibility, <bool>[true, false]);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(spectrum.visibility, <bool>[true, false, true]);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true, false, true, false]);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('从环形频谱切回普通样式时停止捕获', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final spectrum = _RecordingRealtimeSpectrumController();
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _SpectrumPlayerController.new,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.radialSpectrumId,
+        ),
+        spectrumController: spectrum,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true]);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(PlayerPage)),
+    );
+    container
+        .read(appConfigProvider.notifier)
+        .setPlayerStyleId(AppPlayerStyleRegistry.classicId);
+    await tester.pump();
+    await tester.pump();
+
+    expect(spectrum.visibility, <bool>[true, false]);
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -1730,6 +1869,8 @@ Widget _buildPlayerTestApp({
   BigInt? featureSupportFlag,
   AppConfigState? config,
   ScreenWakeLockPort? screenWakeLockPort,
+  AudioSpectrumPort? spectrumPort,
+  RealtimeSpectrumController? spectrumController,
 }) {
   return ProviderScope(
     overrides: [
@@ -1741,6 +1882,13 @@ Widget _buildPlayerTestApp({
       playerControllerProvider.overrideWith(controllerFactory),
       if (screenWakeLockPort != null)
         screenWakeLockPortProvider.overrideWithValue(screenWakeLockPort),
+      audioSpectrumPortProvider.overrideWithValue(
+        spectrumPort ?? const _NoopSpectrumPort(),
+      ),
+      if (spectrumController != null)
+        realtimeSpectrumControllerProvider.overrideWith(
+          () => spectrumController,
+        ),
       artistPhotoCacheProvider.overrideWith(_EmptyArtistPhotoCache.new),
       onlinePlatformsProvider.overrideWith(
         () => _TestOnlinePlatformsController(
@@ -1854,6 +2002,44 @@ class _WakeLockPlayerController extends _OnlineTrackPlayerController {
   void setPlaybackSessionActive(bool active) {
     state = state.copyWith(isPlaybackSessionActive: active);
   }
+}
+
+class _SpectrumPlayerController extends _OnlineTrackPlayerController {
+  @override
+  PlayerPlaybackState build() {
+    return super.build().copyWith(isPlaying: true);
+  }
+}
+
+class _RecordingRealtimeSpectrumController extends RealtimeSpectrumController {
+  final List<bool> visibility = <bool>[];
+  bool? _lastVisible;
+
+  @override
+  RealtimeSpectrumState build() => RealtimeSpectrumState.initial();
+
+  @override
+  void setConsumerVisible(bool visible) {
+    if (_lastVisible == visible) {
+      return;
+    }
+    _lastVisible = visible;
+    visibility.add(visible);
+  }
+}
+
+class _NoopSpectrumPort implements AudioSpectrumPort {
+  const _NoopSpectrumPort();
+
+  @override
+  Stream<AudioSpectrumFrame> get spectrumFrameStream =>
+      const Stream<AudioSpectrumFrame>.empty();
+
+  @override
+  Future<void> startSpectrumCapture() async {}
+
+  @override
+  Future<void> stopSpectrumCapture() async {}
 }
 
 class _RecordingScreenWakeLockPort implements ScreenWakeLockPort {

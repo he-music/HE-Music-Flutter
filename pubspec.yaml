@@ -39,7 +39,11 @@ dependencies:
   dio: ^5.9.0
   retrofit: ^4.9.0
   json_annotation: ^4.9.0
-  just_audio: ^0.10.5
+  just_audio:
+    git:
+      url: https://github.com/ryanheise/just_audio.git
+      ref: fcba2a37d63bd1bf0a933621d60f8e870310aa67
+      path: just_audio
   cached_network_image: ^3.4.1
   material_color_utilities: ^0.13.0
   path_provider: ^2.1.5
@@ -83,6 +87,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
 
   flutter_lints: ^6.0.0
   path_provider_platform_interface: ^2.1.2
@@ -115,6 +121,7 @@ flutter:
     - assets/player_styles/vinyl/preview.png
     - assets/player_styles/cassette/preview.png
     - assets/player_styles/artist_photo/preview.png
+    - assets/player_styles/radial_spectrum/preview.png
     - assets/skins/classic/preview_light.png
     - assets/skins/classic/preview_dark.png
     - assets/skins/city_sound_creator/wallpaper_light.png

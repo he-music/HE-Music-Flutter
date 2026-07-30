@@ -31,6 +31,8 @@ import '../network/auth_token_interceptor.dart';
 import '../network/token_refresh_interceptor.dart';
 import 'audio_player_port.dart';
 import 'audio_player_factory.dart';
+import 'audio_spectrum_frame.dart';
+import 'audio_spectrum_projector.dart';
 import 'audio_track.dart';
 import 'local_audio_metadata_reader.dart';
 
@@ -78,6 +80,12 @@ typedef HeAudioHandlerSetAudioSource =
     Future<Duration?> Function(AudioSource source, AudioPlayer player);
 typedef HeAudioHandlerPlay = Future<void> Function(AudioPlayer player);
 typedef HeAudioHandlerDispose = Future<void> Function(AudioPlayer player);
+typedef HeAudioHandlerStartVisualizer =
+    Future<void> Function(AudioPlayer player);
+typedef HeAudioHandlerStopVisualizer =
+    Future<void> Function(AudioPlayer player);
+typedef HeAudioHandlerVisualizerFftStream =
+    Stream<VisualizerFftCapture> Function(AudioPlayer player);
 typedef HeAudioHandlerNow = DateTime Function();
 typedef HeAudioHandlerLog = void Function(String message);
 
@@ -137,6 +145,7 @@ bool shouldRefreshRemotePlaybackUrl(AudioTrack track) {
 class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   static const Duration _overlayPositionPeriod = Duration(milliseconds: 33);
   static const Duration _positionStreamPeriod = Duration(milliseconds: 33);
+  static const Duration _spectrumProjectionPeriod = Duration(milliseconds: 33);
 
   HeAudioHandler({
     AudioPlayer? player,
@@ -146,6 +155,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     HeAudioHandlerSetAudioSource? setAudioSourceOverride,
     HeAudioHandlerPlay? playOverride,
     HeAudioHandlerDispose? disposeOverride,
+    HeAudioHandlerStartVisualizer? startVisualizerOverride,
+    HeAudioHandlerStopVisualizer? stopVisualizerOverride,
+    HeAudioHandlerVisualizerFftStream? visualizerFftStreamOverride,
     HeAudioHandlerNow? nowOverride,
     HeAudioHandlerLog? logOverride,
     Random? randomOverride,
@@ -157,6 +169,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
        _setAudioSourceOverride = setAudioSourceOverride,
        _playOverride = playOverride,
        _disposeOverride = disposeOverride,
+       _startVisualizerOverride = startVisualizerOverride,
+       _stopVisualizerOverride = stopVisualizerOverride,
+       _visualizerFftStreamOverride = visualizerFftStreamOverride,
        _now = nowOverride ?? DateTime.now,
        _logOverride = logOverride,
        _random = randomOverride ?? Random(),
@@ -213,11 +228,27 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final HeAudioHandlerSetAudioSource? _setAudioSourceOverride;
   final HeAudioHandlerPlay? _playOverride;
   final HeAudioHandlerDispose? _disposeOverride;
+  final HeAudioHandlerStartVisualizer? _startVisualizerOverride;
+  final HeAudioHandlerStopVisualizer? _stopVisualizerOverride;
+  final HeAudioHandlerVisualizerFftStream? _visualizerFftStreamOverride;
   final HeAudioHandlerNow _now;
   final HeAudioHandlerLog? _logOverride;
   final OverlayChannelService _overlayLyricsService;
   final Random _random;
   late final AppLifecycleListener _appLifecycleListener;
+  final StreamController<AudioSpectrumFrame> _spectrumFrameController =
+      StreamController<AudioSpectrumFrame>.broadcast();
+  final AudioSpectrumProjector _spectrumProjector =
+      const AudioSpectrumProjector();
+
+  StreamSubscription<VisualizerFftCapture>? _visualizerFftSubscription;
+  Timer? _spectrumProjectionTimer;
+  VisualizerFftCapture? _latestVisualizerFftCapture;
+  int? _latestVisualizerSourceGeneration;
+  Future<void>? _spectrumCaptureConvergence;
+  bool _spectrumCaptureTarget = false;
+  bool _spectrumCaptureRunning = false;
+  bool _spectrumDisposed = false;
 
   List<AudioTrack> _tracks = const <AudioTrack>[];
   final Map<String, _ResolvedPlaybackUrl> _resolvedPlaybackUrls =
@@ -521,6 +552,154 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     maxPeriod: _positionStreamPeriod,
   );
 
+  Stream<AudioSpectrumFrame> get spectrumFrameStream =>
+      _spectrumFrameController.stream;
+
+  Future<void> startSpectrumCapture() => _setSpectrumCaptureTarget(true);
+
+  Future<void> stopSpectrumCapture() => _setSpectrumCaptureTarget(false);
+
+  Future<void> _setSpectrumCaptureTarget(bool target) {
+    if (target && _spectrumDisposed) {
+      return Future<void>.error(StateError('HeAudioHandler 已释放，无法启动频谱捕获。'));
+    }
+    _spectrumCaptureTarget = target;
+    return _ensureSpectrumCaptureConvergence();
+  }
+
+  Future<void> _ensureSpectrumCaptureConvergence() {
+    final activeConvergence = _spectrumCaptureConvergence;
+    if (activeConvergence != null) {
+      // 平台调用刚完成时目标仍可能变化；旧 Future 完成后必须再次核对最终目标。
+      return activeConvergence.then((_) => _ensureSpectrumCaptureConvergence());
+    }
+    if (_spectrumCaptureRunning == _spectrumCaptureTarget) {
+      return Future<void>.value();
+    }
+
+    late final Future<void> trackedConvergence;
+    trackedConvergence = _convergeSpectrumCapture().whenComplete(() {
+      if (identical(_spectrumCaptureConvergence, trackedConvergence)) {
+        _spectrumCaptureConvergence = null;
+      }
+    });
+    _spectrumCaptureConvergence = trackedConvergence;
+    return trackedConvergence;
+  }
+
+  Future<void> _convergeSpectrumCapture() async {
+    while (_spectrumCaptureRunning != _spectrumCaptureTarget) {
+      if (_spectrumCaptureTarget) {
+        await _startSpectrumCaptureInternal();
+      } else {
+        await _stopSpectrumCaptureInternal();
+      }
+    }
+  }
+
+  Future<void> _startSpectrumCaptureInternal() async {
+    final captureGeneration = _sourceGeneration;
+    final fftStream =
+        _visualizerFftStreamOverride?.call(_player) ??
+        _player.visualizerFftStream;
+    _visualizerFftSubscription = fftStream.listen(
+      (capture) => _acceptVisualizerFftCapture(capture, captureGeneration),
+      onError: (Object error, StackTrace stackTrace) {
+        _logSpectrumFailure('spectrum.stream.error', error);
+      },
+    );
+
+    try {
+      final override = _startVisualizerOverride;
+      if (override != null) {
+        await override(_player);
+      } else {
+        await _player.startVisualizer(
+          enableWaveform: false,
+          enableFft: true,
+          captureRate: 30000,
+          captureSize: 1024,
+        );
+      }
+    } catch (error) {
+      _spectrumCaptureTarget = false;
+      await _clearSpectrumCaptureResources();
+      _logSpectrumFailure('spectrum.start.failed', error);
+      rethrow;
+    }
+
+    _spectrumCaptureRunning = true;
+    _spectrumProjectionTimer = Timer.periodic(
+      _spectrumProjectionPeriod,
+      (_) => _projectLatestSpectrumFrame(),
+    );
+  }
+
+  Future<void> _stopSpectrumCaptureInternal() async {
+    _spectrumCaptureRunning = false;
+    await _clearSpectrumCaptureResources();
+    try {
+      final override = _stopVisualizerOverride;
+      if (override != null) {
+        await override(_player);
+      } else {
+        await _player.stopVisualizer();
+      }
+    } catch (error) {
+      _logSpectrumFailure('spectrum.stop.failed', error);
+      rethrow;
+    }
+  }
+
+  void _acceptVisualizerFftCapture(
+    VisualizerFftCapture capture,
+    int captureGeneration,
+  ) {
+    if (_spectrumDisposed ||
+        !_spectrumCaptureTarget ||
+        captureGeneration != _sourceGeneration) {
+      return;
+    }
+    _latestVisualizerFftCapture = capture;
+    _latestVisualizerSourceGeneration = captureGeneration;
+  }
+
+  void _projectLatestSpectrumFrame() {
+    final capture = _latestVisualizerFftCapture;
+    final generation = _latestVisualizerSourceGeneration;
+    _latestVisualizerFftCapture = null;
+    _latestVisualizerSourceGeneration = null;
+    if (!_spectrumCaptureRunning ||
+        capture == null ||
+        generation != _sourceGeneration) {
+      return;
+    }
+
+    try {
+      final frame = _spectrumProjector.project(
+        binCount: capture.length,
+        magnitudeAt: capture.getMagnitude,
+      );
+      if (_spectrumCaptureRunning &&
+          generation == _sourceGeneration &&
+          !_spectrumFrameController.isClosed) {
+        _spectrumFrameController.add(frame);
+      }
+    } catch (error) {
+      _logSpectrumFailure('spectrum.project.failed', error);
+    }
+  }
+
+  Future<void> _clearSpectrumCaptureResources() async {
+    _spectrumProjectionTimer?.cancel();
+    _spectrumProjectionTimer = null;
+    _latestVisualizerFftCapture = null;
+    _latestVisualizerSourceGeneration = null;
+    final subscription = _visualizerFftSubscription;
+    _visualizerFftSubscription = null;
+    await subscription?.cancel();
+  }
+
   @override
   Future<void> play() async {
     _requestPlay(_transitionId);
@@ -749,6 +928,15 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<void> disposeHandler() async {
     _beginTransition();
     _appLifecycleListener.dispose();
+    _spectrumDisposed = true;
+    _spectrumCaptureTarget = false;
+    try {
+      await _setSpectrumCaptureTarget(false);
+    } catch (_) {
+      // 停止失败已记录；仍需继续释放播放器及本地流资源。
+    }
+    await _clearSpectrumCaptureResources();
+    await _spectrumFrameController.close();
     final override = _disposeOverride;
     if (override != null) {
       await override(_player);
@@ -787,6 +975,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       for (var attempt = 1; attempt <= _setSourceMaxAttempts; attempt += 1) {
         try {
           final generation = ++_sourceGeneration;
+          _latestVisualizerFftCapture = null;
+          _latestVisualizerSourceGeneration = null;
           _logTransition(
             'load.source.start',
             transitionId,
@@ -1484,6 +1674,16 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         'sourceGeneration=${generation ?? _sourceGeneration} '
         'track=${track == null ? '-' : _trackCacheKey(track)} '
         'failure=${failureCategory?.name ?? '-'}';
+    final override = _logOverride;
+    if (override != null) {
+      override(message);
+      return;
+    }
+    developer.log(message, name: 'HeAudioHandler');
+  }
+
+  void _logSpectrumFailure(String event, Object error) {
+    final message = '$event failure=${error.runtimeType}';
     final override = _logOverride;
     if (override != null) {
       override(message);

@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-enum AppPlayerStageKind { classic, fluid, vinyl, cassette, artistPhoto }
+enum AppPlayerStageKind {
+  classic,
+  fluid,
+  vinyl,
+  cassette,
+  artistPhoto,
+  radialSpectrum,
+}
 
 @immutable
 class AppPlayerStyleMetadata {
@@ -112,6 +119,7 @@ class AppPlayerStylePackage {
     required this.colors,
     required this.geometry,
     required this.systemOverlayStyle,
+    this.usesRealtimeSpectrum = false,
   });
 
   final AppPlayerStyleMetadata metadata;
@@ -119,6 +127,7 @@ class AppPlayerStylePackage {
   final AppPlayerStyleColors colors;
   final AppPlayerStyleGeometry geometry;
   final SystemUiOverlayStyle systemOverlayStyle;
+  final bool usesRealtimeSpectrum;
 
   bool get isValid => metadata.isValid && geometry.isValid;
 }

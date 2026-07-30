@@ -1,10 +1,12 @@
 import '../../app/config/app_config_state.dart';
 import '../../features/online/domain/entities/online_platform.dart';
 import 'audio_player_port.dart';
+import 'audio_spectrum_frame.dart';
+import 'audio_spectrum_port.dart';
 import 'audio_track.dart';
 import 'he_audio_handler.dart';
 
-class AudioHandlerPlayerAdapter implements AudioPlayerPort {
+class AudioHandlerPlayerAdapter implements AudioPlayerPort, AudioSpectrumPort {
   AudioHandlerPlayerAdapter(this._handler);
 
   final HeAudioHandler _handler;
@@ -62,6 +64,16 @@ class AudioHandlerPlayerAdapter implements AudioPlayerPort {
 
   @override
   Stream<dynamic> get customEventStream => _handler.customEvent;
+
+  @override
+  Stream<AudioSpectrumFrame> get spectrumFrameStream =>
+      _handler.spectrumFrameStream;
+
+  @override
+  Future<void> startSpectrumCapture() => _handler.startSpectrumCapture();
+
+  @override
+  Future<void> stopSpectrumCapture() => _handler.stopSpectrumCapture();
 
   @override
   Future<CurrentLyricStateSnapshot> getCurrentLyricState() {

@@ -6,6 +6,7 @@ import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../domain/entities/player_track.dart';
 import '../widgets/player_cover_hero.dart';
 import 'cassette_player_stage.dart';
+import 'radial_spectrum_player_stage.dart';
 import 'vinyl_player_stage.dart';
 
 class PlayerStyleStage extends StatelessWidget {
@@ -41,15 +42,18 @@ class PlayerStyleStage extends StatelessWidget {
             key: ValueKey<String>('player-stage-${stageKind.name}'),
             width: width,
             height: height,
-            child: stageKind == AppPlayerStageKind.vinyl
-                ? VinylPlayerStage(track: track)
-                : isCassette
-                ? CassettePlayerStage(track: track)
-                : PlayerCoverHero(
-                    artworkUrl: track?.artworkUrl,
-                    artworkBytes: track?.artworkBytes,
-                    size: width,
-                  ),
+            child: switch (stageKind) {
+              AppPlayerStageKind.vinyl => VinylPlayerStage(track: track),
+              AppPlayerStageKind.cassette => CassettePlayerStage(track: track),
+              AppPlayerStageKind.radialSpectrum => RadialSpectrumPlayerStage(
+                track: track,
+              ),
+              _ => PlayerCoverHero(
+                artworkUrl: track?.artworkUrl,
+                artworkBytes: track?.artworkBytes,
+                size: width,
+              ),
+            },
           ),
         );
       },

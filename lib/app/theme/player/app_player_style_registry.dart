@@ -3,6 +3,7 @@ import 'styles/artist_photo_player_style.dart';
 import 'styles/cassette_player_style.dart';
 import 'styles/classic_player_style.dart';
 import 'styles/fluid_player_style.dart';
+import 'styles/radial_spectrum_player_style.dart';
 import 'styles/vinyl_player_style.dart';
 
 class AppPlayerStyleRegistry {
@@ -16,6 +17,7 @@ class AppPlayerStyleRegistry {
       vinylPlayerStyle,
       cassettePlayerStyle,
       artistPhotoPlayerStyle,
+      radialSpectrumPlayerStyle,
     ]);
   }
 
@@ -24,12 +26,14 @@ class AppPlayerStyleRegistry {
   static const String vinylId = 'vinyl';
   static const String cassetteId = 'cassette';
   static const String artistPhotoId = 'artist_photo';
+  static const String radialSpectrumId = 'radial_spectrum';
   static const Set<String> builtInIds = <String>{
     classicId,
     fluidId,
     vinylId,
     cassetteId,
     artistPhotoId,
+    radialSpectrumId,
   };
 
   static final AppPlayerStyleRegistry instance =

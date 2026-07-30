@@ -502,6 +502,17 @@ abstract final class AppI18n {
       'player.style.vinyl': '黑胶',
       'player.style.cassette': '磁带',
       'player.style.artist_photo': '歌手写真',
+      'player.style.radial_spectrum': '环形频谱',
+      'player.spectrum.permission.title': '允许显示实时频谱',
+      'player.spectrum.permission.message':
+          'Android 要求授予麦克风权限才能分析当前播放器的音频。HE Music 不会录音，也不会保存或上传音频数据。',
+      'player.spectrum.permission.continue': '继续授权',
+      'player.spectrum.permission.denied': '未获得权限，播放器样式没有改变。',
+      'player.spectrum.permission.failed': '无法检查频谱权限，请稍后重试。',
+      'player.spectrum.permission.settings_title': '需要在系统设置中授权',
+      'player.spectrum.permission.settings_message':
+          '麦克风权限已被永久拒绝。请在系统设置中允许后，再次选择环形频谱。',
+      'player.spectrum.permission.open_settings': '打开设置',
       'player.action.search_same': '同名搜索',
       'player.action.quality': '音质',
       'player.action.view_album': '查看专辑',
@@ -1284,6 +1295,19 @@ abstract final class AppI18n {
       'player.style.vinyl': 'Vinyl',
       'player.style.cassette': 'Cassette',
       'player.style.artist_photo': 'Artist Photo',
+      'player.style.radial_spectrum': 'Radial Spectrum',
+      'player.spectrum.permission.title': 'Allow Real-time Spectrum',
+      'player.spectrum.permission.message':
+          'Android requires microphone permission to analyze audio from the current player. HE Music does not record, save, or upload audio data.',
+      'player.spectrum.permission.continue': 'Continue',
+      'player.spectrum.permission.denied':
+          'Permission was not granted. The player style was not changed.',
+      'player.spectrum.permission.failed':
+          'Unable to check spectrum permission. Try again later.',
+      'player.spectrum.permission.settings_title': 'Allow Access in Settings',
+      'player.spectrum.permission.settings_message':
+          'Microphone permission is permanently denied. Allow it in system settings, then select Radial Spectrum again.',
+      'player.spectrum.permission.open_settings': 'Open Settings',
       'player.action.search_same': 'Search Same Name',
       'player.action.quality': 'Quality',
       'player.action.view_album': 'View Album',

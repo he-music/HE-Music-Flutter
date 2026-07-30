@@ -230,26 +230,29 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
         : 0;
     return switch (widget.stageKind) {
       AppPlayerStageKind.classic => _ClassicGradientBackdrop(
+        backdropKey: 'player-backdrop-classic',
         imageProvider: widget.imageProvider,
       ),
       AppPlayerStageKind.fluid => FluidPlayerBackdrop(
         imageProvider: widget.imageProvider,
       ),
-      AppPlayerStageKind.vinyl => const _FixedStageBackdrop(
-        key: ValueKey<String>('player-backdrop-vinyl'),
-        start: Color(0xFF302629),
-        end: Color(0xFF090809),
+      AppPlayerStageKind.vinyl => _ClassicGradientBackdrop(
+        backdropKey: 'player-backdrop-vinyl',
+        imageProvider: widget.imageProvider,
       ),
-      AppPlayerStageKind.cassette => const _FixedStageBackdrop(
-        key: ValueKey<String>('player-backdrop-cassette'),
-        start: Color(0xFF253D3B),
-        end: Color(0xFF0B1212),
+      AppPlayerStageKind.cassette => _ClassicGradientBackdrop(
+        backdropKey: 'player-backdrop-cassette',
+        imageProvider: widget.imageProvider,
       ),
       AppPlayerStageKind.artistPhoto => _ArtistPhotoBackdrop(
         visualState: _artistPhotoState,
         imageProvider: _resolveArtistPhotoImageProvider(photoIndex),
         imageKey: _resolveArtistPhotoImageKey(photoIndex),
         onImageError: _resolveArtistPhotoImageError(photoIndex),
+      ),
+      AppPlayerStageKind.radialSpectrum => _ClassicGradientBackdrop(
+        backdropKey: 'player-backdrop-radial-spectrum',
+        imageProvider: widget.imageProvider,
       ),
     };
   }
@@ -372,30 +375,6 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   }
 }
 
-class _FixedStageBackdrop extends StatelessWidget {
-  const _FixedStageBackdrop({
-    required this.start,
-    required this.end,
-    super.key,
-  });
-
-  final Color start;
-  final Color end;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[start, end],
-        ),
-      ),
-    );
-  }
-}
-
 class _ArtistPhotoBackdrop extends StatelessWidget {
   const _ArtistPhotoBackdrop({
     required this.visualState,
@@ -483,8 +462,12 @@ class _ArtistPhotoBackdrop extends StatelessWidget {
 }
 
 class _ClassicGradientBackdrop extends StatefulWidget {
-  const _ClassicGradientBackdrop({required this.imageProvider});
+  const _ClassicGradientBackdrop({
+    required this.backdropKey,
+    required this.imageProvider,
+  });
 
+  final String backdropKey;
   final ImageProvider<Object>? imageProvider;
 
   @override
@@ -548,7 +531,7 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
       builder: (context, value, child) {
         final colors = _blendPalette(previousColors, targetColors, value);
         return Stack(
-          key: const ValueKey<String>('player-backdrop-classic'),
+          key: ValueKey<String>(widget.backdropKey),
           fit: StackFit.expand,
           children: <Widget>[
             DecoratedBox(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_player_style_models.dart';
+import 'classic_player_style.dart';
 
 const AppPlayerStylePackage vinylPlayerStyle = AppPlayerStylePackage(
   metadata: AppPlayerStyleMetadata(
@@ -11,8 +12,8 @@ const AppPlayerStylePackage vinylPlayerStyle = AppPlayerStylePackage(
   ),
   stageKind: AppPlayerStageKind.vinyl,
   colors: AppPlayerStyleColors(
-    backgroundStart: Color(0xFF302629),
-    backgroundEnd: Color(0xFF090809),
+    backgroundStart: classicPlayerBackgroundStart,
+    backgroundEnd: classicPlayerBackgroundEnd,
     foreground: Color(0xFFFFF8EC),
     secondaryForeground: Color(0xBFE8DCCB),
     accent: Color(0xFFE1BC72),

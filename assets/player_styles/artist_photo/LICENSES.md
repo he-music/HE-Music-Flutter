@@ -6,7 +6,7 @@
 - Renderer: Flutter widget golden test using the real `PlayerPage`, shared responsive layout, style backdrop and style stage components.
 - Logical output size: `360x640` for each preview.
 - Fixed data: project logo artwork, Chinese track metadata, fixed playback position, fixed quality, paused hardware animation frame, and fixed test fonts.
-- Output files: `assets/player_styles/classic/preview.png`, `assets/player_styles/fluid/preview.png`, `assets/player_styles/vinyl/preview.png`, `assets/player_styles/cassette/preview.png`, and `assets/player_styles/artist_photo/preview.png`.
+- Output files: `assets/player_styles/classic/preview.png`, `assets/player_styles/fluid/preview.png`, `assets/player_styles/vinyl/preview.png`, `assets/player_styles/cassette/preview.png`, `assets/player_styles/artist_photo/preview.png`, and `assets/player_styles/radial_spectrum/preview.png`.
 - License: project UI render; approved project assets and Flutter-rendered application UI may be distributed with HE Music.
 
 ## Artist photo source
@@ -24,9 +24,12 @@
 
 - `assets/player_styles/classic/preview.png`: `8b0fef14a2587320651f413462b01e0382a7024d76b6dd23853721e1da20d4e4`.
 - `assets/player_styles/fluid/preview.png`: `9372377ff1a0ac675fa0afa315b3d49f13479fac60d9378699c4b72d92f47ee2`.
-- `assets/player_styles/vinyl/preview.png`: `1efb183cd1c9e7fdab4856d7f385808d7b14f3a6111fdb9cf556b2d408b71847`.
-- `assets/player_styles/cassette/preview.png`: `bfc4da4a241af07d79a67b4f946c509eca47891da450592cb00c68be625a59f9`.
+- `assets/player_styles/vinyl/preview.png`: `201b482b1be2db2e9aa070870b938ec7e96b5500e8ae838c3f9de62d82c986ea`.
+- `assets/player_styles/cassette/preview.png`: `a56ab92c32d97cfc0894b03abb0dc0035a4149cc80f50370e974d432cd8c4838`.
 - `assets/player_styles/artist_photo/preview.png`: `bf838e1efb3b5de55d8b4918ae83492951d7078d4facc4a7b32240a8f6aab88a`.
-- Technical inspection: all five previews render readable fixed Chinese text, metadata badges, playback time and controls without blank regions or overflow; classic, fluid, vinyl, cassette and artist-photo subjects are visually distinct.
+- `assets/player_styles/radial_spectrum/preview.png`: `656c5118f609fed42e11451d32a758633970f7efdce8a986e2a7d8c8556de8d7`.
+- Technical inspection: all six previews render readable fixed Chinese text, metadata badges, playback time and controls without blank regions or overflow; classic, fluid, vinyl, cassette, artist-photo and radial-spectrum subjects are visually distinct. The radial-spectrum preview uses 64 deterministic, non-mirrored bands around a static circular cover.
 - Replacement inspection: regenerated on 2026-07-27; only the vinyl mobile preview and desktop golden changed, while the other four style previews and both artist-photo fallback goldens remained byte-identical.
-- Review status: automated golden and technical inspection completed; final product visual approval completed by the user on 2026-07-27.
+- Radial-spectrum inspection: generated on 2026-07-30; the new mobile preview and desktop golden were added without changing the existing five mobile previews or existing desktop/fallback goldens.
+- Shared-backdrop inspection: regenerated on 2026-07-30 after vinyl, cassette, and radial spectrum adopted the classic artwork-derived gradient. Only those three mobile previews and desktop goldens changed; classic, fluid, artist-photo, and both artist-photo fallback scenes remained byte-identical.
+- Review status: automated golden and technical inspection completed for all six styles. Final product visual approval for the original five styles was completed by the user on 2026-07-27; radial-spectrum real-device visual review remains pending.

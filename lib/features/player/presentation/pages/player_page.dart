@@ -33,6 +33,7 @@ import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/entities/player_quality_option.dart';
 import '../../domain/entities/player_track.dart';
 import '../controllers/player_controller.dart';
+import '../controllers/realtime_spectrum_controller.dart';
 import '../helpers/player_artwork_helper.dart';
 import '../layout/player_layout_spec.dart';
 import '../layout/player_responsive_layout.dart';
@@ -86,6 +87,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool? _appliedWakeLockEnabled;
   bool? _inFlightWakeLockTarget;
   bool _isWakeLockSyncRunning = false;
+  PlayerLayoutMode? _spectrumLayoutMode;
+  bool _usesRealtimeSpectrum = false;
+  RealtimeSpectrumController? _spectrumController;
+  bool _spectrumSyncScheduled = false;
 
   @override
   void initState() {
@@ -134,6 +139,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _isCurrentPageRoute = false;
     _isDisposed = true;
     _requestWakeLockSync();
+    _spectrumController?.setConsumerVisible(false);
     if (_usesMobileOrientationControls) {
       unawaited(
         SystemChrome.setPreferredOrientations(const <DeviceOrientation>[]),
@@ -148,6 +154,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
     _requestWakeLockSync();
+    _requestSpectrumVisibilitySync();
   }
 
   @override
@@ -176,6 +183,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
     _isCurrentPageRoute = isCurrent;
     _requestWakeLockSync();
+    _requestSpectrumVisibilitySync();
   }
 
   void _requestWakeLockSync() {
@@ -276,6 +284,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     ).mode;
     final isMobileLandscape =
         currentLayoutMode == PlayerLayoutMode.mobileLandscape;
+    _usesRealtimeSpectrum = playerStyle.usesRealtimeSpectrum;
+    _scheduleSpectrumVisibilitySync();
     final landscapeSafeMinimum = isMobileLandscape
         ? resolvePlayerLandscapeContentInsets(
             resolvePlayerLandscapeSafeInsets(
@@ -338,6 +348,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                       return;
                     }
                     setState(() => _currentPage = index);
+                    _requestSpectrumVisibilitySync();
                   },
                   topBarBuilder: (context, spec) => _PlayerTopBar(
                     currentPage: _currentPage,
@@ -458,6 +469,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final previousMode = _lastLayoutMode;
     if (mode == previousMode) return;
     _lastLayoutMode = mode;
+    _spectrumLayoutMode = mode;
+    _scheduleSpectrumVisibilitySync();
     _scheduleSystemUiForLayout(mode);
     if (mode != PlayerLayoutMode.mobilePortrait &&
         previousMode == PlayerLayoutMode.mobilePortrait) {
@@ -469,6 +482,42 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         _mobilePageToRestore ?? _currentPage,
       );
     }
+  }
+
+  void _scheduleSpectrumVisibilitySync() {
+    if (_spectrumSyncScheduled) {
+      return;
+    }
+    _spectrumSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _spectrumSyncScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      _requestSpectrumVisibilitySync();
+    });
+  }
+
+  void _requestSpectrumVisibilitySync() {
+    final mode = _spectrumLayoutMode;
+    final stageVisible =
+        mode != PlayerLayoutMode.mobilePortrait || _currentPage == 0;
+    final shouldCapture =
+        !_isDisposed &&
+        _usesRealtimeSpectrum &&
+        _appLifecycleState == AppLifecycleState.resumed &&
+        _isCurrentPageRoute &&
+        stageVisible;
+    if (shouldCapture) {
+      _spectrumController ??= ref.read(
+        realtimeSpectrumControllerProvider.notifier,
+      );
+    }
+    final controller = _spectrumController;
+    if (controller == null) {
+      return;
+    }
+    controller.setConsumerVisible(shouldCapture);
   }
 
   void _scheduleSystemUiForLayout(PlayerLayoutMode mode) {

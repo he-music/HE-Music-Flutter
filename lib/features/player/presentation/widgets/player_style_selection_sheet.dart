@@ -1,16 +1,30 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../../../app/theme/player/app_player_style_registry.dart';
+import '../../../../core/device/realtime_spectrum_permission.dart';
 
-class PlayerStyleSelectionSheet extends ConsumerWidget {
+class PlayerStyleSelectionSheet extends ConsumerStatefulWidget {
   const PlayerStyleSelectionSheet({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlayerStyleSelectionSheet> createState() =>
+      _PlayerStyleSelectionSheetState();
+}
+
+class _PlayerStyleSelectionSheetState
+    extends ConsumerState<PlayerStyleSelectionSheet> {
+  String? _pendingStyleId;
+
+  @override
+  Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final styles = AppPlayerStyleRegistry.instance.styles;
     return SafeArea(
@@ -43,12 +57,10 @@ class PlayerStyleSelectionSheet extends ConsumerWidget {
                   style: style,
                   label: AppI18n.t(config, style.metadata.labelKey),
                   selected: style.metadata.id == config.playerStyleId,
-                  onTap: () {
-                    ref
-                        .read(appConfigProvider.notifier)
-                        .setPlayerStyleId(style.metadata.id);
-                    Navigator.of(context).pop();
-                  },
+                  pending: _pendingStyleId == style.metadata.id,
+                  onTap: _pendingStyleId == style.metadata.id
+                      ? null
+                      : () => unawaited(_selectStyle(style)),
                 );
               },
             ),
@@ -57,6 +69,129 @@ class PlayerStyleSelectionSheet extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _selectStyle(AppPlayerStylePackage style) async {
+    if (!style.usesRealtimeSpectrum ||
+        kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android) {
+      _applyStyle(style);
+      return;
+    }
+    setState(() => _pendingStyleId = style.metadata.id);
+    try {
+      final permission = ref.read(realtimeSpectrumPermissionPortProvider);
+      var status = await permission.status();
+      if (!mounted) return;
+      if (status == RealtimeSpectrumPermissionState.granted) {
+        _applyStyle(style);
+        return;
+      }
+      final shouldContinue = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            AppI18n.t(
+              ref.read(appConfigProvider),
+              'player.spectrum.permission.title',
+            ),
+          ),
+          content: Text(
+            AppI18n.t(
+              ref.read(appConfigProvider),
+              'player.spectrum.permission.message',
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                AppI18n.t(ref.read(appConfigProvider), 'common.cancel'),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                AppI18n.t(
+                  ref.read(appConfigProvider),
+                  'player.spectrum.permission.continue',
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (shouldContinue != true || !mounted) {
+        return;
+      }
+      if (status != RealtimeSpectrumPermissionState.permanentlyDenied) {
+        status = await permission.request();
+      }
+      if (!mounted) return;
+      switch (status) {
+        case RealtimeSpectrumPermissionState.granted:
+          _applyStyle(style);
+        case RealtimeSpectrumPermissionState.denied:
+          AppMessageService.showWarning(
+            AppI18n.t(
+              ref.read(appConfigProvider),
+              'player.spectrum.permission.denied',
+            ),
+          );
+        case RealtimeSpectrumPermissionState.permanentlyDenied:
+          await _showOpenSettingsDialog(permission);
+      }
+    } catch (_) {
+      if (mounted) {
+        AppMessageService.showError(
+          AppI18n.t(
+            ref.read(appConfigProvider),
+            'player.spectrum.permission.failed',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _pendingStyleId = null);
+      }
+    }
+  }
+
+  Future<void> _showOpenSettingsDialog(
+    RealtimeSpectrumPermissionPort permission,
+  ) async {
+    final config = ref.read(appConfigProvider);
+    final shouldOpen = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          AppI18n.t(config, 'player.spectrum.permission.settings_title'),
+        ),
+        content: Text(
+          AppI18n.t(config, 'player.spectrum.permission.settings_message'),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppI18n.t(config, 'common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              AppI18n.t(config, 'player.spectrum.permission.open_settings'),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (shouldOpen == true) {
+      await permission.openSettings();
+    }
+  }
+
+  void _applyStyle(AppPlayerStylePackage style) {
+    ref.read(appConfigProvider.notifier).setPlayerStyleId(style.metadata.id);
+    Navigator.of(context).pop();
+  }
 }
 
 class _PlayerStyleOption extends StatelessWidget {
@@ -64,13 +199,15 @@ class _PlayerStyleOption extends StatelessWidget {
     required this.style,
     required this.label,
     required this.selected,
+    required this.pending,
     required this.onTap,
   });
 
   final AppPlayerStylePackage style;
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final bool pending;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +281,17 @@ class _PlayerStyleOption extends StatelessWidget {
                                 ),
                               ),
                             ),
+                          if (pending)
+                            const Align(
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.hourglass_top_rounded,
+                                key: ValueKey<String>(
+                                  'player-style-permission-progress',
+                                ),
+                                size: 28,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -197,6 +345,7 @@ class _PlayerStylePreviewFallback extends StatelessWidget {
           AppPlayerStageKind.vinyl => Icons.radio_button_checked_rounded,
           AppPlayerStageKind.cassette => Icons.audiotrack_rounded,
           AppPlayerStageKind.artistPhoto => Icons.photo_rounded,
+          AppPlayerStageKind.radialSpectrum => Icons.graphic_eq_rounded,
         },
         size: 38,
         color: style.colors.secondaryForeground,

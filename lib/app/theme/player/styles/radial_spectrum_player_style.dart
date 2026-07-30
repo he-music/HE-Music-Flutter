@@ -2,27 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_player_style_models.dart';
+import 'classic_player_style.dart';
 
-const Color classicPlayerBackgroundStart = Color(0xFF24423A);
-const Color classicPlayerBackgroundEnd = Color(0xFF080D0B);
-
-const AppPlayerStylePackage classicPlayerStyle = AppPlayerStylePackage(
+const AppPlayerStylePackage radialSpectrumPlayerStyle = AppPlayerStylePackage(
   metadata: AppPlayerStyleMetadata(
-    id: 'classic',
-    labelKey: 'player.style.classic',
-    previewAsset: 'assets/player_styles/classic/preview.png',
+    id: 'radial_spectrum',
+    labelKey: 'player.style.radial_spectrum',
+    previewAsset: 'assets/player_styles/radial_spectrum/preview.png',
   ),
-  stageKind: AppPlayerStageKind.classic,
+  stageKind: AppPlayerStageKind.radialSpectrum,
   colors: AppPlayerStyleColors(
     backgroundStart: classicPlayerBackgroundStart,
     backgroundEnd: classicPlayerBackgroundEnd,
-    foreground: Color(0xFFF7FAF8),
-    secondaryForeground: Color(0xBFD9E4DE),
-    accent: Color(0xFFA7E2C5),
-    controlSurface: Color(0x292B4038),
+    foreground: Color(0xFFF7FAF9),
+    secondaryForeground: Color(0xC7DDE4E2),
+    accent: Color(0xFF8FE1D0),
+    controlSurface: Color(0x33262B2A),
     controlBorder: Color(0x3DFFFFFF),
   ),
-  geometry: AppPlayerStyleGeometry(stageMaxWidth: 420, controlRadius: 22),
+  geometry: AppPlayerStyleGeometry(stageMaxWidth: 440, controlRadius: 22),
   systemOverlayStyle: SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
@@ -30,4 +28,5 @@ const AppPlayerStylePackage classicPlayerStyle = AppPlayerStylePackage(
     systemNavigationBarColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.light,
   ),
+  usesRealtimeSpectrum: true,
 );

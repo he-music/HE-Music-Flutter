@@ -127,6 +127,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('vinyl cassette and radial spectrum reuse the classic backdrop', (
+    tester,
+  ) async {
+    const backdropKeys = <AppPlayerStageKind, String>{
+      AppPlayerStageKind.classic: 'player-backdrop-classic',
+      AppPlayerStageKind.vinyl: 'player-backdrop-vinyl',
+      AppPlayerStageKind.cassette: 'player-backdrop-cassette',
+      AppPlayerStageKind.radialSpectrum: 'player-backdrop-radial-spectrum',
+    };
+    final gradients = <AppPlayerStageKind, List<Color>>{};
+
+    for (final entry in backdropKeys.entries) {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: PlayerBackdrop(stageKind: entry.key, imageProvider: null),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(Duration.zero);
+      await tester.pump(const Duration(seconds: 1));
+
+      final backdrop = find.byKey(ValueKey<String>(entry.value));
+      final decoratedBox = tester.widget<DecoratedBox>(
+        find
+            .descendant(of: backdrop, matching: find.byType(DecoratedBox))
+            .first,
+      );
+      final decoration = decoratedBox.decoration as BoxDecoration;
+      gradients[entry.key] = (decoration.gradient! as LinearGradient).colors;
+    }
+
+    final classic = gradients[AppPlayerStageKind.classic];
+    expect(gradients[AppPlayerStageKind.vinyl], classic);
+    expect(gradients[AppPlayerStageKind.cassette], classic);
+    expect(gradients[AppPlayerStageKind.radialSpectrum], classic);
+  });
+
   testWidgets('fluid backdrop keeps moving until it is disposed', (
     tester,
   ) async {
