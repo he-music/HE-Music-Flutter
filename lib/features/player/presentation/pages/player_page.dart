@@ -502,10 +502,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final mode = _spectrumLayoutMode;
     final stageVisible =
         mode != PlayerLayoutMode.mobilePortrait || _currentPage == 0;
+    // macOS 窗口失去键盘焦点时会进入 inactive，但窗口和舞台仍然可见。
+    final lifecycleAllowsCapture =
+        _appLifecycleState == AppLifecycleState.resumed ||
+        (defaultTargetPlatform == TargetPlatform.macOS &&
+            _appLifecycleState == AppLifecycleState.inactive);
     final shouldCapture =
         !_isDisposed &&
         _usesRealtimeSpectrum &&
-        _appLifecycleState == AppLifecycleState.resumed &&
+        lifecycleAllowsCapture &&
         _isCurrentPageRoute &&
         stageVisible;
     if (shouldCapture) {

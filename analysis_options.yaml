@@ -13,6 +13,7 @@ analyzer:
   exclude:
     - third_party/flutter_lyric/**
     - third_party/audiotags/**
+    - third_party/just_audio/**
     - "**/*.g.dart"
 
 linter:

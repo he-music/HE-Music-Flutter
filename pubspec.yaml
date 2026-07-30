@@ -40,10 +40,7 @@ dependencies:
   retrofit: ^4.9.0
   json_annotation: ^4.9.0
   just_audio:
-    git:
-      url: https://github.com/ryanheise/just_audio.git
-      ref: fcba2a37d63bd1bf0a933621d60f8e870310aa67
-      path: just_audio
+    path: third_party/just_audio
   cached_network_image: ^3.4.1
   material_color_utilities: ^0.13.0
   path_provider: ^2.1.5

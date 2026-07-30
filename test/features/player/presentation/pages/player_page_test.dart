@@ -268,6 +268,42 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets('macOS 播放器失焦时保持频谱，窗口隐藏后停止', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final spectrum = _RecordingRealtimeSpectrumController();
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _SpectrumPlayerController.new,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.radialSpectrumId,
+        ),
+        spectrumController: spectrum,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true]);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true]);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true, false]);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(spectrum.visibility, <bool>[true, false, true]);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('环形频谱在 PopupRoute 保持捕获，PageRoute 覆盖时停止并在返回后恢复', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

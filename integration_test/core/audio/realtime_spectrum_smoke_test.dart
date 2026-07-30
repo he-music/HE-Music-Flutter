@@ -65,7 +65,7 @@ void main() {
     await _verifyPauseAndResume(handler, player, rawStats);
 
     await _playTrack(handler, fixture.lowLocalTrack);
-    await _verifyRepeatedStartStop(handler, rawStats, cycles: 20);
+    await _verifyRepeatedStartStop(handler, player, rawStats, cycles: 20);
 
     final rssBefore = ProcessInfo.currentRss;
     final rawBefore = rawStats.count;
@@ -230,6 +230,7 @@ Future<void> _verifyPauseAndResume(
 
 Future<void> _verifyRepeatedStartStop(
   HeAudioHandler handler,
+  AudioPlayer player,
   _RawFftStats rawStats, {
   required int cycles,
 }) async {
@@ -241,8 +242,18 @@ Future<void> _verifyRepeatedStartStop(
       timeout: const Duration(seconds: 3),
       description: '等待第 ${cycle + 1} 次启动产生 FFT',
     );
+    final positionBeforeStop = player.position;
+    final stopWatch = Stopwatch()..start();
     await handler.stopSpectrumCapture();
     await _expectRawCaptureStopped(rawStats);
+    stopWatch.stop();
+    final positionAdvance = player.position - positionBeforeStop;
+    expect(player.playing, isTrue, reason: '停止频谱不得改变播放状态。');
+    expect(
+      positionAdvance.inMilliseconds,
+      greaterThanOrEqualTo(stopWatch.elapsedMilliseconds - 250),
+      reason: '停止频谱期间播放时间轴不得出现明显停顿。',
+    );
   }
 }
 

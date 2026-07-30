@@ -703,11 +703,9 @@ packages:
   just_audio:
     dependency: "direct main"
     description:
-      path: just_audio
-      ref: fcba2a37d63bd1bf0a933621d60f8e870310aa67
-      resolved-ref: fcba2a37d63bd1bf0a933621d60f8e870310aa67
-      url: "https://github.com/ryanheise/just_audio.git"
-    source: git
+      path: "third_party/just_audio"
+      relative: true
+    source: path
     version: "0.11.0"
   just_audio_platform_interface:
     dependency: transitive
