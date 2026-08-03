@@ -120,7 +120,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         content: content,
         songsLoading: state.songsLoading,
         songsErrorMessage: state.songsErrorMessage,
+        loadingMore: state.loadingMore,
+        hasMore: state.hasMore,
+        loadMoreErrorMessage: state.loadMoreErrorMessage,
         onRetrySongs: () => controller.retrySongs(_request),
+        onLoadMore: () => controller.loadMore(_request),
       ),
     );
   }
@@ -148,7 +152,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     required PlaylistDetailContent content,
     required bool songsLoading,
     required String? songsErrorMessage,
+    required bool loadingMore,
+    required bool hasMore,
+    required String? loadMoreErrorMessage,
     required Future<void> Function() onRetrySongs,
+    required Future<void> Function() onLoadMore,
   }) {
     final title = content.title.trim().isEmpty ? widget.title : content.title;
     final subtitle = content.subtitle.trim();
@@ -253,6 +261,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           initialLoading: songsLoading && songs.isEmpty,
           errorMessage: songsErrorMessage,
           onRetry: onRetrySongs,
+          enablePaging: true,
+          loadingMore: loadingMore,
+          hasMore: hasMore,
+          onLoadMore: onLoadMore,
+          loadMoreErrorMessage: loadMoreErrorMessage,
+          onRetryLoadMore: onLoadMore,
           currentTrack: currentTrack,
           resolveSongCover: _songActions.resolveCoverUrl,
           resolvePlatformId: _songActions.resolvePlatformId,

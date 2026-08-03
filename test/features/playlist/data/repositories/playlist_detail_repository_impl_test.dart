@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/playlist/data/datasources/playlist_detail_api_client.dart';
 import 'package:he_music_flutter/features/playlist/data/repositories/playlist_detail_repository_impl.dart';
 import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_request.dart';
+import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
@@ -30,10 +31,12 @@ void main() {
       title: 'Test',
     );
 
-    final result = await repo.fetchSongs(request);
+    final result = await repo.fetchSongs(request, pageIndex: 2, pageSize: 300);
 
     expect(fake.lastSongsRequest, request);
-    expect(result, hasLength(1));
+    expect(fake.lastPageIndex, 2);
+    expect(fake.lastPageSize, 300);
+    expect(result.songs, hasLength(1));
   });
 
   test('fetchInfo propagates apiClient error', () async {
@@ -54,6 +57,8 @@ class _FakePlaylistDetailApiClient extends PlaylistDetailApiClient {
 
   PlaylistDetailRequest? lastInfoRequest;
   PlaylistDetailRequest? lastSongsRequest;
+  int? lastPageIndex;
+  int? lastPageSize;
 
   @override
   Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request) async {
@@ -72,9 +77,21 @@ class _FakePlaylistDetailApiClient extends PlaylistDetailApiClient {
   }
 
   @override
-  Future<List<SongInfo>> fetchSongs(PlaylistDetailRequest request) async {
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    PlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) async {
     lastSongsRequest = request;
-    return <SongInfo>[_song()];
+    lastPageIndex = pageIndex;
+    lastPageSize = pageSize;
+    return PlaylistDetailSongsPageResult(
+      songs: <SongInfo>[_song()],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 1,
+      hasMore: false,
+    );
   }
 }
 

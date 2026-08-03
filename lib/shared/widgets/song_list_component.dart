@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,6 +17,8 @@ class SongListComponent extends ConsumerStatefulWidget {
     this.loadingMore = false,
     this.hasMore = false,
     this.onLoadMore,
+    this.loadMoreErrorMessage,
+    this.onRetryLoadMore,
     this.skeletonCount = 8,
     this.empty,
     super.key,
@@ -27,6 +31,8 @@ class SongListComponent extends ConsumerStatefulWidget {
   final bool loadingMore;
   final bool hasMore;
   final Future<void> Function()? onLoadMore;
+  final String? loadMoreErrorMessage;
+  final Future<void> Function()? onRetryLoadMore;
   final int skeletonCount;
   final Widget? empty;
 
@@ -71,7 +77,10 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
           Center(child: Text(AppI18n.t(config, 'search.result.empty')));
     }
     final showFooter =
-        widget.enablePaging && (widget.loadingMore || !widget.hasMore);
+        widget.enablePaging &&
+        (widget.loadingMore ||
+            widget.loadMoreErrorMessage != null ||
+            !widget.hasMore);
     final list = ListView.separated(
       padding: EdgeInsets.zero,
       itemCount: widget.itemCount + (showFooter ? 1 : 0),
@@ -108,6 +117,30 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
         child: Center(child: SkeletonBox(width: 96, height: 12, radius: 999)),
       );
     }
+    if (widget.loadMoreErrorMessage != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              widget.loadMoreErrorMessage!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: widget.onRetryLoadMore == null
+                  ? null
+                  : () => unawaited(widget.onRetryLoadMore!()),
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(AppI18n.t(config, 'common.retry')),
+            ),
+          ],
+        ),
+      );
+    }
     if (!widget.hasMore) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -128,6 +161,7 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
     if (!widget.enablePaging ||
         widget.onLoadMore == null ||
         widget.loadingMore ||
+        widget.loadMoreErrorMessage != null ||
         !widget.hasMore ||
         _loadingMoreTriggered) {
       return;

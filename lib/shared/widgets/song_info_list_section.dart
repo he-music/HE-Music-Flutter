@@ -39,6 +39,8 @@ class SongInfoListSection extends StatelessWidget {
     this.loadingMore = false,
     this.hasMore = false,
     this.onLoadMore,
+    this.loadMoreErrorMessage,
+    this.onRetryLoadMore,
     this.empty,
     this.countText,
     this.onPlayAll,
@@ -70,6 +72,8 @@ class SongInfoListSection extends StatelessWidget {
   final bool loadingMore;
   final bool hasMore;
   final Future<void> Function()? onLoadMore;
+  final String? loadMoreErrorMessage;
+  final Future<void> Function()? onRetryLoadMore;
   final Widget? empty;
   final String? countText;
   final VoidCallback? onPlayAll;
@@ -117,6 +121,8 @@ class SongInfoListSection extends StatelessWidget {
       loadingMore: loadingMore,
       hasMore: hasMore,
       onLoadMore: onLoadMore,
+      loadMoreErrorMessage: loadMoreErrorMessage,
+      onRetryLoadMore: onRetryLoadMore,
       empty: empty,
       itemBuilder: (context, index) {
         final song = songs[index];

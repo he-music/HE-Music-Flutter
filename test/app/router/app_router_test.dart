@@ -29,6 +29,7 @@ import 'package:he_music_flutter/features/online/presentation/controllers/online
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/playlist/data/providers/playlist_detail_providers.dart';
 import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_request.dart';
+import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import 'package:he_music_flutter/features/playlist/domain/repositories/playlist_detail_repository.dart';
 import 'package:he_music_flutter/features/playlist/presentation/pages/playlist_detail_page.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
@@ -523,8 +524,18 @@ class _TestPlaylistDetailRepository implements PlaylistDetailRepository {
   }
 
   @override
-  Future<List<SongInfo>> fetchSongs(PlaylistDetailRequest request) async {
-    return const <SongInfo>[song];
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    PlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) async {
+    return PlaylistDetailSongsPageResult(
+      songs: const <SongInfo>[song],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 1,
+      hasMore: false,
+    );
   }
 }
 

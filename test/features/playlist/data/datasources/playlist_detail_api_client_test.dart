@@ -38,20 +38,68 @@ void main() {
       },
     );
 
-    test('fetchSongs parses the independent playlist songs endpoint', () async {
-      final adapter = _PathAdapter(<String, dynamic>{
-        '/v1/playlist/songs': <String, dynamic>{
-          'list': <Map<String, dynamic>>[
-            <String, dynamic>{'id': 'song-1', 'name': '歌曲', 'platform': 'qq'},
-          ],
-        },
-      });
-      final client = _createClient(adapter);
+    test(
+      'fetchSongs parses pagination and sends the requested cursor',
+      () async {
+        final adapter = _PathAdapter(<String, dynamic>{
+          '/v1/playlist/songs': <String, dynamic>{
+            'list': <Map<String, dynamic>>[
+              <String, dynamic>{'id': 'song-1', 'name': '歌曲', 'platform': 'qq'},
+            ],
+            'page_index': 2,
+            'page_size': 300,
+            'total_count': 450,
+            'has_more': true,
+          },
+        });
+        final client = _createClient(adapter);
 
-      final songs = await client.fetchSongs(request);
+        final result = await client.fetchSongs(
+          request,
+          pageIndex: 2,
+          pageSize: 300,
+        );
 
-      expect(adapter.requestedPaths, <String>['/v1/playlist/songs']);
-      expect(songs.single.id, 'song-1');
+        expect(adapter.requestedPaths, <String>['/v1/playlist/songs']);
+        expect(adapter.requestedQueries.single, <String, dynamic>{
+          'id': 'playlist-1',
+          'platform': 'qq',
+          'page_index': 2,
+          'page_size': 300,
+        });
+        expect(result.songs.single.id, 'song-1');
+        expect(result.pageIndex, 2);
+        expect(result.pageSize, 300);
+        expect(result.totalCount, 450);
+        expect(result.hasMore, true);
+      },
+    );
+
+    test('fetchSongs falls back when response pagination is invalid', () async {
+      final client = _createClient(
+        _PathAdapter(<String, dynamic>{
+          '/v1/playlist/songs': <String, dynamic>{
+            'list': <Map<String, dynamic>>[
+              <String, dynamic>{'id': 'song-1', 'name': '歌曲'},
+            ],
+            'page_index': 0,
+            'page_size': -1,
+            'total_count': -1,
+            'has_more': 1,
+          },
+        }),
+      );
+
+      final result = await client.fetchSongs(
+        request,
+        pageIndex: 3,
+        pageSize: 300,
+      );
+
+      expect(result.pageIndex, 3);
+      expect(result.pageSize, 300);
+      expect(result.totalCount, 1);
+      expect(result.hasMore, true);
     });
 
     test('fetchSongs rejects an item without identity', () async {
@@ -80,6 +128,7 @@ class _PathAdapter implements HttpClientAdapter {
 
   final Map<String, dynamic> payloads;
   final List<String> requestedPaths = <String>[];
+  final List<Map<String, dynamic>> requestedQueries = <Map<String, dynamic>>[];
 
   @override
   Future<ResponseBody> fetch(
@@ -88,6 +137,7 @@ class _PathAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requestedPaths.add(options.path);
+    requestedQueries.add(Map<String, dynamic>.from(options.queryParameters));
     return ResponseBody.fromString(
       jsonEncode(payloads[options.path]),
       200,

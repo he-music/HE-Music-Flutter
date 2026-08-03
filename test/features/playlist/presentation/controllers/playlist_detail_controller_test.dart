@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_request.dart';
+import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import 'package:he_music_flutter/features/playlist/domain/repositories/playlist_detail_repository.dart';
 import 'package:he_music_flutter/features/playlist/presentation/providers/playlist_detail_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
@@ -162,6 +163,131 @@ void main() {
     },
   );
 
+  test(
+    'loadMore uses response cursor, appends unique songs, and stops',
+    () async {
+      final repository = _ControlledPlaylistDetailRepository();
+      final container = ProviderContainer(
+        overrides: [
+          playlistDetailRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      const request = PlaylistDetailRequest(
+        id: 'playlist-1',
+        platform: 'qq',
+        title: '测试歌单',
+      );
+      final provider = playlistDetailControllerProvider(request.cacheKey);
+      final subscription = container.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
+      final controller = container.read(provider.notifier);
+      final loading = controller.initialize(request);
+
+      repository.completeInfo(request);
+      repository.completeSongs(
+        request,
+        songs: <SongInfo>[_song('song-1'), _song('song-2')],
+        pageIndex: 3,
+        pageSize: 300,
+        totalCount: 4,
+        hasMore: true,
+      );
+      await loading;
+
+      final loadingMore = controller.loadMore(request);
+      expect(repository.fetchSongsCallCount(request), 2);
+      expect(repository.lastSongsCall(request).pageIndex, 4);
+      expect(repository.lastSongsCall(request).pageSize, 300);
+
+      await controller.loadMore(request);
+      expect(repository.fetchSongsCallCount(request), 2);
+
+      repository.completeSongs(
+        request,
+        songs: <SongInfo>[
+          _song('song-2'),
+          _song('song-2', 'netease'),
+          _song('song-3'),
+        ],
+        pageIndex: 4,
+        pageSize: 200,
+        totalCount: 4,
+        hasMore: false,
+      );
+      await loadingMore;
+
+      final state = container.read(provider);
+      expect(state.songs.map((song) => '${song.platform}|${song.id}'), <String>[
+        'qq|song-1',
+        'qq|song-2',
+        'netease|song-2',
+        'qq|song-3',
+      ]);
+      expect(state.pageIndex, 4);
+      expect(state.pageSize, 200);
+      expect(state.totalCount, 4);
+      expect(state.hasMore, false);
+
+      await controller.loadMore(request);
+      expect(repository.fetchSongsCallCount(request), 2);
+    },
+  );
+
+  test('loadMore failure keeps songs and retries the same page', () async {
+    final repository = _ControlledPlaylistDetailRepository();
+    final container = ProviderContainer(
+      overrides: [
+        playlistDetailRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    const request = PlaylistDetailRequest(
+      id: 'playlist-1',
+      platform: 'qq',
+      title: '测试歌单',
+    );
+    final provider = playlistDetailControllerProvider(request.cacheKey);
+    final subscription = container.listen(provider, (_, _) {});
+    addTearDown(subscription.close);
+    final controller = container.read(provider.notifier);
+    final loading = controller.initialize(request);
+
+    repository.completeInfo(request);
+    repository.completeSongs(
+      request,
+      songs: <SongInfo>[_song('song-1')],
+      pageIndex: 1,
+      pageSize: 300,
+      totalCount: 2,
+      hasMore: true,
+    );
+    await loading;
+
+    final loadingMore = controller.loadMore(request);
+    repository.failSongs(request);
+    await loadingMore;
+
+    expect(container.read(provider).songs.single.id, 'song-1');
+    expect(container.read(provider).loadMoreErrorMessage, contains('failed'));
+
+    final retrying = controller.loadMore(request);
+    expect(repository.lastSongsCall(request).pageIndex, 2);
+    expect(repository.lastSongsCall(request).pageSize, 300);
+    repository.completeSongs(
+      request,
+      songs: <SongInfo>[_song('song-2')],
+      pageIndex: 2,
+      pageSize: 300,
+      totalCount: 2,
+      hasMore: false,
+    );
+    await retrying;
+
+    expect(container.read(provider).songs, hasLength(2));
+    expect(container.read(provider).loadMoreErrorMessage, isNull);
+  });
+
   test('late songs from a failed load cannot overwrite retry result', () async {
     final repository = _ControlledPlaylistDetailRepository();
     final container = ProviderContainer(
@@ -203,7 +329,7 @@ void main() {
 
 class _ControlledPlaylistDetailRepository implements PlaylistDetailRepository {
   final Map<String, List<Completer<PlaylistInfo>>> _infoCompleters = {};
-  final Map<String, List<Completer<List<SongInfo>>>> _songCompleters = {};
+  final Map<String, List<_SongsCall>> _songCalls = {};
 
   @override
   Future<PlaylistInfo> fetchInfo(PlaylistDetailRequest request) {
@@ -215,12 +341,18 @@ class _ControlledPlaylistDetailRepository implements PlaylistDetailRepository {
   }
 
   @override
-  Future<List<SongInfo>> fetchSongs(PlaylistDetailRequest request) {
-    final completer = Completer<List<SongInfo>>();
-    (_songCompleters[request.cacheKey] ??= <Completer<List<SongInfo>>>[]).add(
-      completer,
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    PlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) {
+    final call = _SongsCall(
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      completer: Completer<PlaylistDetailSongsPageResult>(),
     );
-    return completer.future;
+    (_songCalls[request.cacheKey] ??= <_SongsCall>[]).add(call);
+    return call.completer.future;
   }
 
   int fetchInfoCallCount(PlaylistDetailRequest request) {
@@ -228,7 +360,11 @@ class _ControlledPlaylistDetailRepository implements PlaylistDetailRepository {
   }
 
   int fetchSongsCallCount(PlaylistDetailRequest request) {
-    return _songCompleters[request.cacheKey]?.length ?? 0;
+    return _songCalls[request.cacheKey]?.length ?? 0;
+  }
+
+  _SongsCall lastSongsCall(PlaylistDetailRequest request) {
+    return _songCalls[request.cacheKey]!.last;
   }
 
   void completeInfo(PlaylistDetailRequest request) {
@@ -244,8 +380,21 @@ class _ControlledPlaylistDetailRepository implements PlaylistDetailRepository {
   void completeSongs(
     PlaylistDetailRequest request, {
     List<SongInfo> songs = const <SongInfo>[],
+    int? pageIndex,
+    int? pageSize,
+    int? totalCount,
+    bool hasMore = false,
   }) {
-    _songCompleters[request.cacheKey]!.last.complete(songs);
+    final call = lastSongsCall(request);
+    call.completer.complete(
+      PlaylistDetailSongsPageResult(
+        songs: songs,
+        pageIndex: pageIndex ?? call.pageIndex,
+        pageSize: pageSize ?? call.pageSize,
+        totalCount: totalCount ?? songs.length,
+        hasMore: hasMore,
+      ),
+    );
   }
 
   void completeSongsAt(
@@ -253,14 +402,33 @@ class _ControlledPlaylistDetailRepository implements PlaylistDetailRepository {
     int index, {
     required List<SongInfo> songs,
   }) {
-    _songCompleters[request.cacheKey]![index].complete(songs);
+    final call = _songCalls[request.cacheKey]![index];
+    call.completer.complete(
+      PlaylistDetailSongsPageResult(
+        songs: songs,
+        pageIndex: call.pageIndex,
+        pageSize: call.pageSize,
+        totalCount: songs.length,
+        hasMore: false,
+      ),
+    );
   }
 
   void failSongs(PlaylistDetailRequest request) {
-    _songCompleters[request.cacheKey]!.last.completeError(
-      Exception('songs failed'),
-    );
+    lastSongsCall(request).completer.completeError(Exception('songs failed'));
   }
+}
+
+class _SongsCall {
+  const _SongsCall({
+    required this.pageIndex,
+    required this.pageSize,
+    required this.completer,
+  });
+
+  final int pageIndex;
+  final int pageSize;
+  final Completer<PlaylistDetailSongsPageResult> completer;
 }
 
 PlaylistInfo _infoFor(PlaylistDetailRequest request) {
@@ -277,7 +445,7 @@ PlaylistInfo _infoFor(PlaylistDetailRequest request) {
   );
 }
 
-SongInfo _song([String id = 'song-1']) {
+SongInfo _song([String id = 'song-1', String platform = 'qq']) {
   return SongInfo(
     name: '测试歌曲',
     subtitle: '',
@@ -287,7 +455,7 @@ SongInfo _song([String id = 'song-1']) {
     album: SongInfoAlbumInfo(name: '测试专辑', id: 'album-1'),
     artists: <SongInfoArtistInfo>[],
     links: <LinkInfo>[],
-    platform: 'qq',
+    platform: platform,
     cover: '',
   );
 }

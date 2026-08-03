@@ -119,6 +119,35 @@ void main() {
       // hasMore=false, loadingMore=false → 显示 footer
       expect(find.byType(SongListComponent), findsOneWidget);
     });
+
+    testWidgets('加载更多失败时保留列表并提供重试', (tester) async {
+      var retryCount = 0;
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            height: 400,
+            child: SongListComponent(
+              itemCount: 2,
+              itemBuilder: (context, index) =>
+                  SizedBox(height: 50, child: Text('Song $index')),
+              enablePaging: true,
+              hasMore: true,
+              loadMoreErrorMessage: 'Network error',
+              onRetryLoadMore: () async {
+                retryCount += 1;
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Song 0'), findsOneWidget);
+      expect(find.text('Network error'), findsOneWidget);
+
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      expect(retryCount, 1);
+    });
   });
 }
 

@@ -5,6 +5,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../domain/entities/playlist_detail_request.dart';
 import '../../domain/entities/playlist_detail_song.dart';
+import '../../domain/entities/playlist_detail_songs_page_result.dart';
 
 class PlaylistDetailApiClient {
   const PlaylistDetailApiClient(this._dio);
@@ -33,36 +34,60 @@ class PlaylistDetailApiClient {
     );
   }
 
-  Future<List<PlaylistDetailSong>> fetchSongs(
-    PlaylistDetailRequest request,
-  ) async {
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    PlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) async {
+    final safePageIndex = pageIndex <= 0 ? 1 : pageIndex;
+    final safePageSize = pageSize <= 0 || pageSize > playlistDetailSongsPageSize
+        ? playlistDetailSongsPageSize
+        : pageSize;
     final response = await _dio.get(
       '/v1/playlist/songs',
       queryParameters: <String, dynamic>{
         'id': request.id,
         'platform': request.platform,
-        'page_index': 1,
-        'page_size': 1000,
+        'page_index': safePageIndex,
+        'page_size': safePageSize,
       },
     );
     final raw = _asMap(response.data);
     final list = raw['list'];
-    if (list is! List) {
-      return const <PlaylistDetailSong>[];
-    }
-    return list
-        .map((item) {
-          final song = _asMap(item);
-          final id = '${song['id'] ?? ''}'.trim();
-          final name = '${song['name'] ?? ''}'.trim();
-          if (id.isEmpty || name.isEmpty) {
-            throw AppException(
-              NetworkFailure('Invalid song item in playlist detail payload.'),
-            );
-          }
-          return SongInfo.fromMap(song, fallbackPlatform: request.platform);
-        })
-        .toList(growable: false);
+    final songs = list is List
+        ? list
+              .map((item) {
+                final song = _asMap(item);
+                final id = '${song['id'] ?? ''}'.trim();
+                final name = '${song['name'] ?? ''}'.trim();
+                if (id.isEmpty || name.isEmpty) {
+                  throw AppException(
+                    NetworkFailure(
+                      'Invalid song item in playlist detail payload.',
+                    ),
+                  );
+                }
+                return SongInfo.fromMap(
+                  song,
+                  fallbackPlatform: request.platform,
+                );
+              })
+              .toList(growable: false)
+        : const <PlaylistDetailSong>[];
+    return PlaylistDetailSongsPageResult(
+      songs: songs,
+      pageIndex: _readPositiveInt(raw['page_index'], fallback: safePageIndex),
+      pageSize: _readPositiveInt(
+        raw['page_size'],
+        fallback: safePageSize,
+        max: playlistDetailSongsPageSize,
+      ),
+      totalCount: _readNonNegativeInt(
+        raw['total_count'],
+        fallback: songs.length,
+      ),
+      hasMore: _readBool(raw['has_more'], fallback: false),
+    );
   }
 
   String _title(Map<String, dynamic> raw, String fallback) {
@@ -128,5 +153,35 @@ class PlaylistDetailApiClient {
     throw AppException(
       NetworkFailure('Invalid payload type: ${value.runtimeType}'),
     );
+  }
+
+  int _readPositiveInt(dynamic value, {required int fallback, int? max}) {
+    final parsed = value is int ? value : int.tryParse('$value');
+    if (parsed == null || parsed <= 0 || (max != null && parsed > max)) {
+      return fallback;
+    }
+    return parsed;
+  }
+
+  int _readNonNegativeInt(dynamic value, {required int fallback}) {
+    final parsed = value is int ? value : int.tryParse('$value');
+    return parsed == null || parsed < 0 ? fallback : parsed;
+  }
+
+  bool _readBool(dynamic value, {required bool fallback}) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    final text = '$value'.trim().toLowerCase();
+    if (text == 'true' || text == '1') {
+      return true;
+    }
+    if (text == 'false' || text == '0') {
+      return false;
+    }
+    return fallback;
   }
 }
