@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/i18n/app_i18n.dart';
+import '../../app/theme/player/app_player_style_bottom_sheet.dart';
+import '../../app/theme/player/app_player_style_theme.dart';
 import '../../features/my/domain/entities/my_favorite_item.dart';
 import '../../features/my/presentation/providers/my_playlist_shelf_providers.dart';
 import '../utils/playlist_song_count_text.dart';
@@ -18,14 +20,24 @@ Future<SelectedUserPlaylist?> showSelectUserPlaylistSheet(
   BuildContext context, {
   String? excludedPlaylistId,
 }) {
+  Widget buildSheet(BuildContext sheetContext) {
+    return SelectUserPlaylistSheet(excludedPlaylistId: excludedPlaylistId);
+  }
+
+  // 播放器主体固定深色，选择弹层需要改用跟随系统亮度的播放器弹层主题。
+  if (Theme.of(context).extension<AppPlayerStyleTheme>() != null) {
+    return showPlayerStyledBottomSheet<SelectedUserPlaylist>(
+      context: context,
+      isScrollControlled: true,
+      builder: buildSheet,
+    );
+  }
   return showModalBottomSheet<SelectedUserPlaylist>(
     context: context,
     useRootNavigator: true,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (sheetContext) {
-      return SelectUserPlaylistSheet(excludedPlaylistId: excludedPlaylistId);
-    },
+    builder: buildSheet,
   );
 }
 
