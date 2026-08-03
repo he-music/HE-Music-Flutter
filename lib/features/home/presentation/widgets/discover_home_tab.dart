@@ -19,6 +19,7 @@ import '../../../../shared/helpers/album_id_helper.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
 import '../../../../shared/helpers/root_route_navigation_helper.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
+import '../../../../shared/helpers/user_playlist_song_action_helper.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
@@ -476,6 +477,13 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
           mvId: song.mvId,
           artworkUrl: playerArtworkUrl,
           platformId: platformId,
+        ),
+      ),
+      onAddToUserPlaylist: () => unawaited(
+        addSingleSongToUserPlaylist(
+          context: context,
+          ref: ref,
+          song: IdPlatformInfo(id: song.id, platform: platformId),
         ),
       ),
       onDownload: qualities.isEmpty

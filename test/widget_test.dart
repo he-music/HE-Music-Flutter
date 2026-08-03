@@ -83,6 +83,22 @@ void main() {
     },
   );
 
+  testWidgets('home discover song actions include add to user playlist', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(_buildDiscoverTabTestApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add to Queue'), findsOneWidget);
+    expect(find.text('Add to Playlist'), findsOneWidget);
+  });
+
   testWidgets('home discover resolves album and playlist template covers', (
     WidgetTester tester,
   ) async {
