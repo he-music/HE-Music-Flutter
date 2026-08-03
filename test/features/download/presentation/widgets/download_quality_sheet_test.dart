@@ -117,6 +117,44 @@ void main() {
     },
   );
 
+  testWidgets('download quality sheet uses root navigator', (tester) async {
+    final rootObserver = _BottomSheetRouteObserver();
+    final branchObserver = _BottomSheetRouteObserver();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorObservers: <NavigatorObserver>[rootObserver],
+        home: Navigator(
+          observers: <NavigatorObserver>[branchObserver],
+          onGenerateRoute: (settings) => MaterialPageRoute<void>(
+            builder: (context) => Scaffold(
+              body: FilledButton(
+                onPressed: () => showDownloadQualitySheet(
+                  context: context,
+                  qualities: const <PlayerQualityOption>[
+                    PlayerQualityOption(
+                      name: 'FLAC',
+                      quality: 999,
+                      format: 'flac',
+                      url: 'https://example.com/song.flac',
+                    ),
+                  ],
+                ),
+                child: const Text('Open nested'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open nested'));
+    await tester.pumpAndSettle();
+
+    expect(rootObserver.bottomSheetPushCount, 1);
+    expect(branchObserver.bottomSheetPushCount, 0);
+  });
+
   testWidgets('download quality sheet follows player sheet brightness', (
     tester,
   ) async {
@@ -184,4 +222,16 @@ void main() {
 Color? _renderedTextColor(WidgetTester tester, String text) {
   final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
   return paragraph.text.style?.color;
+}
+
+class _BottomSheetRouteObserver extends NavigatorObserver {
+  int bottomSheetPushCount = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    if (route is ModalBottomSheetRoute<dynamic>) {
+      bottomSheetPushCount += 1;
+    }
+  }
 }

@@ -75,6 +75,7 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
   }
   return showModalBottomSheet<PlayerQualityOption>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     builder: buildSheet,
   );
