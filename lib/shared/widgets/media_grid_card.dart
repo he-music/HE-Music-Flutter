@@ -20,6 +20,7 @@ class MediaGridCard extends StatelessWidget {
     this.playCount,
     this.selected = false,
     this.showCenterPlayIcon = false,
+    this.overlayText = false,
     required this.onTap,
     super.key,
   });
@@ -32,6 +33,7 @@ class MediaGridCard extends StatelessWidget {
   final String? playCount;
   final bool selected;
   final bool showCenterPlayIcon;
+  final bool overlayText;
   final VoidCallback onTap;
 
   @override
@@ -62,10 +64,11 @@ class MediaGridCard extends StatelessWidget {
               padding: const EdgeInsets.all(_mediaGridCardPadding),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final textHeight =
-                      17.0 +
-                      (showSubtitle ? 14.0 : 0.0) +
-                      (showCaption ? 14.0 : 0.0);
+                  final textHeight = overlayText
+                      ? 0.0
+                      : 17.0 +
+                            (showSubtitle ? 14.0 : 0.0) +
+                            (showCaption ? 14.0 : 0.0);
                   final coverSide = constraints.maxHeight.isFinite
                       ? (constraints.maxHeight - textHeight).clamp(
                           0.0,
@@ -91,6 +94,26 @@ class MediaGridCard extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            if (overlayText)
+                              const Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(_mediaGridCardRadius),
+                                    ),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: <Color>[
+                                        Colors.transparent,
+                                        Color(0x16000000),
+                                        Color(0xD9000000),
+                                      ],
+                                      stops: <double>[0.42, 0.62, 1],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             if (showCenterPlayIcon)
                               Positioned.fill(
                                 child: Center(
@@ -150,27 +173,79 @@ class MediaGridCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
+                            if (overlayText)
+                              Align(
+                                alignment: Alignment.bottomLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    9,
+                                    8,
+                                    9,
+                                    9,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Text(
+                                        title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                              fontWeight: selected
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w600,
+                                              height: 1.1,
+                                            ),
+                                      ),
+                                      if (showSubtitle) ...<Widget>[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          subtitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.82,
+                                                ),
+                                                fontSize: 11,
+                                                height: 1.1,
+                                              ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      SizedBox(
-                        height: 14,
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontSize: 13,
-                            fontWeight: selected
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            height: 1.0,
-                            color: selected ? theme.colorScheme.primary : null,
+                      if (!overlayText) const SizedBox(height: 3),
+                      if (!overlayText)
+                        SizedBox(
+                          height: 14,
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontSize: 13,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              height: 1.0,
+                              color: selected
+                                  ? theme.colorScheme.primary
+                                  : null,
+                            ),
                           ),
                         ),
-                      ),
-                      if (showSubtitle) ...<Widget>[
+                      if (!overlayText && showSubtitle) ...<Widget>[
                         const SizedBox(height: 1),
                         SizedBox(
                           height: 13,
@@ -186,7 +261,7 @@ class MediaGridCard extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (showCaption) ...<Widget>[
+                      if (!overlayText && showCaption) ...<Widget>[
                         const SizedBox(height: 2),
                         SizedBox(
                           height: 12,

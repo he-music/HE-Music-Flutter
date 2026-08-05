@@ -28,7 +28,7 @@ AdaptiveMediaGridSpec resolveHomeQuickEntryGridSpec({
   return resolveAdaptiveMediaGridSpec(
     maxWidth: maxWidth,
     minItemWidth: 104,
-    childAspectRatio: 0.74,
+    childAspectRatio: 1,
     minCrossAxisCount: 3,
   );
 }
@@ -201,6 +201,7 @@ List<Widget> _buildResourceSlivers({
               coverUrl: entry.cover,
               selected: selected,
               showCenterPlayIcon: selected,
+              overlayText: true,
               onTap: () => onTapEntry(entry),
             );
           }, childCount: section.entries.length),

@@ -97,6 +97,16 @@ void main() {
       tester.getSize(quickEntryCard).width,
       lessThan(tester.getSize(albumCard).width),
     );
+    expect(
+      tester.getSize(quickEntryCard).aspectRatio,
+      closeTo(1, 0.01),
+      reason: '快捷入口使用方形封面叠字卡片',
+    );
+    expect(
+      find.ancestor(of: find.text('每日新歌'), matching: find.byType(Stack)),
+      findsWidgets,
+      reason: '快捷入口文字应位于封面 Stack 内',
+    );
 
     await tester.tap(find.text('每日新歌'));
     await tester.pump();
@@ -152,6 +162,7 @@ void main() {
 
     expect(slivers.whereType<SliverLayoutBuilder>(), isEmpty);
     expect(quickEntryGridSpec.crossAxisCount, 3);
+    expect(quickEntryGridSpec.childAspectRatio, 1);
     expect(slivers, hasLength(23), reason: '空标题 QUICK_ENTRIES 不应生成标题 sliver');
   });
 }

@@ -95,6 +95,11 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
         ..addListener(_handleRecommendScroll),
       HomePageKind.discover: ScrollController(),
     };
+    Future.microtask(() {
+      if (mounted) {
+        unawaited(ref.read(homePageControllerProvider.notifier).initialize());
+      }
+    });
   }
 
   @override
@@ -149,13 +154,21 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
             ),
             Expanded(
               child: availablePages.isEmpty
-                  ? _HomePlatformError(
-                      message:
-                          homeState.platformErrorMessage ??
-                          AppI18n.t(config, 'home.platform_not_ready'),
-                      retryText: AppI18n.t(config, 'home.retry'),
-                      onRetry: homeController.retryPlatforms,
-                    )
+                  ? homeState.platformErrorMessage == null
+                        ? const Center(
+                            child: SizedBox.square(
+                              key: ValueKey<String>('home-platform-loading'),
+                              dimension: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                          )
+                        : _HomePlatformError(
+                            message: homeState.platformErrorMessage!,
+                            retryText: AppI18n.t(config, 'home.retry'),
+                            onRetry: homeController.retryPlatforms,
+                          )
                   : PageView(
                       controller: _pageController,
                       onPageChanged: (index) {
@@ -1382,11 +1395,11 @@ class _HomeTopControls extends StatelessWidget {
                 onTap: onParseUrl,
                 borderRadius: BorderRadius.circular(14),
                 child: Padding(
-                  padding: const EdgeInsets.all(13),
+                  padding: const EdgeInsets.all(12),
                   child: Icon(
                     Icons.link_rounded,
                     color: theme.colorScheme.primary,
-                    size: 22,
+                    size: 20,
                   ),
                 ),
               ),

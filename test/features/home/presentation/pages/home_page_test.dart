@@ -38,6 +38,7 @@ void main() {
     expect(find.text('What do you want to hear?'), findsNothing);
     final searchTopLeft = tester.getTopLeft(find.byType(HomeSearchField));
     expect(searchTopLeft.dx, 12);
+    expect(tester.getSize(find.byType(HomeSearchField)).height, 44);
 
     await tester.tap(find.text('Discover'));
     await tester.pump();

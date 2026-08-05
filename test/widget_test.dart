@@ -58,6 +58,57 @@ void main() {
     expect(find.byIcon(Icons.search_rounded), findsOneWidget);
   });
 
+  testWidgets('home startup shows loading before platforms are ready', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          playerControllerProvider.overrideWith(_TestPlayerController.new),
+          onlinePlatformsProvider.overrideWith(
+            _TestOnlinePlatformsController.new,
+          ),
+          searchDefaultPlaceholderProvider.overrideWith(
+            _TestSearchDefaultPlaceholderController.new,
+          ),
+          homePageControllerProvider.overrideWith(
+            _TestPendingHomePageController.new,
+          ),
+        ],
+        child: const MaterialApp(home: Scaffold(body: DiscoverHomeTab())),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('平台未就绪'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('home-platform-loading')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('home route initializes content when mounted directly', (
+    WidgetTester tester,
+  ) async {
+    final apiClient = _TrackingHomePageApiClient();
+
+    await tester.pumpWidget(
+      _buildHomeTestApp(
+        apiClient: apiClient,
+        home: const Scaffold(body: DiscoverHomeTab()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(apiClient.fetchRecommendCallCount, 1);
+    expect(
+      find.byKey(const ValueKey<String>('home-platform-loading')),
+      findsNothing,
+    );
+    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+  });
+
   testWidgets('home supports horizontal swipe from recommend to discover', (
     WidgetTester tester,
   ) async {
@@ -188,7 +239,10 @@ void main() {
   });
 }
 
-Widget _buildHomeTestApp({required HomePageApiClient apiClient}) {
+Widget _buildHomeTestApp({
+  required HomePageApiClient apiClient,
+  Widget home = const HomePage(),
+}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
@@ -201,7 +255,7 @@ Widget _buildHomeTestApp({required HomePageApiClient apiClient}) {
     ],
     child: MaterialApp(
       theme: ThemeData(platform: TargetPlatform.android),
-      home: const HomePage(),
+      home: home,
     ),
   );
 }
@@ -388,6 +442,14 @@ class _TestLoadedHomePageController extends HomePageController {
       ),
     );
   }
+
+  @override
+  Future<void> initialize() async {}
+}
+
+class _TestPendingHomePageController extends HomePageController {
+  @override
+  HomePageState build() => HomePageState.initial;
 
   @override
   Future<void> initialize() async {}

@@ -19,6 +19,11 @@ void main() {
 
       expect(find.text('专辑名'), findsOneWidget);
       expect(find.text('歌手名'), findsOneWidget);
+      expect(
+        find.ancestor(of: find.text('专辑名'), matching: find.byType(Stack)),
+        findsNothing,
+        reason: '默认媒体卡片仍在封面外显示文字',
+      );
     });
 
     testWidgets('subtitle 为空时不渲染副标题', (tester) async {
@@ -38,6 +43,31 @@ void main() {
       expect(find.text('Title'), findsOneWidget);
       final texts = tester.widgetList(find.byType(Text)).toList();
       expect(texts.length, 1);
+    });
+
+    testWidgets('overlayText 将标题和可选副标题放入封面', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          MediaGridCard(
+            kind: MediaGridCardKind.playlist,
+            title: '快捷入口',
+            subtitle: '每日更新',
+            coverUrl: '',
+            overlayText: true,
+            onTap: () {},
+          ),
+        ),
+      );
+
+      final coverStack = find.ancestor(
+        of: find.text('快捷入口'),
+        matching: find.byType(Stack),
+      );
+      expect(coverStack, findsOneWidget);
+      expect(
+        find.descendant(of: coverStack, matching: find.text('每日更新')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('caption 存在时应显示', (tester) async {

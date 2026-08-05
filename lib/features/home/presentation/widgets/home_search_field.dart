@@ -25,20 +25,20 @@ class HomeSearchField extends StatelessWidget {
     final secondary = placeholderSecondary?.trim() ?? '';
     return AppSkinSurface(
       role: AppSkinSurfaceRole.search,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(16),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: <Widget>[
                 AppSkinIcon(
                   role: AppSkinIconRole.search,
                   color: theme.colorScheme.primary,
-                  size: 22,
+                  size: 20,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
