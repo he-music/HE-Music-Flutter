@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_discover_state.dart';
-import 'package:he_music_flutter/features/home/presentation/controllers/home_discover_controller.dart';
+import 'package:he_music_flutter/features/home/domain/entities/home_page_state.dart';
+import 'package:he_music_flutter/features/home/presentation/controllers/home_page_controller.dart';
 import 'package:he_music_flutter/features/home/presentation/pages/home_page.dart';
-import 'package:he_music_flutter/features/home/presentation/providers/home_discover_providers.dart';
+import 'package:he_music_flutter/features/home/presentation/providers/home_page_providers.dart';
+import 'package:he_music_flutter/features/home/presentation/widgets/home_search_field.dart';
 import 'package:he_music_flutter/features/my/domain/entities/favorite_collection_status_state.dart';
 import 'package:he_music_flutter/features/my/domain/entities/favorite_song_status_state.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.dart';
@@ -25,7 +26,7 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 
 void main() {
-  testWidgets('home page uses page gutter only on mobile home tab', (
+  testWidgets('home pages omit hero title and keep mobile search gutter', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1170, 2532);
@@ -34,11 +35,16 @@ void main() {
     await tester.pumpWidget(_buildTestApp());
     await tester.pump();
 
-    final titleTopLeft = tester.getTopLeft(
-      find.text('What do you want to hear?'),
-    );
+    expect(find.text('What do you want to hear?'), findsNothing);
+    final searchTopLeft = tester.getTopLeft(find.byType(HomeSearchField));
+    expect(searchTopLeft.dx, 12);
 
-    expect(titleTopLeft.dx, 12);
+    await tester.tap(find.text('Discover'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('What do you want to hear?'), findsNothing);
+    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
   });
 
   testWidgets('home page uses page gutter only on mobile my tab', (
@@ -70,6 +76,10 @@ void main() {
     await tester.pumpWidget(_buildTestApp());
     await tester.pump();
 
+    await tester.tap(find.text('Discover'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
     final playlistLabel = tester.widget<Text>(find.text('Playlist'));
 
     expect(playlistLabel.maxLines, 2);
@@ -95,9 +105,7 @@ Widget _buildTestApp() {
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
-      homeDiscoverControllerProvider.overrideWith(
-        _TestHomeDiscoverController.new,
-      ),
+      homePageControllerProvider.overrideWith(_TestHomePageController.new),
       myOverviewControllerProvider.overrideWith(_TestMyOverviewController.new),
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
       searchDefaultPlaceholderProvider.overrideWith(
@@ -138,10 +146,34 @@ class _TestPlayerController extends PlayerController {
   Future<void> initialize() async {}
 }
 
-class _TestHomeDiscoverController extends HomeDiscoverController {
+class _TestHomePageController extends HomePageController {
   @override
-  HomeDiscoverState build() {
-    return HomeDiscoverState.initial;
+  HomePageState build() {
+    final platform = OnlinePlatform(
+      id: 'qq',
+      name: 'QQ',
+      shortName: 'QQ',
+      status: 1,
+      featureSupportFlag:
+          PlatformFeatureSupportFlag.getRecommendPage |
+          PlatformFeatureSupportFlag.getDiscoverPage,
+    );
+    const content = HomeContentState(
+      initialized: true,
+      loading: false,
+      refreshing: false,
+      loadingMore: false,
+      selectedPlatformId: 'qq',
+      sections: [],
+      hasMore: false,
+      nextPageIndex: 2,
+    );
+    return HomePageState(
+      platforms: <OnlinePlatform>[platform],
+      selectedPage: HomePageKind.recommend,
+      recommend: content,
+      discover: content,
+    );
   }
 
   @override

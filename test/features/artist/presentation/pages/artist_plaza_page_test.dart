@@ -15,6 +15,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/artist_grid_card.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 
 void main() {
@@ -45,13 +46,8 @@ void main() {
       expect(find.text('QQ'), findsWidgets);
       expect(find.text('全部'), findsOneWidget);
       expect(find.text('测试歌手'), findsOneWidget);
-      final artistMaterial = tester.widget<Material>(
-        find.descendant(
-          of: find.byType(SearchArtistListItem),
-          matching: find.byType(Material),
-        ),
-      );
-      expect(artistMaterial.color, Colors.transparent);
+      expect(find.byType(ArtistGridCard), findsOneWidget);
+      expect(find.byType(SearchArtistListItem), findsNothing);
     },
   );
 }

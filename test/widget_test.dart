@@ -4,13 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_discover_state.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_discover_item.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_discover_section.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_platform.dart';
-import 'package:he_music_flutter/features/home/presentation/controllers/home_discover_controller.dart';
+import 'package:he_music_flutter/features/home/domain/entities/home_page_result.dart';
+import 'package:he_music_flutter/features/home/domain/entities/home_page_section.dart';
+import 'package:he_music_flutter/features/home/domain/entities/home_page_state.dart';
+import 'package:he_music_flutter/features/home/presentation/controllers/home_page_controller.dart';
 import 'package:he_music_flutter/features/home/presentation/pages/home_page.dart';
-import 'package:he_music_flutter/features/home/presentation/providers/home_discover_providers.dart';
+import 'package:he_music_flutter/features/home/presentation/providers/home_page_providers.dart';
 import 'package:he_music_flutter/features/home/presentation/widgets/discover_home_tab.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -27,27 +26,67 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      _buildHomeTestApp(apiClient: _TestHomeDiscoverApiClient()),
+      _buildHomeTestApp(apiClient: _TestHomePageApiClient()),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('首页'), findsWidgets);
     expect(find.text('我的'), findsOneWidget);
-    expect(find.text('排行榜'), findsOneWidget);
+    expect(find.text('推荐'), findsOneWidget);
+    expect(find.text('发现'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+    expect(find.text('排行榜'), findsNothing);
+
+    await tester.tap(find.text('发现'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('排行榜'), findsOneWidget);
   });
 
   testWidgets('home discover uses preloaded global platforms', (
     WidgetTester tester,
   ) async {
-    final apiClient = _TrackingHomeDiscoverApiClient();
+    final apiClient = _TrackingHomePageApiClient();
 
     await tester.pumpWidget(_buildHomeTestApp(apiClient: apiClient));
 
     await tester.pumpAndSettle();
 
-    expect(apiClient.fetchPlatformsCallCount, 0);
+    expect(apiClient.fetchRecommendCallCount, 1);
+    expect(apiClient.fetchDiscoverCallCount, 0);
+    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+  });
+
+  testWidgets('home supports horizontal swipe from recommend to discover', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final apiClient = _TrackingHomePageApiClient();
+
+    await tester.pumpWidget(_buildHomeTestApp(apiClient: apiClient));
+    await tester.pumpAndSettle();
+
+    expect(apiClient.fetchRecommendCallCount, 1);
+    expect(apiClient.fetchDiscoverCallCount, 0);
+    expect(find.text('排行榜'), findsNothing);
+
+    await tester.drag(find.byType(PageView), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+
+    expect(apiClient.fetchDiscoverCallCount, 1);
+    expect(find.text('排行榜'), findsOneWidget);
+  });
+
+  testWidgets('home hides page tabs when only discover is available', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(_buildDiscoverTabTestApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('推荐'), findsNothing);
+    expect(find.text('发现'), findsNothing);
     expect(find.text('排行榜'), findsOneWidget);
     expect(find.byIcon(Icons.search_rounded), findsOneWidget);
   });
@@ -108,10 +147,19 @@ void main() {
     await tester.pumpWidget(_buildDiscoverTabTestApp());
     await tester.pumpAndSettle();
 
+    final contentScrollable = find.descendant(
+      of: find.byType(CustomScrollView),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.down,
+      ),
+    );
+    expect(contentScrollable, findsOneWidget);
+
     await tester.scrollUntilVisible(
       find.text('专辑块-0'),
       400,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: contentScrollable,
     );
     await tester.pumpAndSettle();
 
@@ -126,7 +174,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('歌单块-0'),
       400,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: contentScrollable,
     );
     await tester.pumpAndSettle();
 
@@ -140,13 +188,13 @@ void main() {
   });
 }
 
-Widget _buildHomeTestApp({required HomeDiscoverApiClient apiClient}) {
+Widget _buildHomeTestApp({required HomePageApiClient apiClient}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
-      homeDiscoverApiClientProvider.overrideWithValue(apiClient),
+      homePageApiClientProvider.overrideWithValue(apiClient),
       searchDefaultPlaceholderProvider.overrideWith(
         _TestSearchDefaultPlaceholderController.new,
       ),
@@ -167,8 +215,8 @@ Widget _buildDiscoverTabTestApp() {
       searchDefaultPlaceholderProvider.overrideWith(
         _TestSearchDefaultPlaceholderController.new,
       ),
-      homeDiscoverControllerProvider.overrideWith(
-        _TestLoadedHomeDiscoverController.new,
+      homePageControllerProvider.overrideWith(
+        _TestLoadedHomePageController.new,
       ),
     ],
     child: const MaterialApp(home: Scaffold(body: DiscoverHomeTab())),
@@ -181,7 +229,9 @@ final List<OnlinePlatform> _fakeOnlinePlatforms = <OnlinePlatform>[
     name: 'QQ音乐',
     shortName: 'QQ',
     status: 1,
-    featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
+    featureSupportFlag:
+        PlatformFeatureSupportFlag.getRecommendPage |
+        PlatformFeatureSupportFlag.getDiscoverPage,
     imageSizes: <int>[150, 300, 600],
   ),
   OnlinePlatform(
@@ -215,6 +265,11 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
   Future<List<OnlinePlatform>> build() async {
     return _fakeOnlinePlatforms;
   }
+
+  @override
+  Future<List<OnlinePlatform>> ensureLoaded({bool forceRefresh = false}) async {
+    return _fakeOnlinePlatforms;
+  }
 }
 
 class _TestSearchDefaultPlaceholderController
@@ -225,95 +280,117 @@ class _TestSearchDefaultPlaceholderController
   }
 }
 
-class _TestHomeDiscoverApiClient extends HomeDiscoverApiClient {
-  _TestHomeDiscoverApiClient() : super(Dio());
+class _TestHomePageApiClient extends HomePageApiClient {
+  _TestHomePageApiClient() : super(Dio());
 
   @override
-  Future<List<HomePlatform>> fetchPlatforms() async {
-    return <HomePlatform>[
-      HomePlatform(
-        id: 'qq',
-        name: 'QQ',
-        shortName: 'QQ',
-        status: 1,
-        featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
-      ),
-    ];
+  Future<HomePageResult> fetchRecommendPage({
+    required String platformId,
+    required int pageIndex,
+  }) async {
+    return const HomePageResult(sections: [], hasMore: false);
   }
 
   @override
-  Future<List<HomeDiscoverSection>> fetchDiscoverSections(
-    String platformId,
-  ) async {
-    return const <HomeDiscoverSection>[];
+  Future<HomePageResult> fetchDiscoverPage({required String platformId}) async {
+    return const HomePageResult(sections: [], hasMore: false);
   }
 }
 
-class _TrackingHomeDiscoverApiClient extends _TestHomeDiscoverApiClient {
-  int fetchPlatformsCallCount = 0;
+class _TrackingHomePageApiClient extends _TestHomePageApiClient {
+  int fetchRecommendCallCount = 0;
+  int fetchDiscoverCallCount = 0;
 
   @override
-  Future<List<HomePlatform>> fetchPlatforms() {
-    fetchPlatformsCallCount += 1;
-    return super.fetchPlatforms();
-  }
-}
-
-class _TestLoadedHomeDiscoverController extends HomeDiscoverController {
-  @override
-  HomeDiscoverState build() {
-    return HomeDiscoverState(
-      loading: false,
-      platforms: <HomePlatform>[
-        HomePlatform(
-          id: 'qq',
-          name: 'QQ',
-          shortName: 'QQ',
-          status: 1,
-          featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
-        ),
-      ],
-      selectedPlatformId: 'qq',
-      sections: <HomeDiscoverSection>[
-        HomeDiscoverSection(
-          key: 'new-song',
-          titleKey: 'home.section.new_song',
-          type: HomeDiscoverItemType.song,
-          songs: List<SongInfo>.generate(
-            20,
-            (index) => _buildSong(index: index, platformId: 'qq'),
-          ),
-        ),
-        HomeDiscoverSection(
-          key: 'new-album',
-          titleKey: 'home.section.new_album',
-          type: HomeDiscoverItemType.album,
-          albums: List<AlbumInfo>.generate(
-            12,
-            (index) => _buildAlbum(index: index, platformId: 'qq'),
-          ),
-        ),
-        HomeDiscoverSection(
-          key: 'featured-playlist',
-          titleKey: 'home.section.playlist',
-          type: HomeDiscoverItemType.playlist,
-          playlists: List<PlaylistInfo>.generate(
-            12,
-            (index) => _buildPlaylist(index: index, platformId: 'qq'),
-          ),
-        ),
-        HomeDiscoverSection(
-          key: 'featured-mv',
-          titleKey: 'home.section.video',
-          type: HomeDiscoverItemType.video,
-          videos: List<MvInfo>.generate(
-            10,
-            (index) => _buildVideo(index: index, platformId: 'qq'),
-          ),
-        ),
-      ],
+  Future<HomePageResult> fetchRecommendPage({
+    required String platformId,
+    required int pageIndex,
+  }) {
+    fetchRecommendCallCount += 1;
+    return super.fetchRecommendPage(
+      platformId: platformId,
+      pageIndex: pageIndex,
     );
   }
+
+  @override
+  Future<HomePageResult> fetchDiscoverPage({required String platformId}) {
+    fetchDiscoverCallCount += 1;
+    return super.fetchDiscoverPage(platformId: platformId);
+  }
+}
+
+class _TestLoadedHomePageController extends HomePageController {
+  @override
+  HomePageState build() {
+    final platform = OnlinePlatform(
+      id: 'qq',
+      name: 'QQ音乐',
+      shortName: 'QQ',
+      status: 1,
+      featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
+      imageSizes: const <int>[150, 300, 600],
+    );
+    return HomePageState(
+      platforms: <OnlinePlatform>[platform],
+      selectedPage: HomePageKind.discover,
+      recommend: HomeContentState.initial,
+      discover: HomeContentState(
+        initialized: true,
+        loading: false,
+        refreshing: false,
+        loadingMore: false,
+        selectedPlatformId: 'qq',
+        hasMore: false,
+        nextPageIndex: 2,
+        sections: <HomePageSection>[
+          HomePageSection(
+            sectionTypeCode: 2,
+            sectionType: HomeSectionType.newSongs,
+            resourceType: HomeResourceType.song,
+            title: '新歌速递',
+            songs: List<SongInfo>.generate(
+              20,
+              (index) => _buildSong(index: index, platformId: 'qq'),
+            ),
+          ),
+          HomePageSection(
+            sectionTypeCode: 3,
+            sectionType: HomeSectionType.newAlbums,
+            resourceType: HomeResourceType.album,
+            title: '新碟上架',
+            albums: List<AlbumInfo>.generate(
+              12,
+              (index) => _buildAlbum(index: index, platformId: 'qq'),
+            ),
+          ),
+          HomePageSection(
+            sectionTypeCode: 1,
+            sectionType: HomeSectionType.generic,
+            resourceType: HomeResourceType.playlist,
+            title: '推荐歌单',
+            playlists: List<PlaylistInfo>.generate(
+              12,
+              (index) => _buildPlaylist(index: index, platformId: 'qq'),
+            ),
+          ),
+          HomePageSection(
+            sectionTypeCode: 1,
+            sectionType: HomeSectionType.generic,
+            resourceType: HomeResourceType.mv,
+            title: '精选视频',
+            mvs: List<MvInfo>.generate(
+              10,
+              (index) => _buildVideo(index: index, platformId: 'qq'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Future<void> initialize() async {}
 }
 
 SongInfo _buildSong({required int index, required String platformId}) {

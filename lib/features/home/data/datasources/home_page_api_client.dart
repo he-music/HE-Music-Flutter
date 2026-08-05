@@ -1,0 +1,201 @@
+import 'package:dio/dio.dart';
+
+import '../../../../core/error/app_exception.dart';
+import '../../../../core/error/failure.dart';
+import '../../../../shared/models/he_music_models.dart';
+import '../../../ranking/domain/entities/ranking_info.dart';
+import '../../domain/entities/home_page_result.dart';
+import '../../domain/entities/home_page_section.dart';
+
+class HomePageApiClient {
+  const HomePageApiClient(this._dio);
+
+  final Dio _dio;
+
+  Future<HomePageResult> fetchRecommendPage({
+    required String platformId,
+    required int pageIndex,
+  }) async {
+    final response = await _dio.get(
+      '/v1/page/recommend',
+      queryParameters: <String, dynamic>{
+        'platform': platformId,
+        'page_index': pageIndex,
+      },
+    );
+    final payload = _asMap(response.data);
+    return HomePageResult(
+      sections: _parseSections(payload, platformId),
+      hasMore: _readBool(payload['has_more']),
+    );
+  }
+
+  Future<HomePageResult> fetchDiscoverPage({required String platformId}) async {
+    final response = await _dio.get(
+      '/v1/page/discover',
+      queryParameters: <String, dynamic>{'platform': platformId},
+    );
+    final payload = _asMap(response.data);
+    return HomePageResult(
+      sections: _parseSections(payload, platformId),
+      hasMore: false,
+    );
+  }
+
+  List<HomePageSection> _parseSections(
+    Map<String, dynamic> payload,
+    String fallbackPlatform,
+  ) {
+    final rawSections = payload['sections'];
+    if (rawSections is! List) {
+      throw const AppException(
+        NetworkFailure('Invalid page response: missing sections'),
+      );
+    }
+    final sections = <HomePageSection>[];
+    for (final rawSection in rawSections) {
+      if (rawSection is! Map) {
+        continue;
+      }
+      final section = _parseSection(
+        rawSection.map((key, value) => MapEntry('$key', value)),
+        fallbackPlatform,
+      );
+      if (section != null && !section.isEmpty) {
+        sections.add(section);
+      }
+    }
+    return List<HomePageSection>.unmodifiable(sections);
+  }
+
+  HomePageSection? _parseSection(
+    Map<String, dynamic> raw,
+    String fallbackPlatform,
+  ) {
+    final resourceType = parseHomeResourceType('${raw['resource_type'] ?? ''}');
+    if (resourceType == null) {
+      return null;
+    }
+    final sectionTypeCode = _readInt(raw['section_type']);
+    final section = HomePageSection(
+      sectionTypeCode: sectionTypeCode,
+      sectionType: parseHomeSectionType(sectionTypeCode),
+      resourceType: resourceType,
+      title: '${raw['title'] ?? ''}',
+      songs: resourceType == HomeResourceType.song
+          ? _parseItems(
+              raw['songs'],
+              (item) =>
+                  SongInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
+              (item) => item.id.isNotEmpty && item.name.isNotEmpty,
+            )
+          : const <SongInfo>[],
+      albums: resourceType == HomeResourceType.album
+          ? _parseItems(
+              raw['albums'],
+              (item) =>
+                  AlbumInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
+              (item) => item.id.isNotEmpty && item.name.isNotEmpty,
+            )
+          : const <AlbumInfo>[],
+      playlists: resourceType == HomeResourceType.playlist
+          ? _parseItems(
+              raw['playlists'],
+              (item) => PlaylistInfo.fromMap(
+                item,
+                fallbackPlatform: fallbackPlatform,
+              ),
+              (item) => item.id.isNotEmpty && item.name.isNotEmpty,
+            )
+          : const <PlaylistInfo>[],
+      mvs: resourceType == HomeResourceType.mv
+          ? _parseItems(
+              raw['mvs'],
+              (item) =>
+                  MvInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
+              (item) => item.id.isNotEmpty && item.name.isNotEmpty,
+            )
+          : const <MvInfo>[],
+      artists: resourceType == HomeResourceType.artist
+          ? _parseItems(
+              raw['artists'],
+              (item) =>
+                  ArtistInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
+              (item) => item.id.isNotEmpty && item.name.isNotEmpty,
+            )
+          : const <ArtistInfo>[],
+      rankings: resourceType == HomeResourceType.ranking
+          ? _parseItems(
+              raw['rankings'],
+              (item) =>
+                  RankingInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
+              (item) => item.id.isNotEmpty && item.id != '-',
+            )
+          : const <RankingInfo>[],
+      radios: resourceType == HomeResourceType.radio
+          ? _parseItems(
+              raw['radios'],
+              (item) =>
+                  RadioInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
+              (item) => item.id.isNotEmpty && item.name.isNotEmpty,
+            )
+          : const <RadioInfo>[],
+    );
+    return section.isEmpty ? null : section;
+  }
+
+  List<T> _parseItems<T>(
+    dynamic raw,
+    T Function(Map<String, dynamic> item) parse,
+    bool Function(T item) isValid,
+  ) {
+    if (raw is! List) {
+      return <T>[];
+    }
+    final result = <T>[];
+    for (final value in raw) {
+      if (value is! Map) {
+        continue;
+      }
+      try {
+        final item = parse(value.map((key, entry) => MapEntry('$key', entry)));
+        if (isValid(item)) {
+          result.add(item);
+        }
+      } on FormatException {
+        continue;
+      }
+    }
+    return List<T>.unmodifiable(result);
+  }
+
+  bool _readBool(dynamic value) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    final normalized = '$value'.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1';
+  }
+
+  int _readInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    return int.tryParse('$value') ?? -1;
+  }
+
+  Map<String, dynamic> _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+    if (value is Map) {
+      return value.map((key, item) => MapEntry('$key', item));
+    }
+    throw AppException(
+      NetworkFailure('Invalid payload type: ${value.runtimeType}'),
+    );
+  }
+}

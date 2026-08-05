@@ -133,13 +133,13 @@ The replacement dark derivative was inspected at full frame and local detail on 
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `f0066e0b0c4e979e46bf63e6ff0fbb0390802d6dde65f61cb788a958fee8d637`.
+- SHA-256: `14493c7862e443efc6d1a8a359975ba9b896086bdbcbf0089517367acdc855e0`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `cfce9449a03bed6447f0f78e31efa7e24f29615d682d16bc4c47f322cff0886e`.
+- SHA-256: `2f18e886e639f12bfacc68bb4b186adeefba5dc4a4de8de9f243eb3b461d3508`.
 
 ## Rive ambient animation
 

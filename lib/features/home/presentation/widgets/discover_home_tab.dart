@@ -28,17 +28,21 @@ import '../../../../shared/widgets/song_actions_sheet.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../../../../shared/utils/cover_resolver.dart';
 import '../../../../shared/utils/share_link_builder.dart';
-import '../providers/home_discover_providers.dart';
+import '../../domain/entities/home_page_section.dart';
+import '../../domain/entities/home_page_state.dart';
+import '../providers/home_page_providers.dart';
 import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../download/domain/entities/download_task.dart';
 import '../../../download/presentation/providers/download_providers.dart';
 import '../../../download/presentation/widgets/download_quality_sheet.dart';
+import '../../../player/domain/entities/player_playback_state.dart';
 import '../../../player/domain/entities/player_track.dart';
 import '../../../player/domain/entities/player_quality_option.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
-import 'discover_sections.dart';
+import '../../../radio/presentation/helpers/radio_playback_helper.dart';
+import 'home_sections.dart';
 import 'home_search_field.dart';
 
 const _entries = <_DiscoverEntry>[
@@ -79,38 +83,42 @@ class DiscoverHomeTab extends ConsumerStatefulWidget {
 }
 
 class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
+  late final PageController _pageController;
+  late final Map<HomePageKind, ScrollController> _scrollControllers;
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.read(playerControllerProvider.notifier).initialize();
-      final discoverState = ref.read(homeDiscoverControllerProvider);
-      // 已有数据时跳过初始化（测试 mock 场景）
-      if (!discoverState.loading && discoverState.platforms.isNotEmpty) {
-        return;
-      }
-      ref.read(homeDiscoverControllerProvider.notifier).initialize();
-    });
+    _pageController = PageController();
+    _scrollControllers = <HomePageKind, ScrollController>{
+      HomePageKind.recommend: ScrollController()
+        ..addListener(_handleRecommendScroll),
+      HomePageKind.discover: ScrollController(),
+    };
+  }
+
+  @override
+  void dispose() {
+    _scrollControllers[HomePageKind.recommend]
+      ?..removeListener(_handleRecommendScroll)
+      ..dispose();
+    _scrollControllers[HomePageKind.discover]?.dispose();
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
-    final topInset = MediaQuery.paddingOf(context).top;
-    final discoverState = ref.watch(homeDiscoverControllerProvider);
+    final homeState = ref.watch(homePageControllerProvider);
     final searchDefaultState = ref.watch(searchDefaultPlaceholderProvider);
     final globalPlatforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((s) => s.currentTrack),
-    );
-    final discoverController = ref.read(
-      homeDiscoverControllerProvider.notifier,
-    );
+    final playerState = ref.watch(playerControllerProvider);
+    final homeController = ref.read(homePageControllerProvider.notifier);
     final favoriteSongKeys = ref.watch(
       favoriteSongStatusProvider.select((state) => state.songKeys),
     );
-    final selectedPlatformId = discoverState.selectedPlatformId ?? '';
     final searchPlaceholderPrimary =
         searchDefaultState.currentEntry?.key.trim().isNotEmpty == true
         ? searchDefaultState.currentEntry!.key.trim()
@@ -119,156 +127,319 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
         searchDefaultState.currentEntry?.description.trim().isNotEmpty == true
         ? searchDefaultState.currentEntry!.description.trim()
         : null;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final gridSpec = resolveAdaptiveMediaGridSpec(
-          maxWidth: constraints.maxWidth - LayoutTokens.compactPageGutter * 2,
-        );
-        return Stack(
-          clipBehavior: Clip.none,
+    final availablePages = homeState.availablePages;
+    return Stack(
+      children: <Widget>[
+        const Positioned.fill(child: _HomeBackground()),
+        Column(
           children: <Widget>[
-            Positioned(
-              top: -topInset,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: const _HomeBackground(),
-            ),
-            CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: <Widget>[
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    LayoutTokens.compactPageGutter,
-                    topInset + 8,
-                    LayoutTokens.compactPageGutter,
-                    0,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: _HomeHeroSection(
+            SafeArea(
+              bottom: false,
+              child: availablePages.length > 1
+                  ? _HomePageTabs(
+                      pages: availablePages,
+                      selectedPage: homeState.selectedPage,
                       config: config,
-                      searchPlaceholderPrimary: searchPlaceholderPrimary,
-                      searchPlaceholderSecondary: searchPlaceholderSecondary,
-                      onSearchTap: () => _openSearchPage(
-                        context: context,
-                        config: config,
-                        platformId: selectedPlatformId,
+                      onSelected: (page) => _selectPage(
+                        page: page,
+                        availablePages: availablePages,
                       ),
-                      onEntryTap: (entry) => _openEntry(
-                        context: context,
-                        config: config,
-                        platformId: selectedPlatformId,
-                        entry: entry,
-                      ),
-                      onParseUrl: () => context.push(AppRoutes.parseSourceUrl),
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: LayoutTokens.compactPageGutter + 4,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: _PlatformBar(
-                      selectedPlatformId: discoverState.selectedPlatformId,
-                      onSelected: discoverController.selectPlatform,
-                      chips: discoverState.platforms
-                          .where((platform) => platform.available)
+                    )
+                  : const SizedBox(height: 8),
+            ),
+            Expanded(
+              child: availablePages.isEmpty
+                  ? _HomePlatformError(
+                      message:
+                          homeState.platformErrorMessage ??
+                          AppI18n.t(config, 'home.platform_not_ready'),
+                      retryText: AppI18n.t(config, 'home.retry'),
+                      onRetry: homeController.retryPlatforms,
+                    )
+                  : PageView(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        if (index >= 0 && index < availablePages.length) {
+                          unawaited(
+                            homeController.selectPage(availablePages[index]),
+                          );
+                        }
+                      },
+                      children: availablePages
                           .map(
-                            (platform) => _PlatformChipData(
-                              id: platform.id,
-                              label: platform.shortName,
+                            (page) => _buildContentPage(
+                              context: context,
+                              page: page,
+                              homeState: homeState,
+                              config: config,
+                              searchPlaceholderPrimary:
+                                  searchPlaceholderPrimary,
+                              searchPlaceholderSecondary:
+                                  searchPlaceholderSecondary,
+                              globalPlatforms: globalPlatforms,
+                              favoriteSongKeys: favoriteSongKeys,
+                              playerState: playerState,
                             ),
                           )
                           .toList(growable: false),
                     ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 14)),
-                ...buildDiscoverSectionSlivers(
-                  config: config,
-                  gridSpec: gridSpec,
-                  loadingText: AppI18n.t(config, 'home.loading'),
-                  emptyText: AppI18n.t(config, 'home.empty'),
-                  retryText: AppI18n.t(config, 'home.retry'),
-                  titleOf: (section) => AppI18n.t(config, section.titleKey),
-                  sectionActionOf: (section) => _buildSectionAction(
-                    context: context,
-                    config: config,
-                    sectionKey: section.key,
-                    selectedPlatformId: selectedPlatformId,
-                  ),
-                  state: discoverState,
-                  onRetry: discoverController.retry,
-                  onTapSong: (songs, index) => _playDiscoverSong(
-                    context: context,
-                    ref: ref,
-                    songs: songs,
-                    startIndex: index,
-                  ),
-                  onTapAlbum: (album) => context.pushAlbumDetail(
-                    id: album.id,
-                    platform: album.platform,
-                    title: album.name,
-                  ),
-                  onTapPlaylist: (playlist) => context.pushPlaylistDetail(
-                    id: playlist.id,
-                    platform: playlist.platform,
-                    title: playlist.name,
-                  ),
-                  onTapVideo: (video) => _openDiscoverDetailPage(
-                    context: context,
-                    path: AppRoutes.videoDetail,
-                    id: video.id,
-                    platform: video.platform,
-                    title: video.name,
-                  ),
-                  onMoreSong: (song) => _showDiscoverSongActions(
-                    context: context,
-                    ref: ref,
-                    song: song,
-                  ),
-                  isSongLiked: (song) => favoriteSongKeys.contains(
-                    buildFavoriteSongKey(
-                      songId: song.id,
-                      platform: song.platform.isEmpty
-                          ? selectedPlatformId
-                          : song.platform,
-                    ),
-                  ),
-                  onLikeSong: (song) => _toggleSongFavorite(
-                    ref: ref,
-                    song: song,
-                    fallbackPlatformId: selectedPlatformId,
-                  ),
-                  isCurrentSong: (song) =>
-                      isCurrentSongTrack(currentTrack, song),
-                  resolveSongCover: (song) => _resolveDiscoverSongCover(
-                    config: config,
-                    platforms: globalPlatforms,
-                    platformId: discoverState.selectedPlatformId,
-                    song: song,
-                  ),
-                  resolveAlbumCover: (album) => _resolveDiscoverGridCover(
-                    platforms: globalPlatforms,
-                    selectedPlatformId: discoverState.selectedPlatformId,
-                    itemPlatformId: album.platform,
-                    cover: album.cover,
-                  ),
-                  resolvePlaylistCover: (playlist) => _resolveDiscoverGridCover(
-                    platforms: globalPlatforms,
-                    selectedPlatformId: discoverState.selectedPlatformId,
-                    itemPlatformId: playlist.platform,
-                    cover: playlist.cover,
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-              ],
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContentPage({
+    required BuildContext context,
+    required HomePageKind page,
+    required HomePageState homeState,
+    required AppConfigState config,
+    required String searchPlaceholderPrimary,
+    required String? searchPlaceholderSecondary,
+    required List<OnlinePlatform> globalPlatforms,
+    required Set<String> favoriteSongKeys,
+    required PlayerPlaybackState playerState,
+  }) {
+    final content = homeState.contentFor(page);
+    final selectedPlatformId = content.selectedPlatformId ?? '';
+    final homeController = ref.read(homePageControllerProvider.notifier);
+    return LayoutBuilder(
+      key: PageStorageKey<String>('home-${page.name}'),
+      builder: (context, constraints) {
+        final gridSpec = resolveAdaptiveMediaGridSpec(
+          maxWidth: constraints.maxWidth - LayoutTokens.compactPageGutter * 2,
+        );
+        return RefreshIndicator(
+          onRefresh: () async {
+            final error = await homeController.refresh();
+            if (error != null && mounted) {
+              AppMessageService.showError(error);
+            }
+          },
+          child: CustomScrollView(
+            controller: _scrollControllers[page],
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: <Widget>[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  LayoutTokens.compactPageGutter,
+                  8,
+                  LayoutTokens.compactPageGutter,
+                  0,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: _HomeTopControls(
+                    config: config,
+                    showEntries: page == HomePageKind.discover,
+                    searchPlaceholderPrimary: searchPlaceholderPrimary,
+                    searchPlaceholderSecondary: searchPlaceholderSecondary,
+                    onSearchTap: () => _openSearchPage(
+                      context: context,
+                      config: config,
+                      platformId: selectedPlatformId,
+                    ),
+                    onEntryTap: (entry) => _openEntry(
+                      context: context,
+                      config: config,
+                      platformId: selectedPlatformId,
+                      entry: entry,
+                    ),
+                    onParseUrl: () => context.push(AppRoutes.parseSourceUrl),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LayoutTokens.compactPageGutter + 4,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: _PlatformBar(
+                    selectedPlatformId: content.selectedPlatformId,
+                    onSelected: homeController.selectPlatform,
+                    chips: homeState
+                        .platformsFor(page)
+                        .map(
+                          (platform) => _PlatformChipData(
+                            id: platform.id,
+                            label: platform.shortName,
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 14)),
+              ...buildHomeSectionSlivers(
+                state: content,
+                gridSpec: gridSpec,
+                loadingText: AppI18n.t(config, 'home.loading'),
+                emptyText: AppI18n.t(
+                  config,
+                  page == HomePageKind.recommend
+                      ? 'home.recommend.empty'
+                      : 'home.empty',
+                ),
+                retryText: AppI18n.t(config, 'home.retry'),
+                onRetry: homeController.retry,
+                sectionActionOf: (section) => _buildSectionAction(
+                  context: context,
+                  config: config,
+                  sectionType: section.sectionType,
+                  selectedPlatformId: selectedPlatformId,
+                ),
+                onTapSong: (songs, index) => _playDiscoverSong(
+                  context: context,
+                  ref: ref,
+                  songs: songs,
+                  startIndex: index,
+                ),
+                onTapAlbum: (album) => context.pushAlbumDetail(
+                  id: album.id,
+                  platform: album.platform,
+                  title: album.name,
+                ),
+                onTapPlaylist: (playlist) => context.pushPlaylistDetail(
+                  id: playlist.id,
+                  platform: playlist.platform,
+                  title: playlist.name,
+                ),
+                onTapMv: (mv) => _openDiscoverDetailPage(
+                  context: context,
+                  path: AppRoutes.videoDetail,
+                  id: mv.id,
+                  platform: mv.platform,
+                  title: mv.name,
+                ),
+                onTapArtist: (artist) => _openDiscoverDetailPage(
+                  context: context,
+                  path: AppRoutes.artistDetail,
+                  id: artist.id,
+                  platform: artist.platform,
+                  title: artist.name,
+                ),
+                onTapRanking: (ranking) => _openDiscoverDetailPage(
+                  context: context,
+                  path: AppRoutes.rankingDetail,
+                  id: ranking.id,
+                  platform: ranking.platform,
+                  title: ranking.name,
+                ),
+                onTapRadio: (radio) => handleRadioPlayback(ref, radio),
+                onMoreSong: (song) => _showDiscoverSongActions(
+                  context: context,
+                  ref: ref,
+                  song: song,
+                ),
+                isSongLiked: (song) => favoriteSongKeys.contains(
+                  buildFavoriteSongKey(
+                    songId: song.id,
+                    platform: song.platform.isEmpty
+                        ? selectedPlatformId
+                        : song.platform,
+                  ),
+                ),
+                onLikeSong: (song) => _toggleSongFavorite(
+                  ref: ref,
+                  song: song,
+                  fallbackPlatformId: selectedPlatformId,
+                ),
+                isCurrentSong: (song) =>
+                    isCurrentSongTrack(playerState.currentTrack, song),
+                isRadioPlaying: (radio) =>
+                    playerState.isRadioMode &&
+                    playerState.currentRadioId == radio.id &&
+                    playerState.currentRadioPlatform == radio.platform,
+                resolveSongCover: (song) => _resolveDiscoverSongCover(
+                  config: config,
+                  platforms: globalPlatforms,
+                  platformId: content.selectedPlatformId,
+                  song: song,
+                ),
+                resolveAlbumCover: (album) => _resolveDiscoverGridCover(
+                  platforms: globalPlatforms,
+                  selectedPlatformId: content.selectedPlatformId,
+                  itemPlatformId: album.platform,
+                  cover: album.cover,
+                ),
+                resolvePlaylistCover: (playlist) => _resolveDiscoverGridCover(
+                  platforms: globalPlatforms,
+                  selectedPlatformId: content.selectedPlatformId,
+                  itemPlatformId: playlist.platform,
+                  cover: playlist.cover,
+                ),
+                resolveMvCover: (mv) => _resolveDiscoverGridCover(
+                  platforms: globalPlatforms,
+                  selectedPlatformId: content.selectedPlatformId,
+                  itemPlatformId: mv.platform,
+                  cover: mv.cover,
+                ),
+                resolveArtistCover: (artist) => _resolveDiscoverGridCover(
+                  platforms: globalPlatforms,
+                  selectedPlatformId: content.selectedPlatformId,
+                  itemPlatformId: artist.platform,
+                  cover: artist.cover,
+                ),
+                resolveRadioCover: (radio) => _resolveDiscoverGridCover(
+                  platforms: globalPlatforms,
+                  selectedPlatformId: content.selectedPlatformId,
+                  itemPlatformId: radio.platform,
+                  cover: radio.cover,
+                ),
+              ),
+              if (page == HomePageKind.recommend && content.loadingMore)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+              if (page == HomePageKind.recommend &&
+                  content.loadMoreErrorMessage != null)
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: TextButton(
+                      onPressed: homeController.loadMore,
+                      child: Text(
+                        AppI18n.t(config, 'common.load_more_failed_retry'),
+                      ),
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            ],
+          ),
         );
       },
+    );
+  }
+
+  void _handleRecommendScroll() {
+    final controller = _scrollControllers[HomePageKind.recommend];
+    if (controller == null ||
+        !controller.hasClients ||
+        controller.position.extentAfter > 240) {
+      return;
+    }
+    unawaited(ref.read(homePageControllerProvider.notifier).loadMore());
+  }
+
+  void _selectPage({
+    required HomePageKind page,
+    required List<HomePageKind> availablePages,
+  }) {
+    final index = availablePages.indexOf(page);
+    if (index < 0) {
+      return;
+    }
+    unawaited(ref.read(homePageControllerProvider.notifier).selectPage(page));
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -282,7 +453,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       return;
     }
     final selectedPlatformId = ref
-        .read(homeDiscoverControllerProvider)
+        .read(homePageControllerProvider)
+        .contentFor(ref.read(homePageControllerProvider).selectedPage)
         .selectedPlatformId;
     final playerController = ref.read(playerControllerProvider.notifier);
     final config = ref.read(appConfigProvider);
@@ -328,15 +500,14 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     }
   }
 
-  DiscoverSectionAction? _buildSectionAction({
+  HomeSectionAction? _buildSectionAction({
     required BuildContext context,
     required AppConfigState config,
-    required String sectionKey,
+    required HomeSectionType sectionType,
     required String selectedPlatformId,
   }) {
-    final normalizedSectionKey = sectionKey.trim();
-    if (normalizedSectionKey == 'new-song') {
-      return DiscoverSectionAction(
+    if (sectionType == HomeSectionType.newSongs) {
+      return HomeSectionAction(
         label: AppI18n.t(config, 'common.more'),
         onTap: () => context.push(
           Uri(
@@ -348,12 +519,25 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
         ),
       );
     }
-    if (normalizedSectionKey == 'new-album') {
-      return DiscoverSectionAction(
+    if (sectionType == HomeSectionType.newAlbums) {
+      return HomeSectionAction(
         label: AppI18n.t(config, 'common.more'),
         onTap: () => context.push(
           Uri(
             path: AppRoutes.newAlbum,
+            queryParameters: <String, String>{
+              if (selectedPlatformId.isNotEmpty) 'platform': selectedPlatformId,
+            },
+          ).toString(),
+        ),
+      );
+    }
+    if (sectionType == HomeSectionType.ranking) {
+      return HomeSectionAction(
+        label: AppI18n.t(config, 'common.more'),
+        onTap: () => context.push(
+          Uri(
+            path: AppRoutes.rankingList,
             queryParameters: <String, String>{
               if (selectedPlatformId.isNotEmpty) 'platform': selectedPlatformId,
             },
@@ -371,7 +555,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
   }) {
     final config = ref.read(appConfigProvider);
     final platformId = ref
-        .read(homeDiscoverControllerProvider)
+        .read(homePageControllerProvider)
+        .contentFor(ref.read(homePageControllerProvider).selectedPage)
         .selectedPlatformId;
     if (platformId == null || platformId.trim().isEmpty) {
       AppMessageService.showWarning(
@@ -1024,9 +1209,82 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
   }
 }
 
-class _HomeHeroSection extends StatelessWidget {
-  const _HomeHeroSection({
+class _HomePageTabs extends StatelessWidget {
+  const _HomePageTabs({
+    required this.pages,
+    required this.selectedPage,
     required this.config,
+    required this.onSelected,
+  });
+
+  final List<HomePageKind> pages;
+  final HomePageKind selectedPage;
+  final AppConfigState config;
+  final ValueChanged<HomePageKind> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        LayoutTokens.compactPageGutter + 4,
+        6,
+        LayoutTokens.compactPageGutter + 4,
+        4,
+      ),
+      child: Row(
+        children: pages
+            .map(
+              (page) => UnderlineTab(
+                label: AppI18n.t(
+                  config,
+                  page == HomePageKind.recommend
+                      ? 'home.tab.recommend'
+                      : 'home.tab.discover',
+                ),
+                selected: page == selectedPage,
+                enabled: true,
+                onTap: () => onSelected(page),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+}
+
+class _HomePlatformError extends StatelessWidget {
+  const _HomePlatformError({
+    required this.message,
+    required this.retryText,
+    required this.onRetry,
+  });
+
+  final String message;
+  final String retryText;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(LayoutTokens.compactPageGutter),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: onRetry, child: Text(retryText)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeTopControls extends StatelessWidget {
+  const _HomeTopControls({
+    required this.config,
+    required this.showEntries,
     required this.searchPlaceholderPrimary,
     required this.onSearchTap,
     required this.onEntryTap,
@@ -1035,6 +1293,7 @@ class _HomeHeroSection extends StatelessWidget {
   });
 
   final AppConfigState config;
+  final bool showEntries;
   final String searchPlaceholderPrimary;
   final String? searchPlaceholderSecondary;
   final VoidCallback onSearchTap;
@@ -1047,11 +1306,6 @@ class _HomeHeroSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          AppI18n.t(config, 'home.hero.title'),
-          style: theme.textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 14),
         Row(
           children: <Widget>[
             Expanded(
@@ -1080,8 +1334,10 @@ class _HomeHeroSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
-        _EntryRow(config: config, onTapEntry: onEntryTap),
+        if (showEntries) ...<Widget>[
+          const SizedBox(height: 14),
+          _EntryRow(config: config, onTapEntry: onEntryTap),
+        ],
       ],
     );
   }

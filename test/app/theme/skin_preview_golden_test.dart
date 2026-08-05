@@ -14,12 +14,10 @@ import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_discover_item.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_discover_section.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_discover_state.dart';
-import 'package:he_music_flutter/features/home/domain/entities/home_platform.dart';
-import 'package:he_music_flutter/features/home/presentation/controllers/home_discover_controller.dart';
-import 'package:he_music_flutter/features/home/presentation/providers/home_discover_providers.dart';
+import 'package:he_music_flutter/features/home/domain/entities/home_page_section.dart';
+import 'package:he_music_flutter/features/home/domain/entities/home_page_state.dart';
+import 'package:he_music_flutter/features/home/presentation/controllers/home_page_controller.dart';
+import 'package:he_music_flutter/features/home/presentation/providers/home_page_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
@@ -162,9 +160,7 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness, String skinId) {
       ),
       appRouterProvider.overrideWithValue(router),
       playerControllerProvider.overrideWith(_PreviewPlayerController.new),
-      homeDiscoverControllerProvider.overrideWith(
-        _PreviewHomeDiscoverController.new,
-      ),
+      homePageControllerProvider.overrideWith(_PreviewHomePageController.new),
       onlinePlatformsProvider.overrideWith(
         _PreviewOnlinePlatformsController.new,
       ),
@@ -261,20 +257,19 @@ class _PreviewPlayerController extends PlayerController {
   Future<void> initialize() async {}
 }
 
-class _PreviewHomeDiscoverController extends HomeDiscoverController {
+class _PreviewHomePageController extends HomePageController {
   @override
-  HomeDiscoverState build() {
-    return HomeDiscoverState(
-      loading: false,
-      platforms: <HomePlatform>[
-        HomePlatform(
+  HomePageState build() {
+    return HomePageState(
+      platforms: <OnlinePlatform>[
+        OnlinePlatform(
           id: 'platform-1',
           name: '平台1',
           shortName: '平台1',
           status: 1,
           featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
         ),
-        HomePlatform(
+        OnlinePlatform(
           id: 'platform-2',
           name: '平台2',
           shortName: '平台2',
@@ -282,21 +277,35 @@ class _PreviewHomeDiscoverController extends HomeDiscoverController {
           featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
         ),
       ],
-      selectedPlatformId: 'platform-1',
-      sections: <HomeDiscoverSection>[
-        HomeDiscoverSection(
-          key: 'new-song',
-          titleKey: 'home.section.new_song',
-          type: HomeDiscoverItemType.song,
-          songs: <SongInfo>[
-            _song('track-1', '城市回声', '林诺', '信号房间'),
-            _song('track-2', '玻璃天台', '周河', '城市碎片'),
-            _song('track-3', '低频大厅', '森', '凌晨之后'),
-          ],
-        ),
-      ],
+      selectedPage: HomePageKind.discover,
+      recommend: HomeContentState.initial,
+      discover: HomeContentState(
+        initialized: true,
+        loading: false,
+        refreshing: false,
+        loadingMore: false,
+        selectedPlatformId: 'platform-1',
+        hasMore: false,
+        nextPageIndex: 2,
+        sections: <HomePageSection>[
+          HomePageSection(
+            sectionTypeCode: 2,
+            sectionType: HomeSectionType.newSongs,
+            resourceType: HomeResourceType.song,
+            title: '新歌速递',
+            songs: <SongInfo>[
+              _song('track-1', '城市回声', '林诺', '信号房间'),
+              _song('track-2', '玻璃天台', '周河', '城市碎片'),
+              _song('track-3', '低频大厅', '森', '凌晨之后'),
+            ],
+          ),
+        ],
+      ),
     );
   }
+
+  @override
+  Future<void> initialize() async {}
 }
 
 class _PreviewOnlinePlatformsController extends OnlinePlatformsController {

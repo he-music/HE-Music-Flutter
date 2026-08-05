@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/layout/adaptive_media_grid_spec.dart';
+import '../../../../shared/widgets/artist_grid_card.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
@@ -12,7 +14,6 @@ import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/plaza_widgets.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
-import '../../../online/presentation/widgets/search_artist_list_item.dart';
 import '../../domain/entities/artist_plaza_state.dart';
 import '../providers/artist_plaza_providers.dart';
 
@@ -92,7 +93,6 @@ class _ArtistPlazaPageState extends ConsumerState<ArtistPlazaPage> {
                     );
                   }
                   return _ArtistPlazaBody(
-                    localeCode: config.localeCode,
                     scrollController: _scrollController,
                     state: state,
                     onRetry: () => ref
@@ -178,7 +178,6 @@ class _ArtistPlazaPageState extends ConsumerState<ArtistPlazaPage> {
 
 class _ArtistPlazaBody extends StatelessWidget {
   const _ArtistPlazaBody({
-    required this.localeCode,
     required this.scrollController,
     required this.state,
     required this.onRetry,
@@ -186,7 +185,6 @@ class _ArtistPlazaBody extends StatelessWidget {
     required this.onLoadMoreRetry,
   });
 
-  final String localeCode;
   final ScrollController scrollController;
   final ArtistPlazaState state;
   final VoidCallback onRetry;
@@ -220,7 +218,7 @@ class _ArtistPlazaBody extends StatelessWidget {
   Widget _buildContent(BuildContext context) {
     final config = ProviderScope.containerOf(context).read(appConfigProvider);
     if (state.itemsLoading && state.items.isEmpty) {
-      return const PlazaArtistListSkeleton();
+      return const PlazaGridSkeleton();
     }
     if (state.itemsErrorMessage != null && state.items.isEmpty) {
       return PlazaErrorView(
@@ -232,42 +230,50 @@ class _ArtistPlazaBody extends StatelessWidget {
       return PlazaEmptyState(label: AppI18n.t(config, 'artist.plaza.empty'));
     }
     final showTail = state.loadingMore || state.itemsErrorMessage != null;
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
-      itemCount: state.items.length + (showTail ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index >= state.items.length) {
-          if (state.loadingMore) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return PlazaLoadMoreRetryCard(
-            message: state.itemsErrorMessage,
-            onRetry: onLoadMoreRetry,
-            fallbackI18nKey: 'artist.plaza.load_failed',
-          );
-        }
-        final artist = state.items[index];
-        return SearchArtistListItem(
-          localeCode: localeCode,
-          title: artist.name,
-          coverUrl: artist.cover,
-          songCount: artist.songCount,
-          albumCount: artist.albumCount,
-          videoCount: artist.mvCount,
-          onTap: () => context.push(
-            Uri(
-              path: AppRoutes.artistDetail,
-              queryParameters: <String, String>{
-                'id': artist.id,
-                'platform': artist.platform,
-                'title': artist.name,
-              },
-            ).toString(),
-          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final spec = resolveAdaptiveMediaGridSpec(
+          maxWidth: constraints.maxWidth - 24,
+        );
+        return CustomScrollView(
+          controller: scrollController,
+          slivers: <Widget>[
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
+              sliver: SliverGrid(
+                gridDelegate: spec.sliverDelegate,
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final artist = state.items[index];
+                  return ArtistGridCard(
+                    artist: artist,
+                    onTap: () => context.push(
+                      Uri(
+                        path: AppRoutes.artistDetail,
+                        queryParameters: <String, String>{
+                          'id': artist.id,
+                          'platform': artist.platform,
+                          'title': artist.name,
+                        },
+                      ).toString(),
+                    ),
+                  );
+                }, childCount: state.items.length),
+              ),
+            ),
+            if (showTail)
+              SliverToBoxAdapter(
+                child: state.loadingMore
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : PlazaLoadMoreRetryCard(
+                        message: state.itemsErrorMessage,
+                        onRetry: onLoadMoreRetry,
+                        fallbackI18nKey: 'artist.plaza.load_failed',
+                      ),
+              ),
+          ],
         );
       },
     );
@@ -283,7 +289,7 @@ class _ArtistPlazaLoadingView extends StatelessWidget {
       children: <Widget>[
         PlazaFilterPanelSkeleton(rowCount: 2),
         Divider(height: 1, indent: 12, endIndent: 12),
-        Expanded(child: PlazaArtistListSkeleton()),
+        Expanded(child: PlazaGridSkeleton()),
       ],
     );
   }

@@ -7,7 +7,6 @@ import '../../../online/domain/entities/online_platform.dart';
 import '../../domain/entities/ranking_detail.dart';
 import '../../domain/entities/ranking_group.dart';
 import '../../domain/entities/ranking_info.dart';
-import '../../domain/entities/ranking_preview_song.dart';
 import '../../domain/entities/ranking_song.dart';
 
 class RankingApiClient {
@@ -69,7 +68,11 @@ class RankingApiClient {
       },
     );
     final payload = _asMap(response.data);
-    final info = _parseRankingInfo(payload, platform, fallbackId: id);
+    final info = RankingInfo.fromMap(
+      payload,
+      fallbackPlatform: platform,
+      fallbackId: id,
+    );
     final songs = _parseSongs(payload, platform);
     final hasMore = _readBool(payload, <String>['has_more', 'hasMore']);
     final last = _readString(payload, <String>['last_id', 'lastId']);
@@ -92,48 +95,11 @@ class RankingApiClient {
     return RankingGroup(
       name: name.isEmpty ? '榜单' : name,
       rankings: list
-          .map((item) => _parseRankingInfo(_asMap(item), platform))
+          .map(
+            (item) =>
+                RankingInfo.fromMap(_asMap(item), fallbackPlatform: platform),
+          )
           .toList(growable: false),
-    );
-  }
-
-  RankingInfo _parseRankingInfo(
-    Map<String, dynamic> raw,
-    String fallbackPlatform, {
-    String? fallbackId,
-  }) {
-    final id = _readString(raw, <String>['id']);
-    final platform = _readString(raw, <String>['platform']);
-    final name = _readString(raw, <String>['name', 'title']);
-    final coverUrl = _readString(raw, <String>[
-      'cover',
-      'pic',
-      'imgurl',
-      'image',
-    ]);
-    final songsRaw = raw['songs'];
-    final songs = songsRaw is List ? songsRaw : const <dynamic>[];
-    final previewSongs = songs
-        .take(3)
-        .map((item) {
-          final song = _asMap(item);
-          final songName = _readString(song, <String>['name', 'title']);
-          final artist = SongInfo.fromMap(
-            song,
-            fallbackPlatform: fallbackPlatform,
-          ).artist;
-          return RankingPreviewSong(
-            name: songName.isEmpty ? '-' : songName,
-            artist: artist.isEmpty ? '-' : artist,
-          );
-        })
-        .toList(growable: false);
-    return RankingInfo(
-      id: id.isEmpty ? (fallbackId ?? '-') : id,
-      platform: platform.isEmpty ? fallbackPlatform : platform,
-      name: name.isEmpty ? '-' : name,
-      coverUrl: coverUrl,
-      previewSongs: previewSongs,
     );
   }
 

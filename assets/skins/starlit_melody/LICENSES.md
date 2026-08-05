@@ -37,9 +37,9 @@ No generative enhancement, face repair, spatial crop, or composition change was 
 - Generation: real routed Flutter home scene through `make skin-previews`
 - Actual dimensions: `360x640` for both previews
 - Light preview: `assets/skins/starlit_melody/preview_light.png`
-- Light preview SHA-256: `757bf0f809e5bd1724096ba426451e883f334390c155d687f8aa16c9d7100532`
+- Light preview SHA-256: `823d2f74f36d4e48b8befd1d68afacba129effaf3b811ec3eef701f3608f70e6`
 - Dark preview: `assets/skins/starlit_melody/preview_dark.png`
-- Dark preview SHA-256: `9b23b17304471efe40a88298331c3cb82dbb89db0ea947ff31ed55a79075f98f`
+- Dark preview SHA-256: `5d7bca64e11370b53a5ba252aec4095f80740d564b0399d8a4a8d4c25d9f8d6d`
 - Light tokens: Ice Rail primary `#00677A`, Berry Signal secondary `#B72F5B`, Ink text `#17202A`, transparent scrolling content surface
 - Dark tokens: Ice Rail primary `#78D5E7`, blue-gray fixed surfaces, Mist text `#F0EDF5`, transparent scrolling content surface
 - Approval status: the light preview and current dark evaluation appearance were approved by the user on 2026-07-28; these files were regenerated from those same runtime tokens

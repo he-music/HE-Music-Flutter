@@ -8,7 +8,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../my/presentation/pages/my_page.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../../player/presentation/widgets/mini_player_bar.dart';
-import '../providers/home_discover_providers.dart';
+import '../providers/home_page_providers.dart';
 import '../widgets/discover_home_tab.dart';
 
 const _tabHome = 0;
@@ -32,7 +32,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     _tabIndex = widget.initialTab == 'my' ? _tabMy : _tabHome;
     Future.microtask(() {
       ref.read(playerControllerProvider.notifier).initialize();
-      ref.read(homeDiscoverControllerProvider.notifier).initialize();
+      ref.read(homePageControllerProvider.notifier).initialize();
     });
   }
 
