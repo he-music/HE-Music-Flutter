@@ -118,7 +118,9 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
     final config = ref.watch(appConfigProvider);
     final theme = Theme.of(context);
     final song = content.song;
-    final playerState = ref.watch(playerControllerProvider);
+    final isPlaying = ref.watch(
+      playerControllerProvider.select((player) => player.isPlaying),
+    );
     final currentTrack = ref.watch(
       playerControllerProvider.select((player) => player.currentTrack),
     );
@@ -137,7 +139,7 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
       ),
     );
     final isCurrentSong = isCurrentSongTrack(currentTrack, song);
-    final showPauseAction = isCurrentSong && playerState.isPlaying;
+    final showPauseAction = isCurrentSong && isPlaying;
     final morePlayActionLabel = AppI18n.t(
       config,
       showPauseAction ? 'player.action.pause' : 'song.action.play',

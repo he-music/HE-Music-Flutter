@@ -384,6 +384,79 @@ void main() {
     expect(playerController.insertNextAndPlayCalls, isEmpty);
   });
 
+  testWidgets('song detail ignores player position updates', (tester) async {
+    final repository = _FakeSongDetailRepository();
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        repository: repository,
+        playerController: playerController,
+        child: const SongDetailPage(
+          id: 'song-1',
+          platform: 'qq',
+          title: '测试歌曲',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final initialScrollView = tester.widget<CustomScrollView>(
+      find.byType(CustomScrollView),
+    );
+    playerController.updatePosition(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(
+      tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+      same(initialScrollView),
+    );
+  });
+
+  testWidgets('song detail rebuilds for current playback state changes', (
+    tester,
+  ) async {
+    playerController.initialState =
+        PlayerPlaybackState.initial(const <PlayerTrack>[
+          PlayerTrack(
+            id: 'song-1',
+            title: '测试歌曲',
+            artist: '测试歌手',
+            platform: 'qq',
+            links: <LinkInfo>[],
+          ),
+        ]);
+    final repository = _FakeSongDetailRepository();
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        repository: repository,
+        playerController: playerController,
+        child: const SongDetailPage(
+          id: 'song-1',
+          platform: 'qq',
+          title: '测试歌曲',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final initialScrollView = tester.widget<CustomScrollView>(
+      find.byType(CustomScrollView),
+    );
+    expect(find.text('播放'), findsWidgets);
+
+    playerController.updatePlaying(true);
+    await tester.pump();
+
+    expect(
+      tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+      isNot(same(initialScrollView)),
+    );
+    expect(find.text('暂停'), findsOneWidget);
+  });
+
   testWidgets('song detail more actions shows pause for current playing song', (
     tester,
   ) async {
@@ -532,6 +605,14 @@ class _TestPlayerController extends PlayerController {
   @override
   Future<void> togglePlayPause() async {
     togglePlayPauseCallCount += 1;
+  }
+
+  void updatePosition(Duration position) {
+    state = state.copyWith(position: position);
+  }
+
+  void updatePlaying(bool isPlaying) {
+    state = state.copyWith(isPlaying: isPlaying);
   }
 }
 
