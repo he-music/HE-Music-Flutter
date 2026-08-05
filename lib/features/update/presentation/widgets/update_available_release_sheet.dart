@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -66,7 +67,23 @@ Future<void> showUpdateAvailableReleaseSheet({
               const SizedBox(height: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 260),
-                child: SingleChildScrollView(child: Text(releaseNotes)),
+                child: SingleChildScrollView(
+                  child: MarkdownBody(
+                    data: releaseNotes,
+                    onTapLink: (_, href, _) async {
+                      final uri = href == null ? null : Uri.tryParse(href);
+                      // Release 内容来自远端，仅允许系统浏览器处理绝对 Web 链接。
+                      if (uri == null ||
+                          !uri.hasAuthority ||
+                          (uri.scheme != 'http' && uri.scheme != 'https')) {
+                        return;
+                      }
+                      await onOpenUrl(uri.toString());
+                    },
+                    // 更新日志来自远端，图片仅显示替代文本，避免隐式加载外部资源。
+                    imageBuilder: (_, _, alt) => Text(alt ?? ''),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               Row(

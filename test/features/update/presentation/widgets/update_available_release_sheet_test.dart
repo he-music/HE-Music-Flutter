@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_release.dart';
@@ -65,12 +66,60 @@ void main() {
       'https://github.com/owner/repo/releases/tag/v1.1.0',
     ]);
   });
+
+  testWidgets('release notes render GitHub Markdown without loading images', (
+    tester,
+  ) async {
+    await _pumpSheetHost(
+      tester,
+      openedUrls: <String>[],
+      downloadUrl: null,
+      releaseNotes: '''
+### 新增
+
+- `home` 优化布局 (abc1234)
+
+![版本预览](https://example.com/release.png)
+''',
+    );
+
+    expect(find.byType(MarkdownBody), findsOneWidget);
+    expect(find.text('新增'), findsOneWidget);
+    expect(find.textContaining('###'), findsNothing);
+    expect(find.text('版本预览'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+  });
+
+  testWidgets('release notes open only absolute web links', (tester) async {
+    final openedUrls = <String>[];
+    await _pumpSheetHost(
+      tester,
+      openedUrls: openedUrls,
+      downloadUrl: null,
+      releaseNotes: '''
+[Full Changelog](https://github.com/owner/repo/compare/v1.0.0...v1.1.0)
+
+[本地文件](file:///tmp/release.txt)
+''',
+    );
+
+    await tester.tap(find.text('Full Changelog', findRichText: true));
+    await tester.pump();
+    expect(openedUrls, <String>[
+      'https://github.com/owner/repo/compare/v1.0.0...v1.1.0',
+    ]);
+
+    await tester.tap(find.text('本地文件', findRichText: true));
+    await tester.pump();
+    expect(openedUrls, hasLength(1));
+  });
 }
 
 Future<void> _pumpSheetHost(
   WidgetTester tester, {
   required List<String> openedUrls,
   required String? downloadUrl,
+  String releaseNotes = '更新内容',
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -84,7 +133,7 @@ Future<void> _pumpSheetHost(
                 version: UpdateVersion.parse('1.1.0'),
                 versionTag: 'v1.1.0',
                 title: 'v1.1.0',
-                releaseNotes: '更新内容',
+                releaseNotes: releaseNotes,
                 htmlUrl: 'https://github.com/owner/repo/releases/tag/v1.1.0',
                 publishedAt: DateTime.parse('2026-07-27T12:00:00Z'),
               ),
