@@ -180,6 +180,42 @@ void main() {
     },
   );
 
+  testWidgets(
+    'home ignores player progress and duration updates but rebuilds for current track changes',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(_buildDiscoverTabTestApp());
+      await tester.pumpAndSettle();
+
+      const pageKey = PageStorageKey<String>('home-discover');
+      final pageFinder = find.byKey(pageKey);
+      final initialPage = tester.widget(pageFinder);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(DiscoverHomeTab)),
+      );
+      final playerController =
+          container.read(playerControllerProvider.notifier)
+              as _TestPlayerController;
+
+      playerController.updatePosition(const Duration(seconds: 1));
+      await tester.pump();
+
+      expect(tester.widget(pageFinder), same(initialPage));
+
+      playerController.replaceCurrentTrack(
+        const PlayerTrack(id: 'playing-song', title: '播放中歌曲'),
+      );
+      await tester.pump();
+
+      final currentTrackPage = tester.widget(pageFinder);
+      expect(currentTrackPage, isNot(same(initialPage)));
+
+      playerController.updateDuration(const Duration(minutes: 3));
+      await tester.pump();
+
+      expect(tester.widget(pageFinder), same(currentTrackPage));
+    },
+  );
+
   testWidgets('home discover song actions include add to user playlist', (
     WidgetTester tester,
   ) async {
@@ -322,6 +358,22 @@ class _TestPlayerController extends PlayerController {
   @override
   Future<void> initialize() async {
     initializeCallCount += 1;
+  }
+
+  void updatePosition(Duration position) {
+    state = state.copyWith(position: position);
+  }
+
+  void replaceCurrentTrack(PlayerTrack track) {
+    state = state.copyWith(queue: <PlayerTrack>[track], currentIndex: 0);
+  }
+
+  void updateDuration(Duration duration) {
+    final currentTrack = state.currentTrack!;
+    state = state.copyWith(
+      duration: duration,
+      queue: <PlayerTrack>[currentTrack.copyWith(duration: duration)],
+    );
   }
 }
 

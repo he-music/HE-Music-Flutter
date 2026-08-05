@@ -21,7 +21,6 @@ import '../../../../shared/helpers/root_route_navigation_helper.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/helpers/user_playlist_song_action_helper.dart';
 import '../../../../shared/constants/layout_tokens.dart';
-import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/song_actions_sheet.dart';
@@ -35,7 +34,6 @@ import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../download/domain/entities/download_task.dart';
 import '../../../download/presentation/providers/download_providers.dart';
 import '../../../download/presentation/widgets/download_quality_sheet.dart';
-import '../../../player/domain/entities/player_playback_state.dart';
 import '../../../player/domain/entities/player_track.dart';
 import '../../../player/domain/entities/player_quality_option.dart';
 import '../../../player/presentation/providers/player_providers.dart';
@@ -74,6 +72,21 @@ const _entries = <_DiscoverEntry>[
 ];
 
 enum _DiscoverEntryType { ranking, playlist, artist, video, radio }
+
+bool _isCurrentHomeSong({
+  required String currentTrackId,
+  required String currentTrackPlatform,
+  required SongInfo song,
+}) {
+  final songId = song.id.trim();
+  if (currentTrackId.isEmpty || songId.isEmpty || currentTrackId != songId) {
+    return false;
+  }
+  final songPlatform = song.platform.trim();
+  return currentTrackPlatform.isEmpty ||
+      songPlatform.isEmpty ||
+      currentTrackPlatform == songPlatform;
+}
 
 class DiscoverHomeTab extends ConsumerStatefulWidget {
   const DiscoverHomeTab({super.key});
@@ -120,7 +133,17 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     final searchDefaultState = ref.watch(searchDefaultPlaceholderProvider);
     final globalPlatforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-    final playerState = ref.watch(playerControllerProvider);
+    final playerState = ref.watch(
+      playerControllerProvider.select(
+        (state) => (
+          currentTrackId: state.currentTrack?.id.trim() ?? '',
+          currentTrackPlatform: (state.currentTrack?.platform ?? '').trim(),
+          isRadioMode: state.isRadioMode,
+          currentRadioId: state.currentRadioId,
+          currentRadioPlatform: state.currentRadioPlatform,
+        ),
+      ),
+    );
     final homeController = ref.read(homePageControllerProvider.notifier);
     final favoriteSongKeys = ref.watch(
       favoriteSongStatusProvider.select((state) => state.songKeys),
@@ -213,7 +236,14 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     required String? searchPlaceholderSecondary,
     required List<OnlinePlatform> globalPlatforms,
     required Set<String> favoriteSongKeys,
-    required PlayerPlaybackState playerState,
+    required ({
+      String currentTrackId,
+      String currentTrackPlatform,
+      bool isRadioMode,
+      String? currentRadioId,
+      String? currentRadioPlatform,
+    })
+    playerState,
   }) {
     final content = homeState.contentFor(page);
     final selectedPlatformId = content.selectedPlatformId ?? '';
@@ -371,8 +401,11 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                   song: song,
                   fallbackPlatformId: selectedPlatformId,
                 ),
-                isCurrentSong: (song) =>
-                    isCurrentSongTrack(playerState.currentTrack, song),
+                isCurrentSong: (song) => _isCurrentHomeSong(
+                  currentTrackId: playerState.currentTrackId,
+                  currentTrackPlatform: playerState.currentTrackPlatform,
+                  song: song,
+                ),
                 isRadioPlaying: (radio) =>
                     playerState.isRadioMode &&
                     playerState.currentRadioId == radio.id &&
