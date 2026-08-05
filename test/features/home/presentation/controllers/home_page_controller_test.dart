@@ -64,6 +64,44 @@ void main() {
     expect(api.calls.last, 'discover|b|1');
   });
 
+  test('推荐和发现分别恢复已加载平台内容与推荐页码', () async {
+    final api = _ImmediateHomePageApiClient();
+    final container = _container(
+      api: api,
+      platforms: <OnlinePlatform>[
+        _platform('a', recommend: true, discover: true),
+        _platform('b', recommend: true, discover: true),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(onlinePlatformsProvider.future);
+    final controller = container.read(homePageControllerProvider.notifier);
+
+    await controller.initialize();
+    await controller.loadMore();
+    await controller.selectPlatform('b');
+    await controller.selectPlatform('a');
+
+    var state = container.read(homePageControllerProvider);
+    expect(state.recommend.selectedPlatformId, 'a');
+    expect(state.recommend.nextPageIndex, 3);
+    expect(state.recommend.sections.map((section) => section.title), <String>[
+      'a-1',
+      'a-2',
+    ]);
+    expect(api.calls.where((call) => call == 'recommend|a|1'), hasLength(1));
+    expect(api.calls.where((call) => call == 'recommend|a|2'), hasLength(1));
+
+    await controller.selectPage(HomePageKind.discover);
+    await controller.selectPlatform('b');
+    await controller.selectPlatform('a');
+
+    state = container.read(homePageControllerProvider);
+    expect(state.discover.selectedPlatformId, 'a');
+    expect(state.discover.sections.single.title, 'discover-a');
+    expect(api.calls.where((call) => call == 'discover|a|1'), hasLength(1));
+  });
+
   test('推荐不可用时默认发现且只请求发现', () async {
     final api = _ImmediateHomePageApiClient();
     final container = _container(

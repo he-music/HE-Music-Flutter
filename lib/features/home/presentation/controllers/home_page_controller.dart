@@ -18,6 +18,12 @@ class HomePageController extends Notifier<HomePageState> {
     HomePageKind.recommend: 0,
     HomePageKind.discover: 0,
   };
+  // 首页会话内按页签和平台保留内容快照，切换平台时恢复原分页进度。
+  final Map<HomePageKind, Map<String, HomeContentState>> _platformContents =
+      <HomePageKind, Map<String, HomeContentState>>{
+        HomePageKind.recommend: <String, HomeContentState>{},
+        HomePageKind.discover: <String, HomeContentState>{},
+      };
   Future<void>? _initializing;
   bool _initialized = false;
 
@@ -97,11 +103,7 @@ class HomePageController extends Notifier<HomePageState> {
     if (target.initialized && target.selectedPlatformId == platformId) {
       return;
     }
-    await _loadFirstPage(
-      page,
-      platformId,
-      clearContent: target.selectedPlatformId != platformId,
-    );
+    await _selectContentPlatform(page, platformId);
   }
 
   Future<void> selectPlatform(String platformId) async {
@@ -115,7 +117,7 @@ class HomePageController extends Notifier<HomePageState> {
             .any((platform) => platform.id == normalized)) {
       return;
     }
-    await _loadFirstPage(page, normalized, clearContent: true);
+    await _selectContentPlatform(page, normalized);
   }
 
   Future<void> retry() async {
@@ -286,6 +288,22 @@ class HomePageController extends Notifier<HomePageState> {
     }
   }
 
+  Future<void> _selectContentPlatform(
+    HomePageKind page,
+    String platformId,
+  ) async {
+    final cached = _platformContents[page]?[platformId];
+    if (cached != null && cached.initialized) {
+      _nextRequestVersion(page);
+      _replaceContent(
+        page,
+        cached.copyWith(loading: false, refreshing: false, loadingMore: false),
+      );
+      return;
+    }
+    await _loadFirstPage(page, platformId, clearContent: true);
+  }
+
   Future<HomePageResult> _fetchPage(
     HomePageKind page,
     String platformId,
@@ -331,6 +349,10 @@ class HomePageController extends Notifier<HomePageState> {
   }
 
   void _replaceContent(HomePageKind page, HomeContentState content) {
+    final platformId = content.selectedPlatformId?.trim() ?? '';
+    if (platformId.isNotEmpty) {
+      _platformContents[page]?[platformId] = content;
+    }
     state = state.replaceContent(page, content);
   }
 
