@@ -79,6 +79,78 @@ void main() {
     );
   });
 
+  testWidgets('task progress only rebuilds the changed download row', (
+    tester,
+  ) async {
+    late _FilledDownloadController controller;
+    await _pumpDownloadPage(
+      tester,
+      controllerFactory: () {
+        controller = _FilledDownloadController();
+        return controller;
+      },
+    );
+    await tester.pump();
+
+    final initialList = tester.widget<ListView>(find.byType(ListView));
+    final initialChangedRow = tester.widget<Container>(
+      find.byKey(const Key('download_task_content_1')),
+    );
+    final initialUnchangedRow = tester.widget<Container>(
+      find.byKey(const Key('download_task_content_2')),
+    );
+
+    controller.updateProgress(
+      taskId: '1',
+      progress: 0.5,
+      downloadedBytes: 5242880,
+    );
+    await tester.pump();
+
+    expect(tester.widget<ListView>(find.byType(ListView)), same(initialList));
+    expect(
+      tester.widget<Container>(
+        find.byKey(const Key('download_task_content_1')),
+      ),
+      isNot(same(initialChangedRow)),
+    );
+    expect(
+      tester.widget<Container>(
+        find.byKey(const Key('download_task_content_2')),
+      ),
+      same(initialUnchangedRow),
+    );
+    expect(find.text('5.0 MB / 10.0 MB'), findsOneWidget);
+  });
+
+  testWidgets('task structure changes rebuild and resort the download list', (
+    tester,
+  ) async {
+    late _FilledDownloadController controller;
+    await _pumpDownloadPage(
+      tester,
+      controllerFactory: () {
+        controller = _FilledDownloadController();
+        return controller;
+      },
+    );
+    await tester.pump();
+
+    final initialList = tester.widget<ListView>(find.byType(ListView));
+    controller.addTask();
+    await tester.pump();
+
+    expect(
+      tester.widget<ListView>(find.byType(ListView)),
+      isNot(same(initialList)),
+    );
+    expect(find.text('新任务.mp3'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('新任务.mp3')).dy,
+      lessThan(tester.getTopLeft(find.text('反方向的钟.mp3')).dy),
+    );
+  });
+
   testWidgets('more menu shows pause for downloading task', (tester) async {
     await _pumpDownloadPage(tester, size: const Size(390, 844));
     await tester.pump();
@@ -204,12 +276,15 @@ Future<void> _pumpDownloadPage(
   WidgetTester tester, {
   Size size = const Size(390, 844),
   TargetPlatform? platform,
+  DownloadController Function()? controllerFactory,
 }) {
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
         appConfigProvider.overrideWith(_TestAppConfigController.new),
-        downloadControllerProvider.overrideWith(_FilledDownloadController.new),
+        downloadControllerProvider.overrideWith(
+          controllerFactory ?? _FilledDownloadController.new,
+        ),
       ],
       child: MaterialApp(
         locale: const Locale('zh'),
@@ -344,6 +419,36 @@ class _FilledDownloadController extends DownloadController {
       ],
       maxConcurrent: 3,
       isProcessing: true,
+    );
+  }
+
+  void updateProgress({
+    required String taskId,
+    required double progress,
+    required int downloadedBytes,
+  }) {
+    state = state.copyWith(
+      tasks: <DownloadTask>[
+        for (final task in state.tasks)
+          if (task.id == taskId)
+            task.copyWith(progress: progress, downloadedBytes: downloadedBytes)
+          else
+            task,
+      ],
+    );
+  }
+
+  void addTask() {
+    state = state.copyWith(
+      tasks: <DownloadTask>[
+        ...state.tasks,
+        DownloadTask.queued(
+          id: '6',
+          title: '新任务',
+          url: 'https://example.com/6.mp3',
+          createdAt: DateTime(2026, 4, 9, 12, 5),
+        ),
+      ],
     );
   }
 }

@@ -5,7 +5,6 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/utils/platform_utils.dart';
 import '../../../../shared/widgets/adaptive_action_menu.dart';
 import '../../../../shared/widgets/app_back_button.dart';
-import '../../domain/entities/download_state.dart';
 import '../../domain/entities/download_task.dart';
 import '../providers/download_providers.dart';
 
@@ -14,7 +13,7 @@ class DownloadPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final downloadState = ref.watch(downloadControllerProvider);
+    final controller = ref.read(downloadControllerProvider.notifier);
     final localeCode = Localizations.localeOf(context).languageCode;
     return Scaffold(
       appBar: AppBar(
@@ -25,28 +24,16 @@ class DownloadPage extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
           child: _DownloadTaskList(
-            state: downloadState,
-            onPause: ref.read(downloadControllerProvider.notifier).pause,
-            onResume: ref.read(downloadControllerProvider.notifier).resume,
-            onRedownload: ref
-                .read(downloadControllerProvider.notifier)
-                .redownload,
-            onOpenLocation: ref
-                .read(downloadControllerProvider.notifier)
-                .openContainingFolder,
-            onExportFiles: (taskId, sharePositionOrigin) => ref
-                .read(downloadControllerProvider.notifier)
+            onPause: controller.pause,
+            onResume: controller.resume,
+            onRedownload: controller.redownload,
+            onOpenLocation: controller.openContainingFolder,
+            onExportFiles: (taskId, sharePositionOrigin) => controller
                 .exportFiles(taskId, sharePositionOrigin: sharePositionOrigin),
-            onRetry: ref.read(downloadControllerProvider.notifier).retry,
-            onRemoveTask: ref
-                .read(downloadControllerProvider.notifier)
-                .removeTask,
-            onRemoveTaskAndFile: ref
-                .read(downloadControllerProvider.notifier)
-                .removeTaskAndFile,
-            onClearCompleted: ref
-                .read(downloadControllerProvider.notifier)
-                .clearCompleted,
+            onRetry: controller.retry,
+            onRemoveTask: controller.removeTask,
+            onRemoveTaskAndFile: controller.removeTaskAndFile,
+            onClearCompleted: controller.clearCompleted,
           ),
         ),
       ),
@@ -54,9 +41,54 @@ class DownloadPage extends ConsumerWidget {
   }
 }
 
-class _DownloadTaskList extends StatelessWidget {
+typedef _DownloadTaskListEntry = ({
+  String id,
+  int createdAtMicroseconds,
+  int sourceIndex,
+});
+
+class _DownloadTaskListStructure {
+  _DownloadTaskListStructure.fromTasks(List<DownloadTask> tasks)
+    : entries = <_DownloadTaskListEntry>[
+        for (var index = 0; index < tasks.length; index++)
+          (
+            id: tasks[index].id,
+            createdAtMicroseconds:
+                tasks[index].createdAt.microsecondsSinceEpoch,
+            sourceIndex: index,
+          ),
+      ],
+      hasCompleted = tasks.any(
+        (task) => task.status == DownloadTaskStatus.completed,
+      );
+
+  final List<_DownloadTaskListEntry> entries;
+  final bool hasCompleted;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! _DownloadTaskListStructure ||
+        hasCompleted != other.hasCompleted ||
+        entries.length != other.entries.length) {
+      return false;
+    }
+    for (var index = 0; index < entries.length; index++) {
+      if (entries[index] != other.entries[index]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(hasCompleted, Object.hashAll(entries));
+}
+
+class _DownloadTaskList extends ConsumerWidget {
   const _DownloadTaskList({
-    required this.state,
     required this.onPause,
     required this.onResume,
     required this.onRedownload,
@@ -68,7 +100,6 @@ class _DownloadTaskList extends StatelessWidget {
     required this.onClearCompleted,
   });
 
-  final DownloadState state;
   final ValueChanged<String> onPause;
   final ValueChanged<String> onResume;
   final ValueChanged<String> onRedownload;
@@ -81,39 +112,49 @@ class _DownloadTaskList extends StatelessWidget {
   final VoidCallback onClearCompleted;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final localeCode = Localizations.localeOf(context).languageCode;
-    if (state.tasks.isEmpty) {
+    final structure = ref.watch(
+      downloadControllerProvider.select(
+        (state) => _DownloadTaskListStructure.fromTasks(state.tasks),
+      ),
+    );
+    if (structure.entries.isEmpty) {
       return Center(
         child: Text(AppI18n.tByLocaleCode(localeCode, 'download.empty')),
       );
     }
-    final tasks = List<DownloadTask>.from(state.tasks)
-      ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    final entries = List<_DownloadTaskListEntry>.from(structure.entries)
+      ..sort(
+        (left, right) =>
+            right.createdAtMicroseconds.compareTo(left.createdAtMicroseconds),
+      );
     return Column(
       children: <Widget>[
         Expanded(
           child: ListView.separated(
-            itemCount: tasks.length,
+            itemCount: entries.length,
             separatorBuilder: (context, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
-              final task = tasks[index];
+              final entry = entries[index];
               return _DownloadTaskRow(
-                task: task,
-                onPause: () => onPause(task.id),
-                onResume: () => onResume(task.id),
-                onRedownload: () => onRedownload(task.id),
-                onOpenLocation: () => onOpenLocation(task.id),
+                key: ValueKey<String>('download_task_${entry.id}'),
+                taskId: entry.id,
+                taskIndex: entry.sourceIndex,
+                onPause: () => onPause(entry.id),
+                onResume: () => onResume(entry.id),
+                onRedownload: () => onRedownload(entry.id),
+                onOpenLocation: () => onOpenLocation(entry.id),
                 onExportFiles: (sharePositionOrigin) =>
-                    onExportFiles(task.id, sharePositionOrigin),
-                onRetry: () => onRetry(task.id),
-                onRemoveTask: () => onRemoveTask(task.id),
-                onRemoveTaskAndFile: () => onRemoveTaskAndFile(task.id),
+                    onExportFiles(entry.id, sharePositionOrigin),
+                onRetry: () => onRetry(entry.id),
+                onRemoveTask: () => onRemoveTask(entry.id),
+                onRemoveTaskAndFile: () => onRemoveTaskAndFile(entry.id),
               );
             },
           ),
         ),
-        if (state.completedTasks.isNotEmpty) ...<Widget>[
+        if (structure.hasCompleted) ...<Widget>[
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
@@ -134,9 +175,10 @@ class _DownloadTaskList extends StatelessWidget {
   }
 }
 
-class _DownloadTaskRow extends StatelessWidget {
+class _DownloadTaskRow extends ConsumerWidget {
   const _DownloadTaskRow({
-    required this.task,
+    required this.taskId,
+    required this.taskIndex,
     required this.onPause,
     required this.onResume,
     required this.onRedownload,
@@ -145,9 +187,11 @@ class _DownloadTaskRow extends StatelessWidget {
     required this.onRetry,
     required this.onRemoveTask,
     required this.onRemoveTaskAndFile,
+    super.key,
   });
 
-  final DownloadTask task;
+  final String taskId;
+  final int taskIndex;
   final VoidCallback onPause;
   final VoidCallback onResume;
   final VoidCallback onRedownload;
@@ -158,10 +202,23 @@ class _DownloadTaskRow extends StatelessWidget {
   final VoidCallback onRemoveTaskAndFile;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final task = ref.watch(
+      downloadControllerProvider.select((state) {
+        if (taskIndex < 0 || taskIndex >= state.tasks.length) {
+          return null;
+        }
+        final task = state.tasks[taskIndex];
+        return task.id == taskId ? task : null;
+      }),
+    );
+    if (task == null) {
+      return const SizedBox.shrink();
+    }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
+      key: ValueKey<String>('download_task_content_${task.id}'),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
@@ -213,7 +270,7 @@ class _DownloadTaskRow extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  _sizeLabel(context),
+                  _sizeLabel(context, task),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -234,10 +291,10 @@ class _DownloadTaskRow extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                _statusLabel(context),
+                _statusLabel(context, task),
                 style: theme.textTheme.labelSmall?.copyWith(
                   fontSize: 11,
-                  color: _statusColor(colorScheme),
+                  color: _statusColor(colorScheme, task),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -267,7 +324,7 @@ class _DownloadTaskRow extends StatelessWidget {
     return '$title - $artist.$extension';
   }
 
-  String _sizeLabel(BuildContext context) {
+  String _sizeLabel(BuildContext context, DownloadTask task) {
     final downloaded = task.downloadedBytes;
     final total = task.totalBytes;
     if (downloaded != null && total != null && total > 0) {
@@ -279,10 +336,10 @@ class _DownloadTaskRow extends StatelessWidget {
     if (total != null && total > 0) {
       return _formatBytes(total);
     }
-    return _statusLabel(context);
+    return _statusLabel(context, task);
   }
 
-  String _statusLabel(BuildContext context) {
+  String _statusLabel(BuildContext context, DownloadTask task) {
     final localeCode = Localizations.localeOf(context).languageCode;
     switch (task.status) {
       case DownloadTaskStatus.queued:
@@ -302,7 +359,7 @@ class _DownloadTaskRow extends StatelessWidget {
     }
   }
 
-  Color _statusColor(ColorScheme colorScheme) {
+  Color _statusColor(ColorScheme colorScheme, DownloadTask task) {
     switch (task.status) {
       case DownloadTaskStatus.downloading:
         return const Color(0xFFCF8A17);
