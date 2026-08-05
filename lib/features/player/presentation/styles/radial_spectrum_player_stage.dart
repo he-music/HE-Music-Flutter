@@ -171,9 +171,6 @@ class _RadialSpectrumPlayerStageState
 
   @override
   Widget build(BuildContext context) {
-    final bands = ref.watch(
-      realtimeSpectrumControllerProvider.select((state) => state.bands),
-    );
     final imageProvider = artworkProvider(
       widget.track?.artworkUrl,
       widget.track?.artworkBytes,
@@ -189,19 +186,9 @@ class _RadialSpectrumPlayerStageState
               alignment: Alignment.center,
               children: <Widget>[
                 Positioned.fill(
-                  child: AnimatedBuilder(
-                    animation: _paletteController,
-                    builder: (context, child) {
-                      return CustomPaint(
-                        key: const ValueKey<String>('radial-spectrum-painter'),
-                        painter: RadialSpectrumPainter(
-                          bands: bands,
-                          palette: _interpolatedPalette(
-                            _paletteController.value,
-                          ),
-                        ),
-                      );
-                    },
+                  child: _RadialSpectrumPaintLayer(
+                    paletteAnimation: _paletteController,
+                    resolvePalette: _interpolatedPalette,
                   ),
                 ),
                 SizedBox.square(
@@ -250,6 +237,35 @@ class _RadialSpectrumPlayerStageState
   String _trackKey(PlayerTrack? track) {
     if (track == null) return '';
     return '${track.platform ?? ''}|${track.id}';
+  }
+}
+
+class _RadialSpectrumPaintLayer extends ConsumerWidget {
+  const _RadialSpectrumPaintLayer({
+    required this.paletteAnimation,
+    required this.resolvePalette,
+  });
+
+  final Animation<double> paletteAnimation;
+  final List<Color> Function(double value) resolvePalette;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bands = ref.watch(
+      realtimeSpectrumControllerProvider.select((state) => state.bands),
+    );
+    return AnimatedBuilder(
+      animation: paletteAnimation,
+      builder: (context, child) {
+        return CustomPaint(
+          key: const ValueKey<String>('radial-spectrum-painter'),
+          painter: RadialSpectrumPainter(
+            bands: bands,
+            palette: resolvePalette(paletteAnimation.value),
+          ),
+        );
+      },
+    );
   }
 }
 

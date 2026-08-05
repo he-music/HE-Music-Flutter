@@ -102,6 +102,17 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
+
+    final initialStage = tester.widget<RepaintBoundary>(
+      find.byKey(const ValueKey<String>('radial-spectrum-player-stage')),
+    );
+    final initialCover = tester.widget<SizedBox>(
+      find.byKey(const ValueKey<String>('radial-spectrum-cover')),
+    );
+    final initialPaint = tester.widget<CustomPaint>(
+      find.byKey(const ValueKey<String>('radial-spectrum-painter')),
+    );
     spectrum.setBands(bands);
     await tester.pump();
 
@@ -112,6 +123,19 @@ void main() {
       find.byKey(const ValueKey<String>('radial-spectrum-painter')),
     );
     final painter = customPaint.painter! as RadialSpectrumPainter;
+    expect(
+      tester.widget<RepaintBoundary>(
+        find.byKey(const ValueKey<String>('radial-spectrum-player-stage')),
+      ),
+      same(initialStage),
+    );
+    expect(
+      tester.widget<SizedBox>(
+        find.byKey(const ValueKey<String>('radial-spectrum-cover')),
+      ),
+      same(initialCover),
+    );
+    expect(customPaint, isNot(same(initialPaint)));
     expect(cover.width, closeTo(320 * 0.64, 0.001));
     expect(cover.height, cover.width);
     expect(painter.bands, bands);
