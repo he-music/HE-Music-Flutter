@@ -61,6 +61,58 @@ void main() {
 
     expect(tester.widget<IconButton>(_findClearButton()).onPressed, isNull);
   });
+
+  testWidgets('position updates do not rebuild queue panel content', (
+    tester,
+  ) async {
+    late _QueueTestController controller;
+    await tester.pumpWidget(
+      _buildTestApp(
+        theme: AppTheme.light(citySoundCreatorSkin()),
+        controllerFactory: () {
+          controller = _QueueTestController();
+          return controller;
+        },
+      ),
+    );
+    await tester.pump();
+
+    final initialStack = tester.widget<IndexedStack>(find.byType(IndexedStack));
+    controller.updatePosition(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(
+      tester.widget<IndexedStack>(find.byType(IndexedStack)),
+      same(initialStack),
+    );
+  });
+
+  testWidgets('queue updates rebuild queue panel content', (tester) async {
+    late _QueueTestController controller;
+    await tester.pumpWidget(
+      _buildTestApp(
+        theme: AppTheme.light(citySoundCreatorSkin()),
+        controllerFactory: () {
+          controller = _QueueTestController();
+          return controller;
+        },
+      ),
+    );
+    await tester.pump();
+
+    final initialStack = tester.widget<IndexedStack>(find.byType(IndexedStack));
+    controller.updateQueue(const <PlayerTrack>[
+      PlayerTrack(id: 'song-1', title: 'Song', artist: 'Artist'),
+      PlayerTrack(id: 'song-2', title: 'Song 2', artist: 'Artist 2'),
+    ]);
+    await tester.pump();
+
+    expect(
+      tester.widget<IndexedStack>(find.byType(IndexedStack)),
+      isNot(same(initialStack)),
+    );
+    expect(find.text('Song 2'), findsOneWidget);
+  });
 }
 
 Widget _buildTestApp({
@@ -109,6 +161,14 @@ class _QueueTestController extends PlayerController {
   @override
   Future<void> clearQueue() async {
     clearCalls += 1;
+  }
+
+  void updatePosition(Duration position) {
+    state = state.copyWith(position: position);
+  }
+
+  void updateQueue(List<PlayerTrack> queue) {
+    state = state.copyWith(queue: queue);
   }
 }
 

@@ -44,10 +44,19 @@ class _PlayerQueuePanelContentState
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final controller = ref.read(playerControllerProvider.notifier);
-    final playbackState = ref.watch(playerControllerProvider);
-    final queue = playbackState.queue;
-    final currentIndex = playbackState.currentIndex;
-    final previousSnapshot = playbackState.previousQueueSnapshot;
+    final queueState = ref.watch(
+      playerControllerProvider.select(
+        (state) => (
+          queue: state.queue,
+          currentIndex: state.currentIndex,
+          source: state.queueSource,
+          previousSnapshot: state.previousQueueSnapshot,
+        ),
+      ),
+    );
+    final queue = queueState.queue;
+    final currentIndex = queueState.currentIndex;
+    final previousSnapshot = queueState.previousSnapshot;
     return Column(
       children: <Widget>[
         Padding(
@@ -72,15 +81,12 @@ class _PlayerQueuePanelContentState
                     _QueueTabLabel(
                       title: AppI18n.t(config, 'player.queue.current'),
                       count: queue.length,
-                      source: playbackState.queueSource,
+                      source: queueState.source,
                       onOpenSource:
-                          playbackState.queueSource == null ||
-                              !playbackState.queueSource!.isValid
+                          queueState.source == null ||
+                              !queueState.source!.isValid
                           ? null
-                          : () => _openSource(
-                              context,
-                              playbackState.queueSource!,
-                            ),
+                          : () => _openSource(context, queueState.source!),
                     ),
                     _QueueTabLabel(
                       title: AppI18n.t(config, 'player.queue.previous'),
