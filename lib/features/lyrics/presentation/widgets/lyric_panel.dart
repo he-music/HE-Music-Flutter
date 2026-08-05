@@ -144,7 +144,6 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
     final request = ref.watch(currentLyricRequestProvider);
     final documentAsync = ref.watch(currentLyricDocumentProvider);
     final config = ref.watch(appConfigProvider);
-    final position = ref.watch(lyricPositionProvider);
 
     return documentAsync.when(
       data: (document) {
@@ -155,7 +154,7 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
           request?.cacheKey,
           document,
           enableWordByWordLyric: config.enableWordByWordLyric,
-          position: position,
+          position: ref.read(lyricPositionProvider),
         );
         return fl.LyricView(
           controller: _controller,

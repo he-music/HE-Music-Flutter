@@ -1,13 +1,22 @@
 import 'package:flutter_lyric/core/lyric_model.dart' as flm;
+import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/lyric_panel.dart';
+
+final _testLyricPositionProvider =
+    NotifierProvider<_TestLyricPositionController, Duration>(
+      _TestLyricPositionController.new,
+    );
 
 void main() {
   test('buildFlutterLyricModel should pass lyric offset to flutter_lyric', () {
@@ -150,4 +159,85 @@ void main() {
 
     expect(color, const Color(0xFF123456));
   });
+
+  testWidgets('position updates do not rebuild LyricView', (tester) async {
+    await tester.pumpWidget(_buildLyricPanelTestApp());
+    await tester.pump();
+
+    final initialView = tester.widget<fl.LyricView>(find.byType(fl.LyricView));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LyricPanel)),
+    );
+
+    container
+        .read(_testLyricPositionProvider.notifier)
+        .update(const Duration(seconds: 2));
+    await tester.pump();
+
+    expect(
+      tester.widget<fl.LyricView>(find.byType(fl.LyricView)),
+      same(initialView),
+    );
+  });
+
+  testWidgets('lyric style updates rebuild LyricView', (tester) async {
+    await tester.pumpWidget(_buildLyricPanelTestApp());
+    await tester.pump();
+
+    final initialView = tester.widget<fl.LyricView>(find.byType(fl.LyricView));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LyricPanel)),
+    );
+
+    container
+        .read(appConfigProvider.notifier)
+        .setLyricFontPreset(AppLyricFontPreset.large);
+    await tester.pump();
+
+    expect(
+      tester.widget<fl.LyricView>(find.byType(fl.LyricView)),
+      isNot(same(initialView)),
+    );
+  });
+}
+
+Widget _buildLyricPanelTestApp() {
+  return ProviderScope(
+    overrides: [
+      appConfigProvider.overrideWith(_TestAppConfigController.new),
+      currentLyricRequestProvider.overrideWithValue(null),
+      currentLyricDocumentProvider.overrideWithValue(
+        const AsyncData<LyricDocument>(
+          LyricDocument(
+            lines: <LyricLine>[LyricLine(start: Duration.zero, text: '测试歌词')],
+          ),
+        ),
+      ),
+      lyricPositionProvider.overrideWith(
+        (ref) => ref.watch(_testLyricPositionProvider),
+      ),
+    ],
+    child: const MaterialApp(
+      home: Scaffold(body: LyricPanel(emptyText: '暂无歌词')),
+    ),
+  );
+}
+
+class _TestLyricPositionController extends Notifier<Duration> {
+  @override
+  Duration build() => Duration.zero;
+
+  void update(Duration value) {
+    state = value;
+  }
+}
+
+class _TestAppConfigController extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial;
+
+  @override
+  void setLyricFontPreset(AppLyricFontPreset preset) {
+    state = state.copyWith(lyricFontPreset: preset);
+  }
 }
