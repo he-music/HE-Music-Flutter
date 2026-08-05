@@ -97,6 +97,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     };
     Future.microtask(() {
       if (mounted) {
+        unawaited(ref.read(playerControllerProvider.notifier).initialize());
         unawaited(ref.read(homePageControllerProvider.notifier).initialize());
       }
     });

@@ -250,6 +250,9 @@ class _RecordingPlayerController extends PlayerController {
   }
 
   @override
+  Future<void> initialize() async {}
+
+  @override
   Future<void> replaceQueue(
     List<PlayerTrack> queue, {
     int startIndex = 0,

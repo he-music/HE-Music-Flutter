@@ -88,7 +88,7 @@ void main() {
     );
   });
 
-  testWidgets('home route initializes content when mounted directly', (
+  testWidgets('routed home initializes content and player', (
     WidgetTester tester,
   ) async {
     final apiClient = _TrackingHomePageApiClient();
@@ -101,7 +101,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(DiscoverHomeTab)),
+    );
+    final playerController =
+        container.read(playerControllerProvider.notifier)
+            as _TestPlayerController;
     expect(apiClient.fetchRecommendCallCount, 1);
+    expect(playerController.initializeCallCount, 1);
     expect(
       find.byKey(const ValueKey<String>('home-platform-loading')),
       findsNothing,
@@ -305,13 +312,17 @@ class _TestAppConfigController extends AppConfigController {
 }
 
 class _TestPlayerController extends PlayerController {
+  int initializeCallCount = 0;
+
   @override
   PlayerPlaybackState build() {
     return PlayerPlaybackState.initial(const <PlayerTrack>[]);
   }
 
   @override
-  Future<void> initialize() async {}
+  Future<void> initialize() async {
+    initializeCallCount += 1;
+  }
 }
 
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
