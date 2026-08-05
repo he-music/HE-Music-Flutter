@@ -15,11 +15,11 @@ The classic skin still supports manual accent selection. These static previews r
 ## Light Preview
 
 - Path: `assets/skins/classic/preview_light.png`
-- SHA-256: `2ce29fa1aa51137cd0104acecc1bc459b2d4c3a79042e70d7bb7db2adb29df6e`
+- SHA-256: `98d6726fea693a196bdc483e3597b72628a180bfaec4b984fb01348f2a56d93e`
 - Actual dimensions: `360x640`
 
 ## Dark Preview
 
 - Path: `assets/skins/classic/preview_dark.png`
-- SHA-256: `d533291856e7265cb7f16b87fd9dabdb6a3df8c494831c98e6384a5bb3a7eadc`
+- SHA-256: `5ad0ba3c0ac0a96b46d0a162df0ec5ca6a224bb7998816979b7039190a409cd2`
 - Actual dimensions: `360x640`
