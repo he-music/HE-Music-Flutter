@@ -317,7 +317,15 @@ class _RadioGrid extends ConsumerWidget {
       final config = ref.read(appConfigProvider);
       return _EmptyState(label: AppI18n.t(config, 'radio.empty'));
     }
-    final playerState = ref.watch(playerControllerProvider);
+    final radioPlayback = ref.watch(
+      playerControllerProvider.select(
+        (state) => (
+          isRadioMode: state.isRadioMode,
+          radioId: state.currentRadioId,
+          radioPlatform: state.currentRadioPlatform,
+        ),
+      ),
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final spec = resolveAdaptiveMediaGridSpec(
@@ -330,9 +338,9 @@ class _RadioGrid extends ConsumerWidget {
           itemBuilder: (context, index) {
             final radio = radios[index];
             final isPlaying =
-                playerState.isRadioMode &&
-                playerState.currentRadioId == radio.id.trim() &&
-                playerState.currentRadioPlatform == radio.platform.trim();
+                radioPlayback.isRadioMode &&
+                radioPlayback.radioId == radio.id.trim() &&
+                radioPlayback.radioPlatform == radio.platform.trim();
             return MediaGridCard(
               kind: MediaGridCardKind.playlist,
               title: radio.name,
