@@ -6,6 +6,16 @@ import '../../../lyrics/domain/entities/lyric_line.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
 import '../providers/player_providers.dart';
 
+final _compactLyricTextProvider = Provider<String>((ref) {
+  final position = ref.watch(lyricPositionProvider);
+  final documentAsync = ref.watch(currentLyricDocumentProvider);
+  return documentAsync.when(
+    data: (document) => _resolveCompactLyricText(document, position),
+    loading: () => '',
+    error: (_, _) => '',
+  );
+});
+
 /// 紧凑模式下的歌词预览区域
 class PlayerCompactLyricSection extends ConsumerWidget {
   const PlayerCompactLyricSection({super.key, required this.onTap});
@@ -25,12 +35,8 @@ class PlayerCompactLyricSection extends ConsumerWidget {
     if (!hasTrack) {
       return const SizedBox(height: layoutHeight);
     }
-    final position = ref.watch(lyricPositionProvider);
-    final documentAsync = ref.watch(currentLyricDocumentProvider);
-    final text = documentAsync.when(
-      data: (document) => _resolveCompactLyricText(document, position),
-      loading: () => '',
-      error: (_, _) => '',
+    final text = ref.watch(
+      _compactLyricTextProvider.select((currentText) => currentText),
     );
     final theme = Theme.of(context);
     return SizedBox(
@@ -80,32 +86,30 @@ class PlayerCompactLyricSection extends ConsumerWidget {
       ),
     );
   }
+}
 
-  String _resolveCompactLyricText(LyricDocument document, Duration position) {
-    if (document.lines.isEmpty) {
-      return '';
-    }
-    final index = _findCurrentLineIndex(document.lines, position);
-    if (index < 0 || index >= document.lines.length) {
-      return '';
-    }
-    return document.lines[index].text.trim();
+String _resolveCompactLyricText(LyricDocument document, Duration position) {
+  if (document.lines.isEmpty) {
+    return '';
   }
+  final index = _findCurrentLineIndex(document.lines, position);
+  if (index < 0 || index >= document.lines.length) {
+    return '';
+  }
+  return document.lines[index].text.trim();
+}
 
-  int _findCurrentLineIndex(List<LyricLine> lines, Duration position) {
-    for (var index = lines.length - 1; index >= 0; index--) {
-      final line = lines[index];
-      if (position < line.start) {
-        continue;
-      }
-      final nextStart = index + 1 < lines.length
-          ? lines[index + 1].start
-          : null;
-      final lineEnd = line.end ?? nextStart;
-      if (lineEnd == null || position < lineEnd) {
-        return index;
-      }
+int _findCurrentLineIndex(List<LyricLine> lines, Duration position) {
+  for (var index = lines.length - 1; index >= 0; index--) {
+    final line = lines[index];
+    if (position < line.start) {
+      continue;
     }
-    return -1;
+    final nextStart = index + 1 < lines.length ? lines[index + 1].start : null;
+    final lineEnd = line.end ?? nextStart;
+    if (lineEnd == null || position < lineEnd) {
+      return index;
+    }
   }
+  return -1;
 }
