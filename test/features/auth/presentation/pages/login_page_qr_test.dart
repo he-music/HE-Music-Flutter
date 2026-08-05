@@ -175,7 +175,7 @@ void main() {
     expect(find.text('二维码登录'), findsNothing);
   });
 
-  testWidgets('password login hides keyboard before request completes', (
+  testWidgets('password login keeps keyboard hidden after challenge returns', (
     tester,
   ) async {
     final client = _LoginPageTestClient.mobile();
@@ -193,6 +193,23 @@ void main() {
     await tester.pump();
 
     expect(client.loginCallCount, 1);
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(tester.widget<TextField>(fields.at(0)).canRequestFocus, isFalse);
+    expect(tester.widget<TextField>(fields.at(1)).canRequestFocus, isFalse);
+
+    final navigator = Navigator.of(tester.element(find.byType(LoginPage)));
+    final challengeRoute = navigator.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('验证码验证')),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    navigator.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await challengeRoute;
+
     expect(tester.testTextInput.isVisible, isFalse);
   });
 

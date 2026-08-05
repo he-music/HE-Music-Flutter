@@ -398,6 +398,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         controller: _usernameController,
         textInputAction: TextInputAction.next,
         enabled: !_oauthBusy,
+        canRequestFocus: !_submitting && !_oauthBusy,
         decoration: InputDecoration(
           labelText: AppI18n.t(config, 'auth.login.username'),
           prefixIcon: const Icon(Icons.person_outline_rounded),
@@ -408,6 +409,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         controller: _passwordController,
         obscureText: true,
         enabled: !_oauthBusy,
+        canRequestFocus: !_submitting && !_oauthBusy,
         onSubmitted: (_) => _submit(),
         decoration: InputDecoration(
           labelText: AppI18n.t(config, 'auth.login.password'),
