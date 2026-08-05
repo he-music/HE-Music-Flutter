@@ -61,15 +61,6 @@ class _CassettePlayerStageState extends ConsumerState<CassettePlayerStage>
         _syncReels();
       },
     );
-    final timing = ref.watch(
-      playerControllerProvider.select(
-        (state) => (position: state.position, duration: state.duration),
-      ),
-    );
-    final tapeProgress = resolveCassetteTapeProgress(
-      timing.position,
-      timing.duration,
-    );
     final imageProvider = artworkProvider(
       widget.track?.artworkUrl,
       widget.track?.artworkBytes,
@@ -86,19 +77,7 @@ class _CassettePlayerStageState extends ConsumerState<CassettePlayerStage>
             return Stack(
               key: const ValueKey<String>('cassette-player-stage'),
               children: <Widget>[
-                Positioned.fill(
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0, end: tapeProgress),
-                    duration: const Duration(milliseconds: 280),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) {
-                      return CustomPaint(
-                        key: const ValueKey<String>('cassette-shell-painter'),
-                        painter: CassetteShellPainter(tapeProgress: value),
-                      );
-                    },
-                  ),
-                ),
+                Positioned.fill(child: const _CassetteTapeLayer()),
                 Positioned(
                   left: width * 0.31 - reelSize / 2,
                   top: height * 0.50 - reelSize / 2,
@@ -144,6 +123,34 @@ class _CassettePlayerStageState extends ConsumerState<CassettePlayerStage>
     if (!_reelController.isAnimating) {
       _reelController.repeat();
     }
+  }
+}
+
+class _CassetteTapeLayer extends ConsumerWidget {
+  const _CassetteTapeLayer();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final timing = ref.watch(
+      playerControllerProvider.select(
+        (state) => (position: state.position, duration: state.duration),
+      ),
+    );
+    final tapeProgress = resolveCassetteTapeProgress(
+      timing.position,
+      timing.duration,
+    );
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: tapeProgress),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return CustomPaint(
+          key: const ValueKey<String>('cassette-shell-painter'),
+          painter: CassetteShellPainter(tapeProgress: value),
+        );
+      },
+    );
   }
 }
 

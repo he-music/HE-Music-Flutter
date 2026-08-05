@@ -93,6 +93,16 @@ void main() {
 
     await tester.pumpWidget(_buildStage(container));
 
+    final initialStage = tester.widget<Stack>(
+      find.byKey(const ValueKey<String>('cassette-player-stage')),
+    );
+    final initialLabel = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('cassette-track-label')),
+    );
+    final initialPaint = tester.widget<CustomPaint>(
+      find.byKey(const ValueKey<String>('cassette-shell-painter')),
+    );
+
     double tapeProgress() {
       final paint = tester.widget<CustomPaint>(
         find.byKey(const ValueKey<String>('cassette-shell-painter')),
@@ -106,6 +116,25 @@ void main() {
       duration: const Duration(seconds: 120),
     );
     await tester.pump();
+
+    expect(
+      tester.widget<Stack>(
+        find.byKey(const ValueKey<String>('cassette-player-stage')),
+      ),
+      same(initialStage),
+    );
+    expect(
+      tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey<String>('cassette-track-label')),
+      ),
+      same(initialLabel),
+    );
+    expect(
+      tester.widget<CustomPaint>(
+        find.byKey(const ValueKey<String>('cassette-shell-painter')),
+      ),
+      isNot(same(initialPaint)),
+    );
     expect(tapeProgress(), 0);
 
     await tester.pump(const Duration(milliseconds: 140));
