@@ -20,6 +20,7 @@ import '../../domain/entities/video_detail_link.dart';
 import '../../domain/entities/video_detail_request.dart';
 import '../../playback/controllers/video_playback_controller.dart';
 import '../../playback/entities/video_playback_surface.dart';
+import '../../playback/entities/video_surface_state.dart';
 import '../../playback/providers/video_playback_surface_provider.dart';
 import '../providers/video_detail_providers.dart';
 import '../providers/video_feed_providers.dart';
@@ -28,6 +29,22 @@ void _debugVideoDetail(String message) {
   if (!kDebugMode) return;
   debugPrint('[VideoDetail] $message');
 }
+
+typedef _VideoSurfaceBuildState = ({
+  VideoPlaybackSurface? surface,
+  bool isInitialized,
+  bool isPlaying,
+  double aspectRatio,
+  double volume,
+});
+
+typedef _VideoPlaybackBuildState = ({
+  int currentIndex,
+  String? selectedQualityKey,
+  _VideoSurfaceBuildState previous,
+  _VideoSurfaceBuildState current,
+  _VideoSurfaceBuildState next,
+});
 
 /// 抖音式 MV 详情页：全屏沉浸，上下滑动切换视频。
 class VideoDetailPage extends ConsumerStatefulWidget {
@@ -68,6 +85,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
 
   /// 列表级视频播放控制器，页面只负责把交互意图转交给它。
   late final VideoPlaybackController _playbackController;
+  late _VideoPlaybackBuildState _playbackBuildState;
 
   /// 每个索引的详情加载状态。
   final Map<int, _ItemLoadState> _itemStates = {};
@@ -99,6 +117,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
       surfaceFactory: ref.read(videoPlaybackSurfaceFactoryProvider),
       uriBuilder: _buildVideoUri,
     )..addListener(_handlePlaybackChanged);
+    _playbackBuildState = _readPlaybackBuildState();
     // 暂停音乐播放器，加载首个视频详情
     Future.microtask(() async {
       final playerState = ref.read(playerControllerProvider);
@@ -121,7 +140,36 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
   }
 
   void _handlePlaybackChanged() {
+    final next = _readPlaybackBuildState();
+    if (_playbackBuildState == next) {
+      return;
+    }
+    _playbackBuildState = next;
     if (mounted) setState(() {});
+  }
+
+  _VideoPlaybackBuildState _readPlaybackBuildState() {
+    return (
+      currentIndex: _currentIndex,
+      selectedQualityKey:
+          _playbackController.state.currentSlot?.selectedQualityKey,
+      previous: _readSurfaceBuildState(_currentIndex - 1),
+      current: _readSurfaceBuildState(_currentIndex),
+      next: _readSurfaceBuildState(_currentIndex + 1),
+    );
+  }
+
+  _VideoSurfaceBuildState _readSurfaceBuildState(int pageIndex) {
+    final surface = _playbackController.surfaceForPage(pageIndex);
+    final state = surface?.state ?? VideoSurfaceState.initial;
+    // position 和 duration 由局部进度条监听，不进入页面根节点重建判定。
+    return (
+      surface: surface,
+      isInitialized: state.isInitialized,
+      isPlaying: state.isPlaying,
+      aspectRatio: state.aspectRatio,
+      volume: state.volume,
+    );
   }
 
   @override

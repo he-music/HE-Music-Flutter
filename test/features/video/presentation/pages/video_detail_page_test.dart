@@ -385,7 +385,40 @@ void main() {
     );
   });
 
-  testWidgets('video view rebuilds when session state changes', (tester) async {
+  testWidgets('video position update only rebuilds progress widget', (
+    tester,
+  ) async {
+    final repository = _FakeVideoDetailRepository(
+      detail: _buildDetail(id: 'mv-1', url: 'https://example.com/mv-1.mp4'),
+    );
+    final factory = _FakeVideoPlaybackSurfaceFactory();
+
+    await tester.pumpWidget(
+      _buildTestApp(repository: repository, factory: factory),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final pageView = find.byKey(
+      const ValueKey<String>('video-detail-page-view'),
+    );
+    final initialPageView = tester.widget(pageView);
+
+    factory.sessions.single.setState(
+      factory.sessions.single.state.copyWith(
+        position: const Duration(seconds: 30),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.widget(pageView), same(initialPageView));
+    expect(
+      tester.widget<Slider>(find.byType(Slider)).value,
+      closeTo(0.25, 0.001),
+    );
+  });
+
+  testWidgets('video view rebuilds when aspect ratio changes', (tester) async {
     final repository = _FakeVideoDetailRepository(
       detail: _buildDetail(id: 'mv-1', url: 'https://example.com/mv-1.mp4'),
     );
@@ -398,12 +431,17 @@ void main() {
     await tester.pump();
 
     expect(find.text('fake-video:${16 / 9}'), findsOneWidget);
+    final pageView = find.byKey(
+      const ValueKey<String>('video-detail-page-view'),
+    );
+    final initialPageView = tester.widget(pageView);
 
     factory.sessions.single.setState(
       factory.sessions.single.state.copyWith(aspectRatio: 4 / 3),
     );
     await tester.pump();
 
+    expect(tester.widget(pageView), isNot(same(initialPageView)));
     expect(find.text('fake-video:${4 / 3}'), findsOneWidget);
   });
 
