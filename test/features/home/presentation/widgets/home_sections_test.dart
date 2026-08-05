@@ -9,6 +9,7 @@ import 'package:he_music_flutter/features/home/presentation/widgets/home_section
 import 'package:he_music_flutter/features/ranking/domain/entities/ranking_info.dart';
 import 'package:he_music_flutter/features/ranking/domain/entities/ranking_preview_song.dart';
 import 'package:he_music_flutter/features/ranking/presentation/widgets/ranking_cards.dart';
+import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/layout/adaptive_media_grid_spec.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/artist_grid_card.dart';
@@ -165,6 +166,128 @@ void main() {
     expect(quickEntryGridSpec.childAspectRatio, 1);
     expect(slivers, hasLength(23), reason: '空标题 QUICK_ENTRIES 不应生成标题 sliver');
   });
+
+  testWidgets('紧凑宽度无法容纳全部快捷入口时使用单行横向滚动', (tester) async {
+    const surfaceWidth = 390.0;
+    await tester.binding.setSurfaceSize(const Size(surfaceWidth, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildQuickEntryTestApp(
+        maxWidth: surfaceWidth - LayoutTokens.compactPageGutter * 2,
+        entryCount: 4,
+      ),
+    );
+    await tester.pump();
+
+    final horizontalList = find.byWidgetPredicate(
+      (widget) =>
+          widget is ListView && widget.scrollDirection == Axis.horizontal,
+    );
+    expect(horizontalList, findsOneWidget);
+    expect(find.byType(SliverGrid), findsNothing);
+    expect(find.byType(MediaGridCard), findsNWidgets(4));
+
+    final scrollable = find.descendant(
+      of: horizontalList,
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, greaterThan(0));
+  });
+
+  testWidgets('宽度能容纳全部快捷入口时使用 Grid', (tester) async {
+    const surfaceWidth = 900.0;
+    await tester.binding.setSurfaceSize(const Size(surfaceWidth, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildQuickEntryTestApp(
+        maxWidth: surfaceWidth - LayoutTokens.compactPageGutter * 2,
+        entryCount: 7,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(SliverGrid), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ListView && widget.scrollDirection == Axis.horizontal,
+      ),
+      findsNothing,
+    );
+    expect(find.byType(MediaGridCard), findsNWidgets(7));
+  });
+}
+
+Widget _buildQuickEntryTestApp({
+  required double maxWidth,
+  required int entryCount,
+}) {
+  final entries = List<HomePageEntry>.generate(
+    entryCount,
+    (index) => HomePageEntry(
+      targetType: HomePageEntryTargetType.songList,
+      targetId: 'entry-$index',
+      title: '入口-$index',
+      subtitle: '',
+      cover: '',
+    ),
+  );
+  final state = HomeContentState(
+    initialized: true,
+    loading: false,
+    refreshing: false,
+    loadingMore: false,
+    selectedPlatformId: 'qq',
+    sections: <HomePageSection>[
+      HomePageSection(
+        sectionTypeCode: 6,
+        sectionType: HomeSectionType.quickEntries,
+        resourceType: null,
+        title: '',
+        entries: entries,
+      ),
+    ],
+    hasMore: false,
+    nextPageIndex: 2,
+  );
+  return ProviderScope(
+    overrides: [appConfigProvider.overrideWith(_TestAppConfigController.new)],
+    child: MaterialApp(
+      home: Scaffold(
+        body: CustomScrollView(
+          slivers: buildHomeSectionSlivers(
+            state: state,
+            gridSpec: resolveAdaptiveMediaGridSpec(maxWidth: maxWidth),
+            quickEntryGridSpec: resolveHomeQuickEntryGridSpec(
+              maxWidth: maxWidth,
+            ),
+            loadingText: '加载中',
+            emptyText: '空',
+            retryText: '重试',
+            onRetry: () {},
+            sectionActionOf: (_) => null,
+            onTapSong: (_, _) {},
+            onTapAlbum: (_) {},
+            onTapPlaylist: (_) {},
+            onTapMv: (_) {},
+            onTapArtist: (_) {},
+            onTapRanking: (_) {},
+            onTapRadio: (_) {},
+            onTapEntry: (_) {},
+            onMoreSong: (_) {},
+            isSongLiked: (_) => false,
+            onLikeSong: (_) async {},
+            isCurrentSong: (_) => false,
+            isRadioPlaying: (_) => false,
+            isEntryRadioPlaying: (_) => false,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _TestAppConfigController extends AppConfigController {

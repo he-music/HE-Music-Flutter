@@ -21,7 +21,10 @@ class HomeSectionAction {
   final VoidCallback onTap;
 }
 
-/// 快捷入口信息密度高于媒体浏览网格，手机端至少保留三列。
+// 横滑卡片保持稳定尺寸，并让紧凑屏幕露出未完整展示的末端内容。
+const _homeQuickEntryHorizontalExtent = 112.0;
+
+/// 快捷入口按至少三列计算单行容量，超过容量时由渲染层改为横滑。
 AdaptiveMediaGridSpec resolveHomeQuickEntryGridSpec({
   required double maxWidth,
 }) {
@@ -184,27 +187,56 @@ List<Widget> _buildResourceSlivers({
     horizontal: LayoutTokens.compactPageGutter,
   );
   if (section.sectionType == HomeSectionType.quickEntries) {
+    Widget buildEntryCard(BuildContext context, int index) {
+      final entry = section.entries[index];
+      final selected =
+          entry.targetType == HomePageEntryTargetType.radio &&
+          isEntryRadioPlaying(entry);
+      return MediaGridCard(
+        kind: MediaGridCardKind.playlist,
+        title: entry.title,
+        subtitle: entry.subtitle,
+        coverUrl: entry.cover,
+        selected: selected,
+        showCenterPlayIcon: selected,
+        overlayText: true,
+        onTap: () => onTapEntry(entry),
+      );
+    }
+
+    if (section.entries.length > quickEntryGridSpec.crossAxisCount) {
+      return <Widget>[
+        SliverPadding(
+          padding: horizontalPadding,
+          sliver: SliverToBoxAdapter(
+            child: SizedBox(
+              height: _homeQuickEntryHorizontalExtent,
+              child: ListView.separated(
+                primary: false,
+                padding: EdgeInsets.zero,
+                scrollDirection: Axis.horizontal,
+                itemCount: section.entries.length,
+                separatorBuilder: (_, _) =>
+                    SizedBox(width: quickEntryGridSpec.crossAxisSpacing),
+                itemBuilder: (context, index) => SizedBox.square(
+                  dimension: _homeQuickEntryHorizontalExtent,
+                  child: buildEntryCard(context, index),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
     return <Widget>[
       SliverPadding(
         padding: horizontalPadding,
         sliver: SliverGrid(
           gridDelegate: quickEntryGridSpec.sliverDelegate,
-          delegate: SliverChildBuilderDelegate((context, index) {
-            final entry = section.entries[index];
-            final selected =
-                entry.targetType == HomePageEntryTargetType.radio &&
-                isEntryRadioPlaying(entry);
-            return MediaGridCard(
-              kind: MediaGridCardKind.playlist,
-              title: entry.title,
-              subtitle: entry.subtitle,
-              coverUrl: entry.cover,
-              selected: selected,
-              showCenterPlayIcon: selected,
-              overlayText: true,
-              onTap: () => onTapEntry(entry),
-            );
-          }, childCount: section.entries.length),
+          delegate: SliverChildBuilderDelegate(
+            buildEntryCard,
+            childCount: section.entries.length,
+          ),
         ),
       ),
     ];
