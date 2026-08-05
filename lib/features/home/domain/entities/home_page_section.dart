@@ -8,10 +8,29 @@ enum HomeSectionType {
   newAlbums,
   ranking,
   feed,
+  quickEntries,
   unknown,
 }
 
 enum HomeResourceType { song, album, playlist, mv, artist, ranking, radio }
+
+enum HomePageEntryTargetType { songList, radio, playlist }
+
+class HomePageEntry {
+  const HomePageEntry({
+    required this.targetType,
+    required this.targetId,
+    required this.title,
+    required this.subtitle,
+    required this.cover,
+  });
+
+  final HomePageEntryTargetType targetType;
+  final String targetId;
+  final String title;
+  final String subtitle;
+  final String cover;
+}
 
 class HomePageSection {
   const HomePageSection({
@@ -26,11 +45,12 @@ class HomePageSection {
     this.artists = const <ArtistInfo>[],
     this.rankings = const <RankingInfo>[],
     this.radios = const <RadioInfo>[],
+    this.entries = const <HomePageEntry>[],
   });
 
   final int sectionTypeCode;
   final HomeSectionType sectionType;
-  final HomeResourceType resourceType;
+  final HomeResourceType? resourceType;
   final String title;
   final List<SongInfo> songs;
   final List<AlbumInfo> albums;
@@ -39,8 +59,12 @@ class HomePageSection {
   final List<ArtistInfo> artists;
   final List<RankingInfo> rankings;
   final List<RadioInfo> radios;
+  final List<HomePageEntry> entries;
 
   bool get isEmpty {
+    if (sectionType == HomeSectionType.quickEntries) {
+      return entries.isEmpty;
+    }
     return switch (resourceType) {
       HomeResourceType.song => songs.isEmpty,
       HomeResourceType.album => albums.isEmpty,
@@ -49,6 +73,7 @@ class HomePageSection {
       HomeResourceType.artist => artists.isEmpty,
       HomeResourceType.ranking => rankings.isEmpty,
       HomeResourceType.radio => radios.isEmpty,
+      null => true,
     };
   }
 
@@ -80,6 +105,7 @@ class HomePageSection {
       radios: resourceType == HomeResourceType.radio
           ? <RadioInfo>[...radios, ...other.radios]
           : radios,
+      entries: entries,
     );
   }
 }
@@ -92,7 +118,17 @@ HomeSectionType parseHomeSectionType(int value) {
     3 => HomeSectionType.newAlbums,
     4 => HomeSectionType.ranking,
     5 => HomeSectionType.feed,
+    6 => HomeSectionType.quickEntries,
     _ => HomeSectionType.unknown,
+  };
+}
+
+HomePageEntryTargetType? parseHomePageEntryTargetType(int value) {
+  return switch (value) {
+    1 => HomePageEntryTargetType.songList,
+    2 => HomePageEntryTargetType.radio,
+    3 => HomePageEntryTargetType.playlist,
+    _ => null,
   };
 }
 

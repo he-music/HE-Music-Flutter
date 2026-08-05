@@ -25,7 +25,7 @@ class PlatformFeatureSupportFlag {
   static final BigInt getMvUrl = BigInt.one << 23;
   static final BigInt getSongCover = BigInt.one << 24;
   static final BigInt getCommentList = BigInt.one << 25;
-  static final BigInt getDailyRecommendSongList = BigInt.one << 26;
+  static final BigInt getRecommendSongList = BigInt.one << 26;
   static final BigInt getRecommendPlaylist = BigInt.one << 27;
   static final BigInt getNewSongTabList = BigInt.one << 28;
   static final BigInt getNewSongList = BigInt.one << 29;

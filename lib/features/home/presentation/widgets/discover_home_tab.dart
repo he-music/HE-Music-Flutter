@@ -207,8 +207,11 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     return LayoutBuilder(
       key: PageStorageKey<String>('home-${page.name}'),
       builder: (context, constraints) {
-        final gridSpec = resolveAdaptiveMediaGridSpec(
-          maxWidth: constraints.maxWidth - LayoutTokens.compactPageGutter * 2,
+        final gridWidth =
+            constraints.maxWidth - LayoutTokens.compactPageGutter * 2;
+        final gridSpec = resolveAdaptiveMediaGridSpec(maxWidth: gridWidth);
+        final quickEntryGridSpec = resolveHomeQuickEntryGridSpec(
+          maxWidth: gridWidth,
         );
         return RefreshIndicator(
           onRefresh: () async {
@@ -276,6 +279,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
               ...buildHomeSectionSlivers(
                 state: content,
                 gridSpec: gridSpec,
+                quickEntryGridSpec: quickEntryGridSpec,
                 loadingText: AppI18n.t(config, 'home.loading'),
                 emptyText: AppI18n.t(
                   config,
@@ -329,6 +333,12 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                   title: ranking.name,
                 ),
                 onTapRadio: (radio) => handleRadioPlayback(ref, radio),
+                onTapEntry: (entry) => _openPageEntry(
+                  context: context,
+                  config: config,
+                  platformId: selectedPlatformId,
+                  entry: entry,
+                ),
                 onMoreSong: (song) => _showDiscoverSongActions(
                   context: context,
                   ref: ref,
@@ -353,6 +363,10 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                     playerState.isRadioMode &&
                     playerState.currentRadioId == radio.id &&
                     playerState.currentRadioPlatform == radio.platform,
+                isEntryRadioPlaying: (entry) =>
+                    playerState.isRadioMode &&
+                    playerState.currentRadioId == entry.targetId &&
+                    playerState.currentRadioPlatform == selectedPlatformId,
                 resolveSongCover: (song) => _resolveDiscoverSongCover(
                   config: config,
                   platforms: globalPlatforms,
@@ -1206,6 +1220,51 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       ),
     };
     context.push(uri.toString());
+  }
+
+  void _openPageEntry({
+    required BuildContext context,
+    required AppConfigState config,
+    required String? platformId,
+    required HomePageEntry entry,
+  }) {
+    final platform = platformId?.trim() ?? '';
+    if (platform.isEmpty) {
+      AppMessageService.showWarning(
+        AppI18n.t(config, 'home.platform_not_ready'),
+      );
+      return;
+    }
+    switch (entry.targetType) {
+      case HomePageEntryTargetType.songList:
+        context.push(
+          Uri(
+            path: AppRoutes.recommendSongList,
+            queryParameters: <String, String>{
+              'platform': platform,
+              'id': entry.targetId,
+            },
+          ).toString(),
+        );
+      case HomePageEntryTargetType.radio:
+        unawaited(
+          handleRadioPlayback(
+            ref,
+            RadioInfo(
+              name: entry.title,
+              id: entry.targetId,
+              cover: entry.cover,
+              platform: platform,
+            ),
+          ),
+        );
+      case HomePageEntryTargetType.playlist:
+        context.pushPlaylistDetail(
+          id: entry.targetId,
+          platform: platform,
+          title: entry.title,
+        );
+    }
   }
 }
 

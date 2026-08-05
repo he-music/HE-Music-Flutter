@@ -21,6 +21,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(900, 3000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final tappedActions = <String>[];
+    final tappedEntries = <HomePageEntry>[];
 
     await tester.pumpWidget(
       ProviderScope(
@@ -33,6 +34,9 @@ void main() {
               slivers: buildHomeSectionSlivers(
                 state: _loadedState,
                 gridSpec: resolveAdaptiveMediaGridSpec(maxWidth: 860),
+                quickEntryGridSpec: resolveHomeQuickEntryGridSpec(
+                  maxWidth: 860,
+                ),
                 loadingText: '加载中',
                 emptyText: '空',
                 retryText: '重试',
@@ -55,11 +59,13 @@ void main() {
                 onTapArtist: (_) {},
                 onTapRanking: (_) {},
                 onTapRadio: (_) {},
+                onTapEntry: tappedEntries.add,
                 onMoreSong: (_) {},
                 isSongLiked: (_) => false,
                 onLikeSong: (_) async {},
                 isCurrentSong: (_) => false,
                 isRadioPlaying: (_) => false,
+                isEntryRadioPlaying: (_) => false,
               ),
             ),
           ),
@@ -72,12 +78,43 @@ void main() {
       expect(find.text(title), findsOneWidget);
     }
     expect(find.byType(OnlineSongListItem), findsOneWidget);
-    expect(find.byType(MediaGridCard), findsNWidgets(3));
+    expect(find.byType(MediaGridCard), findsNWidgets(6));
     expect(find.byType(VideoGridItem), findsOneWidget);
     expect(find.byType(ArtistGridCard), findsOneWidget);
     expect(find.byType(RankingCards), findsOneWidget);
     expect(find.text('别名'), findsOneWidget);
     expect(find.byType(TextButton), findsNWidgets(3));
+
+    final quickEntryCard = find.ancestor(
+      of: find.text('每日新歌'),
+      matching: find.byType(MediaGridCard),
+    );
+    final albumCard = find.ancestor(
+      of: find.text('专辑'),
+      matching: find.byType(MediaGridCard),
+    );
+    expect(
+      tester.getSize(quickEntryCard).width,
+      lessThan(tester.getSize(albumCard).width),
+    );
+
+    await tester.tap(find.text('每日新歌'));
+    await tester.pump();
+    expect(tappedEntries.single.targetType, HomePageEntryTargetType.songList);
+
+    final radioCard = find.ancestor(
+      of: find.text('私人电台'),
+      matching: find.byType(MediaGridCard),
+    );
+    final fallbackIcon = find.descendant(
+      of: radioCard,
+      matching: find.byIcon(Icons.queue_music_rounded),
+    );
+    expect(fallbackIcon, findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('私人电台')).dy,
+      greaterThan(tester.getTopLeft(fallbackIcon).dy),
+    );
 
     for (final title in <String>['动态新歌', '动态新碟', '动态榜单']) {
       await tester.tap(find.text('更多-$title'));
@@ -87,9 +124,11 @@ void main() {
   });
 
   test('section slivers 不依赖滚动期 SliverLayoutBuilder', () {
+    final quickEntryGridSpec = resolveHomeQuickEntryGridSpec(maxWidth: 320);
     final slivers = buildHomeSectionSlivers(
       state: _loadedState,
       gridSpec: resolveAdaptiveMediaGridSpec(maxWidth: 320),
+      quickEntryGridSpec: quickEntryGridSpec,
       loadingText: '加载中',
       emptyText: '空',
       retryText: '重试',
@@ -102,14 +141,18 @@ void main() {
       onTapArtist: (_) {},
       onTapRanking: (_) {},
       onTapRadio: (_) {},
+      onTapEntry: (_) {},
       onMoreSong: (_) {},
       isSongLiked: (_) => false,
       onLikeSong: (_) async {},
       isCurrentSong: (_) => false,
       isRadioPlaying: (_) => false,
+      isEntryRadioPlaying: (_) => false,
     );
 
     expect(slivers.whereType<SliverLayoutBuilder>(), isEmpty);
+    expect(quickEntryGridSpec.crossAxisCount, 3);
+    expect(slivers, hasLength(23), reason: '空标题 QUICK_ENTRIES 不应生成标题 sliver');
   });
 }
 
@@ -185,6 +228,35 @@ const _loadedState = HomeContentState(
       resourceType: HomeResourceType.radio,
       title: '动态电台',
       radios: <RadioInfo>[_radio],
+    ),
+    HomePageSection(
+      sectionTypeCode: 6,
+      sectionType: HomeSectionType.quickEntries,
+      resourceType: null,
+      title: '',
+      entries: <HomePageEntry>[
+        HomePageEntry(
+          targetType: HomePageEntryTargetType.songList,
+          targetId: 'daily-new',
+          title: '每日新歌',
+          subtitle: '今日更新',
+          cover: 'https://example.com/new.jpg',
+        ),
+        HomePageEntry(
+          targetType: HomePageEntryTargetType.radio,
+          targetId: 'radio-1',
+          title: '私人电台',
+          subtitle: '',
+          cover: '',
+        ),
+        HomePageEntry(
+          targetType: HomePageEntryTargetType.playlist,
+          targetId: 'playlist-1',
+          title: '精选歌单',
+          subtitle: '',
+          cover: '',
+        ),
+      ],
     ),
   ],
 );

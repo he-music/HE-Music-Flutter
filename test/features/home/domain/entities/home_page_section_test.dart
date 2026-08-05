@@ -3,6 +3,15 @@ import 'package:he_music_flutter/features/home/domain/entities/home_page_section
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
+  test('快捷入口类型和目标类型只接受协议已知值', () {
+    expect(parseHomeSectionType(6), HomeSectionType.quickEntries);
+    expect(parseHomePageEntryTargetType(1), HomePageEntryTargetType.songList);
+    expect(parseHomePageEntryTargetType(2), HomePageEntryTargetType.radio);
+    expect(parseHomePageEntryTargetType(3), HomePageEntryTargetType.playlist);
+    expect(parseHomePageEntryTargetType(0), isNull);
+    expect(parseHomePageEntryTargetType(99), isNull);
+  });
+
   test('相邻同资源 FEED 合并并保留旧标题和重复资源', () {
     final duplicate = _song('same');
     final current = <HomePageSection>[

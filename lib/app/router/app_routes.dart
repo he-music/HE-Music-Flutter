@@ -40,6 +40,7 @@ abstract final class AppRoutes {
   static const videoDetail = '/video/detail';
   static const rankingList = '/ranking-list';
   static const rankingDetail = '/ranking';
+  static const recommendSongList = '/recommend/song-list';
   static const my = '/my';
   static const myHistory = '/my/history';
   static const myCollection = '/my/collection';

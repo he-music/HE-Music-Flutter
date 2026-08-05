@@ -20,6 +20,10 @@ import 'package:he_music_flutter/core/device/screen_wake_lock.dart';
 import 'package:he_music_flutter/features/auth/presentation/pages/login_page.dart';
 import 'package:he_music_flutter/features/auth/presentation/pages/qr_login_scan_page.dart';
 import 'package:he_music_flutter/features/home/presentation/widgets/discover_home_tab.dart';
+import 'package:he_music_flutter/features/home/presentation/pages/recommend_song_list_page.dart';
+import 'package:he_music_flutter/features/home/domain/entities/recommend_song_list_info.dart';
+import 'package:he_music_flutter/features/home/domain/entities/recommend_song_list_request.dart';
+import 'package:he_music_flutter/features/home/presentation/providers/home_page_providers.dart';
 import 'package:he_music_flutter/features/music_library/presentation/pages/local_library_page.dart';
 import 'package:he_music_flutter/features/my/presentation/pages/my_page.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_feature_state.dart';
@@ -101,6 +105,33 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('路由测试歌曲'), findsOneWidget);
+  });
+
+  testWidgets('recommend song list route reads only platform and id', (
+    tester,
+  ) async {
+    final location = Uri(
+      path: AppRoutes.recommendSongList,
+      queryParameters: const <String, String>{
+        'platform': 'qq',
+        'id': 'daily-new',
+      },
+    ).toString();
+
+    await tester.pumpWidget(
+      _buildRouterTestApp(
+        initialLocation: location,
+        homePageApiClient: _TestHomePageApiClient(),
+      ),
+    );
+    await tester.pump();
+
+    final page = tester.widget<RecommendSongListPage>(
+      find.byType(RecommendSongListPage),
+    );
+    expect(page.platform, 'qq');
+    expect(page.id, 'daily-new');
+    expect(find.byType(MiniPlayerBar), findsOneWidget);
   });
 
   testWidgets('settings route covers mini player', (tester) async {
@@ -351,11 +382,14 @@ Widget _buildRouterTestApp({
   required String initialLocation,
   PlayerController Function()? playerControllerFactory,
   ScreenWakeLockPort? screenWakeLockPort,
+  HomePageApiClient? homePageApiClient,
 }) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       apiDioProvider.overrideWithValue(Dio()),
+      if (homePageApiClient != null)
+        homePageApiClientProvider.overrideWithValue(homePageApiClient),
       playerControllerProvider.overrideWith(
         playerControllerFactory ?? _TestPlayerController.new,
       ),
@@ -423,6 +457,23 @@ class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() {
     return AppConfigState.initial.copyWith(localeCode: 'zh');
+  }
+}
+
+class _TestHomePageApiClient extends HomePageApiClient {
+  _TestHomePageApiClient() : super(Dio());
+
+  @override
+  Future<RecommendSongListInfo> fetchRecommendSongList(
+    RecommendSongListRequest request,
+  ) async {
+    return RecommendSongListInfo(
+      id: request.id,
+      title: '路由测试推荐',
+      cover: '',
+      description: '',
+      songs: const <SongInfo>[],
+    );
   }
 }
 

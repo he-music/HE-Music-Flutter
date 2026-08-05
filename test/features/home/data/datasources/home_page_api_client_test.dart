@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/core/error/app_exception.dart';
 import 'package:he_music_flutter/features/home/data/datasources/home_page_api_client.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_page_section.dart';
+import 'package:he_music_flutter/features/home/domain/entities/recommend_song_list_request.dart';
 
 void main() {
   test('推荐页按顺序解析七类动态区块和分页参数', () async {
@@ -82,6 +83,144 @@ void main() {
     );
 
     expect(result.sections, isEmpty);
+  });
+
+  test('快捷入口忽略 resource_type 并跳过未知目标和无效项目', () async {
+    final client = _createClient(<String, dynamic>{
+      'sections': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'section_type': 6,
+          'resource_type': '',
+          'title': '快捷入口',
+          'songs': <Map<String, dynamic>>[_song('must-not-read')],
+          'entries': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'target_type': 1,
+              'target_id': 'daily-new',
+              'title': '每日新歌',
+              'subtitle': '今日更新',
+              'cover': 'https://example.com/new.jpg',
+            },
+            <String, dynamic>{
+              'target_type': 2,
+              'target_id': 'radio-1',
+              'title': '私人电台',
+            },
+            <String, dynamic>{
+              'target_type': 3,
+              'target_id': 'playlist-1',
+              'title': '精选歌单',
+              'subtitle': '',
+              'cover': '',
+            },
+            <String, dynamic>{
+              'target_type': 0,
+              'target_id': 'unspecified',
+              'title': '未指定',
+            },
+            <String, dynamic>{
+              'target_type': 99,
+              'target_id': 'future',
+              'title': '未来类型',
+            },
+            <String, dynamic>{
+              'target_type': 1,
+              'target_id': '',
+              'title': '无效目标',
+            },
+          ],
+        },
+      ],
+      'has_more': false,
+    });
+
+    final result = await client.fetchRecommendPage(
+      platformId: 'qq',
+      pageIndex: 1,
+    );
+
+    final section = result.sections.single;
+    expect(section.sectionType, HomeSectionType.quickEntries);
+    expect(section.resourceType, isNull);
+    expect(section.entries, hasLength(3));
+    expect(
+      section.entries.map((entry) => entry.targetType),
+      <HomePageEntryTargetType>[
+        HomePageEntryTargetType.songList,
+        HomePageEntryTargetType.radio,
+        HomePageEntryTargetType.playlist,
+      ],
+    );
+    expect(section.entries.first.subtitle, '今日更新');
+    expect(section.entries[1].subtitle, isEmpty);
+    expect(section.entries[2].cover, isEmpty);
+  });
+
+  test('空快捷入口不渲染整个 section', () async {
+    final client = _createClient(<String, dynamic>{
+      'sections': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'section_type': 6,
+          'resource_type': 'future-value',
+          'title': '空快捷入口',
+          'entries': <dynamic>[],
+        },
+      ],
+      'has_more': false,
+    });
+
+    final result = await client.fetchRecommendPage(
+      platformId: 'qq',
+      pageIndex: 1,
+    );
+
+    expect(result.sections, isEmpty);
+  });
+
+  test('推荐歌曲集合按裸详情响应解析并传递 platform 和 id', () async {
+    String? path;
+    Map<String, dynamic>? query;
+    final client = _createClient(
+      <String, dynamic>{
+        'id': 'daily-new',
+        'title': '每日新歌',
+        'cover': 'https://example.com/new.jpg',
+        'description': '每日更新',
+        'songs': <Map<String, dynamic>>[_song('song-1')],
+      },
+      onFetch: (requestPath, parameters) {
+        path = requestPath;
+        query = parameters;
+      },
+    );
+
+    final info = await client.fetchRecommendSongList(
+      const RecommendSongListRequest(id: 'daily-new', platform: 'qq'),
+    );
+
+    expect(path, '/v1/page/recommend/song-list');
+    expect(query, <String, dynamic>{'platform': 'qq', 'id': 'daily-new'});
+    expect(info.id, 'daily-new');
+    expect(info.title, '每日新歌');
+    expect(info.description, '每日更新');
+    expect(info.songs.single.platform, 'qq');
+  });
+
+  test('推荐歌曲集合拒绝错误的 info 包装响应', () async {
+    final client = _createClient(<String, dynamic>{
+      'info': <String, dynamic>{
+        'id': 'daily-new',
+        'title': '每日新歌',
+        'songs': <dynamic>[],
+      },
+    });
+
+    await expectLater(
+      client.fetchRecommendSongList(
+        const RecommendSongListRequest(id: 'daily-new', platform: 'qq'),
+      ),
+      throwsA(isA<AppException>()),
+    );
   });
 
   test('发现页只读取 sections，不回退 deprecated 字段', () async {

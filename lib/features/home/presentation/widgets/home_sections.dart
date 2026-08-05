@@ -21,9 +21,22 @@ class HomeSectionAction {
   final VoidCallback onTap;
 }
 
+/// 快捷入口信息密度高于媒体浏览网格，手机端至少保留三列。
+AdaptiveMediaGridSpec resolveHomeQuickEntryGridSpec({
+  required double maxWidth,
+}) {
+  return resolveAdaptiveMediaGridSpec(
+    maxWidth: maxWidth,
+    minItemWidth: 104,
+    childAspectRatio: 0.74,
+    minCrossAxisCount: 3,
+  );
+}
+
 List<Widget> buildHomeSectionSlivers({
   required HomeContentState state,
   required AdaptiveMediaGridSpec gridSpec,
+  required AdaptiveMediaGridSpec quickEntryGridSpec,
   required String loadingText,
   required String emptyText,
   required String retryText,
@@ -36,11 +49,13 @@ List<Widget> buildHomeSectionSlivers({
   required ValueChanged<ArtistInfo> onTapArtist,
   required ValueChanged<RankingInfo> onTapRanking,
   required ValueChanged<RadioInfo> onTapRadio,
+  required ValueChanged<HomePageEntry> onTapEntry,
   required ValueChanged<SongInfo> onMoreSong,
   required bool Function(SongInfo song) isSongLiked,
   required Future<void> Function(SongInfo song) onLikeSong,
   required bool Function(SongInfo song) isCurrentSong,
   required bool Function(RadioInfo radio) isRadioPlaying,
+  required bool Function(HomePageEntry entry) isEntryRadioPlaying,
   String Function(SongInfo item)? resolveSongCover,
   String Function(AlbumInfo item)? resolveAlbumCover,
   String Function(PlaylistInfo item)? resolvePlaylistCover,
@@ -92,26 +107,27 @@ List<Widget> buildHomeSectionSlivers({
     if (section.isEmpty) {
       continue;
     }
-    slivers.add(
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(
-          LayoutTokens.compactPageGutter + 2,
-          0,
-          LayoutTokens.compactPageGutter + 2,
-          10,
-        ),
-        sliver: SliverToBoxAdapter(
-          child: _SectionTitle(
-            title: section.title,
-            action: sectionActionOf(section),
+    final sectionAction = sectionActionOf(section);
+    if (section.title.trim().isNotEmpty || sectionAction != null) {
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            LayoutTokens.compactPageGutter + 2,
+            0,
+            LayoutTokens.compactPageGutter + 2,
+            10,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: _SectionTitle(title: section.title, action: sectionAction),
           ),
         ),
-      ),
-    );
+      );
+    }
     slivers.addAll(
       _buildResourceSlivers(
         section: section,
         gridSpec: gridSpec,
+        quickEntryGridSpec: quickEntryGridSpec,
         onTapSong: onTapSong,
         onTapAlbum: onTapAlbum,
         onTapPlaylist: onTapPlaylist,
@@ -119,11 +135,13 @@ List<Widget> buildHomeSectionSlivers({
         onTapArtist: onTapArtist,
         onTapRanking: onTapRanking,
         onTapRadio: onTapRadio,
+        onTapEntry: onTapEntry,
         onMoreSong: onMoreSong,
         isSongLiked: isSongLiked,
         onLikeSong: onLikeSong,
         isCurrentSong: isCurrentSong,
         isRadioPlaying: isRadioPlaying,
+        isEntryRadioPlaying: isEntryRadioPlaying,
         resolveSongCover: resolveSongCover,
         resolveAlbumCover: resolveAlbumCover,
         resolvePlaylistCover: resolvePlaylistCover,
@@ -140,6 +158,7 @@ List<Widget> buildHomeSectionSlivers({
 List<Widget> _buildResourceSlivers({
   required HomePageSection section,
   required AdaptiveMediaGridSpec gridSpec,
+  required AdaptiveMediaGridSpec quickEntryGridSpec,
   required void Function(List<SongInfo> songs, int index) onTapSong,
   required ValueChanged<AlbumInfo> onTapAlbum,
   required ValueChanged<PlaylistInfo> onTapPlaylist,
@@ -147,11 +166,13 @@ List<Widget> _buildResourceSlivers({
   required ValueChanged<ArtistInfo> onTapArtist,
   required ValueChanged<RankingInfo> onTapRanking,
   required ValueChanged<RadioInfo> onTapRadio,
+  required ValueChanged<HomePageEntry> onTapEntry,
   required ValueChanged<SongInfo> onMoreSong,
   required bool Function(SongInfo song) isSongLiked,
   required Future<void> Function(SongInfo song) onLikeSong,
   required bool Function(SongInfo song) isCurrentSong,
   required bool Function(RadioInfo radio) isRadioPlaying,
+  required bool Function(HomePageEntry entry) isEntryRadioPlaying,
   String Function(SongInfo item)? resolveSongCover,
   String Function(AlbumInfo item)? resolveAlbumCover,
   String Function(PlaylistInfo item)? resolvePlaylistCover,
@@ -162,7 +183,36 @@ List<Widget> _buildResourceSlivers({
   final horizontalPadding = const EdgeInsets.symmetric(
     horizontal: LayoutTokens.compactPageGutter,
   );
-  return switch (section.resourceType) {
+  if (section.sectionType == HomeSectionType.quickEntries) {
+    return <Widget>[
+      SliverPadding(
+        padding: horizontalPadding,
+        sliver: SliverGrid(
+          gridDelegate: quickEntryGridSpec.sliverDelegate,
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final entry = section.entries[index];
+            final selected =
+                entry.targetType == HomePageEntryTargetType.radio &&
+                isEntryRadioPlaying(entry);
+            return MediaGridCard(
+              kind: MediaGridCardKind.playlist,
+              title: entry.title,
+              subtitle: entry.subtitle,
+              coverUrl: entry.cover,
+              selected: selected,
+              showCenterPlayIcon: selected,
+              onTap: () => onTapEntry(entry),
+            );
+          }, childCount: section.entries.length),
+        ),
+      ),
+    ];
+  }
+  final resourceType = section.resourceType;
+  if (resourceType == null) {
+    return const <Widget>[];
+  }
+  return switch (resourceType) {
     HomeResourceType.song => <Widget>[
       SliverPadding(
         padding: horizontalPadding,

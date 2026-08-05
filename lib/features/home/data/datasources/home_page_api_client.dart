@@ -6,6 +6,8 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../ranking/domain/entities/ranking_info.dart';
 import '../../domain/entities/home_page_result.dart';
 import '../../domain/entities/home_page_section.dart';
+import '../../domain/entities/recommend_song_list_info.dart';
+import '../../domain/entities/recommend_song_list_request.dart';
 
 class HomePageApiClient {
   const HomePageApiClient(this._dio);
@@ -42,6 +44,38 @@ class HomePageApiClient {
     );
   }
 
+  Future<RecommendSongListInfo> fetchRecommendSongList(
+    RecommendSongListRequest request,
+  ) async {
+    final response = await _dio.get(
+      '/v1/page/recommend/song-list',
+      queryParameters: <String, dynamic>{
+        'platform': request.platform,
+        'id': request.id,
+      },
+    );
+    // response_body: "info" 使 HTTP 响应直接成为详情对象，不含 info 包装。
+    final payload = _asMap(response.data);
+    final id = '${payload['id'] ?? ''}'.trim();
+    final title = '${payload['title'] ?? ''}'.trim();
+    if (id.isEmpty || title.isEmpty) {
+      throw const AppException(
+        NetworkFailure('Invalid recommend song list response'),
+      );
+    }
+    return RecommendSongListInfo(
+      id: id,
+      title: title,
+      cover: '${payload['cover'] ?? ''}'.trim(),
+      description: '${payload['description'] ?? ''}'.trim(),
+      songs: _parseItems(
+        payload['songs'],
+        (item) => SongInfo.fromMap(item, fallbackPlatform: request.platform),
+        (item) => item.id.isNotEmpty && item.name.isNotEmpty,
+      ),
+    );
+  }
+
   List<HomePageSection> _parseSections(
     Map<String, dynamic> payload,
     String fallbackPlatform,
@@ -72,14 +106,43 @@ class HomePageApiClient {
     Map<String, dynamic> raw,
     String fallbackPlatform,
   ) {
+    final sectionTypeCode = _readInt(raw['section_type']);
+    final sectionType = parseHomeSectionType(sectionTypeCode);
+    if (sectionType == HomeSectionType.quickEntries) {
+      final section = HomePageSection(
+        sectionTypeCode: sectionTypeCode,
+        sectionType: sectionType,
+        resourceType: null,
+        title: '${raw['title'] ?? ''}',
+        entries: _parseItems(
+          raw['entries'],
+          (item) {
+            final targetType = parseHomePageEntryTargetType(
+              _readInt(item['target_type']),
+            );
+            if (targetType == null) {
+              throw const FormatException('Unknown page entry target type');
+            }
+            return HomePageEntry(
+              targetType: targetType,
+              targetId: '${item['target_id'] ?? ''}'.trim(),
+              title: '${item['title'] ?? ''}'.trim(),
+              subtitle: '${item['subtitle'] ?? ''}'.trim(),
+              cover: '${item['cover'] ?? ''}'.trim(),
+            );
+          },
+          (item) => item.targetId.isNotEmpty && item.title.isNotEmpty,
+        ),
+      );
+      return section.isEmpty ? null : section;
+    }
     final resourceType = parseHomeResourceType('${raw['resource_type'] ?? ''}');
     if (resourceType == null) {
       return null;
     }
-    final sectionTypeCode = _readInt(raw['section_type']);
     final section = HomePageSection(
       sectionTypeCode: sectionTypeCode,
-      sectionType: parseHomeSectionType(sectionTypeCode),
+      sectionType: sectionType,
       resourceType: resourceType,
       title: '${raw['title'] ?? ''}',
       songs: resourceType == HomeResourceType.song

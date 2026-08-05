@@ -15,6 +15,7 @@ import '../../features/auth/presentation/pages/qr_login_confirm_page.dart';
 import '../../features/auth/presentation/pages/qr_login_scan_page.dart';
 import '../../features/download/presentation/pages/download_page.dart';
 import '../../features/home/presentation/widgets/discover_home_tab.dart';
+import '../../features/home/presentation/pages/recommend_song_list_page.dart';
 import '../../features/music_library/presentation/pages/local_library_page.dart';
 import '../../features/music_library/presentation/pages/genre_page.dart';
 import '../../features/music_library/presentation/pages/local_artist_detail_page.dart';
@@ -145,6 +146,13 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       id: _readQuery(state, 'id'),
       platform: _readQuery(state, 'platform'),
       title: _readOptionalQuery(state, 'title') ?? '',
+    ),
+  ),
+  _rootContentRoute(
+    path: AppRoutes.recommendSongList,
+    builder: (context, state) => RecommendSongListPage(
+      id: _readQuery(state, 'id'),
+      platform: _readQuery(state, 'platform'),
     ),
   ),
   _rootContentRoute(
