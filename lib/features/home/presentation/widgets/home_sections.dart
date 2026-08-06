@@ -23,6 +23,25 @@ class HomeSectionAction {
 
 // 横滑卡片保持稳定尺寸，并让紧凑屏幕露出未完整展示的末端内容。
 const _homeQuickEntryHorizontalExtent = 112.0;
+const _homeQuickEntryPeekExtent = 26.0;
+const _homeQuickEntrySmallWidth = 320.0;
+const _homeQuickEntryMobileWidth = 600.0;
+
+double _resolveHomeQuickEntryHorizontalExtent({
+  required double maxWidth,
+  required AdaptiveMediaGridSpec gridSpec,
+}) {
+  if (maxWidth >= _homeQuickEntryMobileWidth) {
+    return _homeQuickEntryHorizontalExtent;
+  }
+
+  // 极窄屏保留两张完整卡片；其余移动端沿用自适应列数，宽屏可自然展示更多卡片。
+  final fullItemCount = maxWidth < _homeQuickEntrySmallWidth
+      ? 2
+      : gridSpec.crossAxisCount;
+  final totalSpacing = gridSpec.crossAxisSpacing * fullItemCount;
+  return (maxWidth - totalSpacing - _homeQuickEntryPeekExtent) / fullItemCount;
+}
 
 /// 快捷入口按至少三列计算单行容量，超过容量时由渲染层改为横滑。
 AdaptiveMediaGridSpec resolveHomeQuickEntryGridSpec({
@@ -209,20 +228,28 @@ List<Widget> _buildResourceSlivers({
         SliverPadding(
           padding: horizontalPadding,
           sliver: SliverToBoxAdapter(
-            child: SizedBox(
-              height: _homeQuickEntryHorizontalExtent,
-              child: ListView.separated(
-                primary: false,
-                padding: EdgeInsets.zero,
-                scrollDirection: Axis.horizontal,
-                itemCount: section.entries.length,
-                separatorBuilder: (_, _) =>
-                    SizedBox(width: quickEntryGridSpec.crossAxisSpacing),
-                itemBuilder: (context, index) => SizedBox.square(
-                  dimension: _homeQuickEntryHorizontalExtent,
-                  child: buildEntryCard(context, index),
-                ),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final itemExtent = _resolveHomeQuickEntryHorizontalExtent(
+                  maxWidth: constraints.maxWidth,
+                  gridSpec: quickEntryGridSpec,
+                );
+                return SizedBox(
+                  height: itemExtent,
+                  child: ListView.separated(
+                    primary: false,
+                    padding: EdgeInsets.zero,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: section.entries.length,
+                    separatorBuilder: (_, _) =>
+                        SizedBox(width: quickEntryGridSpec.crossAxisSpacing),
+                    itemBuilder: (context, index) => SizedBox.square(
+                      dimension: itemExtent,
+                      child: buildEntryCard(context, index),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),

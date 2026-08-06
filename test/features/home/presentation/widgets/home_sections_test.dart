@@ -194,6 +194,66 @@ void main() {
     );
     final position = tester.state<ScrollableState>(scrollable).position;
     expect(position.maxScrollExtent, greaterThan(0));
+
+    final listRect = tester.getRect(horizontalList);
+    final nextCardRect = tester.getRect(find.byType(MediaGridCard).at(3));
+    expect(listRect.right - nextCardRect.left, closeTo(26, 0.01));
+  });
+
+  testWidgets('移动端按宽度展示不同数量卡片并固定露出下一张', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const cases = <({double surfaceWidth, int entryCount, int nextIndex})>[
+      (surfaceWidth: 320, entryCount: 4, nextIndex: 2),
+      (surfaceWidth: 480, entryCount: 6, nextIndex: 4),
+      (surfaceWidth: 600, entryCount: 7, nextIndex: 5),
+    ];
+
+    for (final testCase in cases) {
+      await tester.binding.setSurfaceSize(Size(testCase.surfaceWidth, 800));
+      await tester.pumpWidget(
+        _buildQuickEntryTestApp(
+          maxWidth: testCase.surfaceWidth - LayoutTokens.compactPageGutter * 2,
+          entryCount: testCase.entryCount,
+        ),
+      );
+      await tester.pump();
+
+      final horizontalList = find.byWidgetPredicate(
+        (widget) =>
+            widget is ListView && widget.scrollDirection == Axis.horizontal,
+      );
+      final listRect = tester.getRect(horizontalList);
+      final cardSize = tester.getSize(find.byType(MediaGridCard).first);
+      final nextCardRect = tester.getRect(
+        find.byType(MediaGridCard).at(testCase.nextIndex),
+      );
+      expect(cardSize.width, inInclusiveRange(96, 128));
+      expect(cardSize.height, cardSize.width);
+      expect(
+        listRect.right - nextCardRect.left,
+        closeTo(26, 0.01),
+        reason: '${testCase.surfaceWidth}dp 宽度应露出下一张卡片',
+      );
+    }
+  });
+
+  testWidgets('非移动端横滑卡片保持固定尺寸', (tester) async {
+    const surfaceWidth = 700.0;
+    await tester.binding.setSurfaceSize(const Size(surfaceWidth, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildQuickEntryTestApp(
+        maxWidth: surfaceWidth - LayoutTokens.compactPageGutter * 2,
+        entryCount: 7,
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      tester.getSize(find.byType(MediaGridCard).first),
+      const Size.square(112),
+    );
   });
 
   testWidgets('宽度能容纳全部快捷入口时使用 Grid', (tester) async {
