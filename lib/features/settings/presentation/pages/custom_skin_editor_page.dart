@@ -47,7 +47,11 @@ class _CustomSkinEditorPageState extends ConsumerState<CustomSkinEditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(appConfigProvider);
+    final config = ref.watch(
+      appConfigProvider.select(
+        (state) => (localeCode: state.localeCode, skinId: state.skinId),
+      ),
+    );
     final editor = ref.watch(customSkinEditorControllerProvider);
     final controller = ref.read(customSkinEditorControllerProvider.notifier);
     ref.listen<CustomSkinEditorState>(customSkinEditorControllerProvider, (
@@ -236,7 +240,7 @@ class _EmptyEditor extends StatelessWidget {
   }
 }
 
-class _EditorWorkbench extends StatelessWidget {
+class _EditorWorkbench extends StatefulWidget {
   const _EditorWorkbench({
     required this.draft,
     required this.localeCode,
@@ -254,6 +258,37 @@ class _EditorWorkbench extends StatelessWidget {
   final ValueChanged<int> onSeedSelected;
   final VoidCallback onSwap;
   final void Function(double x, double y) onFocalChanged;
+
+  @override
+  State<_EditorWorkbench> createState() => _EditorWorkbenchState();
+}
+
+class _EditorWorkbenchState extends State<_EditorWorkbench> {
+  late final ValueNotifier<Alignment> _focal;
+
+  @override
+  void initState() {
+    super.initState();
+    _focal = ValueNotifier<Alignment>(_draftFocal(widget.draft));
+  }
+
+  @override
+  void didUpdateWidget(covariant _EditorWorkbench oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final draftChanged = oldWidget.draft.revision != widget.draft.revision;
+    final focalChanged =
+        oldWidget.draft.focalX != widget.draft.focalX ||
+        oldWidget.draft.focalY != widget.draft.focalY;
+    if (draftChanged || focalChanged) {
+      _focal.value = _draftFocal(widget.draft);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focal.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,20 +311,21 @@ class _EditorWorkbench extends StatelessWidget {
                           child: _BrightnessPreview(
                             key: const ValueKey<String>('custom-preview-light'),
                             label: AppI18n.tByLocaleCode(
-                              localeCode,
+                              widget.localeCode,
                               'my.theme.light',
                             ),
                             brightness: Brightness.light,
-                            bytes: draft.lightPreviewBytes,
-                            assetPath: draft.lightAssetPath,
-                            seedColor: Color(draft.seedColor),
-                            focal: Alignment(draft.focalX, draft.focalY),
-                            sourceWidth: draft.sourceWidth,
-                            sourceHeight: draft.sourceHeight,
+                            bytes: widget.draft.lightPreviewBytes,
+                            assetPath: widget.draft.lightAssetPath,
+                            seedColor: Color(widget.draft.seedColor),
+                            focal: _focal,
+                            sourceWidth: widget.draft.sourceWidth,
+                            sourceHeight: widget.draft.sourceHeight,
                             aspectRatio: previewAspectRatio,
-                            assetResolver: assetResolver,
-                            enabled: !busy,
+                            assetResolver: widget.assetResolver,
+                            enabled: !widget.busy,
                             onFocalDelta: _moveFocal,
+                            onFocalCommit: _commitFocal,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -297,20 +333,21 @@ class _EditorWorkbench extends StatelessWidget {
                           child: _BrightnessPreview(
                             key: const ValueKey<String>('custom-preview-dark'),
                             label: AppI18n.tByLocaleCode(
-                              localeCode,
+                              widget.localeCode,
                               'my.theme.dark',
                             ),
                             brightness: Brightness.dark,
-                            bytes: draft.darkPreviewBytes,
-                            assetPath: draft.darkAssetPath,
-                            seedColor: Color(draft.seedColor),
-                            focal: Alignment(draft.focalX, draft.focalY),
-                            sourceWidth: draft.sourceWidth,
-                            sourceHeight: draft.sourceHeight,
+                            bytes: widget.draft.darkPreviewBytes,
+                            assetPath: widget.draft.darkAssetPath,
+                            seedColor: Color(widget.draft.seedColor),
+                            focal: _focal,
+                            sourceWidth: widget.draft.sourceWidth,
+                            sourceHeight: widget.draft.sourceHeight,
                             aspectRatio: previewAspectRatio,
-                            assetResolver: assetResolver,
-                            enabled: !busy,
+                            assetResolver: widget.assetResolver,
+                            enabled: !widget.busy,
                             onFocalDelta: _moveFocal,
+                            onFocalCommit: _commitFocal,
                           ),
                         ),
                       ],
@@ -321,22 +358,22 @@ class _EditorWorkbench extends StatelessWidget {
                         'swap-custom-skin-brightness',
                       ),
                       tooltip: AppI18n.tByLocaleCode(
-                        localeCode,
+                        widget.localeCode,
                         'settings.skin.custom.swap',
                       ),
-                      onPressed: busy ? null : onSwap,
+                      onPressed: widget.busy ? null : widget.onSwap,
                       icon: const Icon(Icons.swap_horiz_rounded),
                     ),
                     const SizedBox(height: 12),
                     _ColorSwatches(
-                      colors: draft.candidateColors,
-                      selected: draft.seedColor,
-                      enabled: !busy,
-                      onSelected: onSeedSelected,
+                      colors: widget.draft.candidateColors,
+                      selected: widget.draft.seedColor,
+                      enabled: !widget.busy,
+                      onSelected: widget.onSeedSelected,
                     ),
                   ],
                 ),
-                if (busy)
+                if (widget.busy)
                   const Positioned.fill(
                     child: IgnorePointer(
                       child: Align(
@@ -354,7 +391,23 @@ class _EditorWorkbench extends StatelessWidget {
   }
 
   void _moveFocal(double dx, double dy) {
-    onFocalChanged(draft.focalX + dx, draft.focalY + dy);
+    final current = _focal.value;
+    _focal.value = Alignment(
+      (current.x + dx).clamp(-1.0, 1.0),
+      (current.y + dy).clamp(-1.0, 1.0),
+    );
+  }
+
+  void _commitFocal() {
+    final focal = _focal.value;
+    if (focal.x == widget.draft.focalX && focal.y == widget.draft.focalY) {
+      return;
+    }
+    widget.onFocalChanged(focal.x, focal.y);
+  }
+
+  Alignment _draftFocal(CustomSkinEditorDraft draft) {
+    return Alignment(draft.focalX, draft.focalY);
   }
 }
 
@@ -372,6 +425,7 @@ class _BrightnessPreview extends StatelessWidget {
     required this.assetResolver,
     required this.enabled,
     required this.onFocalDelta,
+    required this.onFocalCommit,
     super.key,
   });
 
@@ -380,13 +434,14 @@ class _BrightnessPreview extends StatelessWidget {
   final Uint8List? bytes;
   final String assetPath;
   final Color seedColor;
-  final Alignment focal;
+  final ValueListenable<Alignment> focal;
   final int sourceWidth;
   final int sourceHeight;
   final double aspectRatio;
   final AppSkinAssetResolver assetResolver;
   final bool enabled;
   final void Function(double dx, double dy) onFocalDelta;
+  final VoidCallback onFocalCommit;
 
   @override
   Widget build(BuildContext context) {
@@ -424,6 +479,7 @@ class _BrightnessPreview extends StatelessWidget {
                     return KeyEventResult.ignored;
                   }
                   onFocalDelta(delta.dx, delta.dy);
+                  onFocalCommit();
                   return KeyEventResult.handled;
                 },
                 child: GestureDetector(
@@ -431,16 +487,23 @@ class _BrightnessPreview extends StatelessWidget {
                       ? (details) =>
                             _handlePan(details.delta, constraints.biggest)
                       : null,
+                  onPanEnd: enabled ? (_) => onFocalCommit() : null,
+                  onPanCancel: enabled ? onFocalCommit : null,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Stack(
                       fit: StackFit.expand,
                       children: <Widget>[
-                        _CustomPreviewImage(
-                          bytes: bytes,
-                          assetPath: assetPath,
-                          alignment: focal,
-                          assetResolver: assetResolver,
+                        ValueListenableBuilder<Alignment>(
+                          valueListenable: focal,
+                          builder: (context, alignment, _) {
+                            return _CustomPreviewImage(
+                              bytes: bytes,
+                              assetPath: assetPath,
+                              alignment: alignment,
+                              assetResolver: assetResolver,
+                            );
+                          },
                         ),
                         Align(
                           alignment: Alignment.bottomCenter,

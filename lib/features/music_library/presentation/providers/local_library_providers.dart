@@ -11,6 +11,12 @@ final localLibraryControllerProvider =
       LocalLibraryController.new,
     );
 
+final localLibrarySelectionProvider =
+    NotifierProvider<
+      LocalLibrarySelectionController,
+      LocalLibrarySelectionState
+    >(LocalLibrarySelectionController.new);
+
 typedef LocalSongFileShare = Future<void> Function(LocalSong song);
 
 final localSongFileShareProvider = Provider<LocalSongFileShare>((ref) {

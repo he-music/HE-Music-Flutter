@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -8,13 +10,44 @@ import '../../../../core/audio/he_audio_handler.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 
 final audioPlayerPortProvider = Provider<AudioPlayerPort>((ref) {
-  final config = ref.watch(appConfigProvider);
-  final onlinePlatforms = ref.watch(onlinePlatformsProvider).value;
   final adapter = AudioHandlerPlayerAdapter(globalHeAudioHandler);
-  adapter.syncConfig(config);
-  if (onlinePlatforms != null) {
-    adapter.syncCoverPlatforms(onlinePlatforms);
+
+  void syncConfig() {
+    unawaited(adapter.syncConfig(ref.read(appConfigProvider)));
   }
+
+  void syncCoverPlatforms() {
+    final platforms = ref.read(onlinePlatformsProvider).value;
+    if (platforms != null) {
+      unawaited(adapter.syncCoverPlatforms(platforms));
+    }
+  }
+
+  syncConfig();
+  syncCoverPlatforms();
+  ref.listen(
+    appConfigProvider.select(
+      (config) => (
+        apiBaseUrl: config.apiBaseUrl,
+        authToken: config.authToken,
+        onlineAudioQualityPreference: config.onlineAudioQualityPreference,
+        lastSelectedOnlineAudioQualityName:
+            config.lastSelectedOnlineAudioQualityName,
+        enableDesktopLyric: config.enableDesktopLyric,
+        enableDesktopLyricLock: config.enableDesktopLyricLock,
+        lyricHighlightMode: config.lyricHighlightMode,
+        lyricHighlightPreset: config.lyricHighlightPreset,
+        lyricHighlightCustomColor: config.lyricHighlightCustomColor,
+        lyricFontPreset: config.lyricFontPreset,
+        enableWordByWordLyric: config.enableWordByWordLyric,
+      ),
+    ),
+    (_, _) => syncConfig(),
+  );
+  ref.listen(
+    onlinePlatformsProvider.select((platforms) => platforms.value),
+    (_, _) => syncCoverPlatforms(),
+  );
   return adapter;
 });
 

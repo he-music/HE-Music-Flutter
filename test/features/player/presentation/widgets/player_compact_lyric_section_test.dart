@@ -67,21 +67,58 @@ void main() {
     );
     expect(find.text('第二句'), findsOneWidget);
   });
-}
 
-Widget _buildTestApp() {
-  return ProviderScope(
-    overrides: [
-      playerControllerProvider.overrideWith(_TestPlayerController.new),
-      currentLyricDocumentProvider.overrideWithValue(
-        const AsyncData<LyricDocument>(
-          LyricDocument(
+  testWidgets(
+    'explicit lyric end keeps gaps empty across forward and back seeks',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildTestApp(
+          document: const LyricDocument(
             lines: <LyricLine>[
-              LyricLine(start: Duration.zero, text: '第一句'),
+              LyricLine(
+                start: Duration.zero,
+                end: Duration(seconds: 1),
+                text: '第一句',
+              ),
               LyricLine(start: Duration(seconds: 2), text: '第二句'),
             ],
           ),
         ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(PlayerCompactLyricSection)),
+      );
+      final positionController = container.read(_testPositionProvider.notifier);
+
+      positionController.update(const Duration(milliseconds: 1500));
+      await tester.pumpAndSettle();
+      expect(find.text('第一句'), findsNothing);
+      expect(find.text('第二句'), findsNothing);
+
+      positionController.update(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('第二句'), findsOneWidget);
+
+      positionController.update(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text('第一句'), findsOneWidget);
+    },
+  );
+}
+
+Widget _buildTestApp({
+  LyricDocument document = const LyricDocument(
+    lines: <LyricLine>[
+      LyricLine(start: Duration.zero, text: '第一句'),
+      LyricLine(start: Duration(seconds: 2), text: '第二句'),
+    ],
+  ),
+}) {
+  return ProviderScope(
+    overrides: [
+      playerControllerProvider.overrideWith(_TestPlayerController.new),
+      currentLyricDocumentProvider.overrideWithValue(
+        AsyncData<LyricDocument>(document),
       ),
       lyricPositionProvider.overrideWith(
         (ref) => ref.watch(_testPositionProvider),

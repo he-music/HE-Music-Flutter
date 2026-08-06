@@ -224,5 +224,39 @@ void main() {
       expect(state.waitingCount, 1);
       expect(state.isProcessing, isTrue);
     });
+
+    test('task list revision changes only when list structure changes', () {
+      final task = DownloadTask.queued(
+        id: 'task-1',
+        title: 'track',
+        url: 'https://example.com',
+        createdAt: DateTime(2024, 1, 1),
+      );
+      final added = DownloadState.initial.copyWith(tasks: <DownloadTask>[task]);
+      final progressed = added.copyWith(
+        tasks: <DownloadTask>[
+          task.copyWith(
+            status: DownloadTaskStatus.downloading,
+            progress: 0.5,
+            downloadedBytes: 512,
+            totalBytes: 1024,
+          ),
+        ],
+      );
+      final completed = progressed.copyWith(
+        tasks: <DownloadTask>[
+          progressed.tasks.single.copyWith(
+            status: DownloadTaskStatus.completed,
+            progress: 1,
+          ),
+        ],
+      );
+      final removed = completed.copyWith(tasks: const <DownloadTask>[]);
+
+      expect(added.taskListRevision, 1);
+      expect(progressed.taskListRevision, added.taskListRevision);
+      expect(completed.taskListRevision, added.taskListRevision + 1);
+      expect(removed.taskListRevision, completed.taskListRevision + 1);
+    });
   });
 }

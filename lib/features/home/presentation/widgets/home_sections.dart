@@ -21,6 +21,20 @@ class HomeSectionAction {
   final VoidCallback onTap;
 }
 
+typedef HomeSongStatusBuilder =
+    Widget Function(
+      BuildContext context,
+      SongInfo song,
+      Widget Function(bool isLiked, bool isCurrent) builder,
+    );
+
+typedef HomeSelectionStatusBuilder<T> =
+    Widget Function(
+      BuildContext context,
+      T item,
+      Widget Function(bool selected) builder,
+    );
+
 // 横滑卡片保持稳定尺寸，并让紧凑屏幕露出未完整展示的末端内容。
 const _homeQuickEntryHorizontalExtent = 112.0;
 const _homeQuickEntryPeekExtent = 26.0;
@@ -73,11 +87,10 @@ List<Widget> buildHomeSectionSlivers({
   required ValueChanged<RadioInfo> onTapRadio,
   required ValueChanged<HomePageEntry> onTapEntry,
   required ValueChanged<SongInfo> onMoreSong,
-  required bool Function(SongInfo song) isSongLiked,
+  required HomeSongStatusBuilder buildSongStatus,
   required Future<void> Function(SongInfo song) onLikeSong,
-  required bool Function(SongInfo song) isCurrentSong,
-  required bool Function(RadioInfo radio) isRadioPlaying,
-  required bool Function(HomePageEntry entry) isEntryRadioPlaying,
+  required HomeSelectionStatusBuilder<RadioInfo> buildRadioStatus,
+  required HomeSelectionStatusBuilder<HomePageEntry> buildEntryRadioStatus,
   String Function(SongInfo item)? resolveSongCover,
   String Function(AlbumInfo item)? resolveAlbumCover,
   String Function(PlaylistInfo item)? resolvePlaylistCover,
@@ -159,11 +172,10 @@ List<Widget> buildHomeSectionSlivers({
         onTapRadio: onTapRadio,
         onTapEntry: onTapEntry,
         onMoreSong: onMoreSong,
-        isSongLiked: isSongLiked,
+        buildSongStatus: buildSongStatus,
         onLikeSong: onLikeSong,
-        isCurrentSong: isCurrentSong,
-        isRadioPlaying: isRadioPlaying,
-        isEntryRadioPlaying: isEntryRadioPlaying,
+        buildRadioStatus: buildRadioStatus,
+        buildEntryRadioStatus: buildEntryRadioStatus,
         resolveSongCover: resolveSongCover,
         resolveAlbumCover: resolveAlbumCover,
         resolvePlaylistCover: resolvePlaylistCover,
@@ -190,11 +202,10 @@ List<Widget> _buildResourceSlivers({
   required ValueChanged<RadioInfo> onTapRadio,
   required ValueChanged<HomePageEntry> onTapEntry,
   required ValueChanged<SongInfo> onMoreSong,
-  required bool Function(SongInfo song) isSongLiked,
+  required HomeSongStatusBuilder buildSongStatus,
   required Future<void> Function(SongInfo song) onLikeSong,
-  required bool Function(SongInfo song) isCurrentSong,
-  required bool Function(RadioInfo radio) isRadioPlaying,
-  required bool Function(HomePageEntry entry) isEntryRadioPlaying,
+  required HomeSelectionStatusBuilder<RadioInfo> buildRadioStatus,
+  required HomeSelectionStatusBuilder<HomePageEntry> buildEntryRadioStatus,
   String Function(SongInfo item)? resolveSongCover,
   String Function(AlbumInfo item)? resolveAlbumCover,
   String Function(PlaylistInfo item)? resolvePlaylistCover,
@@ -208,10 +219,7 @@ List<Widget> _buildResourceSlivers({
   if (section.sectionType == HomeSectionType.quickEntries) {
     Widget buildEntryCard(BuildContext context, int index) {
       final entry = section.entries[index];
-      final selected =
-          entry.targetType == HomePageEntryTargetType.radio &&
-          isEntryRadioPlaying(entry);
-      return MediaGridCard(
+      Widget buildCard(bool selected) => MediaGridCard(
         kind: MediaGridCardKind.playlist,
         title: entry.title,
         subtitle: entry.subtitle,
@@ -221,6 +229,10 @@ List<Widget> _buildResourceSlivers({
         overlayText: true,
         onTap: () => onTapEntry(entry),
       );
+      if (entry.targetType != HomePageEntryTargetType.radio) {
+        return buildCard(false);
+      }
+      return buildEntryRadioStatus(context, entry, buildCard);
     }
 
     if (section.entries.length > quickEntryGridSpec.crossAxisCount) {
@@ -280,16 +292,20 @@ List<Widget> _buildResourceSlivers({
           delegate: SliverChildBuilderDelegate((context, index) {
             final song = section.songs[index];
             final cover = resolveSongCover?.call(song) ?? song.cover;
-            return OnlineSongListItem(
-              song: song,
-              artistAlbumText: song.artistAlbumText,
-              subtitleText: song.displaySubtitle,
-              coverUrl: cover.isEmpty ? null : cover,
-              isCurrent: isCurrentSong(song),
-              isLiked: isSongLiked(song),
-              onTap: () => onTapSong(section.songs, index),
-              onLikeTap: () => onLikeSong(song),
-              onMoreTap: () => onMoreSong(song),
+            return buildSongStatus(
+              context,
+              song,
+              (isLiked, isCurrent) => OnlineSongListItem(
+                song: song,
+                artistAlbumText: song.artistAlbumText,
+                subtitleText: song.displaySubtitle,
+                coverUrl: cover.isEmpty ? null : cover,
+                isCurrent: isCurrent,
+                isLiked: isLiked,
+                onTap: () => onTapSong(section.songs, index),
+                onLikeTap: () => onLikeSong(song),
+                onMoreTap: () => onMoreSong(song),
+              ),
             );
           }, childCount: section.songs.length),
         ),
@@ -388,15 +404,18 @@ List<Widget> _buildResourceSlivers({
           gridDelegate: gridSpec.sliverDelegate,
           delegate: SliverChildBuilderDelegate((context, index) {
             final radio = section.radios[index];
-            final selected = isRadioPlaying(radio);
-            return MediaGridCard(
-              kind: MediaGridCardKind.playlist,
-              title: radio.name,
-              subtitle: '',
-              coverUrl: resolveRadioCover?.call(radio) ?? radio.cover,
-              selected: selected,
-              showCenterPlayIcon: selected,
-              onTap: () => onTapRadio(radio),
+            return buildRadioStatus(
+              context,
+              radio,
+              (selected) => MediaGridCard(
+                kind: MediaGridCardKind.playlist,
+                title: radio.name,
+                subtitle: '',
+                coverUrl: resolveRadioCover?.call(radio) ?? radio.cover,
+                selected: selected,
+                showCenterPlayIcon: selected,
+                onTap: () => onTapRadio(radio),
+              ),
             );
           }, childCount: section.radios.length),
         ),

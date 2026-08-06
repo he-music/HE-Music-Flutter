@@ -9,6 +9,7 @@ import 'package:he_music_flutter/features/music_library/domain/entities/local_so
 import 'package:he_music_flutter/features/music_library/presentation/controllers/local_library_controller.dart';
 import 'package:he_music_flutter/features/music_library/presentation/pages/local_library_page.dart';
 import 'package:he_music_flutter/features/music_library/presentation/providers/local_library_providers.dart';
+import 'package:he_music_flutter/shared/widgets/song_list_item.dart';
 import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -128,6 +129,34 @@ void main() {
 
     await _disposePage(tester);
   });
+
+  testWidgets('selection toggle rebuilds only the changed song row', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildTestApp(controllerFactory: _PopulatedLocalLibraryController.new),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('歌曲 A'));
+    await tester.pump();
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    final songA = _songItem(tester, '歌曲 A');
+    final songB = _songItem(tester, '歌曲 B');
+    expect(songA.selected, isTrue);
+    expect(songB.selected, isFalse);
+
+    await tester.tap(find.text('歌曲 B'));
+    await tester.pump();
+
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)), same(scaffold));
+    expect(_songItem(tester, '歌曲 A'), same(songA));
+    expect(_songItem(tester, '歌曲 B'), isNot(same(songB)));
+    expect(_songItem(tester, '歌曲 B').selected, isTrue);
+
+    await _disposePage(tester);
+  });
 }
 
 Widget _buildTestApp({LocalLibraryController Function()? controllerFactory}) {
@@ -147,6 +176,12 @@ Widget _buildTestApp({LocalLibraryController Function()? controllerFactory}) {
 Finder _findSkinIcon(AppSkinIconRole role) {
   return find.byWidgetPredicate(
     (widget) => widget is AppSkinIcon && widget.role == role,
+  );
+}
+
+SongListItem _songItem(WidgetTester tester, String title) {
+  return tester.widget<SongListItem>(
+    find.ancestor(of: find.text(title), matching: find.byType(SongListItem)),
   );
 }
 

@@ -32,6 +32,54 @@ class LocalLibrarySearchState {
   final String query;
 }
 
+class LocalLibrarySelectionState {
+  const LocalLibrarySelectionState({
+    this.isMultiSelectMode = false,
+    this.selectedSongIds = const <String>{},
+  });
+
+  final bool isMultiSelectMode;
+  final Set<String> selectedSongIds;
+}
+
+class LocalLibrarySelectionController
+    extends Notifier<LocalLibrarySelectionState> {
+  @override
+  LocalLibrarySelectionState build() => const LocalLibrarySelectionState();
+
+  void enterMultiSelect(String songId) {
+    state = LocalLibrarySelectionState(
+      isMultiSelectMode: true,
+      selectedSongIds: Set<String>.unmodifiable(<String>{songId}),
+    );
+  }
+
+  void exitMultiSelect() {
+    state = const LocalLibrarySelectionState();
+  }
+
+  void toggleSelection(String songId) {
+    final selected = <String>{...state.selectedSongIds};
+    if (!selected.remove(songId)) {
+      selected.add(songId);
+    }
+    state = LocalLibrarySelectionState(
+      isMultiSelectMode: selected.isNotEmpty,
+      selectedSongIds: Set<String>.unmodifiable(selected),
+    );
+  }
+
+  void selectAll(List<LocalSong> songs) {
+    final selected = state.selectedSongIds.length == songs.length
+        ? const <String>{}
+        : Set<String>.unmodifiable(songs.map((song) => song.id));
+    state = LocalLibrarySelectionState(
+      isMultiSelectMode: true,
+      selectedSongIds: selected,
+    );
+  }
+}
+
 class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
   Timer? _debounceTimer;
   StreamSubscription<List<LocalSong>>? _songSubscription;
@@ -51,10 +99,6 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
   List<ArtistGroup> artistGroups = const [];
   List<AlbumGroup> albumGroups = const [];
   List<GenreGroup> genreGroups = const [];
-
-  /// 多选模式状态
-  bool isMultiSelectMode = false;
-  final Set<String> selectedSongIds = {};
 
   @override
   Future<List<LocalSong>> build() async {
@@ -276,45 +320,6 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     }
     _saveSortPreference();
     startWatchingSongs();
-    ref.notifyListeners();
-  }
-
-  /// 进入多选模式
-  void enterMultiSelect(String songId) {
-    isMultiSelectMode = true;
-    selectedSongIds.clear();
-    selectedSongIds.add(songId);
-    ref.notifyListeners();
-  }
-
-  /// 退出多选模式
-  void exitMultiSelect() {
-    isMultiSelectMode = false;
-    selectedSongIds.clear();
-    ref.notifyListeners();
-  }
-
-  /// 切换选中状态
-  void toggleSelection(String songId) {
-    if (selectedSongIds.contains(songId)) {
-      selectedSongIds.remove(songId);
-      if (selectedSongIds.isEmpty) {
-        isMultiSelectMode = false;
-      }
-    } else {
-      selectedSongIds.add(songId);
-    }
-    ref.notifyListeners();
-  }
-
-  /// 全选/取消全选
-  void selectAll(List<LocalSong> songs) {
-    if (selectedSongIds.length == songs.length) {
-      selectedSongIds.clear();
-    } else {
-      selectedSongIds.clear();
-      selectedSongIds.addAll(songs.map((s) => s.id));
-    }
     ref.notifyListeners();
   }
 }

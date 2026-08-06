@@ -132,21 +132,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     final homeState = ref.watch(homePageControllerProvider);
     final globalPlatforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-    final playerState = ref.watch(
-      playerControllerProvider.select(
-        (state) => (
-          currentTrackId: state.currentTrack?.id.trim() ?? '',
-          currentTrackPlatform: (state.currentTrack?.platform ?? '').trim(),
-          isRadioMode: state.isRadioMode,
-          currentRadioId: state.currentRadioId,
-          currentRadioPlatform: state.currentRadioPlatform,
-        ),
-      ),
-    );
     final homeController = ref.read(homePageControllerProvider.notifier);
-    final favoriteSongKeys = ref.watch(
-      favoriteSongStatusProvider.select((state) => state.songKeys),
-    );
     final availablePages = homeState.availablePages;
     return Stack(
       children: <Widget>[
@@ -201,8 +187,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                               homeState: homeState,
                               config: config,
                               globalPlatforms: globalPlatforms,
-                              favoriteSongKeys: favoriteSongKeys,
-                              playerState: playerState,
                             ),
                           )
                           .toList(growable: false),
@@ -220,15 +204,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     required HomePageState homeState,
     required AppConfigState config,
     required List<OnlinePlatform> globalPlatforms,
-    required Set<String> favoriteSongKeys,
-    required ({
-      String currentTrackId,
-      String currentTrackPlatform,
-      bool isRadioMode,
-      String? currentRadioId,
-      String? currentRadioPlatform,
-    })
-    playerState,
   }) {
     final content = homeState.contentFor(page);
     final selectedPlatformId = content.selectedPlatformId ?? '';
@@ -371,32 +346,66 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                   ref: ref,
                   song: song,
                 ),
-                isSongLiked: (song) => favoriteSongKeys.contains(
-                  buildFavoriteSongKey(
+                buildSongStatus: (context, song, builder) {
+                  final platform = song.platform.isEmpty
+                      ? selectedPlatformId
+                      : song.platform;
+                  final favoriteKey = buildFavoriteSongKey(
                     songId: song.id,
-                    platform: song.platform.isEmpty
-                        ? selectedPlatformId
-                        : song.platform,
-                  ),
-                ),
+                    platform: platform,
+                  );
+                  return Consumer(
+                    builder: (context, ref, _) {
+                      final isLiked = ref.watch(
+                        favoriteSongStatusProvider.select(
+                          (state) => state.songKeys.contains(favoriteKey),
+                        ),
+                      );
+                      final isCurrent = ref.watch(
+                        playerControllerProvider.select(
+                          (state) => _isCurrentHomeSong(
+                            currentTrackId: state.currentTrack?.id.trim() ?? '',
+                            currentTrackPlatform:
+                                (state.currentTrack?.platform ?? '').trim(),
+                            song: song,
+                          ),
+                        ),
+                      );
+                      return builder(isLiked, isCurrent);
+                    },
+                  );
+                },
                 onLikeSong: (song) => _toggleSongFavorite(
                   ref: ref,
                   song: song,
                   fallbackPlatformId: selectedPlatformId,
                 ),
-                isCurrentSong: (song) => _isCurrentHomeSong(
-                  currentTrackId: playerState.currentTrackId,
-                  currentTrackPlatform: playerState.currentTrackPlatform,
-                  song: song,
+                buildRadioStatus: (context, radio, builder) => Consumer(
+                  builder: (context, ref, _) {
+                    final selected = ref.watch(
+                      playerControllerProvider.select(
+                        (state) =>
+                            state.isRadioMode &&
+                            state.currentRadioId == radio.id &&
+                            state.currentRadioPlatform == radio.platform,
+                      ),
+                    );
+                    return builder(selected);
+                  },
                 ),
-                isRadioPlaying: (radio) =>
-                    playerState.isRadioMode &&
-                    playerState.currentRadioId == radio.id &&
-                    playerState.currentRadioPlatform == radio.platform,
-                isEntryRadioPlaying: (entry) =>
-                    playerState.isRadioMode &&
-                    playerState.currentRadioId == entry.targetId &&
-                    playerState.currentRadioPlatform == selectedPlatformId,
+                buildEntryRadioStatus: (context, entry, builder) => Consumer(
+                  builder: (context, ref, _) {
+                    final selected = ref.watch(
+                      playerControllerProvider.select(
+                        (state) =>
+                            state.isRadioMode &&
+                            state.currentRadioId == entry.targetId &&
+                            state.currentRadioPlatform == selectedPlatformId,
+                      ),
+                    );
+                    return builder(selected);
+                  },
+                ),
                 resolveSongCover: (song) => _resolveDiscoverSongCover(
                   config: config,
                   platforms: globalPlatforms,

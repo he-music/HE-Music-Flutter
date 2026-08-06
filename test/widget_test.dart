@@ -20,6 +20,7 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/media_grid_card.dart';
+import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 
 void main() {
   testWidgets('home shell renders with two tabs', (WidgetTester tester) async {
@@ -181,41 +182,50 @@ void main() {
     },
   );
 
-  testWidgets(
-    'home ignores player progress and duration updates but rebuilds for current track changes',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(_buildDiscoverTabTestApp());
-      await tester.pumpAndSettle();
+  testWidgets('home keeps its root stable while current song items update', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(_buildDiscoverTabTestApp());
+    await tester.pumpAndSettle();
 
-      const pageKey = PageStorageKey<String>('home-discover');
-      final pageFinder = find.byKey(pageKey);
-      final initialPage = tester.widget(pageFinder);
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(DiscoverHomeTab)),
-      );
-      final playerController =
-          container.read(playerControllerProvider.notifier)
-              as _TestPlayerController;
+    const pageKey = PageStorageKey<String>('home-discover');
+    final pageFinder = find.byKey(pageKey);
+    final initialPage = tester.widget(pageFinder);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(DiscoverHomeTab)),
+    );
+    final playerController =
+        container.read(playerControllerProvider.notifier)
+            as _TestPlayerController;
 
-      playerController.updatePosition(const Duration(seconds: 1));
-      await tester.pump();
+    playerController.updatePosition(const Duration(seconds: 1));
+    await tester.pump();
 
-      expect(tester.widget(pageFinder), same(initialPage));
+    expect(tester.widget(pageFinder), same(initialPage));
 
-      playerController.replaceCurrentTrack(
-        const PlayerTrack(id: 'playing-song', title: '播放中歌曲'),
-      );
-      await tester.pump();
+    playerController.replaceCurrentTrack(
+      const PlayerTrack(id: 'song-0', title: '歌曲-0', platform: 'qq'),
+    );
+    await tester.pump();
 
-      final currentTrackPage = tester.widget(pageFinder);
-      expect(currentTrackPage, isNot(same(initialPage)));
+    expect(tester.widget(pageFinder), same(initialPage));
+    expect(_onlineSongItem(tester, 'song-0').isCurrent, isTrue);
 
-      playerController.updateDuration(const Duration(minutes: 3));
-      await tester.pump();
+    playerController.replaceCurrentTrack(
+      const PlayerTrack(id: 'song-1', title: '歌曲-1', platform: 'qq'),
+    );
+    await tester.pump();
 
-      expect(tester.widget(pageFinder), same(currentTrackPage));
-    },
-  );
+    expect(tester.widget(pageFinder), same(initialPage));
+    expect(_onlineSongItem(tester, 'song-0').isCurrent, isFalse);
+    expect(_onlineSongItem(tester, 'song-1').isCurrent, isTrue);
+
+    playerController.updateDuration(const Duration(minutes: 3));
+    await tester.pump();
+
+    expect(tester.widget(pageFinder), same(initialPage));
+    expect(_onlineSongItem(tester, 'song-1').isCurrent, isTrue);
+  });
 
   testWidgets('home placeholder updates without rebuilding content page', (
     tester,
@@ -353,6 +363,12 @@ Widget _buildDiscoverTabTestApp({
     ],
     child: const MaterialApp(home: Scaffold(body: DiscoverHomeTab())),
   );
+}
+
+OnlineSongListItem _onlineSongItem(WidgetTester tester, String songId) {
+  return tester
+      .widgetList<OnlineSongListItem>(find.byType(OnlineSongListItem))
+      .singleWhere((item) => item.song.id == songId);
 }
 
 final List<OnlinePlatform> _fakeOnlinePlatforms = <OnlinePlatform>[

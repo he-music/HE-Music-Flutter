@@ -13,6 +13,7 @@ import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_environment.dart';
 import 'package:he_music_flutter/app/config/app_theme_mode.dart';
+import 'package:he_music_flutter/app/i18n/app_i18n.dart';
 import 'package:he_music_flutter/app/router/app_router.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/startup/app_startup_provider.dart';
@@ -76,6 +77,59 @@ void main() {
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
 
     expect(app.locale, isNull);
+  });
+
+  testWidgets('locale-code translations follow the system locale', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.localeTestValue = const Locale('en');
+    addTearDown(tester.binding.platformDispatcher.clearLocaleTestValue);
+
+    expect(AppI18n.tByLocaleCode('system', 'startup.loading'), 'Starting');
+  });
+
+  testWidgets('app ignores unrelated config but still updates locale', (
+    tester,
+  ) async {
+    late _MutableAppConfigController controller;
+    final router = GoRouter(
+      routes: <GoRoute>[
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(body: SizedBox.shrink()),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(() {
+            controller = _MutableAppConfigController();
+            return controller;
+          }),
+          appRouterProvider.overrideWithValue(router),
+        ],
+        child: const HeMusicApp(),
+      ),
+    );
+    await tester.pump();
+
+    final initialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    controller.updateAuthToken('updated-token');
+    await tester.pump();
+
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)),
+      same(initialApp),
+    );
+
+    controller.updateLocale('en');
+    await tester.pump();
+
+    final localizedApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(localizedApp, isNot(same(initialApp)));
+    expect(localizedApp.locale, const Locale('en'));
   });
 
   testWidgets('app installs one fixed skin background below route content', (
@@ -357,6 +411,19 @@ class _HydratedTestAppConfigController extends AppConfigController {
 
   @override
   Future<void> waitUntilHydrated() => Future<void>.value();
+}
+
+class _MutableAppConfigController extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial.copyWith(localeCode: 'zh');
+
+  void updateAuthToken(String value) {
+    state = state.copyWith(authToken: value);
+  }
+
+  void updateLocale(String value) {
+    state = state.copyWith(localeCode: value);
+  }
 }
 
 class _TestAppConfigDataSource extends AppConfigDataSource {

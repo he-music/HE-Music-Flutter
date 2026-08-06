@@ -114,10 +114,11 @@ class _DownloadTaskList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final localeCode = Localizations.localeOf(context).languageCode;
-    final structure = ref.watch(
-      downloadControllerProvider.select(
-        (state) => _DownloadTaskListStructure.fromTasks(state.tasks),
-      ),
+    ref.watch(
+      downloadControllerProvider.select((state) => state.taskListRevision),
+    );
+    final structure = _DownloadTaskListStructure.fromTasks(
+      ref.read(downloadControllerProvider).tasks,
     );
     if (structure.entries.isEmpty) {
       return Center(

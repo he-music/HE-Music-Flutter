@@ -42,7 +42,7 @@ void main() {
     expect(find.byIcon(Icons.radio_rounded), findsOneWidget);
   });
 
-  testWidgets('mini player ignores duration but rebuilds for track changes', (
+  testWidgets('mini player ignores progress but rebuilds for track changes', (
     tester,
   ) async {
     late _TestMiniPlayerController controller;
@@ -59,6 +59,14 @@ void main() {
 
     final initialPageView = tester.widget<PageView>(find.byType(PageView));
     controller.updateDuration(const Duration(minutes: 3));
+    await tester.pump();
+
+    expect(
+      tester.widget<PageView>(find.byType(PageView)),
+      same(initialPageView),
+    );
+
+    controller.updatePosition(const Duration(seconds: 30));
     await tester.pump();
 
     expect(
@@ -174,6 +182,10 @@ class _TestMiniPlayerController extends PlayerController {
       duration: duration,
       queue: <PlayerTrack>[track.copyWith(duration: duration)],
     );
+  }
+
+  void updatePosition(Duration position) {
+    state = state.copyWith(position: position);
   }
 
   void replaceCurrentTrack(PlayerTrack track) {

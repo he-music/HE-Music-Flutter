@@ -18,6 +18,11 @@ import 'package:he_music_flutter/shared/widgets/media_grid_card.dart';
 import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 import 'package:he_music_flutter/shared/widgets/video_item.dart';
 
+final _homeStatusProvider =
+    NotifierProvider<_HomeStatusController, _HomeStatus>(
+      _HomeStatusController.new,
+    );
+
 void main() {
   testWidgets('首页首次加载骨架应覆盖八行内容', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
@@ -45,11 +50,10 @@ void main() {
               onTapRadio: (_) {},
               onTapEntry: (_) {},
               onMoreSong: (_) {},
-              isSongLiked: (_) => false,
+              buildSongStatus: (_, _, builder) => builder(false, false),
               onLikeSong: (_) async {},
-              isCurrentSong: (_) => false,
-              isRadioPlaying: (_) => false,
-              isEntryRadioPlaying: (_) => false,
+              buildRadioStatus: (_, _, builder) => builder(false),
+              buildEntryRadioStatus: (_, _, builder) => builder(false),
             ),
           ),
         ),
@@ -104,11 +108,10 @@ void main() {
                 onTapRadio: (_) {},
                 onTapEntry: tappedEntries.add,
                 onMoreSong: (_) {},
-                isSongLiked: (_) => false,
+                buildSongStatus: (_, _, builder) => builder(false, false),
                 onLikeSong: (_) async {},
-                isCurrentSong: (_) => false,
-                isRadioPlaying: (_) => false,
-                isEntryRadioPlaying: (_) => false,
+                buildRadioStatus: (_, _, builder) => builder(false),
+                buildEntryRadioStatus: (_, _, builder) => builder(false),
               ),
             ),
           ),
@@ -176,6 +179,43 @@ void main() {
     expect(tappedActions, <String>['动态新歌', '动态新碟', '动态榜单']);
   });
 
+  testWidgets('歌曲状态变化只重建受影响的状态消费者', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final buildCounts = <String, int>{};
+
+    await tester.pumpWidget(_buildSongStatusTestApp(buildCounts));
+    await tester.pump();
+
+    final scrollView = tester.widget<CustomScrollView>(
+      find.byType(CustomScrollView),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(OnlineSongListItem).first),
+    );
+    final controller = container.read(_homeStatusProvider.notifier);
+    expect(buildCounts, <String, int>{'song-1': 1, 'song-2': 1, 'song-3': 1});
+
+    controller.setCurrent('song-2');
+    await tester.pump();
+
+    expect(buildCounts, <String, int>{'song-1': 2, 'song-2': 2, 'song-3': 1});
+    expect(
+      tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+      same(scrollView),
+    );
+    expect(_onlineSongItem(tester, 'song-2').isCurrent, isTrue);
+
+    controller.like('unrelated-song');
+    await tester.pump();
+    expect(buildCounts, <String, int>{'song-1': 2, 'song-2': 2, 'song-3': 1});
+
+    controller.like('song-3');
+    await tester.pump();
+    expect(buildCounts, <String, int>{'song-1': 2, 'song-2': 2, 'song-3': 2});
+    expect(_onlineSongItem(tester, 'song-3').isLiked, isTrue);
+  });
+
   test('section slivers 不依赖滚动期 SliverLayoutBuilder', () {
     final quickEntryGridSpec = resolveHomeQuickEntryGridSpec(maxWidth: 320);
     final slivers = buildHomeSectionSlivers(
@@ -196,11 +236,10 @@ void main() {
       onTapRadio: (_) {},
       onTapEntry: (_) {},
       onMoreSong: (_) {},
-      isSongLiked: (_) => false,
+      buildSongStatus: (_, _, builder) => builder(false, false),
       onLikeSong: (_) async {},
-      isCurrentSong: (_) => false,
-      isRadioPlaying: (_) => false,
-      isEntryRadioPlaying: (_) => false,
+      buildRadioStatus: (_, _, builder) => builder(false),
+      buildEntryRadioStatus: (_, _, builder) => builder(false),
     );
 
     expect(slivers.whereType<SliverLayoutBuilder>(), isEmpty);
@@ -380,16 +419,137 @@ Widget _buildQuickEntryTestApp({
             onTapRadio: (_) {},
             onTapEntry: (_) {},
             onMoreSong: (_) {},
-            isSongLiked: (_) => false,
+            buildSongStatus: (_, _, builder) => builder(false, false),
             onLikeSong: (_) async {},
-            isCurrentSong: (_) => false,
-            isRadioPlaying: (_) => false,
-            isEntryRadioPlaying: (_) => false,
+            buildRadioStatus: (_, _, builder) => builder(false),
+            buildEntryRadioStatus: (_, _, builder) => builder(false),
           ),
         ),
       ),
     ),
   );
+}
+
+Widget _buildSongStatusTestApp(Map<String, int> buildCounts) {
+  final songs = <SongInfo>[
+    _songWithId('song-1'),
+    _songWithId('song-2'),
+    _songWithId('song-3'),
+  ];
+  final state = HomeContentState(
+    initialized: true,
+    loading: false,
+    refreshing: false,
+    loadingMore: false,
+    selectedPlatformId: 'qq',
+    sections: <HomePageSection>[
+      HomePageSection(
+        sectionTypeCode: 2,
+        sectionType: HomeSectionType.newSongs,
+        resourceType: HomeResourceType.song,
+        title: '歌曲',
+        songs: songs,
+      ),
+    ],
+    hasMore: false,
+    nextPageIndex: 2,
+  );
+  return ProviderScope(
+    overrides: [appConfigProvider.overrideWith(_TestAppConfigController.new)],
+    child: MaterialApp(
+      home: Scaffold(
+        body: CustomScrollView(
+          slivers: buildHomeSectionSlivers(
+            state: state,
+            gridSpec: resolveAdaptiveMediaGridSpec(maxWidth: 860),
+            quickEntryGridSpec: resolveHomeQuickEntryGridSpec(maxWidth: 860),
+            loadingText: '加载中',
+            emptyText: '空',
+            retryText: '重试',
+            onRetry: () {},
+            sectionActionOf: (_) => null,
+            onTapSong: (_, _) {},
+            onTapAlbum: (_) {},
+            onTapPlaylist: (_) {},
+            onTapMv: (_) {},
+            onTapArtist: (_) {},
+            onTapRanking: (_) {},
+            onTapRadio: (_) {},
+            onTapEntry: (_) {},
+            onMoreSong: (_) {},
+            buildSongStatus: (_, song, builder) => Consumer(
+              builder: (context, ref, _) {
+                final status = ref.watch(
+                  _homeStatusProvider.select(
+                    (state) => (
+                      liked: state.likedIds.contains(song.id),
+                      current: state.currentId == song.id,
+                    ),
+                  ),
+                );
+                buildCounts.update(
+                  song.id,
+                  (count) => count + 1,
+                  ifAbsent: () => 1,
+                );
+                return builder(status.liked, status.current);
+              },
+            ),
+            onLikeSong: (_) async {},
+            buildRadioStatus: (_, _, builder) => builder(false),
+            buildEntryRadioStatus: (_, _, builder) => builder(false),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+OnlineSongListItem _onlineSongItem(WidgetTester tester, String songId) {
+  return tester
+      .widgetList<OnlineSongListItem>(find.byType(OnlineSongListItem))
+      .singleWhere((item) => item.song.id == songId);
+}
+
+SongInfo _songWithId(String id) {
+  return SongInfo(
+    name: id,
+    subtitle: '',
+    id: id,
+    duration: 180000,
+    mvId: '',
+    album: const SongInfoAlbumInfo(id: 'album-1', name: '专辑'),
+    artists: const <SongInfoArtistInfo>[
+      SongInfoArtistInfo(id: 'artist-1', name: '歌手'),
+    ],
+    links: const <LinkInfo>[],
+    platform: 'qq',
+    cover: '',
+  );
+}
+
+class _HomeStatus {
+  const _HomeStatus({required this.currentId, required this.likedIds});
+
+  final String currentId;
+  final Set<String> likedIds;
+}
+
+class _HomeStatusController extends Notifier<_HomeStatus> {
+  @override
+  _HomeStatus build() =>
+      const _HomeStatus(currentId: 'song-1', likedIds: <String>{});
+
+  void setCurrent(String songId) {
+    state = _HomeStatus(currentId: songId, likedIds: state.likedIds);
+  }
+
+  void like(String songId) {
+    state = _HomeStatus(
+      currentId: state.currentId,
+      likedIds: Set<String>.unmodifiable(<String>{...state.likedIds, songId}),
+    );
+  }
 }
 
 class _TestAppConfigController extends AppConfigController {

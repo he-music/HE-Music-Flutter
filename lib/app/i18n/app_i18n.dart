@@ -1647,7 +1647,9 @@ abstract final class AppI18n {
   }
 
   static String tByLocaleCode(String localeCode, String key) {
-    final languagePack = _localized[localeCode] ?? _localized[_fallbackLocale]!;
+    final languagePack =
+        _localized[_resolveLocaleCode(localeCode)] ??
+        _localized[_fallbackLocale]!;
     return languagePack[key] ?? key;
   }
 

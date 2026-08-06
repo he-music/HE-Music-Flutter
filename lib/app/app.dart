@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'app_navigation_service.dart';
 import 'app_scroll_behavior.dart';
 import 'config/app_config_controller.dart';
-import 'config/app_config_state.dart';
 import 'config/app_theme_mode.dart';
 import '../features/lyrics/presentation/providers/lyrics_providers.dart';
 import '../features/lyrics_overlay/presentation/providers/overlay_lyrics_provider.dart';
@@ -34,13 +33,26 @@ class HeMusicApp extends ConsumerWidget {
     if (!isTestBinding) ref.watch(lyricsPrefetchBindingProvider);
     if (!isTestBinding) ref.watch(overlayLyricsBindingProvider);
     final appRouter = ref.watch(appRouterProvider);
-    final appConfig = ref.watch(appConfigProvider);
+    final appConfig = ref.watch(
+      appConfigProvider.select(
+        (state) => (
+          themeMode: state.themeMode,
+          themeAccent: state.themeAccent,
+          skinId: state.skinId,
+          customSkinConfig: state.customSkinConfig,
+          enableSkinAnimation: state.enableSkinAnimation,
+          showContentBackground: state.showContentBackground,
+          isMonochrome: state.isMonochrome,
+          localeCode: state.localeCode,
+        ),
+      ),
+    );
     final skin = AppSkinRegistry.withCustom(
       appConfig.themeAccent,
       appConfig.customSkinConfig,
     ).resolve(appConfig.skinId);
     return MaterialApp.router(
-      title: AppI18n.t(appConfig, 'app.title'),
+      title: AppI18n.tByLocaleCode(appConfig.localeCode, 'app.title'),
       debugShowCheckedModeBanner: false,
       scrollBehavior: const AppScrollBehavior(),
       themeMode: _toThemeMode(appConfig.themeMode),
@@ -66,10 +78,7 @@ class HeMusicApp extends ConsumerWidget {
         final startupChild = enableStartupGates
             ? AppAutoUpdateGate(child: content)
             : content;
-        final startupGated = _AppStartupGate(
-          appConfig: appConfig,
-          child: startupChild,
-        );
+        final startupGated = _AppStartupGate(child: startupChild);
         final gated = enableStartupGates ? startupGated : content;
         final skinned = Stack(
           fit: StackFit.expand,
@@ -134,10 +143,9 @@ class HeMusicApp extends ConsumerWidget {
 }
 
 class _AppStartupGate extends ConsumerWidget {
-  const _AppStartupGate({required this.child, required this.appConfig});
+  const _AppStartupGate({required this.child});
 
   final Widget child;
-  final AppConfigState appConfig;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -146,14 +154,16 @@ class _AppStartupGate extends ConsumerWidget {
     final bypassStartupGate =
         currentLocation.startsWith(AppRoutes.login) ||
         currentLocation.startsWith(AppRoutes.captcha);
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
     return startup.when(
       data: (_) => child,
       loading: () {
         if (bypassStartupGate) return child;
         return _StartupScaffold(
           title: 'HE-Music',
-          subtitle: AppI18n.t(config, 'startup.loading'),
+          subtitle: AppI18n.tByLocaleCode(localeCode, 'startup.loading'),
           body: const SizedBox(
             width: 24,
             height: 24,
@@ -169,8 +179,8 @@ class _AppStartupGate extends ConsumerWidget {
           return _StartupUnauthorizedHandoff(child: child);
         }
         return _StartupScaffold(
-          title: AppI18n.t(config, 'startup.failed'),
-          subtitle: _describeStartupError(error, config),
+          title: AppI18n.tByLocaleCode(localeCode, 'startup.failed'),
+          subtitle: _describeStartupError(error, localeCode),
           body: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -183,7 +193,7 @@ class _AppStartupGate extends ConsumerWidget {
                     // 平台 Provider 已保存最新错误，失败页保持可重试状态。
                   }
                 },
-                child: Text(AppI18n.t(config, 'common.retry')),
+                child: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),
               ),
             ],
           ),
@@ -204,42 +214,45 @@ class _AppStartupGate extends ConsumerWidget {
     return error is DioException && error.response?.statusCode == 401;
   }
 
-  String _describeStartupError(Object error, AppConfigState config) {
+  String _describeStartupError(Object error, String localeCode) {
     if (error is StateError) {
       final message = error.message.toString().trim();
       return message.isEmpty
-          ? AppI18n.t(config, 'startup.init_failed')
+          ? AppI18n.tByLocaleCode(localeCode, 'startup.init_failed')
           : message;
     }
     if (error is DioException) {
       return switch (error.type) {
         DioExceptionType.connectionTimeout ||
         DioExceptionType.receiveTimeout ||
-        DioExceptionType.sendTimeout => AppI18n.t(
-          config,
+        DioExceptionType.sendTimeout => AppI18n.tByLocaleCode(
+          localeCode,
           'startup.network_timeout',
         ),
-        DioExceptionType.connectionError => AppI18n.t(
-          config,
+        DioExceptionType.connectionError => AppI18n.tByLocaleCode(
+          localeCode,
           'startup.network_failed',
         ),
-        DioExceptionType.badCertificate => AppI18n.t(
-          config,
+        DioExceptionType.badCertificate => AppI18n.tByLocaleCode(
+          localeCode,
           'startup.certificate_failed',
         ),
-        DioExceptionType.badResponse => AppI18n.format(
-          config,
+        DioExceptionType.badResponse => AppI18n.formatByLocaleCode(
+          localeCode,
           'startup.response_error',
           {'code': '${error.response?.statusCode ?? '-'}'},
         ),
-        DioExceptionType.cancel => AppI18n.t(
-          config,
+        DioExceptionType.cancel => AppI18n.tByLocaleCode(
+          localeCode,
           'startup.request_cancelled',
         ),
-        DioExceptionType.unknown => AppI18n.t(config, 'startup.network_error'),
+        DioExceptionType.unknown => AppI18n.tByLocaleCode(
+          localeCode,
+          'startup.network_error',
+        ),
       };
     }
-    return AppI18n.t(config, 'startup.init_failed');
+    return AppI18n.tByLocaleCode(localeCode, 'startup.init_failed');
   }
 }
 

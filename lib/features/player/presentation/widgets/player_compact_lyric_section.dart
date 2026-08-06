@@ -100,16 +100,25 @@ String _resolveCompactLyricText(LyricDocument document, Duration position) {
 }
 
 int _findCurrentLineIndex(List<LyricLine> lines, Duration position) {
-  for (var index = lines.length - 1; index >= 0; index--) {
-    final line = lines[index];
-    if (position < line.start) {
-      continue;
+  var lower = 0;
+  var upper = lines.length;
+  while (lower < upper) {
+    final middle = lower + (upper - lower) ~/ 2;
+    if (lines[middle].start <= position) {
+      lower = middle + 1;
+    } else {
+      upper = middle;
     }
-    final nextStart = index + 1 < lines.length ? lines[index + 1].start : null;
-    final lineEnd = line.end ?? nextStart;
-    if (lineEnd == null || position < lineEnd) {
-      return index;
-    }
+  }
+  final index = lower - 1;
+  if (index < 0) {
+    return -1;
+  }
+  final line = lines[index];
+  final nextStart = index + 1 < lines.length ? lines[index + 1].start : null;
+  final lineEnd = line.end ?? nextStart;
+  if (lineEnd == null || position < lineEnd) {
+    return index;
   }
   return -1;
 }

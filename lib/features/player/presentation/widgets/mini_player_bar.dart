@@ -32,12 +32,16 @@ class MiniPlayerBar extends ConsumerStatefulWidget {
 }
 
 class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
+  final _selectionProjector = _MiniPlayerSelectionProjector();
+
   @override
   Widget build(BuildContext context) {
     final player = ref.watch(
-      playerControllerProvider.select(_MiniPlayerSelection.fromState),
+      playerControllerProvider.select(_selectionProjector.project),
     );
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
     final controller = ref.read(playerControllerProvider.notifier);
     final track = player.currentTrack;
     if (track == null) {
@@ -98,7 +102,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                           ? AppSkinIconRole.miniPlayerPause
                           : AppSkinIconRole.miniPlayerPlay,
                     ),
-                    tooltip: AppI18n.t(config, 'player.full'),
+                    tooltip: AppI18n.tByLocaleCode(localeCode, 'player.full'),
                   ),
                   if (!player.isRadioMode)
                     IconButton(
@@ -106,7 +110,10 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                       icon: const AppSkinIcon(
                         role: AppSkinIconRole.miniPlayerQueue,
                       ),
-                      tooltip: AppI18n.t(config, 'player.queue'),
+                      tooltip: AppI18n.tByLocaleCode(
+                        localeCode,
+                        'player.queue',
+                      ),
                     ),
                   const SizedBox(width: 2),
                 ],
@@ -396,9 +403,12 @@ class _MiniPlayerSelection {
     required this.isRadioMode,
   });
 
-  factory _MiniPlayerSelection.fromState(PlayerPlaybackState state) {
+  factory _MiniPlayerSelection.fromState(
+    PlayerPlaybackState state,
+    List<_MiniPlayerTrack> queue,
+  ) {
     return _MiniPlayerSelection(
-      queue: state.queue.map(_miniPlayerTrackOf).toList(growable: false),
+      queue: queue,
       currentIndex: state.currentIndex,
       previousPreviewIndex: state.previousPreviewIndex,
       nextPreviewIndex: state.nextPreviewIndex,
@@ -445,6 +455,21 @@ class _MiniPlayerSelection {
     isPlaying,
     isRadioMode,
   );
+}
+
+class _MiniPlayerSelectionProjector {
+  List<PlayerTrack>? _sourceQueue;
+  List<_MiniPlayerTrack> _projectedQueue = const <_MiniPlayerTrack>[];
+
+  _MiniPlayerSelection project(PlayerPlaybackState state) {
+    if (!identical(_sourceQueue, state.queue)) {
+      _sourceQueue = state.queue;
+      _projectedQueue = state.queue
+          .map(_miniPlayerTrackOf)
+          .toList(growable: false);
+    }
+    return _MiniPlayerSelection.fromState(state, _projectedQueue);
+  }
 }
 
 _MiniPlayerTrack _miniPlayerTrackOf(PlayerTrack track) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show File, FileSystemException, Platform;
 import 'dart:typed_data' show Uint8List;
 
@@ -10,7 +11,6 @@ import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/database/local_music_database.dart';
-import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
@@ -62,15 +62,25 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(localLibraryControllerProvider);
     final controller = ref.read(localLibraryControllerProvider.notifier);
-    final config = ref.watch(appConfigProvider);
+    final selectionController = ref.read(
+      localLibrarySelectionProvider.notifier,
+    );
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     final isSearching = controller.searchState.isActive;
-    final isMultiSelect = controller.isMultiSelectMode;
     return Scaffold(
-      appBar: isMultiSelect
-          ? _buildSelectionAppBar(context, controller, config, state)
-          : isSearching
-          ? _buildSearchAppBar(context, controller, config)
-          : _buildNormalAppBar(controller, config),
+      appBar: _LocalLibraryAppBar(
+        state: state,
+        controller: controller,
+        localeCode: localeCode,
+        isSearching: isSearching,
+        searchController: _searchController,
+        onCloseSearch: () => _closeSearch(controller),
+        onClearSearch: () => _clearSearch(controller),
+        onShowClearDialog: () =>
+            _showClearDialog(context, controller, localeCode),
+      ),
       body: Column(
         children: <Widget>[
           const SizedBox(height: 8),
@@ -81,7 +91,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                 view: _view,
                 onScan: controller.scanLibrary,
                 onClear: controller.clearLibrary,
-                localeCode: config.localeCode,
+                localeCode: localeCode,
                 sortBy: controller.sortBy,
                 sortAscending: controller.sortAscending,
                 artistGroups: controller.artistGroups,
@@ -93,23 +103,35 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                 onPlayGroupTap: (groupSongs, index) =>
                     _playLocalSong(context, ref, groupSongs, index),
                 onMoreTap: (song) =>
-                    _showMoreActionsSheet(context, song, config, ref),
+                    _showMoreActionsSheet(context, song, localeCode, ref),
                 onSortChanged: controller.changeSortBy,
-                isMultiSelectMode: controller.isMultiSelectMode,
-                selectedSongIds: controller.selectedSongIds,
-                onLongPress: controller.enterMultiSelect,
-                onSelectionToggle: controller.toggleSelection,
+                onLongPress: selectionController.enterMultiSelect,
+                onSelectionToggle: selectionController.toggleSelection,
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => _ErrorView(
                 message: '$error',
-                localeCode: config.localeCode,
+                localeCode: localeCode,
                 onRetry: controller.scanLibrary,
               ),
             ),
           ),
-          // 多选模式底部操作栏
-          if (isMultiSelect) _buildSelectionBottomBar(config, ref, state),
+          _LocalLibrarySelectionBottomBar(
+            songs: state.asData?.value ?? const <LocalSong>[],
+            localeCode: localeCode,
+            onPlay: (songs) async {
+              selectionController.exitMultiSelect();
+              await _playLocalSong(context, ref, songs, 0);
+            },
+            onAddToQueue: (songs) {
+              for (final song in songs) {
+                ref
+                    .read(playerControllerProvider.notifier)
+                    .appendTrack(_toPlayerTrack(song));
+              }
+              selectionController.exitMultiSelect();
+            },
+          ),
         ],
       ),
     );
@@ -148,98 +170,6 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     );
   }
 
-  PreferredSizeWidget _buildNormalAppBar(
-    LocalLibraryController controller,
-    AppConfigState config,
-  ) {
-    return AppBar(
-      leading: const AppBackButton(),
-      title: Text(AppI18n.t(config, 'local.title')),
-      actions: <Widget>[
-        IconButton(
-          onPressed: controller.toggleSearch,
-          tooltip: AppI18n.t(config, 'common.search'),
-          icon: const AppSkinIcon(role: AppSkinIconRole.search),
-        ),
-        IconButton(
-          onPressed: controller.scanLibrary,
-          tooltip: AppI18n.t(config, 'common.scan'),
-          icon: const AppSkinIcon(role: AppSkinIconRole.localLibraryScan),
-        ),
-        IconButton(
-          onPressed: () => _showClearDialog(context, controller, config),
-          tooltip: AppI18n.t(config, 'common.clear'),
-          icon: const AppSkinIcon(role: AppSkinIconRole.localLibraryClear),
-        ),
-      ],
-    );
-  }
-
-  PreferredSizeWidget _buildSelectionAppBar(
-    BuildContext context,
-    LocalLibraryController controller,
-    AppConfigState config,
-    AsyncValue<List<LocalSong>> state,
-  ) {
-    final selectedCount = controller.selectedSongIds.length;
-    final songs = state.asData?.value ?? [];
-    final allSelected = songs.isNotEmpty && selectedCount == songs.length;
-    return AppBar(
-      leading: IconButton(
-        onPressed: controller.exitMultiSelect,
-        icon: const AppSkinIcon(role: AppSkinIconRole.close),
-        tooltip: AppI18n.t(config, 'common.cancel'),
-      ),
-      title: Text('$selectedCount'),
-      actions: <Widget>[
-        IconButton(
-          onPressed: () => controller.selectAll(songs),
-          icon: AppSkinIcon(
-            role: allSelected
-                ? AppSkinIconRole.batchDeselectAll
-                : AppSkinIconRole.batchSelectAll,
-          ),
-          tooltip: allSelected
-              ? AppI18n.t(config, 'local.select.deselect_all')
-              : AppI18n.t(config, 'local.select.all'),
-        ),
-      ],
-    );
-  }
-
-  PreferredSizeWidget _buildSearchAppBar(
-    BuildContext context,
-    LocalLibraryController controller,
-    AppConfigState config,
-  ) {
-    return AppBar(
-      leading: AppBackButton(onPressed: () => _closeSearch(controller)),
-      title: TextField(
-        controller: _searchController,
-        onChanged: controller.updateSearchQuery,
-        decoration: InputDecoration(
-          hintText: AppI18n.t(config, 'local.search_hint'),
-          border: InputBorder.none,
-        ),
-      ),
-      actions: <Widget>[
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _searchController,
-          builder: (context, value, _) {
-            if (value.text.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return IconButton(
-              onPressed: () => _clearSearch(controller),
-              icon: const AppSkinIcon(role: AppSkinIconRole.close),
-              tooltip: AppI18n.t(config, 'common.clear'),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
   void _clearSearch(LocalLibraryController controller) {
     _searchController.clear();
     controller.updateSearchQuery('');
@@ -250,88 +180,33 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     controller.toggleSearch();
   }
 
-  Widget _buildSelectionBottomBar(
-    AppConfigState config,
-    WidgetRef ref,
-    AsyncValue<List<LocalSong>> state,
-  ) {
-    final songs = state.asData?.value ?? [];
-    final selectedSongs = songs
-        .where(
-          (s) => ref
-              .read(localLibraryControllerProvider.notifier)
-              .selectedSongIds
-              .contains(s.id),
-        )
-        .toList();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
-      child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: <Widget>[
-            _SelectionActionButton(
-              iconRole: AppSkinIconRole.batchPlay,
-              label: AppI18n.t(config, 'local.select.play'),
-              onTap: selectedSongs.isEmpty
-                  ? null
-                  : () {
-                      ref
-                          .read(localLibraryControllerProvider.notifier)
-                          .exitMultiSelect();
-                      _playLocalSong(context, ref, selectedSongs, 0);
-                    },
-            ),
-            _SelectionActionButton(
-              iconRole: AppSkinIconRole.batchAddToQueue,
-              label: AppI18n.t(config, 'local.select.add_to_queue'),
-              onTap: selectedSongs.isEmpty
-                  ? null
-                  : () {
-                      for (final song in selectedSongs) {
-                        final track = _toPlayerTrack(song);
-                        ref
-                            .read(playerControllerProvider.notifier)
-                            .appendTrack(track);
-                      }
-                      ref
-                          .read(localLibraryControllerProvider.notifier)
-                          .exitMultiSelect();
-                    },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _showClearDialog(
     BuildContext context,
     LocalLibraryController controller,
-    AppConfigState config,
+    String localeCode,
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppI18n.t(config, 'local.clear_dialog.title')),
-        content: Text(AppI18n.t(config, 'local.clear_dialog.content')),
+        title: Text(
+          AppI18n.tByLocaleCode(localeCode, 'local.clear_dialog.title'),
+        ),
+        content: Text(
+          AppI18n.tByLocaleCode(localeCode, 'local.clear_dialog.content'),
+        ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(AppI18n.t(config, 'common.cancel')),
+            child: Text(AppI18n.tByLocaleCode(localeCode, 'common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: Text(AppI18n.t(config, 'local.clear_dialog.confirm')),
+            child: Text(
+              AppI18n.tByLocaleCode(localeCode, 'local.clear_dialog.confirm'),
+            ),
           ),
         ],
       ),
@@ -344,7 +219,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
   void _showMoreActionsSheet(
     BuildContext context,
     LocalSong song,
-    AppConfigState config,
+    String localeCode,
     WidgetRef ref,
   ) {
     showModalBottomSheet<void>(
@@ -356,7 +231,9 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
           children: <Widget>[
             ListTile(
               leading: const Icon(Icons.play_circle_outline_rounded),
-              title: Text(AppI18n.t(config, 'local.more.play_next')),
+              title: Text(
+                AppI18n.tByLocaleCode(localeCode, 'local.more.play_next'),
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 _playLocalSong(context, ref, [song], 0);
@@ -364,7 +241,9 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
             ),
             ListTile(
               leading: const Icon(Icons.queue_music_rounded),
-              title: Text(AppI18n.t(config, 'local.more.add_to_queue')),
+              title: Text(
+                AppI18n.tByLocaleCode(localeCode, 'local.more.add_to_queue'),
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 final track = _toPlayerTrack(song);
@@ -373,15 +252,19 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
             ),
             ListTile(
               leading: const Icon(Icons.share_rounded),
-              title: Text(AppI18n.t(config, 'local.more.share')),
+              title: Text(
+                AppI18n.tByLocaleCode(localeCode, 'local.more.share'),
+              ),
               onTap: () async {
                 Navigator.of(context).pop();
-                await _shareLocalSong(context, song, config, ref);
+                await _shareLocalSong(context, song, localeCode, ref);
               },
             ),
             ListTile(
               leading: const Icon(Icons.edit_rounded),
-              title: Text(AppI18n.t(config, 'local.more.edit_metadata')),
+              title: Text(
+                AppI18n.tByLocaleCode(localeCode, 'local.more.edit_metadata'),
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 context.push(AppRoutes.localMetadataEdit, extra: song);
@@ -396,7 +279,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
   Future<void> _shareLocalSong(
     BuildContext context,
     LocalSong song,
-    AppConfigState config,
+    String localeCode,
     WidgetRef ref,
   ) async {
     await shareLocalSongIfAvailable(
@@ -407,7 +290,9 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
         if (!mounted) {
           return;
         }
-        AppMessageService.showWarning(AppI18n.t(config, 'local.share.missing'));
+        AppMessageService.showWarning(
+          AppI18n.tByLocaleCode(localeCode, 'local.share.missing'),
+        );
       },
     );
   }
@@ -418,6 +303,175 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     } on FileSystemException {
       return false;
     }
+  }
+}
+
+class _LocalLibraryAppBar extends ConsumerWidget
+    implements PreferredSizeWidget {
+  const _LocalLibraryAppBar({
+    required this.state,
+    required this.controller,
+    required this.localeCode,
+    required this.isSearching,
+    required this.searchController,
+    required this.onCloseSearch,
+    required this.onClearSearch,
+    required this.onShowClearDialog,
+  });
+
+  final AsyncValue<List<LocalSong>> state;
+  final LocalLibraryController controller;
+  final String localeCode;
+  final bool isSearching;
+  final TextEditingController searchController;
+  final VoidCallback onCloseSearch;
+  final VoidCallback onClearSearch;
+  final VoidCallback onShowClearDialog;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selection = ref.watch(localLibrarySelectionProvider);
+    if (selection.isMultiSelectMode) {
+      final songs = state.asData?.value ?? const <LocalSong>[];
+      final selectedCount = selection.selectedSongIds.length;
+      final allSelected = songs.isNotEmpty && selectedCount == songs.length;
+      return AppBar(
+        leading: IconButton(
+          onPressed: ref
+              .read(localLibrarySelectionProvider.notifier)
+              .exitMultiSelect,
+          icon: const AppSkinIcon(role: AppSkinIconRole.close),
+          tooltip: AppI18n.tByLocaleCode(localeCode, 'common.cancel'),
+        ),
+        title: Text('$selectedCount'),
+        actions: <Widget>[
+          IconButton(
+            onPressed: () => ref
+                .read(localLibrarySelectionProvider.notifier)
+                .selectAll(songs),
+            icon: AppSkinIcon(
+              role: allSelected
+                  ? AppSkinIconRole.batchDeselectAll
+                  : AppSkinIconRole.batchSelectAll,
+            ),
+            tooltip: AppI18n.tByLocaleCode(
+              localeCode,
+              allSelected ? 'local.select.deselect_all' : 'local.select.all',
+            ),
+          ),
+        ],
+      );
+    }
+    if (isSearching) {
+      return AppBar(
+        leading: AppBackButton(onPressed: onCloseSearch),
+        title: TextField(
+          controller: searchController,
+          onChanged: controller.updateSearchQuery,
+          decoration: InputDecoration(
+            hintText: AppI18n.tByLocaleCode(localeCode, 'local.search_hint'),
+            border: InputBorder.none,
+          ),
+        ),
+        actions: <Widget>[
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: searchController,
+            builder: (context, value, _) {
+              if (value.text.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return IconButton(
+                onPressed: onClearSearch,
+                icon: const AppSkinIcon(role: AppSkinIconRole.close),
+                tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
+              );
+            },
+          ),
+        ],
+      );
+    }
+    return AppBar(
+      leading: const AppBackButton(),
+      title: Text(AppI18n.tByLocaleCode(localeCode, 'local.title')),
+      actions: <Widget>[
+        IconButton(
+          onPressed: controller.toggleSearch,
+          tooltip: AppI18n.tByLocaleCode(localeCode, 'common.search'),
+          icon: const AppSkinIcon(role: AppSkinIconRole.search),
+        ),
+        IconButton(
+          onPressed: controller.scanLibrary,
+          tooltip: AppI18n.tByLocaleCode(localeCode, 'common.scan'),
+          icon: const AppSkinIcon(role: AppSkinIconRole.localLibraryScan),
+        ),
+        IconButton(
+          onPressed: onShowClearDialog,
+          tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
+          icon: const AppSkinIcon(role: AppSkinIconRole.localLibraryClear),
+        ),
+      ],
+    );
+  }
+}
+
+class _LocalLibrarySelectionBottomBar extends ConsumerWidget {
+  const _LocalLibrarySelectionBottomBar({
+    required this.songs,
+    required this.localeCode,
+    required this.onPlay,
+    required this.onAddToQueue,
+  });
+
+  final List<LocalSong> songs;
+  final String localeCode;
+  final Future<void> Function(List<LocalSong> songs) onPlay;
+  final ValueChanged<List<LocalSong>> onAddToQueue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selection = ref.watch(localLibrarySelectionProvider);
+    if (!selection.isMultiSelectMode) {
+      return const SizedBox.shrink();
+    }
+    final selectedSongs = songs
+        .where((song) => selection.selectedSongIds.contains(song.id))
+        .toList(growable: false);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: SafeArea(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: <Widget>[
+            _SelectionActionButton(
+              iconRole: AppSkinIconRole.batchPlay,
+              label: AppI18n.tByLocaleCode(localeCode, 'local.select.play'),
+              onTap: selectedSongs.isEmpty
+                  ? null
+                  : () => unawaited(onPlay(selectedSongs)),
+            ),
+            _SelectionActionButton(
+              iconRole: AppSkinIconRole.batchAddToQueue,
+              label: AppI18n.tByLocaleCode(
+                localeCode,
+                'local.select.add_to_queue',
+              ),
+              onTap: selectedSongs.isEmpty
+                  ? null
+                  : () => onAddToQueue(selectedSongs),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -438,8 +492,6 @@ class _SongList extends StatelessWidget {
     required this.onPlayGroupTap,
     required this.onMoreTap,
     required this.onSortChanged,
-    required this.isMultiSelectMode,
-    required this.selectedSongIds,
     required this.onLongPress,
     required this.onSelectionToggle,
   });
@@ -459,8 +511,6 @@ class _SongList extends StatelessWidget {
   final void Function(List<LocalSong> songs, int index) onPlayGroupTap;
   final void Function(LocalSong song) onMoreTap;
   final ValueChanged<SongSortBy> onSortChanged;
-  final bool isMultiSelectMode;
-  final Set<String> selectedSongIds;
   final void Function(String songId) onLongPress;
   final void Function(String songId) onSelectionToggle;
 
@@ -608,28 +658,13 @@ class _SongList extends StatelessWidget {
           : null,
       itemBuilder: (context, index) {
         final song = songs[index];
-        final isSelected = selectedSongIds.contains(song.id);
-        return GestureDetector(
+        return _LocalSongRow(
+          song: song,
+          localeCode: localeCode,
           onLongPress: () => onLongPress(song.id),
-          child: SongListItem(
-            data: SongListItemData(
-              title: song.title,
-              artistAlbumText: '${song.artist} - ${song.album}',
-              subtitleText: song.filePath,
-              coverBytes: song.artworkBytes,
-              tags: <String>[
-                AppI18n.tByLocaleCode(localeCode, 'local.tag.local'),
-                if (song.formatLabel.isNotEmpty) song.formatLabel,
-              ],
-            ),
-            selectable: isMultiSelectMode,
-            selected: isSelected,
-            onTap: isMultiSelectMode
-                ? () => onSelectionToggle(song.id)
-                : () => onPlayTap(index),
-            onSelectTap: () => onSelectionToggle(song.id),
-            onMoreTap: isMultiSelectMode ? null : () => onMoreTap(song),
-          ),
+          onPlayTap: () => onPlayTap(index),
+          onMoreTap: () => onMoreTap(song),
+          onSelectionToggle: () => onSelectionToggle(song.id),
         );
       },
     );
@@ -730,6 +765,56 @@ class _SongList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _LocalSongRow extends ConsumerWidget {
+  const _LocalSongRow({
+    required this.song,
+    required this.localeCode,
+    required this.onLongPress,
+    required this.onPlayTap,
+    required this.onMoreTap,
+    required this.onSelectionToggle,
+  });
+
+  final LocalSong song;
+  final String localeCode;
+  final VoidCallback onLongPress;
+  final VoidCallback onPlayTap;
+  final VoidCallback onMoreTap;
+  final VoidCallback onSelectionToggle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selection = ref.watch(
+      localLibrarySelectionProvider.select(
+        (state) => (
+          isMultiSelectMode: state.isMultiSelectMode,
+          isSelected: state.selectedSongIds.contains(song.id),
+        ),
+      ),
+    );
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: SongListItem(
+        data: SongListItemData(
+          title: song.title,
+          artistAlbumText: '${song.artist} - ${song.album}',
+          subtitleText: song.filePath,
+          coverBytes: song.artworkBytes,
+          tags: <String>[
+            AppI18n.tByLocaleCode(localeCode, 'local.tag.local'),
+            if (song.formatLabel.isNotEmpty) song.formatLabel,
+          ],
+        ),
+        selectable: selection.isMultiSelectMode,
+        selected: selection.isSelected,
+        onTap: selection.isMultiSelectMode ? onSelectionToggle : onPlayTap,
+        onSelectTap: onSelectionToggle,
+        onMoreTap: selection.isMultiSelectMode ? null : onMoreTap,
+      ),
     );
   }
 }

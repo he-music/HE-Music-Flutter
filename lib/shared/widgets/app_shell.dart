@@ -33,7 +33,9 @@ class _MobileLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
     // 固定全局底栏；需要避让键盘的页面由内部 Scaffold 自行处理。
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -72,7 +74,7 @@ class _MobileLayout extends ConsumerWidget {
                     role: AppSkinIconRole.navigationHomeSelected,
                     selected: true,
                   ),
-                  label: AppI18n.t(config, 'tab.home'),
+                  label: AppI18n.tByLocaleCode(localeCode, 'tab.home'),
                 ),
                 NavigationDestination(
                   icon: const _NavigationIcon(
@@ -83,7 +85,7 @@ class _MobileLayout extends ConsumerWidget {
                     role: AppSkinIconRole.navigationMySelected,
                     selected: true,
                   ),
-                  label: AppI18n.t(config, 'tab.my'),
+                  label: AppI18n.tByLocaleCode(localeCode, 'tab.my'),
                 ),
               ],
             ),
