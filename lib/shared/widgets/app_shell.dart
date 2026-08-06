@@ -34,7 +34,9 @@ class _MobileLayout extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
+    // 固定全局底栏；需要避让键盘的页面由内部 Scaffold 自行处理。
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Column(
         children: <Widget>[
           Expanded(child: navigationShell),

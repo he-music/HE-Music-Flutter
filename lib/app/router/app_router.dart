@@ -65,7 +65,9 @@ class _RootContentRouteShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 固定全局迷你播放器；需要避让键盘的页面由内部 Scaffold 自行处理。
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: child,
       bottomNavigationBar: MiniPlayerBar(
         bottomSafeArea: true,

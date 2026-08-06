@@ -107,6 +107,31 @@ void main() {
     expect(find.text('路由测试歌曲'), findsOneWidget);
   });
 
+  testWidgets('search route stays fixed for keyboard insets', (tester) async {
+    tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+    tester.view.padding = const FakeViewPadding(bottom: 24);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _buildRouterTestApp(initialLocation: AppRoutes.onlineSearch),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+
+    final searchPage = find.byType(OnlineSearchPage);
+    final miniPlayer = find.byType(MiniPlayerBar);
+    final initialSearchRect = tester.getRect(searchPage);
+    final initialMiniPlayerRect = tester.getRect(miniPlayer);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    tester.view.padding = FakeViewPadding.zero;
+    await tester.pump();
+
+    expect(tester.getRect(searchPage), initialSearchRect);
+    expect(tester.getRect(miniPlayer), initialMiniPlayerRect);
+    expect(find.text('路由测试歌曲'), findsOneWidget);
+  });
+
   testWidgets('recommend song list route reads only platform and id', (
     tester,
   ) async {
