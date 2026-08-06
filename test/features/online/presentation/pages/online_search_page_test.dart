@@ -25,6 +25,16 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 
 void main() {
+  testWidgets('online search autofocuses the search field', (tester) async {
+    await tester.pumpWidget(_buildOnlineSearchApp());
+    await tester.pump();
+
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.autofocus, isTrue);
+    expect(textField.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+  });
+
   testWidgets(
     'online search defaults to comprehensive when platform supports it',
     (tester) async {
@@ -125,6 +135,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    tester.widget<EditableText>(find.byType(EditableText)).focusNode.unfocus();
+    await tester.pump();
     final initialHotPanel = tester.widget<OnlineSearchHotPanel>(
       find.byType(OnlineSearchHotPanel),
     );

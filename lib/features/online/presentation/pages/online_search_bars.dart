@@ -41,6 +41,7 @@ class SearchTopBox extends StatelessWidget {
               TextField(
                 controller: controller,
                 focusNode: focusNode,
+                autofocus: true,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   filled: true,
