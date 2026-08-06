@@ -7,6 +7,9 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../domain/entities/player_queue_source.dart';
+import '../../domain/entities/player_playback_state.dart';
+import '../../domain/entities/player_queue_snapshot.dart';
+import '../../domain/entities/player_track.dart';
 import '../providers/player_providers.dart';
 import 'player_queue_list.dart';
 
@@ -45,14 +48,7 @@ class _PlayerQueuePanelContentState
     final config = ref.watch(appConfigProvider);
     final controller = ref.read(playerControllerProvider.notifier);
     final queueState = ref.watch(
-      playerControllerProvider.select(
-        (state) => (
-          queue: state.queue,
-          currentIndex: state.currentIndex,
-          source: state.queueSource,
-          previousSnapshot: state.previousQueueSnapshot,
-        ),
-      ),
+      playerControllerProvider.select(_QueuePanelSelection.fromState),
     );
     final queue = queueState.queue;
     final currentIndex = queueState.currentIndex;
@@ -176,6 +172,107 @@ class _PlayerQueuePanelContentState
     );
     context.push(uri.toString());
   }
+}
+
+// 队列 UI 不展示时长；相等性覆盖所有可见字段、索引和来源。
+class _QueuePanelSelection {
+  const _QueuePanelSelection({
+    required this.queue,
+    required this.currentIndex,
+    required this.source,
+    required this.previousSnapshot,
+  });
+
+  factory _QueuePanelSelection.fromState(PlayerPlaybackState state) {
+    return _QueuePanelSelection(
+      queue: state.queue,
+      currentIndex: state.currentIndex,
+      source: state.queueSource,
+      previousSnapshot: state.previousQueueSnapshot,
+    );
+  }
+
+  final List<PlayerTrack> queue;
+  final int currentIndex;
+  final PlayerQueueSource? source;
+  final PlayerQueueSnapshot? previousSnapshot;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _QueuePanelSelection &&
+        _sameQueuePresentation(queue, other.queue) &&
+        currentIndex == other.currentIndex &&
+        source == other.source &&
+        _sameSnapshotPresentation(previousSnapshot, other.previousSnapshot);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    _queuePresentationHash(queue),
+    currentIndex,
+    source,
+    _snapshotPresentationHash(previousSnapshot),
+  );
+}
+
+bool _sameSnapshotPresentation(
+  PlayerQueueSnapshot? first,
+  PlayerQueueSnapshot? second,
+) {
+  if (identical(first, second)) {
+    return true;
+  }
+  return first != null &&
+      second != null &&
+      first.currentIndex == second.currentIndex &&
+      first.source == second.source &&
+      _sameQueuePresentation(first.queue, second.queue);
+}
+
+bool _sameQueuePresentation(List<PlayerTrack> first, List<PlayerTrack> second) {
+  if (identical(first, second)) {
+    return true;
+  }
+  if (first.length != second.length) {
+    return false;
+  }
+  for (var index = 0; index < first.length; index += 1) {
+    final firstTrack = first[index];
+    final secondTrack = second[index];
+    if (firstTrack.id != secondTrack.id ||
+        firstTrack.platform != secondTrack.platform ||
+        firstTrack.path != secondTrack.path ||
+        firstTrack.title != secondTrack.title ||
+        firstTrack.artist != secondTrack.artist) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int _queuePresentationHash(List<PlayerTrack> queue) {
+  return Object.hashAll(
+    queue.map(
+      (track) => Object.hash(
+        track.id,
+        track.platform,
+        track.path,
+        track.title,
+        track.artist,
+      ),
+    ),
+  );
+}
+
+int _snapshotPresentationHash(PlayerQueueSnapshot? snapshot) {
+  if (snapshot == null) {
+    return 0;
+  }
+  return Object.hash(
+    snapshot.currentIndex,
+    snapshot.source,
+    _queuePresentationHash(snapshot.queue),
+  );
 }
 
 class _QueueTabLabel extends StatelessWidget {

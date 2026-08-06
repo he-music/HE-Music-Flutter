@@ -249,7 +249,7 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       _executeSearch(query);
     });
-    ref.notifyListeners();
+    // 输入框与清除按钮由页面局部监听，列表只在防抖搜索结果到达时更新。
   }
 
   void _executeSearch(String query) {

@@ -16,6 +16,7 @@ import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
@@ -309,8 +310,10 @@ class _Body extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = state.detail;
     final config = ref.watch(appConfigProvider);
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((player) => player.currentTrack),
+    final currentTrackIdentity = ref.watch(
+      playerControllerProvider.select(
+        (player) => currentTrackIdentityOf(player.currentTrack),
+      ),
     );
     if (detail == null) {
       return const Center(child: Text('No detail content.'));
@@ -362,7 +365,7 @@ class _Body extends ConsumerWidget {
         ),
         child: SongInfoListSection(
           songs: state.songs,
-          currentTrack: currentTrack,
+          currentTrackIdentity: currentTrackIdentity,
           resolveSongCover: resolveSongCover,
           resolvePlatformId: resolvePlatformId,
           isSongLiked: isSongLiked,

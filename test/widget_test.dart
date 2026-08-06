@@ -11,6 +11,7 @@ import 'package:he_music_flutter/features/home/presentation/controllers/home_pag
 import 'package:he_music_flutter/features/home/presentation/pages/home_page.dart';
 import 'package:he_music_flutter/features/home/presentation/providers/home_page_providers.dart';
 import 'package:he_music_flutter/features/home/presentation/widgets/discover_home_tab.dart';
+import 'package:he_music_flutter/features/home/presentation/widgets/home_search_field.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
@@ -216,6 +217,37 @@ void main() {
     },
   );
 
+  testWidgets('home placeholder updates without rebuilding content page', (
+    tester,
+  ) async {
+    late _TestSearchDefaultPlaceholderController placeholderController;
+    await tester.pumpWidget(
+      _buildDiscoverTabTestApp(
+        placeholderControllerFactory: () {
+          placeholderController = _TestSearchDefaultPlaceholderController();
+          return placeholderController;
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const pageKey = PageStorageKey<String>('home-discover');
+    final pageFinder = find.byKey(pageKey);
+    final initialPage = tester.widget(pageFinder);
+
+    placeholderController.show(
+      const SearchDefaultEntry(key: '新的占位词', description: '副标题'),
+    );
+    await tester.pump();
+
+    expect(tester.widget(pageFinder), same(initialPage));
+    final searchField = tester.widget<HomeSearchField>(
+      find.byType(HomeSearchField),
+    );
+    expect(searchField.placeholderPrimary, '新的占位词');
+    expect(searchField.placeholderSecondary, '副标题');
+  });
+
   testWidgets('home discover song actions include add to user playlist', (
     WidgetTester tester,
   ) async {
@@ -303,14 +335,17 @@ Widget _buildHomeTestApp({
   );
 }
 
-Widget _buildDiscoverTabTestApp() {
+Widget _buildDiscoverTabTestApp({
+  SearchDefaultPlaceholderController Function()? placeholderControllerFactory,
+}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
       searchDefaultPlaceholderProvider.overrideWith(
-        _TestSearchDefaultPlaceholderController.new,
+        placeholderControllerFactory ??
+            _TestSearchDefaultPlaceholderController.new,
       ),
       homePageControllerProvider.overrideWith(
         _TestLoadedHomePageController.new,
@@ -394,6 +429,13 @@ class _TestSearchDefaultPlaceholderController
   @override
   SearchDefaultPlaceholderState build() {
     return const SearchDefaultPlaceholderState();
+  }
+
+  void show(SearchDefaultEntry entry) {
+    state = SearchDefaultPlaceholderState(
+      entries: <SearchDefaultEntry>[entry],
+      currentIndex: 0,
+    );
   }
 }
 

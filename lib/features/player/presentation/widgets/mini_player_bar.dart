@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +11,7 @@ import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../domain/entities/player_play_mode.dart';
+import '../../domain/entities/player_playback_state.dart';
 import '../../domain/entities/player_track.dart';
 import '../providers/player_providers.dart';
 import '../../../../shared/widgets/app_network_image.dart';
@@ -33,36 +34,13 @@ class MiniPlayerBar extends ConsumerStatefulWidget {
 class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
   @override
   Widget build(BuildContext context) {
-    final track = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
-    );
-    final hasQueue = ref.watch(
-      playerControllerProvider.select((state) => state.queue.isNotEmpty),
-    );
-    final isPlaying = ref.watch(
-      playerControllerProvider.select((state) => state.isPlaying),
-    );
-    final queue = ref.watch(
-      playerControllerProvider.select((state) => state.queue),
-    );
-    final currentIndex = ref.watch(
-      playerControllerProvider.select((state) => state.currentIndex),
-    );
-    final previousPreviewIndex = ref.watch(
-      playerControllerProvider.select((state) => state.previousPreviewIndex),
-    );
-    final nextPreviewIndex = ref.watch(
-      playerControllerProvider.select((state) => state.nextPreviewIndex),
-    );
-    final playMode = ref.watch(
-      playerControllerProvider.select((state) => state.playMode),
-    );
-    final isRadioMode = ref.watch(
-      playerControllerProvider.select((state) => state.isRadioMode),
+    final player = ref.watch(
+      playerControllerProvider.select(_MiniPlayerSelection.fromState),
     );
     final config = ref.watch(appConfigProvider);
     final controller = ref.read(playerControllerProvider.notifier);
-    if (!hasQueue || track == null) {
+    final track = player.currentTrack;
+    if (track == null) {
       return const SizedBox.shrink();
     }
     final bar = LayoutBuilder(
@@ -87,24 +65,27 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                   Expanded(
                     child: _TrackPageView(
                       track: track,
-                      queue: queue,
-                      currentIndex: currentIndex,
+                      queue: player.queue,
+                      currentIndex: player.currentIndex,
                       previousTrack: _previewTrackAt(
-                        queue: queue,
-                        currentIndex: currentIndex,
-                        previewIndex: previousPreviewIndex,
+                        queue: player.queue,
+                        currentIndex: player.currentIndex,
+                        previewIndex: player.previousPreviewIndex,
                         isPrevious: true,
-                        allowLinearFallback: playMode != PlayerPlayMode.shuffle,
+                        allowLinearFallback:
+                            player.playMode != PlayerPlayMode.shuffle,
                       ),
                       nextTrack: _previewTrackAt(
-                        queue: queue,
-                        currentIndex: currentIndex,
-                        previewIndex: nextPreviewIndex,
+                        queue: player.queue,
+                        currentIndex: player.currentIndex,
+                        previewIndex: player.nextPreviewIndex,
                         isPrevious: false,
-                        allowLinearFallback: playMode != PlayerPlayMode.shuffle,
+                        allowLinearFallback:
+                            player.playMode != PlayerPlayMode.shuffle,
                       ),
-                      usesLinearOrder: playMode != PlayerPlayMode.shuffle,
-                      isRadioMode: isRadioMode,
+                      usesLinearOrder:
+                          player.playMode != PlayerPlayMode.shuffle,
+                      isRadioMode: player.isRadioMode,
                       onTap: widget.onOpenFullPlayer,
                       onPrevious: controller.playPrevious,
                       onNext: controller.playNext,
@@ -113,13 +94,13 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                   IconButton(
                     onPressed: controller.togglePlayPause,
                     icon: AppSkinIcon(
-                      role: isPlaying
+                      role: player.isPlaying
                           ? AppSkinIconRole.miniPlayerPause
                           : AppSkinIconRole.miniPlayerPlay,
                     ),
                     tooltip: AppI18n.t(config, 'player.full'),
                   ),
-                  if (!isRadioMode)
+                  if (!player.isRadioMode)
                     IconButton(
                       onPressed: () => _openQueueSheet(context),
                       icon: const AppSkinIcon(
@@ -141,8 +122,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
     return SafeArea(top: false, child: bar);
   }
 
-  PlayerTrack? _previewTrackAt({
-    required List<PlayerTrack> queue,
+  _MiniPlayerTrack? _previewTrackAt({
+    required List<_MiniPlayerTrack> queue,
     required int currentIndex,
     required int? previewIndex,
     required bool isPrevious,
@@ -189,11 +170,11 @@ class _TrackPageView extends StatefulWidget {
     required this.onNext,
   });
 
-  final PlayerTrack track;
-  final List<PlayerTrack> queue;
+  final _MiniPlayerTrack track;
+  final List<_MiniPlayerTrack> queue;
   final int currentIndex;
-  final PlayerTrack? previousTrack;
-  final PlayerTrack? nextTrack;
+  final _MiniPlayerTrack? previousTrack;
+  final _MiniPlayerTrack? nextTrack;
   final bool usesLinearOrder;
   final bool isRadioMode;
   final VoidCallback onTap;
@@ -286,7 +267,7 @@ class _TrackPageViewState extends State<_TrackPageView> {
     _lastPage = page;
   }
 
-  ({PlayerTrack? track, bool isCurrent}) _trackForPage(int page) {
+  ({_MiniPlayerTrack? track, bool isCurrent}) _trackForPage(int page) {
     final delta = page - _anchorPage;
     if (delta == 0) {
       return (track: widget.track, isCurrent: true);
@@ -320,8 +301,8 @@ class _TrackPageViewState extends State<_TrackPageView> {
     );
   }
 
-  String _trackKey(PlayerTrack track) {
-    return '${track.platform ?? ''}-${track.id}';
+  String _trackKey(_MiniPlayerTrack track) {
+    return '${track.platform}-${track.id}';
   }
 }
 
@@ -332,7 +313,7 @@ class _TrackPage extends StatelessWidget {
     required this.onTap,
   });
 
-  final PlayerTrack? track;
+  final _MiniPlayerTrack? track;
   final bool isRadioMode;
   final VoidCallback onTap;
 
@@ -355,7 +336,7 @@ class _TrackPage extends StatelessWidget {
 class _TrackText extends StatelessWidget {
   const _TrackText({required this.track, required this.isRadioMode});
 
-  final PlayerTrack track;
+  final _MiniPlayerTrack track;
   final bool isRadioMode;
 
   @override
@@ -384,7 +365,7 @@ class _TrackText extends StatelessWidget {
           ],
         ),
         Text(
-          (track.artist ?? '-').trim().isEmpty ? '-' : (track.artist ?? '-'),
+          track.artist.trim().isEmpty ? '-' : track.artist,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
@@ -392,6 +373,89 @@ class _TrackText extends StatelessWidget {
       ],
     );
   }
+}
+
+typedef _MiniPlayerTrack = ({
+  String id,
+  String platform,
+  String title,
+  String artist,
+  String? artworkUrl,
+  Uint8List? artworkBytes,
+});
+
+// 只比较迷你播放器实际展示字段，忽略时长写回产生的新队列对象。
+class _MiniPlayerSelection {
+  const _MiniPlayerSelection({
+    required this.queue,
+    required this.currentIndex,
+    required this.previousPreviewIndex,
+    required this.nextPreviewIndex,
+    required this.playMode,
+    required this.isPlaying,
+    required this.isRadioMode,
+  });
+
+  factory _MiniPlayerSelection.fromState(PlayerPlaybackState state) {
+    return _MiniPlayerSelection(
+      queue: state.queue.map(_miniPlayerTrackOf).toList(growable: false),
+      currentIndex: state.currentIndex,
+      previousPreviewIndex: state.previousPreviewIndex,
+      nextPreviewIndex: state.nextPreviewIndex,
+      playMode: state.playMode,
+      isPlaying: state.isPlaying,
+      isRadioMode: state.isRadioMode,
+    );
+  }
+
+  final List<_MiniPlayerTrack> queue;
+  final int currentIndex;
+  final int? previousPreviewIndex;
+  final int? nextPreviewIndex;
+  final PlayerPlayMode playMode;
+  final bool isPlaying;
+  final bool isRadioMode;
+
+  _MiniPlayerTrack? get currentTrack {
+    if (currentIndex < 0 || currentIndex >= queue.length) {
+      return null;
+    }
+    return queue[currentIndex];
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _MiniPlayerSelection &&
+        listEquals(queue, other.queue) &&
+        currentIndex == other.currentIndex &&
+        previousPreviewIndex == other.previousPreviewIndex &&
+        nextPreviewIndex == other.nextPreviewIndex &&
+        playMode == other.playMode &&
+        isPlaying == other.isPlaying &&
+        isRadioMode == other.isRadioMode;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAll(queue),
+    currentIndex,
+    previousPreviewIndex,
+    nextPreviewIndex,
+    playMode,
+    isPlaying,
+    isRadioMode,
+  );
+}
+
+_MiniPlayerTrack _miniPlayerTrackOf(PlayerTrack track) {
+  return (
+    id: track.id,
+    platform: track.platform ?? '',
+    title: track.title,
+    artist: track.artist ?? '',
+    artworkUrl: track.artworkUrl,
+    artworkBytes: track.artworkBytes,
+  );
 }
 
 class _MiniRadioModeIcon extends StatelessWidget {

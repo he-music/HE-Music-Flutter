@@ -149,8 +149,10 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
     if (widget.items.isEmpty) {
       return Center(child: Text(widget.emptyText));
     }
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
+    final currentTrackIdentity = ref.watch(
+      playerControllerProvider.select(
+        (state) => currentTrackIdentityOf(state.currentTrack),
+      ),
     );
     final config = ref.watch(appConfigProvider);
     final platforms =
@@ -182,7 +184,7 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
           coverUrl: coverUrl,
           coverBytes: _artworkBytes[item.id],
           subtitleText: _playedText(item.playedAt),
-          isCurrent: isCurrentSongTrack(currentTrack, song),
+          isCurrent: isCurrentSongIdentity(currentTrackIdentity, song),
           isLiked: isLiked,
           onTap: () => widget.onTap(index),
           onLikeTap: canToggleFavorite

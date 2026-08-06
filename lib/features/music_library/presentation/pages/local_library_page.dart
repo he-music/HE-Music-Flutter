@@ -36,6 +36,7 @@ class LocalLibraryPage extends ConsumerStatefulWidget {
 }
 
 class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
+  final TextEditingController _searchController = TextEditingController();
   _LocalLibraryView _view = _LocalLibraryView.songs;
   bool _initialized = false;
 
@@ -49,6 +50,12 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
         ref.read(localLibraryControllerProvider.notifier).startWatchingSongs();
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -206,8 +213,9 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     AppConfigState config,
   ) {
     return AppBar(
-      leading: AppBackButton(onPressed: controller.toggleSearch),
+      leading: AppBackButton(onPressed: () => _closeSearch(controller)),
       title: TextField(
+        controller: _searchController,
         onChanged: controller.updateSearchQuery,
         decoration: InputDecoration(
           hintText: AppI18n.t(config, 'local.search_hint'),
@@ -215,14 +223,31 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
         ),
       ),
       actions: <Widget>[
-        if (controller.searchState.query.isNotEmpty)
-          IconButton(
-            onPressed: () => controller.updateSearchQuery(''),
-            icon: const AppSkinIcon(role: AppSkinIconRole.close),
-            tooltip: AppI18n.t(config, 'common.clear'),
-          ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _searchController,
+          builder: (context, value, _) {
+            if (value.text.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return IconButton(
+              onPressed: () => _clearSearch(controller),
+              icon: const AppSkinIcon(role: AppSkinIconRole.close),
+              tooltip: AppI18n.t(config, 'common.clear'),
+            );
+          },
+        ),
       ],
     );
+  }
+
+  void _clearSearch(LocalLibraryController controller) {
+    _searchController.clear();
+    controller.updateSearchQuery('');
+  }
+
+  void _closeSearch(LocalLibraryController controller) {
+    _searchController.clear();
+    controller.toggleSearch();
   }
 
   Widget _buildSelectionBottomBar(

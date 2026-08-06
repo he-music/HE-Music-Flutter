@@ -19,6 +19,7 @@ import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../../shared/widgets/plaza_widgets.dart';
 import '../../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../../shared/helpers/current_track_helper.dart';
 import '../../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../../online/domain/entities/online_platform.dart';
 import '../../../../player/presentation/providers/player_providers.dart';
@@ -65,8 +66,10 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(newSongPageControllerProvider);
     final controller = ref.read(newSongPageControllerProvider.notifier);
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((playback) => playback.currentTrack),
+    final currentTrackIdentity = ref.watch(
+      playerControllerProvider.select(
+        (playback) => currentTrackIdentityOf(playback.currentTrack),
+      ),
     );
     final favoriteSongKeys = ref.watch(
       favoriteSongStatusProvider.select((favorite) => favorite.songKeys),
@@ -122,7 +125,7 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
             Expanded(
               child: SongInfoListSection(
                 songs: state.songs,
-                currentTrack: currentTrack,
+                currentTrackIdentity: currentTrackIdentity,
                 resolveSongCover: _songActions.resolveCoverUrl,
                 resolvePlatformId: _songActions.resolvePlatformId,
                 isSongLiked: (song) {

@@ -42,6 +42,42 @@ void main() {
     expect(find.byIcon(Icons.radio_rounded), findsOneWidget);
   });
 
+  testWidgets('mini player ignores duration but rebuilds for track changes', (
+    tester,
+  ) async {
+    late _TestMiniPlayerController controller;
+    await tester.pumpWidget(
+      _buildMiniPlayerTestApp(
+        controllerFactory: () {
+          controller = _TestMiniPlayerController();
+          return controller;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final initialPageView = tester.widget<PageView>(find.byType(PageView));
+    controller.updateDuration(const Duration(minutes: 3));
+    await tester.pump();
+
+    expect(
+      tester.widget<PageView>(find.byType(PageView)),
+      same(initialPageView),
+    );
+
+    controller.replaceCurrentTrack(
+      const PlayerTrack(id: 'song-2', title: '新歌曲', artist: '新歌手'),
+    );
+    await tester.pump();
+
+    expect(
+      tester.widget<PageView>(find.byType(PageView)),
+      isNot(same(initialPageView)),
+    );
+    expect(find.text('新歌曲'), findsOneWidget);
+  });
+
   testWidgets('mini player previews each target during repeated next swipes', (
     tester,
   ) async {
@@ -131,6 +167,18 @@ class _TestMiniPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+
+  void updateDuration(Duration duration) {
+    final track = state.currentTrack!;
+    state = state.copyWith(
+      duration: duration,
+      queue: <PlayerTrack>[track.copyWith(duration: duration)],
+    );
+  }
+
+  void replaceCurrentTrack(PlayerTrack track) {
+    state = state.copyWith(queue: <PlayerTrack>[track], currentIndex: 0);
+  }
 }
 
 class _TestRadioMiniPlayerController extends PlayerController {

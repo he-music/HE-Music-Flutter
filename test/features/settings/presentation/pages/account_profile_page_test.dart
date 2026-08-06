@@ -14,6 +14,7 @@ import 'package:he_music_flutter/features/my/presentation/providers/my_overview_
 import 'package:he_music_flutter/features/settings/data/account_settings_api_client.dart';
 import 'package:he_music_flutter/features/settings/data/providers/account_settings_providers.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/account_profile_page.dart';
+import 'package:he_music_flutter/shared/widgets/app_network_image.dart';
 import 'package:toastification/toastification.dart';
 
 void main() {
@@ -32,6 +33,32 @@ void main() {
     expect(nickname.controller?.text, 'Original Name');
     expect(avatar.controller?.text, 'https://example.com/old.jpg');
     expect(find.text('@tester'), findsOneWidget);
+  });
+
+  testWidgets('avatar typing only rebuilds the avatar preview', (tester) async {
+    await _pumpPage(
+      tester,
+      controller: _TestMyOverviewController(initialState: _profileState),
+      client: _FakeAccountSettingsApiClient(),
+    );
+
+    final initialForm = tester.widget<Form>(find.byType(Form));
+    final initialAvatar = tester.widget<AppNetworkAvatar>(
+      find.byType(AppNetworkAvatar),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('account-profile-avatar')),
+      'https://example.com/new.jpg',
+    );
+    await tester.pump();
+
+    expect(tester.widget<Form>(find.byType(Form)), same(initialForm));
+    final updatedAvatar = tester.widget<AppNetworkAvatar>(
+      find.byType(AppNetworkAvatar),
+    );
+    expect(updatedAvatar, isNot(same(initialAvatar)));
+    expect(updatedAvatar.imageUrl, 'https://example.com/new.jpg');
   });
 
   testWidgets('profile page supports narrow dark english layout', (

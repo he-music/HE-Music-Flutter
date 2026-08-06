@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
@@ -152,7 +153,6 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     final config = ref.watch(appConfigProvider);
     final platformsAsync = ref.watch(onlinePlatformsProvider);
     final platforms = _resolvePlatforms(platformsAsync);
-    final defaultPlaceholderState = ref.watch(searchDefaultPlaceholderProvider);
     _syncSelectedPlatform(platforms);
 
     final keyword = _searchController.text.trim();
@@ -184,17 +184,6 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     final loadingPlatforms =
         platformsAsync.isLoading && !platformsAsync.hasValue;
     final availableTypes = _availableSearchTypes(platforms);
-    final defaultEntry = _searchFocusNode.hasFocus
-        ? (_frozenPlaceholderEntry ?? defaultPlaceholderState.currentEntry)
-        : defaultPlaceholderState.currentEntry;
-    final searchPlaceholderPrimary = defaultEntry?.key.trim().isNotEmpty == true
-        ? defaultEntry!.key.trim()
-        : AppI18n.t(config, 'home.search');
-    final searchPlaceholderSecondary =
-        defaultEntry?.description.trim().isNotEmpty == true
-        ? defaultEntry!.description.trim()
-        : null;
-
     return DetailPageShell(
       resizeToAvoidBottomInset: false,
       child: Scaffold(
@@ -210,10 +199,12 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                   10,
                 ),
                 child: _SearchHeader(
+                  config: config,
                   onBack: () => context.appPopOrGo(),
                   controller: _searchController,
-                  placeholderPrimary: searchPlaceholderPrimary,
-                  placeholderSecondary: searchPlaceholderSecondary,
+                  freezePlaceholder:
+                      keyword.isNotEmpty || _searchFocusNode.hasFocus,
+                  frozenPlaceholderEntry: _frozenPlaceholderEntry,
                   focusNode: _searchFocusNode,
                   onChanged: _onSearchChanged,
                   onSubmit: _search,
@@ -1380,38 +1371,58 @@ class _ResolvedSearchIntent {
   final bool fillController;
 }
 
-class _SearchHeader extends StatelessWidget {
+class _SearchHeader extends ConsumerWidget {
   const _SearchHeader({
+    required this.config,
     required this.onBack,
     required this.controller,
-    required this.placeholderPrimary,
+    required this.freezePlaceholder,
     required this.onSubmit,
     required this.onChanged,
     required this.onSearch,
-    this.placeholderSecondary,
+    this.frozenPlaceholderEntry,
     this.focusNode,
   });
 
+  final AppConfigState config;
   final VoidCallback onBack;
   final TextEditingController controller;
-  final String placeholderPrimary;
-  final String? placeholderSecondary;
+  final bool freezePlaceholder;
+  final SearchDefaultEntry? frozenPlaceholderEntry;
   final Future<void> Function() onSubmit;
   final ValueChanged<String> onChanged;
   final Future<void> Function() onSearch;
   final FocusNode? focusNode;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final placeholder = freezePlaceholder
+        ? (
+            primary: frozenPlaceholderEntry?.key.trim() ?? '',
+            secondary: frozenPlaceholderEntry?.description.trim() ?? '',
+          )
+        : ref.watch(
+            searchDefaultPlaceholderProvider.select((state) {
+              final entry = state.currentEntry;
+              return (
+                primary: entry?.key.trim() ?? '',
+                secondary: entry?.description.trim() ?? '',
+              );
+            }),
+          );
     return Row(
       children: <Widget>[
         AppBackButton(onPressed: onBack),
         Expanded(
           child: SearchTopBox(
             controller: controller,
-            placeholderPrimary: placeholderPrimary,
-            placeholderSecondary: placeholderSecondary,
+            placeholderPrimary: placeholder.primary.isEmpty
+                ? AppI18n.t(config, 'home.search')
+                : placeholder.primary,
+            placeholderSecondary: placeholder.secondary.isEmpty
+                ? null
+                : placeholder.secondary,
             focusNode: focusNode,
             onChanged: onChanged,
             onSubmit: onSubmit,

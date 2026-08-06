@@ -62,7 +62,7 @@ void main() {
     expect(tester.widget<IconButton>(_findClearButton()).onPressed, isNull);
   });
 
-  testWidgets('position updates do not rebuild queue panel content', (
+  testWidgets('position and duration do not rebuild queue panel content', (
     tester,
   ) async {
     late _QueueTestController controller;
@@ -79,6 +79,14 @@ void main() {
 
     final initialStack = tester.widget<IndexedStack>(find.byType(IndexedStack));
     controller.updatePosition(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(
+      tester.widget<IndexedStack>(find.byType(IndexedStack)),
+      same(initialStack),
+    );
+
+    controller.updateDuration(const Duration(minutes: 3));
     await tester.pump();
 
     expect(
@@ -165,6 +173,14 @@ class _QueueTestController extends PlayerController {
 
   void updatePosition(Duration position) {
     state = state.copyWith(position: position);
+  }
+
+  void updateDuration(Duration duration) {
+    final track = state.currentTrack!;
+    state = state.copyWith(
+      duration: duration,
+      queue: <PlayerTrack>[track.copyWith(duration: duration)],
+    );
   }
 
   void updateQueue(List<PlayerTrack> queue) {

@@ -130,7 +130,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final homeState = ref.watch(homePageControllerProvider);
-    final searchDefaultState = ref.watch(searchDefaultPlaceholderProvider);
     final globalPlatforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
     final playerState = ref.watch(
@@ -148,14 +147,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     final favoriteSongKeys = ref.watch(
       favoriteSongStatusProvider.select((state) => state.songKeys),
     );
-    final searchPlaceholderPrimary =
-        searchDefaultState.currentEntry?.key.trim().isNotEmpty == true
-        ? searchDefaultState.currentEntry!.key.trim()
-        : AppI18n.t(config, 'home.search');
-    final searchPlaceholderSecondary =
-        searchDefaultState.currentEntry?.description.trim().isNotEmpty == true
-        ? searchDefaultState.currentEntry!.description.trim()
-        : null;
     final availablePages = homeState.availablePages;
     return Stack(
       children: <Widget>[
@@ -209,10 +200,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                               page: page,
                               homeState: homeState,
                               config: config,
-                              searchPlaceholderPrimary:
-                                  searchPlaceholderPrimary,
-                              searchPlaceholderSecondary:
-                                  searchPlaceholderSecondary,
                               globalPlatforms: globalPlatforms,
                               favoriteSongKeys: favoriteSongKeys,
                               playerState: playerState,
@@ -232,8 +219,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
     required HomePageKind page,
     required HomePageState homeState,
     required AppConfigState config,
-    required String searchPlaceholderPrimary,
-    required String? searchPlaceholderSecondary,
     required List<OnlinePlatform> globalPlatforms,
     required Set<String> favoriteSongKeys,
     required ({
@@ -281,8 +266,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                   child: _HomeTopControls(
                     config: config,
                     showEntries: page == HomePageKind.discover,
-                    searchPlaceholderPrimary: searchPlaceholderPrimary,
-                    searchPlaceholderSecondary: searchPlaceholderSecondary,
                     onSearchTap: () => _openSearchPage(
                       context: context,
                       config: config,
@@ -1391,17 +1374,13 @@ class _HomeTopControls extends StatelessWidget {
   const _HomeTopControls({
     required this.config,
     required this.showEntries,
-    required this.searchPlaceholderPrimary,
     required this.onSearchTap,
     required this.onEntryTap,
     required this.onParseUrl,
-    this.searchPlaceholderSecondary,
   });
 
   final AppConfigState config;
   final bool showEntries;
-  final String searchPlaceholderPrimary;
-  final String? searchPlaceholderSecondary;
   final VoidCallback onSearchTap;
   final ValueChanged<_DiscoverEntry> onEntryTap;
   final VoidCallback onParseUrl;
@@ -1415,9 +1394,8 @@ class _HomeTopControls extends StatelessWidget {
         Row(
           children: <Widget>[
             Expanded(
-              child: HomeSearchField(
-                placeholderPrimary: searchPlaceholderPrimary,
-                placeholderSecondary: searchPlaceholderSecondary,
+              child: _HomeSearchPlaceholderField(
+                config: config,
                 onTap: onSearchTap,
               ),
             ),
@@ -1445,6 +1423,38 @@ class _HomeTopControls extends StatelessWidget {
           _EntryRow(config: config, onTapEntry: onEntryTap),
         ],
       ],
+    );
+  }
+}
+
+class _HomeSearchPlaceholderField extends ConsumerWidget {
+  const _HomeSearchPlaceholderField({
+    required this.config,
+    required this.onTap,
+  });
+
+  final AppConfigState config;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final placeholder = ref.watch(
+      searchDefaultPlaceholderProvider.select((state) {
+        final entry = state.currentEntry;
+        return (
+          primary: entry?.key.trim() ?? '',
+          secondary: entry?.description.trim() ?? '',
+        );
+      }),
+    );
+    return HomeSearchField(
+      placeholderPrimary: placeholder.primary.isEmpty
+          ? AppI18n.t(config, 'home.search')
+          : placeholder.primary,
+      placeholderSecondary: placeholder.secondary.isEmpty
+          ? null
+          : placeholder.secondary,
+      onTap: onTap,
     );
   }
 }

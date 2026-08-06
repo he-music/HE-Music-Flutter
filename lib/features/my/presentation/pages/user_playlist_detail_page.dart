@@ -21,6 +21,7 @@ import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../../player/presentation/providers/player_providers.dart';
@@ -166,8 +167,10 @@ class _UserPlaylistDetailPageState
     final coverUrl = content.coverUrl.trim();
     final description = content.description;
     final songs = content.songs;
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
+    final currentTrackIdentity = ref.watch(
+      playerControllerProvider.select(
+        (state) => currentTrackIdentityOf(state.currentTrack),
+      ),
     );
 
     return NestedScrollView(
@@ -237,7 +240,7 @@ class _UserPlaylistDetailPageState
           initialLoading: songsLoading && songs.isEmpty,
           errorMessage: songsErrorMessage,
           onRetry: onRetrySongs,
-          currentTrack: currentTrack,
+          currentTrackIdentity: currentTrackIdentity,
           resolveSongCover: _songActions.resolveCoverUrl,
           resolvePlatformId: _songActions.resolvePlatformId,
           isSongLiked: (song) => ref.watch(

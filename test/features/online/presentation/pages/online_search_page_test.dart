@@ -13,6 +13,7 @@ import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/features/online/data/datasources/search_history_data_source.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_bars.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_hot_panel.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_page.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -107,6 +108,38 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('placeholder updates without rebuilding online search results', (
+    tester,
+  ) async {
+    late _StaticSearchDefaultPlaceholderController placeholderController;
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(
+        placeholderControllerFactory: () {
+          placeholderController = _StaticSearchDefaultPlaceholderController();
+          return placeholderController;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final initialHotPanel = tester.widget<OnlineSearchHotPanel>(
+      find.byType(OnlineSearchHotPanel),
+    );
+    placeholderController.show(
+      const SearchDefaultEntry(key: 'New placeholder', description: 'Detail'),
+    );
+    await tester.pump();
+
+    expect(
+      tester.widget<OnlineSearchHotPanel>(find.byType(OnlineSearchHotPanel)),
+      same(initialHotPanel),
+    );
+    final searchTopBox = tester.widget<SearchTopBox>(find.byType(SearchTopBox));
+    expect(searchTopBox.placeholderPrimary, 'New placeholder');
+    expect(searchTopBox.placeholderSecondary, 'Detail');
   });
 
   testWidgets('lyric search entry is hidden without current platform support', (
@@ -214,6 +247,7 @@ Widget _buildOnlineSearchApp({
   String? initialType,
   OnlineApiClient? client,
   Future<List<OnlinePlatform>>? platformsFuture,
+  SearchDefaultPlaceholderController Function()? placeholderControllerFactory,
 }) {
   return ProviderScope(
     overrides: [
@@ -229,7 +263,8 @@ Widget _buildOnlineSearchApp({
         const _SearchHistoryDataSourceStub(),
       ),
       searchDefaultPlaceholderProvider.overrideWith(
-        _StaticSearchDefaultPlaceholderController.new,
+        placeholderControllerFactory ??
+            _StaticSearchDefaultPlaceholderController.new,
       ),
     ],
     child: MaterialApp(
@@ -526,6 +561,13 @@ class _StaticSearchDefaultPlaceholderController
       entries: <SearchDefaultEntry>[
         SearchDefaultEntry(key: '周杰伦', description: '稻香'),
       ],
+      currentIndex: 0,
+    );
+  }
+
+  void show(SearchDefaultEntry entry) {
+    state = SearchDefaultPlaceholderState(
+      entries: <SearchDefaultEntry>[entry],
       currentIndex: 0,
     );
   }

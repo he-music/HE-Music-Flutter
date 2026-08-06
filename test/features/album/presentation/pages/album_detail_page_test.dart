@@ -47,6 +47,55 @@ void main() {
     expect(find.text('专辑首屏歌曲'), findsOneWidget);
   });
 
+  testWidgets('album detail ignores duration but rebuilds for track identity', (
+    tester,
+  ) async {
+    final repository = _FakeAlbumDetailRepository();
+    late _TestPlayerController playerController;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          playerControllerProvider.overrideWith(() {
+            playerController = _TestPlayerController();
+            return playerController;
+          }),
+          albumDetailRepositoryProvider.overrideWithValue(repository),
+          onlinePlatformsProvider.overrideWith(
+            _TestOnlinePlatformsController.new,
+          ),
+        ],
+        child: const MaterialApp(
+          home: AlbumDetailPage(id: 'album-1', platform: 'qq', title: '测试专辑'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final initialDetail = tester.widget<NestedScrollView>(
+      find.byType(NestedScrollView),
+    );
+    playerController.replaceCurrentTrack(
+      const PlayerTrack(id: 'song-1', title: '专辑首屏歌曲', platform: 'qq'),
+    );
+    await tester.pump();
+
+    final playingDetail = tester.widget<NestedScrollView>(
+      find.byType(NestedScrollView),
+    );
+    expect(playingDetail, isNot(same(initialDetail)));
+
+    playerController.updateDuration(const Duration(minutes: 4));
+    await tester.pump();
+
+    expect(
+      tester.widget<NestedScrollView>(find.byType(NestedScrollView)),
+      same(playingDetail),
+    );
+  });
+
   testWidgets('album detail enters batch mode and toggles loaded songs', (
     tester,
   ) async {
@@ -241,6 +290,18 @@ class _TestPlayerController extends PlayerController {
   Future<void> appendTrack(PlayerTrack track) async {
     appendedTracks = <PlayerTrack>[...appendedTracks, track];
     state = PlayerPlaybackState.initial(<PlayerTrack>[...state.queue, track]);
+  }
+
+  void replaceCurrentTrack(PlayerTrack track) {
+    state = state.copyWith(queue: <PlayerTrack>[track], currentIndex: 0);
+  }
+
+  void updateDuration(Duration duration) {
+    final track = state.currentTrack!;
+    state = state.copyWith(
+      duration: duration,
+      queue: <PlayerTrack>[track.copyWith(duration: duration)],
+    );
   }
 }
 

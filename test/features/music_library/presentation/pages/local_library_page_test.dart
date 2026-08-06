@@ -9,6 +9,7 @@ import 'package:he_music_flutter/features/music_library/domain/entities/local_so
 import 'package:he_music_flutter/features/music_library/presentation/controllers/local_library_controller.dart';
 import 'package:he_music_flutter/features/music_library/presentation/pages/local_library_page.dart';
 import 'package:he_music_flutter/features/music_library/presentation/providers/local_library_providers.dart';
+import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -46,6 +47,63 @@ void main() {
 
     await _disposePage(tester);
   });
+
+  testWidgets('local library search typing does not rebuild the song tree', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildTestApp(controllerFactory: _PopulatedLocalLibraryController.new),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('搜索'));
+    await tester.pump();
+    final initialTab = tester.widget<UnderlineTab>(
+      find.byType(UnderlineTab).first,
+    );
+
+    await tester.enterText(find.byType(TextField), '歌');
+    await tester.pump();
+    expect(_findSkinIcon(AppSkinIconRole.close), findsOneWidget);
+    expect(
+      tester.widget<UnderlineTab>(find.byType(UnderlineTab).first),
+      same(initialTab),
+    );
+
+    await tester.enterText(find.byType(TextField), '歌曲');
+    await tester.pump();
+    expect(
+      tester.widget<UnderlineTab>(find.byType(UnderlineTab).first),
+      same(initialTab),
+    );
+
+    await _disposePage(tester);
+  });
+
+  testWidgets(
+    'local library search result changes still rebuild the song tree',
+    (tester) async {
+      final controller = _PopulatedLocalLibraryController();
+      await tester.pumpWidget(
+        _buildTestApp(controllerFactory: () => controller),
+      );
+      await tester.pumpAndSettle();
+      final initialTab = tester.widget<UnderlineTab>(
+        find.byType(UnderlineTab).first,
+      );
+
+      controller.replaceSongs(const <LocalSong>[_searchResultSong]);
+      await tester.pump();
+
+      expect(find.text('搜索结果'), findsOneWidget);
+      expect(
+        tester.widget<UnderlineTab>(find.byType(UnderlineTab).first),
+        isNot(same(initialTab)),
+      );
+
+      await _disposePage(tester);
+    },
+  );
 
   testWidgets('local library selection actions request skin icon roles', (
     tester,
@@ -114,10 +172,17 @@ class _EmptyLocalLibraryController extends LocalLibraryController {
 
 class _PopulatedLocalLibraryController extends LocalLibraryController {
   @override
-  Future<List<LocalSong>> build() async => _songs;
+  Future<List<LocalSong>> build() async {
+    await super.build();
+    return _songs;
+  }
 
   @override
   void startWatchingSongs() {}
+
+  void replaceSongs(List<LocalSong> songs) {
+    state = AsyncData(songs);
+  }
 }
 
 const _songs = <LocalSong>[
@@ -142,3 +207,14 @@ const _songs = <LocalSong>[
     size: 2048,
   ),
 ];
+
+const _searchResultSong = LocalSong(
+  id: 'search-result',
+  title: '搜索结果',
+  filePath: '/tmp/search-result.mp3',
+  artist: '歌手',
+  album: '专辑',
+  duration: Duration(minutes: 2),
+  mimeType: 'audio/mpeg',
+  size: 512,
+);

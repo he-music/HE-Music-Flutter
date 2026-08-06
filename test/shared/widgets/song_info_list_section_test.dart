@@ -40,7 +40,7 @@ void main() {
         _wrap(
           SongInfoListSection(
             songs: songs,
-            currentTrack: null,
+            currentTrackIdentity: null,
             resolveSongCover: (_) => '',
             resolvePlatformId: (s) => s.platform,
             isSongLiked: (_) => false,
@@ -62,7 +62,7 @@ void main() {
         _wrap(
           SongInfoListSection(
             songs: songs,
-            currentTrack: null,
+            currentTrackIdentity: null,
             resolveSongCover: (_) => '',
             resolvePlatformId: (s) => s.platform,
             isSongLiked: (_) => false,
@@ -81,7 +81,7 @@ void main() {
         _wrap(
           SongInfoListSection(
             songs: const [],
-            currentTrack: null,
+            currentTrackIdentity: null,
             resolveSongCover: (_) => '',
             resolvePlatformId: (s) => s.platform,
             isSongLiked: (_) => false,
@@ -101,7 +101,7 @@ void main() {
         _wrap(
           SongInfoListSection(
             songs: const [],
-            currentTrack: null,
+            currentTrackIdentity: null,
             resolveSongCover: (_) => '',
             resolvePlatformId: (s) => s.platform,
             isSongLiked: (_) => false,

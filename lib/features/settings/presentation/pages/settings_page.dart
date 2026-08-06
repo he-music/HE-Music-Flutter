@@ -40,22 +40,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final Map<String, GlobalKey> _itemAnchorKeys = <String, GlobalKey>{};
 
   Timer? _highlightResetTimer;
-  String _searchQuery = '';
   String? _mobileSectionId;
   String? _highlightedItemId;
 
   @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(_handleSearchChanged);
-  }
-
-  @override
   void dispose() {
     _highlightResetTimer?.cancel();
-    _searchController
-      ..removeListener(_handleSearchChanged)
-      ..dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -63,12 +54,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     return _buildMobileScaffold(context, config);
-  }
-
-  void _handleSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text.trim();
-    });
   }
 
   Widget _buildMobileScaffold(BuildContext context, AppConfigState config) {
@@ -102,19 +87,32 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       children: <Widget>[
         _buildSearchField(config),
         const SizedBox(height: 16),
-        if (_searchQuery.isNotEmpty)
-          _buildSearchResults(config, isDesktop: false)
-        else ...<Widget>[
-          for (final section in settingsSections) ...<Widget>[
-            SettingsSectionTile(
-              icon: section.icon,
-              iconRole: settingsSectionIconRole(section.id),
-              title: _sectionTitle(config, section.id),
-              onTap: () => _openSection(section.id),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ],
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _searchController,
+          builder: (context, value, _) {
+            final query = value.text.trim();
+            if (query.isNotEmpty) {
+              return _buildSearchResults(
+                config,
+                query: query,
+                isDesktop: false,
+              );
+            }
+            return Column(
+              children: <Widget>[
+                for (final section in settingsSections) ...<Widget>[
+                  SettingsSectionTile(
+                    icon: section.icon,
+                    iconRole: settingsSectionIconRole(section.id),
+                    title: _sectionTitle(config, section.id),
+                    onTap: () => _openSection(section.id),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            );
+          },
+        ),
       ],
     );
   }
@@ -137,8 +135,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildSearchResults(AppConfigState config, {required bool isDesktop}) {
-    final results = _searchResults(config);
+  Widget _buildSearchResults(
+    AppConfigState config, {
+    required String query,
+    required bool isDesktop,
+  }) {
+    final results = _searchResults(config, query);
     if (results.isEmpty) {
       return Center(child: Text(AppI18n.t(config, 'settings.search.empty')));
     }
@@ -426,20 +428,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  List<SettingsItemNode> _searchResults(AppConfigState config) {
-    final query = _searchQuery.toLowerCase();
+  List<SettingsItemNode> _searchResults(AppConfigState config, String query) {
+    final normalizedQuery = query.toLowerCase();
     return _visibleSettingsItems(config)
         .where((item) {
           final title = AppI18n.t(config, item.titleKey).toLowerCase();
           final section = _sectionTitle(config, item.sectionId).toLowerCase();
           final subtitle = _itemSearchSubtitle(config, item).toLowerCase();
-          if (title.contains(query) ||
-              section.contains(query) ||
-              subtitle.contains(query)) {
+          if (title.contains(normalizedQuery) ||
+              section.contains(normalizedQuery) ||
+              subtitle.contains(normalizedQuery)) {
             return true;
           }
           return item.keywords.any(
-            (keyword) => keyword.toLowerCase().contains(query),
+            (keyword) => keyword.toLowerCase().contains(normalizedQuery),
           );
         })
         .toList(growable: false);

@@ -18,6 +18,7 @@ import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../../player/presentation/providers/player_providers.dart';
@@ -139,8 +140,10 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
     DetailSongActionHandler songActions,
   ) {
     final songs = info.songs;
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
+    final currentTrackIdentity = ref.watch(
+      playerControllerProvider.select(
+        (state) => currentTrackIdentityOf(state.currentTrack),
+      ),
     );
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) => <Widget>[
@@ -206,7 +209,7 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
         ),
         child: SongInfoListSection(
           songs: songs,
-          currentTrack: currentTrack,
+          currentTrackIdentity: currentTrackIdentity,
           resolveSongCover: songActions.resolveCoverUrl,
           resolvePlatformId: songActions.resolvePlatformId,
           isSongLiked: (song) => ref.watch(

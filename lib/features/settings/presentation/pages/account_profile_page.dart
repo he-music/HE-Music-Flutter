@@ -35,16 +35,8 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
   String _originalAvatarUrl = '';
 
   @override
-  void initState() {
-    super.initState();
-    _avatarController.addListener(_handleAvatarChanged);
-  }
-
-  @override
   void dispose() {
-    _avatarController
-      ..removeListener(_handleAvatarChanged)
-      ..dispose();
+    _avatarController.dispose();
     _nicknameController.dispose();
     super.dispose();
   }
@@ -91,17 +83,22 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
             children: <Widget>[
-              Center(
-                child: AppNetworkAvatar(
-                  imageUrl: _avatarController.text.trim(),
-                  radius: 44,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                  fallbackIcon: Icons.person_rounded,
-                  iconColor: Theme.of(context).colorScheme.primary,
-                  iconSize: 38,
-                ),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _avatarController,
+                builder: (context, value, _) {
+                  return Center(
+                    child: AppNetworkAvatar(
+                      imageUrl: value.text.trim(),
+                      radius: 44,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer,
+                      fallbackIcon: Icons.person_rounded,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      iconSize: 38,
+                    ),
+                  );
+                },
               ),
               if (profile.username.trim().isNotEmpty) ...<Widget>[
                 const SizedBox(height: 10),
@@ -238,12 +235,6 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
     _originalAvatarUrl = profile.avatarUrl.trim();
     _nicknameController.text = profile.nickname;
     _avatarController.text = _originalAvatarUrl;
-  }
-
-  void _handleAvatarChanged() {
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   String? _validateNickname(AppConfigState config, String? value) {

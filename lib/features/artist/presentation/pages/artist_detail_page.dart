@@ -25,11 +25,11 @@ import '../../../../shared/widgets/detail_loading_skeleton.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../my/presentation/providers/favorite_collection_status_providers.dart';
 import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
-import '../../../player/domain/entities/player_track.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
@@ -149,8 +149,10 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   Widget build(BuildContext context) {
     final provider = artistDetailControllerProvider(_request.cacheKey);
     final state = ref.watch(provider);
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((player) => player.currentTrack),
+    final currentTrackIdentity = ref.watch(
+      playerControllerProvider.select(
+        (player) => currentTrackIdentityOf(player.currentTrack),
+      ),
     );
     final controller = ref.read(provider.notifier);
     final content = state.content;
@@ -288,7 +290,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
           children: <Widget>[
             _ArtistSongsTab(
               songs: _songs,
-              currentTrack: currentTrack,
+              currentTrackIdentity: currentTrackIdentity,
               loading: _songsLoading,
               error: _songsError,
               onRetry: _loadSongs,
@@ -1122,7 +1124,7 @@ class _ArtistHeaderImage extends StatelessWidget {
 class _ArtistSongsTab extends StatelessWidget {
   const _ArtistSongsTab({
     required this.songs,
-    required this.currentTrack,
+    required this.currentTrackIdentity,
     required this.loading,
     required this.error,
     required this.onRetry,
@@ -1143,7 +1145,7 @@ class _ArtistSongsTab extends StatelessWidget {
   });
 
   final List<ArtistDetailSong> songs;
-  final PlayerTrack? currentTrack;
+  final CurrentTrackIdentity? currentTrackIdentity;
   final bool loading;
   final String? error;
   final Future<void> Function() onRetry;
@@ -1168,7 +1170,7 @@ class _ArtistSongsTab extends StatelessWidget {
     final localeCode = Localizations.localeOf(context).languageCode;
     return SongInfoListSection(
       songs: songs,
-      currentTrack: currentTrack,
+      currentTrackIdentity: currentTrackIdentity,
       resolveSongCover: resolveSongCover,
       resolvePlatformId: (song) => song.platform,
       isSongLiked: isSongLiked,

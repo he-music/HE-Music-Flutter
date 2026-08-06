@@ -8,7 +8,6 @@ import '../../app/i18n/app_i18n.dart';
 import '../helpers/current_track_helper.dart';
 import '../helpers/song_batch_helpers.dart';
 import '../models/he_music_models.dart';
-import '../../features/player/domain/entities/player_track.dart';
 import 'music_detail_slivers.dart';
 import 'online_song_list_item.dart';
 import 'song_list_component.dart';
@@ -23,7 +22,7 @@ typedef SongInfoMoreCallback = void Function(SongInfo song, String coverUrl);
 class SongInfoListSection extends StatelessWidget {
   const SongInfoListSection({
     required this.songs,
-    required this.currentTrack,
+    required this.currentTrackIdentity,
     required this.resolveSongCover,
     required this.resolvePlatformId,
     required this.isSongLiked,
@@ -56,7 +55,7 @@ class SongInfoListSection extends StatelessWidget {
   });
 
   final List<SongInfo> songs;
-  final PlayerTrack? currentTrack;
+  final CurrentTrackIdentity? currentTrackIdentity;
   final String Function(SongInfo song) resolveSongCover;
   final String Function(SongInfo song) resolvePlatformId;
   final bool Function(SongInfo song) isSongLiked;
@@ -132,7 +131,7 @@ class SongInfoListSection extends StatelessWidget {
           artistAlbumText: artistAlbumTextBuilder?.call(song),
           subtitleText: subtitleTextBuilder?.call(song) ?? '',
           coverUrl: songCover.trim().isEmpty ? null : songCover,
-          isCurrent: isCurrentSongTrack(currentTrack, song),
+          isCurrent: isCurrentSongIdentity(currentTrackIdentity, song),
           isLiked: isSongLiked(song),
           selectable: batchMode,
           selected: selectedSongKeys.contains(

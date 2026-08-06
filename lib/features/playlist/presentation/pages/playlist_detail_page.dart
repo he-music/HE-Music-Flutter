@@ -19,6 +19,7 @@ import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../my/presentation/providers/favorite_collection_status_providers.dart';
 import '../../../my/presentation/providers/favorite_song_status_providers.dart';
@@ -163,8 +164,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final coverUrl = content.coverUrl.trim();
     final description = content.description;
     final songs = content.songs;
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
+    final currentTrackIdentity = ref.watch(
+      playerControllerProvider.select(
+        (state) => currentTrackIdentityOf(state.currentTrack),
+      ),
     );
     final isFavorited = ref.watch(
       favoriteCollectionStatusProvider.select(
@@ -267,7 +270,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           onLoadMore: onLoadMore,
           loadMoreErrorMessage: loadMoreErrorMessage,
           onRetryLoadMore: onLoadMore,
-          currentTrack: currentTrack,
+          currentTrackIdentity: currentTrackIdentity,
           resolveSongCover: _songActions.resolveCoverUrl,
           resolvePlatformId: _songActions.resolvePlatformId,
           isSongLiked: (song) => ref.watch(

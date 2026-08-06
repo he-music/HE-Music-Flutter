@@ -240,6 +240,29 @@ void main() {
     expect(find.text('外观 / 显示内容背景'), findsOneWidget);
   });
 
+  testWidgets('settings search updates results without rebuilding scaffold', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_buildSettingsApp());
+    await tester.pump();
+    final initialScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('settings-search-field')),
+      '卡片背景',
+    );
+    await tester.pump();
+
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)),
+      same(initialScaffold),
+    );
+    expect(find.text('外观 / 显示内容背景'), findsOneWidget);
+  });
+
   testWidgets(
     'Android general settings show download acceleration after update toggle',
     (tester) async {
