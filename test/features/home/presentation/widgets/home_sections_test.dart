@@ -12,12 +12,54 @@ import 'package:he_music_flutter/features/ranking/presentation/widgets/ranking_c
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/layout/adaptive_media_grid_spec.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/artist_grid_card.dart';
 import 'package:he_music_flutter/shared/widgets/media_grid_card.dart';
 import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 import 'package:he_music_flutter/shared/widgets/video_item.dart';
 
 void main() {
+  testWidgets('首页首次加载骨架应覆盖八行内容', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: buildHomeSectionSlivers(
+              state: HomeContentState.initial.copyWith(loading: true),
+              gridSpec: resolveAdaptiveMediaGridSpec(maxWidth: 366),
+              quickEntryGridSpec: resolveHomeQuickEntryGridSpec(maxWidth: 366),
+              loadingText: '加载中',
+              emptyText: '空',
+              retryText: '重试',
+              onRetry: () {},
+              sectionActionOf: (_) => null,
+              onTapSong: (_, _) {},
+              onTapAlbum: (_) {},
+              onTapPlaylist: (_) {},
+              onTapMv: (_) {},
+              onTapArtist: (_) {},
+              onTapRanking: (_) {},
+              onTapRadio: (_) {},
+              onTapEntry: (_) {},
+              onMoreSong: (_) {},
+              isSongLiked: (_) => false,
+              onLikeSong: (_) async {},
+              isCurrentSong: (_) => false,
+              isRadioPlaying: (_) => false,
+              isEntryRadioPlaying: (_) => false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(SkeletonBox), findsNWidgets(25));
+  });
+
   testWidgets('按后端标题渲染七类资源专属布局', (tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 3000));
     addTearDown(() => tester.binding.setSurfaceSize(null));

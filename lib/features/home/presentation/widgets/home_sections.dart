@@ -451,7 +451,7 @@ class _HomeSectionsSkeleton extends StatelessWidget {
         Semantics(label: label, child: const SizedBox.shrink()),
         const SkeletonBox(width: 96, height: 20, radius: 8),
         const SizedBox(height: 12),
-        for (var index = 0; index < 4; index++) ...const <Widget>[
+        for (var index = 0; index < 8; index++) ...const <Widget>[
           AppSkinContentSurface(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 6),
