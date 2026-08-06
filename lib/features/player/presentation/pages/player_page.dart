@@ -270,9 +270,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         ),
       ),
     );
+    final onlinePlatforms =
+        ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
+    final displayedTrack = presentation.displayTrack;
+    final VoidCallback? onOpenArtist =
+        !presentation.isTrackTransitioning &&
+            _canOpenTrackArtist(displayedTrack, onlinePlatforms)
+        ? () => _openTrackArtist(displayedTrack!)
+        : null;
     final backdropImageProvider = artworkProvider(
-      presentation.displayTrack?.artworkUrl,
-      presentation.displayTrack?.artworkBytes,
+      displayedTrack?.artworkUrl,
+      displayedTrack?.artworkBytes,
     );
     final usePortraitArtistPhoto = resolvePlayerArtistPhotoPortraitForTest(
       MediaQuery.sizeOf(context),
@@ -322,7 +330,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               child: PlayerBackdrop(
                 stageKind: playerStyle.stageKind,
                 imageProvider: backdropImageProvider,
-                track: presentation.displayTrack,
+                track: displayedTrack,
                 isPortrait: usePortraitArtistPhoto,
                 artistPhotoImageProviderBuilder:
                     widget.artistPhotoImageProviderBuilder,
@@ -364,7 +372,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                     layoutSpec: spec,
                     stageKind: playerStyle.stageKind,
                     stageMaxWidth: playerStyle.geometry.stageMaxWidth,
-                    track: presentation.displayTrack,
+                    track: displayedTrack,
+                    onOpenArtist: onOpenArtist,
                     onOpenQueue: _openQueueSheet,
                     onOpenMore: _openMoreSheet,
                     onOpenLyrics: () => _animateToPage(1),
@@ -384,13 +393,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                         layoutSpec: spec,
                         stageKind: playerStyle.stageKind,
                         stageMaxWidth: playerStyle.geometry.stageMaxWidth,
-                        track: presentation.displayTrack,
+                        track: displayedTrack,
                         lyrics: buildLyricPage(),
                         exitLandscapeTooltip: AppI18n.t(
                           config,
                           'player.action.exit_landscape',
                         ),
                         onExitLandscape: () => unawaited(_exitLandscape()),
+                        onOpenArtist: onOpenArtist,
                         onOpenQueue: _openQueueSheet,
                         onOpenQuality: () =>
                             _openCurrentQualitySheet(context, controller),
@@ -1293,6 +1303,40 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     unawaited(GoRouter.of(context).push(location));
   }
 
+  bool _canOpenTrackArtist(PlayerTrack? track, List<OnlinePlatform> platforms) {
+    if (track == null) {
+      return false;
+    }
+    final platformId = (track.platform ?? '').trim();
+    if (platformId == 'local') {
+      return (track.artist ?? '').trim().isNotEmpty;
+    }
+    return platformSupportsArtistDetail(
+          platformId: platformId,
+          platforms: platforms,
+        ) &&
+        songArtistActionLabel(track.artists) != null;
+  }
+
+  void _openTrackArtist(PlayerTrack track) {
+    final platformId = (track.platform ?? '').trim();
+    if (platformId == 'local') {
+      final artistName = (track.artist ?? '').trim();
+      _goToDetail(
+        Uri(
+          path: AppRoutes.artistDetail,
+          queryParameters: <String, String>{
+            'id': artistName,
+            'platform': platformId,
+            'title': artistName,
+          },
+        ).toString(),
+      );
+      return;
+    }
+    _openArtistSelectionAndGo(platformId: platformId, artists: track.artists);
+  }
+
   /// 弹出歌手选择面板，选择后关闭播放器并导航到歌手详情。
   void _openArtistSelectionAndGo({
     required String platformId,
@@ -1500,6 +1544,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
     required this.lyrics,
     required this.exitLandscapeTooltip,
     required this.onExitLandscape,
+    required this.onOpenArtist,
     required this.onOpenQueue,
     required this.onOpenQuality,
     required this.onOpenSpeed,
@@ -1514,6 +1559,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
   final Widget lyrics;
   final String exitLandscapeTooltip;
   final VoidCallback onExitLandscape;
+  final VoidCallback? onOpenArtist;
   final VoidCallback onOpenQueue;
   final VoidCallback onOpenQuality;
   final VoidCallback onOpenSpeed;
@@ -1538,6 +1584,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
     final trackHeader = PlayerTrackHeader(
       noTrackText: noTrackText,
       artistSlotWidth: layoutSpec.artistSlotWidth,
+      onOpenArtist: onOpenArtist,
       onOpenQuality: onOpenQuality,
       onOpenSpeed: onOpenSpeed,
       layout: PlayerTrackHeaderLayout.mobileLandscape,
@@ -1658,6 +1705,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
     required this.stageKind,
     required this.stageMaxWidth,
     required this.track,
+    required this.onOpenArtist,
     required this.onOpenQueue,
     required this.onOpenMore,
     required this.onOpenLyrics,
@@ -1671,6 +1719,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
   final AppPlayerStageKind stageKind;
   final double stageMaxWidth;
   final PlayerTrack? track;
+  final VoidCallback? onOpenArtist;
   final VoidCallback onOpenQueue;
   final VoidCallback onOpenMore;
   final VoidCallback onOpenLyrics;
@@ -1683,6 +1732,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
     final trackHeader = PlayerTrackHeader(
       noTrackText: noTrackText,
       artistSlotWidth: layoutSpec.artistSlotWidth,
+      onOpenArtist: onOpenArtist,
       onOpenQuality: onOpenQuality,
       onOpenSpeed: onOpenSpeed,
     );

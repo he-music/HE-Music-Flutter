@@ -18,6 +18,7 @@ class PlayerTrackHeader extends ConsumerWidget {
     required this.artistSlotWidth,
     required this.onOpenQuality,
     required this.onOpenSpeed,
+    this.onOpenArtist,
     this.layout = PlayerTrackHeaderLayout.standard,
     super.key,
   });
@@ -26,6 +27,7 @@ class PlayerTrackHeader extends ConsumerWidget {
   final double artistSlotWidth;
   final VoidCallback onOpenQuality;
   final VoidCallback onOpenSpeed;
+  final VoidCallback? onOpenArtist;
   final PlayerTrackHeaderLayout layout;
 
   /// 共享播放器布局用于预留固定歌曲信息槽位的高度。
@@ -65,16 +67,21 @@ class PlayerTrackHeader extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(
             horizontal: mobileLandscapeContentInset,
           ),
-          child: _OverflowMarquee(
-            text: '$title - $artist',
-            style: titleStyle,
-            staticKey: const ValueKey<String>('player-landscape-track-static'),
-            marqueeKey: const ValueKey<String>(
-              'player-landscape-track-marquee',
+          child: _ArtistAction(
+            onTap: onOpenArtist,
+            child: _OverflowMarquee(
+              text: '$title - $artist',
+              style: titleStyle,
+              staticKey: const ValueKey<String>(
+                'player-landscape-track-static',
+              ),
+              marqueeKey: const ValueKey<String>(
+                'player-landscape-track-marquee',
+              ),
+              startAfter: const Duration(seconds: 5),
+              pauseAfterRound: const Duration(seconds: 5),
+              pauseAtStart: true,
             ),
-            startAfter: const Duration(seconds: 5),
-            pauseAfterRound: const Duration(seconds: 5),
-            pauseAtStart: true,
           ),
         ),
       );
@@ -155,15 +162,20 @@ class PlayerTrackHeader extends ConsumerWidget {
                 SizedBox(
                   key: const ValueKey<String>('player-artist-slot'),
                   width: artistSlotWidth,
-                  child: _OverflowMarquee(
-                    text: artist,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
+                  child: _ArtistAction(
+                    onTap: onOpenArtist,
+                    child: _OverflowMarquee(
+                      text: artist,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0,
+                      ),
+                      staticKey: const ValueKey<String>('player-artist-static'),
+                      marqueeKey: const ValueKey<String>(
+                        'player-artist-marquee',
+                      ),
                     ),
-                    staticKey: const ValueKey<String>('player-artist-static'),
-                    marqueeKey: const ValueKey<String>('player-artist-marquee'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -199,6 +211,25 @@ class PlayerTrackHeader extends ConsumerWidget {
       }
     }
     return null;
+  }
+}
+
+class _ArtistAction extends StatelessWidget {
+  const _ArtistAction({required this.onTap, required this.child});
+
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (onTap == null) {
+      return child;
+    }
+    return InkWell(
+      key: const ValueKey<String>('player-artist-action'),
+      onTap: onTap,
+      child: child,
+    );
   }
 }
 

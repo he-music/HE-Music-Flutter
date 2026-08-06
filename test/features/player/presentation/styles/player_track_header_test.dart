@@ -44,6 +44,32 @@ void main() {
     expect(find.text('不应显示的专辑'), findsNothing);
   });
 
+  testWidgets(
+    'tappable artist invokes its callback without resizing the slot',
+    (tester) async {
+      var tapCount = 0;
+      await tester.pumpWidget(
+        _buildHeaderApp(
+          _ShortArtistController.new,
+          onOpenArtist: () => tapCount++,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('player-artist-action')),
+      );
+
+      expect(tapCount, 1);
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey<String>('player-artist-slot')),
+        ),
+        const Size(100, 20),
+      );
+    },
+  );
+
   testWidgets('long artist uses marquee without resizing the slot', (
     tester,
   ) async {
@@ -187,6 +213,7 @@ Widget _buildHeaderApp(
   PlayerController Function() controllerFactory, {
   double width = 300,
   PlayerTrackHeaderLayout layout = PlayerTrackHeaderLayout.standard,
+  VoidCallback? onOpenArtist,
 }) {
   return ProviderScope(
     overrides: [playerControllerProvider.overrideWith(controllerFactory)],
@@ -197,6 +224,7 @@ Widget _buildHeaderApp(
           child: PlayerTrackHeader(
             noTrackText: 'No track',
             artistSlotWidth: 100,
+            onOpenArtist: onOpenArtist,
             onOpenQuality: _noop,
             onOpenSpeed: _noop,
             layout: layout,

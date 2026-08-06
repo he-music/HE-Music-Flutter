@@ -689,6 +689,42 @@ void main() {
     expect(find.text('View Detail'), findsOneWidget);
   });
 
+  testWidgets('player artist is tappable when its detail page is available', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('player-artist-action')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('local player artist opens as an available action', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _LocalTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('player-artist-action')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'player more sheet hides album artist comments when platform flags are unsupported',
     (tester) async {
@@ -703,6 +739,11 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('player-artist-action')),
+        findsNothing,
+      );
 
       await tester.tap(find.byIcon(Icons.more_horiz_rounded));
       await tester.pumpAndSettle();
@@ -1762,6 +1803,10 @@ void main() {
     );
     expect(_inkResponse(tester, Icons.more_horiz_rounded).onTap, isNull);
     expect(_inkResponse(tester, Icons.favorite_border_rounded).onTap, isNull);
+    expect(
+      find.byKey(const ValueKey<String>('player-artist-action')),
+      findsNothing,
+    );
 
     await tester.tap(find.byIcon(Icons.skip_next_rounded));
     await tester.pump();
