@@ -36,11 +36,11 @@ No generative enhancement, face repair, spatial crop, or composition change was 
 
 - Generation: real routed Flutter home scene through `make skin-previews`
 - Actual dimensions: `360x640` for both previews
-- UI revision: regenerated on 2026-08-07 after the Home search control became a compact floating sliver; wallpaper and theme-token assets are unchanged
+- UI revision: regenerated on 2026-08-07 with the Home recommend/discover tabs and default recommend scene; wallpaper and theme-token assets are unchanged
 - Light preview: `assets/skins/starlit_melody/preview_light.png`
-- Light preview SHA-256: `1978e221d32673aa2e30e2a9f21598402b89beb8412c87b0a7f705ec796ba10c`
+- Light preview SHA-256: `ec44137c0302b839c2e1aa6365b62e59765a0ee1a31a3faeb2b0070bc9587caa`
 - Dark preview: `assets/skins/starlit_melody/preview_dark.png`
-- Dark preview SHA-256: `2cd9ac91b88f9cb2727bb34a6f9d0b958816a9ac64a186c4dec95e7c4c4a2819`
+- Dark preview SHA-256: `4de717f1a0e8046ee2084da4f1926e9bcda11306d68b02cbb51428b6ed76ff7c`
 - Light tokens: Ice Rail primary `#00677A`, Berry Signal secondary `#B72F5B`, Ink text `#17202A`, transparent scrolling content surface
 - Dark tokens: Ice Rail primary `#78D5E7`, blue-gray fixed surfaces, Mist text `#F0EDF5`, transparent scrolling content surface
 - Approval status: the light preview and current dark evaluation appearance were approved by the user on 2026-07-28; these files were regenerated from those same runtime tokens

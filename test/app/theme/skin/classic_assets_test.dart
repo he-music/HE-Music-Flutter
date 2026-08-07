@@ -10,10 +10,10 @@ import 'package:he_music_flutter/app/theme/skins/classic_skin.dart';
 
 const _lightPreviewPath = 'assets/skins/classic/preview_light.png';
 const _lightPreviewHash =
-    '5a56623f39e2f11f6b9373ab100bcc4d676a2561eb15db8724d3c44edf474cb2';
+    'a6f5f6debdbcfa76012d6dc6d99e0f6f6a0b515b866dd5c570aa022d2015d190';
 const _darkPreviewPath = 'assets/skins/classic/preview_dark.png';
 const _darkPreviewHash =
-    '7d1edbbd32336cd3f47e706cee8aef420c84a7721bc4a17a4219802a5dad5516';
+    '9709d36d39145580a77692087c0ba50ae2df9f70826c568571c322cdf69ca77f';
 
 void main() {
   test('classic previews match their recorded provenance', () async {

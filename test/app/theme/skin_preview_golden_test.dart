@@ -31,6 +31,9 @@ const _previewKey = ValueKey<String>('skin-preview-golden-root');
 const _previewFontFamily = 'PreviewRoboto';
 const _previewCjkFontFamily = 'PreviewCjk';
 const _previewFontFallback = <String>[_previewCjkFontFamily];
+final _previewHomePageFeatures =
+    PlatformFeatureSupportFlag.getRecommendPage |
+    PlatformFeatureSupportFlag.getDiscoverPage;
 
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
@@ -77,6 +80,8 @@ void main() {
           if (previewCase.hasWallpaper) {
             await _pumpUntilWallpaperDecoded(tester);
           }
+          expect(find.text('推荐'), findsOneWidget);
+          expect(find.text('发现'), findsOneWidget);
 
           await expectLater(
             find.byKey(_previewKey),
@@ -267,19 +272,18 @@ class _PreviewHomePageController extends HomePageController {
           name: '平台1',
           shortName: '平台1',
           status: 1,
-          featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
+          featureSupportFlag: _previewHomePageFeatures,
         ),
         OnlinePlatform(
           id: 'platform-2',
           name: '平台2',
           shortName: '平台2',
           status: 1,
-          featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
+          featureSupportFlag: _previewHomePageFeatures,
         ),
       ],
-      selectedPage: HomePageKind.discover,
-      recommend: HomeContentState.initial,
-      discover: HomeContentState(
+      selectedPage: HomePageKind.recommend,
+      recommend: HomeContentState(
         initialized: true,
         loading: false,
         refreshing: false,
@@ -301,6 +305,7 @@ class _PreviewHomePageController extends HomePageController {
           ),
         ],
       ),
+      discover: HomeContentState.initial,
     );
   }
 
@@ -317,14 +322,14 @@ class _PreviewOnlinePlatformsController extends OnlinePlatformsController {
         name: '平台1',
         shortName: '平台1',
         status: 1,
-        featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
+        featureSupportFlag: _previewHomePageFeatures,
       ),
       OnlinePlatform(
         id: 'platform-2',
         name: '平台2',
         shortName: '平台2',
         status: 1,
-        featureSupportFlag: PlatformFeatureSupportFlag.getDiscoverPage,
+        featureSupportFlag: _previewHomePageFeatures,
       ),
     ];
   }
