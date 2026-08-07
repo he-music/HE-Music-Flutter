@@ -56,9 +56,6 @@ final apiDioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     AuthTokenInterceptor(() => tokenHolder.accessToken, () => localeCode),
   );
-  // deviceInfo 可能尚未加载完成，通过回调延迟读取。
-  final deviceInfoAsync = ref.read(deviceInfoProvider);
-
   dio.interceptors.add(
     TokenRefreshInterceptor(
       tokenHolder: tokenHolder,
@@ -71,8 +68,9 @@ final apiDioProvider = Provider<Dio>((ref) {
         }
         await configController.persistTokens(newAccess, newRefresh, expiresAt);
       },
-      getDeviceInfo: () =>
-          deviceInfoAsync.whenOrNull(data: (d) => d.toApiMap()),
+      // 刷新发生时等待设备信息，禁止使用构建 Dio 时的异步状态快照。
+      getDeviceInfo: () async =>
+          (await ref.read(deviceInfoProvider.future)).toApiMap(),
     ),
   );
   dio.interceptors.add(

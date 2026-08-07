@@ -20,6 +20,8 @@ typedef TokensRefreshedCallback =
       int expiresAt,
     );
 
+typedef DeviceInfoGetter = FutureOr<Map<String, dynamic>> Function();
+
 /// 负责跨 Dio 实例合并并发 refresh，并同步最新 token。
 class TokenRefreshCoordinator {
   TokenRefreshCoordinator(this.tokenHolder);
@@ -30,7 +32,7 @@ class TokenRefreshCoordinator {
   Future<String?> refresh({
     required String baseUrl,
     required TokensRefreshedCallback onTokensRefreshed,
-    Map<String, dynamic>? Function()? getDeviceInfo,
+    required DeviceInfoGetter getDeviceInfo,
   }) {
     final ongoingRefresh = _ongoingRefresh;
     if (ongoingRefresh != null) {
@@ -63,7 +65,7 @@ class TokenRefreshCoordinator {
     required String baseUrl,
     required String refreshToken,
     required TokensRefreshedCallback onTokensRefreshed,
-    Map<String, dynamic>? Function()? getDeviceInfo,
+    required DeviceInfoGetter getDeviceInfo,
   }) async {
     final refreshDio = Dio(
       BaseOptions(
@@ -75,11 +77,11 @@ class TokenRefreshCoordinator {
     );
 
     try {
-      final requestData = <String, dynamic>{'refresh_token': refreshToken};
-      final deviceInfo = getDeviceInfo?.call();
-      if (deviceInfo != null) {
-        requestData['device_info'] = deviceInfo;
-      }
+      final deviceInfo = await getDeviceInfo();
+      final requestData = <String, dynamic>{
+        'refresh_token': refreshToken,
+        'device_info': deviceInfo,
+      };
 
       final response = await refreshDio.post(
         '/v1/auth/token/refresh',
@@ -135,8 +137,8 @@ class TokenRefreshInterceptor extends Interceptor {
     required this.tokenHolder,
     required this.baseUrl,
     required this.onTokensRefreshed,
+    required this.getDeviceInfo,
     TokenRefreshCoordinator? refreshCoordinator,
-    this.getDeviceInfo,
   }) : assert(
          refreshCoordinator == null ||
              identical(refreshCoordinator.tokenHolder, tokenHolder),
@@ -149,8 +151,8 @@ class TokenRefreshInterceptor extends Interceptor {
   final TokensRefreshedCallback onTokensRefreshed;
   final TokenRefreshCoordinator _refreshCoordinator;
 
-  /// 返回当前设备信息 Map（对应 proto DeviceInfo），用于刷新请求。
-  final Map<String, dynamic>? Function()? getDeviceInfo;
+  /// 返回当前设备信息 Map（对应 proto DeviceInfo）；刷新请求必须携带该字段。
+  final DeviceInfoGetter getDeviceInfo;
 
   /// 不需要尝试刷新的接口路径。
   static final _excludedPaths = RegExp(

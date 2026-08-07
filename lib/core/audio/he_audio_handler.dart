@@ -27,6 +27,7 @@ import '../../features/online/domain/entities/online_platform.dart';
 import '../../shared/models/he_music_models.dart';
 import '../../shared/utils/cover_resolver.dart';
 import '../../shared/utils/audio_quality_selector.dart';
+import '../device/device_info_provider.dart';
 import '../network/auth_token_interceptor.dart';
 import '../network/token_refresh_interceptor.dart';
 import 'audio_player_port.dart';
@@ -160,6 +161,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     HeAudioHandlerVisualizerFftStream? visualizerFftStreamOverride,
     HeAudioHandlerNow? nowOverride,
     HeAudioHandlerLog? logOverride,
+    DeviceInfoGetter? getDeviceInfoOverride,
     Random? randomOverride,
     OverlayChannelService? overlayLyricsServiceOverride,
   }) : _player = player ?? createHeAudioPlayer(),
@@ -174,6 +176,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
        _visualizerFftStreamOverride = visualizerFftStreamOverride,
        _now = nowOverride ?? DateTime.now,
        _logOverride = logOverride,
+       _getDeviceInfoOverride = getDeviceInfoOverride,
        _random = randomOverride ?? Random(),
        _overlayLyricsService =
            overlayLyricsServiceOverride ?? OverlayLyricsService() {
@@ -233,6 +236,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final HeAudioHandlerVisualizerFftStream? _visualizerFftStreamOverride;
   final HeAudioHandlerNow _now;
   final HeAudioHandlerLog? _logOverride;
+  final DeviceInfoGetter? _getDeviceInfoOverride;
   final OverlayChannelService _overlayLyricsService;
   final Random _random;
   late final AppLifecycleListener _appLifecycleListener;
@@ -2226,6 +2230,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         tokenHolder: globalTokenHolder,
         baseUrl: _apiBaseUrl,
         refreshCoordinator: globalTokenRefreshCoordinator,
+        getDeviceInfo: _loadDeviceInfoForRefresh,
         onTokensRefreshed: (accessToken, refreshToken, expiresAt) {
           return const AppConfigDataSource().saveTokens(
             accessToken,
@@ -2236,6 +2241,14 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       ),
     );
     return dio;
+  }
+
+  Future<Map<String, dynamic>> _loadDeviceInfoForRefresh() async {
+    final override = _getDeviceInfoOverride;
+    if (override != null) {
+      return await override();
+    }
+    return (await loadDeviceInfoData()).toApiMap();
   }
 
   Map<String, dynamic> _asMap(dynamic value) {

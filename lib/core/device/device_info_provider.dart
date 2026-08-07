@@ -36,7 +36,31 @@ class DeviceInfoData {
 
 /// 提供当前设备信息的 Riverpod Provider。
 /// 内部会自动生成并持久化 device_id。
-final deviceInfoProvider = FutureProvider<DeviceInfoData>((ref) async {
+final deviceInfoProvider = FutureProvider<DeviceInfoData>(
+  (ref) => loadDeviceInfoData(),
+);
+
+Future<DeviceInfoData>? _deviceInfoLoadFuture;
+
+/// 加载并缓存当前进程的设备信息，供 Riverpod 与后台音频刷新共用。
+Future<DeviceInfoData> loadDeviceInfoData() async {
+  final pending = _deviceInfoLoadFuture;
+  if (pending != null) {
+    return pending;
+  }
+  final future = _loadDeviceInfoData();
+  _deviceInfoLoadFuture = future;
+  try {
+    return await future;
+  } catch (_) {
+    if (identical(_deviceInfoLoadFuture, future)) {
+      _deviceInfoLoadFuture = null;
+    }
+    rethrow;
+  }
+}
+
+Future<DeviceInfoData> _loadDeviceInfoData() async {
   final prefs = await SharedPreferences.getInstance();
 
   // 读取或生成 device_id
@@ -65,7 +89,7 @@ final deviceInfoProvider = FutureProvider<DeviceInfoData>((ref) async {
     appVersion: appVersion,
     deviceName: deviceName,
   );
-});
+}
 
 Future<String> _resolveDeviceName(DeviceInfoPlugin plugin) async {
   try {

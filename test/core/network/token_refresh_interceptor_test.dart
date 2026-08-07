@@ -7,6 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/core/network/auth_token_interceptor.dart';
 import 'package:he_music_flutter/core/network/token_refresh_interceptor.dart';
 
+const _testDeviceInfo = <String, dynamic>{
+  'device_id': 'flutter_macos_test-uuid',
+  'platform': 'macos',
+  'app_type': 'flutter',
+  'app_version': '1.0.0',
+  'device_name': 'Test Mac',
+};
+
 void main() {
   group('TokenRefreshInterceptor', () {
     test('并发 401 应共享一次刷新并都用新 token 重试成功', () async {
@@ -29,6 +37,7 @@ void main() {
           onTokensRefreshed: (accessToken, refreshToken, _) {
             refreshedTokens.add('$accessToken|$refreshToken');
           },
+          getDeviceInfo: () async => _testDeviceInfo,
         ),
       );
 
@@ -40,6 +49,10 @@ void main() {
 
         expect(responses.map((item) => item.statusCode), everyElement(200));
         expect(server.refreshRequestCount, 1);
+        expect(
+          server.refreshRequestBodies.single['device_info'],
+          _testDeviceInfo,
+        );
         expect(
           server.retriedPaths,
           containsAll(<String>['/v1/user/info', '/v1/platforms']),
@@ -124,6 +137,49 @@ void main() {
         await server.close();
       }
     });
+
+    test('设备信息加载失败时不应发送无 device_info 的刷新请求', () async {
+      final server = await _TokenRefreshTestServer.start(
+        initialRequestTarget: 1,
+      );
+      final tokenHolder = TokenHolder(
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-token',
+      );
+      final dio = Dio(
+        BaseOptions(baseUrl: server.baseUrl, responseType: ResponseType.json),
+      );
+      dio.interceptors.add(
+        AuthTokenInterceptor(() => tokenHolder.accessToken, () => 'zh'),
+      );
+      dio.interceptors.add(
+        TokenRefreshInterceptor(
+          tokenHolder: tokenHolder,
+          baseUrl: server.baseUrl,
+          onTokensRefreshed: (_, _, _) {},
+          getDeviceInfo: () async =>
+              throw StateError('device info unavailable'),
+        ),
+      );
+
+      try {
+        await expectLater(
+          dio.get<dynamic>('/v1/user/info'),
+          throwsA(
+            isA<DioException>().having(
+              (error) => error.response?.statusCode,
+              'statusCode',
+              401,
+            ),
+          ),
+        );
+        expect(server.refreshRequestCount, 0);
+        expect(server.refreshRequestBodies, isEmpty);
+      } finally {
+        dio.close(force: true);
+        await server.close();
+      }
+    });
   });
 }
 
@@ -147,6 +203,7 @@ Dio _createDio(
       onTokensRefreshed: (accessToken, refreshToken, _) {
         refreshedTokens.add('$accessToken|$refreshToken');
       },
+      getDeviceInfo: () async => _testDeviceInfo,
     ),
   );
   return dio;
@@ -165,6 +222,8 @@ class _TokenRefreshTestServer {
   final Completer<void> _bothInitialRequestsSeen = Completer<void>();
   final List<String> retriedPaths = <String>[];
   final List<String> retryAuthorizations = <String>[];
+  final List<Map<String, dynamic>> refreshRequestBodies =
+      <Map<String, dynamic>>[];
   int _initialUnauthorizedCount = 0;
   int refreshRequestCount = 0;
   int protectedRequestCount = 0;
@@ -200,6 +259,13 @@ class _TokenRefreshTestServer {
 
   Future<void> _handleRefresh(HttpRequest request) async {
     refreshRequestCount++;
+    final body = await utf8.decoder.bind(request).join();
+    final decoded = jsonDecode(body);
+    if (decoded is Map) {
+      refreshRequestBodies.add(
+        decoded.map((key, value) => MapEntry('$key', value)),
+      );
+    }
     await Future<void>.delayed(const Duration(milliseconds: 50));
     _writeJson(request.response, <String, dynamic>{
       'access_token': 'fresh-token',

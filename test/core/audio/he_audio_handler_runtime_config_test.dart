@@ -71,7 +71,15 @@ void main() {
       ..refreshToken = 'refresh-token'
       ..expiresAt = 1;
     final loadedUrls = <String>[];
+    const deviceInfo = <String, dynamic>{
+      'device_id': 'flutter_macos_test-uuid',
+      'platform': 'macos',
+      'app_type': 'flutter',
+      'app_version': '1.0.0',
+      'device_name': 'Test Mac',
+    };
     final handler = HeAudioHandler(
+      getDeviceInfoOverride: () async => deviceInfo,
       fetchLyricsOverride:
           ({
             required String trackId,
@@ -105,6 +113,7 @@ void main() {
     ]);
 
     expect(server.refreshRequestCount, 1);
+    expect(server.refreshRequestBodies.single['device_info'], deviceInfo);
     expect(server.songUrlAuthorizations, <String>[
       'Bearer expired-token',
       'Bearer fresh-token',
@@ -1019,6 +1028,8 @@ class _AudioRefreshTestServer {
 
   final HttpServer _server;
   final List<String> songUrlAuthorizations = <String>[];
+  final List<Map<String, dynamic>> refreshRequestBodies =
+      <Map<String, dynamic>>[];
   int refreshRequestCount = 0;
 
   String get baseUrl => 'http://${_server.address.host}:${_server.port}';
@@ -1036,7 +1047,13 @@ class _AudioRefreshTestServer {
     switch (request.uri.path) {
       case '/v1/auth/token/refresh':
         refreshRequestCount++;
-        await utf8.decoder.bind(request).join();
+        final body = await utf8.decoder.bind(request).join();
+        final decoded = jsonDecode(body);
+        if (decoded is Map) {
+          refreshRequestBodies.add(
+            decoded.map((key, value) => MapEntry('$key', value)),
+          );
+        }
         await _writeJson(request.response, <String, dynamic>{
           'access_token': 'fresh-token',
           'refresh_token': 'fresh-refresh-token',
