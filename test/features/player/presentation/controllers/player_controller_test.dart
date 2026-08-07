@@ -13,6 +13,7 @@ import 'package:he_music_flutter/features/online/data/online_api_client.dart';
 import 'package:he_music_flutter/features/player/data/datasources/player_queue_data_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_history_item.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_queue_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_audio_provider.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_playback_api_provider.dart';
@@ -146,6 +147,37 @@ void main() {
     expect(apiClient.requests, isEmpty);
     expect(audioPlayer.lastQueueTracks.first.platform, 'qq');
     expect(audioPlayer.lastQueueTracks.first.url, isEmpty);
+  });
+
+  test('replaceQueue 未提供来源时应清空旧队列来源', () async {
+    final audioPlayer = _FakeAudioPlayerPort();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(audioPlayer),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(playerControllerProvider.notifier);
+    await controller.replaceQueue(
+      _buildQueue(),
+      autoplay: false,
+      queueSource: const PlayerQueueSource(
+        routePath: '/playlist/detail',
+        queryParameters: <String, String>{'id': 'playlist-1'},
+        title: '旧歌单',
+      ),
+    );
+    expect(container.read(playerControllerProvider).queueSource, isNotNull);
+
+    await controller.replaceQueue(
+      _buildQueue(),
+      startIndex: 1,
+      autoplay: false,
+    );
+
+    expect(container.read(playerControllerProvider).queueSource, isNull);
   });
 
   test('playAt 在底层队列装载成功前保留正式 currentIndex', () async {

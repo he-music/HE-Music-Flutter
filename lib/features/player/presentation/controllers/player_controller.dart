@@ -274,6 +274,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               currentSelectedQualityName: selectedQualityName,
               playMode: nextPlayMode,
               queueSource: queueSource,
+              clearQueueSource: queueSource == null,
               previousQueueSnapshot: previousSnapshot,
               isRadioMode: isRadioMode,
               currentRadioId: isRadioMode
