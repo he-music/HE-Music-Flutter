@@ -38,7 +38,28 @@ void main() {
     expect(find.text('What do you want to hear?'), findsNothing);
     final searchTopLeft = tester.getTopLeft(find.byType(HomeSearchField));
     expect(searchTopLeft.dx, 12);
-    expect(tester.getSize(find.byType(HomeSearchField)).height, 44);
+    expect(tester.getSize(find.byType(HomeSearchField)).height, 40);
+    final searchText = tester.widget<RichText>(
+      find
+          .descendant(
+            of: find.byType(HomeSearchField),
+            matching: find.byWidgetPredicate((widget) {
+              if (widget is! RichText || widget.text is! TextSpan) {
+                return false;
+              }
+              return (widget.text as TextSpan).children?.isNotEmpty ?? false;
+            }),
+          )
+          .first,
+    );
+    final primaryText =
+        (searchText.text as TextSpan).children!.first as TextSpan;
+    expect(
+      primaryText.style?.fontSize,
+      Theme.of(
+        tester.element(find.byType(HomeSearchField)),
+      ).textTheme.bodySmall?.fontSize,
+    );
 
     await tester.tap(find.text('Discover'));
     await tester.pump();

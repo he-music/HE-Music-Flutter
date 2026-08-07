@@ -124,6 +124,7 @@ The replacement dark derivative was inspected at full frame and local detail on 
 - Generator: `make skin-previews`, which runs `flutter test --update-goldens test/app/theme/skin_preview_golden_test.dart`.
 - Render contract: actual `MaterialApp.router`, `AppTheme`, `AppSkinBackgroundLayer`, home route, discover entries, song list, mini player, bottom navigation, production wallpapers, and production SVG catalog at a fixed `360x640` logical-pixel viewport.
 - Data contract: deterministic Riverpod overrides provide fixed Chinese UI content; no image model redraws or synthesizes application text.
+- UI revision: regenerated on 2026-08-07 after the Home search control became a compact floating sliver; wallpaper, SVG, and Rive assets are unchanged.
 - Test fonts: Roboto Regular, Medium, and Bold plus a 14 KB Chinese glyph subset derived from Android Open Source Project's Droid Sans Fallback, all under Apache License 2.0. The files, subset glyph manifest, provenance, and license are retained under `test/assets/fonts/` and are not declared as runtime assets.
 - Material fallback icons: loaded from the Material Icons font already declared by Flutter's `uses-material-design` contract.
 - Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
@@ -133,13 +134,13 @@ The replacement dark derivative was inspected at full frame and local detail on 
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `3c67bd41062d677c5d491705e2cc783d3af0c05f78e932b7825e54d320432654`.
+- SHA-256: `e43b5dc8947561f729105e94f1283b81cbaa3c2809dc20da1c7ec9d2dec7f6e2`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `6d3bca3a5c1f83a18525fab74201a50a4ce1cf4bebd29bcd2a9499fa0c854dc0`.
+- SHA-256: `36fddb0f368df8cab58a1bcf1da60adfc5d1214fc9b27d54d9d0780a766fe2b6`.
 
 ## Rive ambient animation
 

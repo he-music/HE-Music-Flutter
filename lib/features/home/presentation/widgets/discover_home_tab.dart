@@ -230,32 +230,56 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
               parent: BouncingScrollPhysics(),
             ),
             slivers: <Widget>[
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  LayoutTokens.compactPageGutter,
-                  8,
-                  LayoutTokens.compactPageGutter,
-                  0,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: _HomeTopControls(
+              SliverAppBar(
+                automaticallyImplyLeading: false,
+                primary: false,
+                floating: true,
+                snap: true,
+                toolbarHeight: 48,
+                collapsedHeight: 48,
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                flexibleSpace: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    LayoutTokens.compactPageGutter,
+                    2,
+                    LayoutTokens.compactPageGutter,
+                    6,
+                  ),
+                  child: _HomeSearchActions(
                     config: config,
-                    showEntries: page == HomePageKind.discover,
                     onSearchTap: () => _openSearchPage(
                       context: context,
                       config: config,
                       platformId: selectedPlatformId,
                     ),
-                    onEntryTap: (entry) => _openEntry(
-                      context: context,
-                      config: config,
-                      platformId: selectedPlatformId,
-                      entry: entry,
-                    ),
                     onParseUrl: () => context.push(AppRoutes.parseSourceUrl),
                   ),
                 ),
               ),
+              if (page == HomePageKind.discover)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    LayoutTokens.compactPageGutter,
+                    8,
+                    LayoutTokens.compactPageGutter,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: _EntryRow(
+                      config: config,
+                      onTapEntry: (entry) => _openEntry(
+                        context: context,
+                        config: config,
+                        platformId: selectedPlatformId,
+                        entry: entry,
+                      ),
+                    ),
+                  ),
+                ),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(
@@ -1379,58 +1403,45 @@ class _HomePlatformError extends StatelessWidget {
   }
 }
 
-class _HomeTopControls extends StatelessWidget {
-  const _HomeTopControls({
+class _HomeSearchActions extends StatelessWidget {
+  const _HomeSearchActions({
     required this.config,
-    required this.showEntries,
     required this.onSearchTap,
-    required this.onEntryTap,
     required this.onParseUrl,
   });
 
   final AppConfigState config;
-  final bool showEntries;
   final VoidCallback onSearchTap;
-  final ValueChanged<_DiscoverEntry> onEntryTap;
   final VoidCallback onParseUrl;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _HomeSearchPlaceholderField(
-                config: config,
-                onTap: onSearchTap,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Material(
-              color: theme.colorScheme.surface.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(14),
-              child: InkWell(
-                onTap: onParseUrl,
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Icon(
-                    Icons.link_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-          ],
+        Expanded(
+          child: _HomeSearchPlaceholderField(
+            config: config,
+            onTap: onSearchTap,
+          ),
         ),
-        if (showEntries) ...<Widget>[
-          const SizedBox(height: 14),
-          _EntryRow(config: config, onTapEntry: onEntryTap),
-        ],
+        const SizedBox(width: 8),
+        SizedBox.square(
+          dimension: 40,
+          child: Material(
+            color: theme.colorScheme.surface.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(13),
+            child: InkWell(
+              onTap: onParseUrl,
+              borderRadius: BorderRadius.circular(13),
+              child: Icon(
+                Icons.link_rounded,
+                color: theme.colorScheme.primary,
+                size: 18,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

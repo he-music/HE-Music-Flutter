@@ -139,6 +139,41 @@ void main() {
     expect(find.text('排行榜'), findsOneWidget);
   });
 
+  testWidgets('home search floats below fixed tabs when scrolling down', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(_buildScrollableHomeTestApp());
+    await tester.pumpAndSettle();
+
+    final recommendPage = find.byKey(
+      const PageStorageKey<String>('home-recommend'),
+    );
+    final scrollView = find.descendant(
+      of: recommendPage,
+      matching: find.byType(CustomScrollView),
+    );
+    final tabsTop = tester.getTopLeft(find.text('推荐'));
+
+    expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
+
+    await tester.drag(scrollView, const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeSearchField).hitTestable(), findsNothing);
+    expect(tester.getTopLeft(find.text('推荐')), tabsTop);
+
+    await tester.drag(scrollView, const Offset(0, 100));
+    await tester.pumpAndSettle();
+
+    final customScrollView = tester.widget<CustomScrollView>(scrollView);
+    expect(customScrollView.controller!.offset, greaterThan(0));
+    expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
+    expect(tester.getTopLeft(find.text('推荐')), tabsTop);
+  });
+
   testWidgets('home hides page tabs when only discover is available', (
     WidgetTester tester,
   ) async {
@@ -365,6 +400,23 @@ Widget _buildDiscoverTabTestApp({
   );
 }
 
+Widget _buildScrollableHomeTestApp() {
+  return ProviderScope(
+    overrides: [
+      appConfigProvider.overrideWith(_TestAppConfigController.new),
+      playerControllerProvider.overrideWith(_TestPlayerController.new),
+      onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
+      searchDefaultPlaceholderProvider.overrideWith(
+        _TestSearchDefaultPlaceholderController.new,
+      ),
+      homePageControllerProvider.overrideWith(
+        _TestScrollableHomePageController.new,
+      ),
+    ],
+    child: const MaterialApp(home: Scaffold(body: DiscoverHomeTab())),
+  );
+}
+
 OnlineSongListItem _onlineSongItem(WidgetTester tester, String songId) {
   return tester
       .widgetList<OnlineSongListItem>(find.byType(OnlineSongListItem))
@@ -566,6 +618,29 @@ class _TestLoadedHomePageController extends HomePageController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _TestScrollableHomePageController extends _TestLoadedHomePageController {
+  @override
+  HomePageState build() {
+    final loaded = super.build();
+    final platform = OnlinePlatform(
+      id: 'qq',
+      name: 'QQ音乐',
+      shortName: 'QQ',
+      status: 1,
+      featureSupportFlag:
+          PlatformFeatureSupportFlag.getRecommendPage |
+          PlatformFeatureSupportFlag.getDiscoverPage,
+      imageSizes: const <int>[150, 300, 600],
+    );
+    return HomePageState(
+      platforms: <OnlinePlatform>[platform],
+      selectedPage: HomePageKind.recommend,
+      recommend: loaded.discover,
+      discover: loaded.discover,
+    );
+  }
 }
 
 class _TestPendingHomePageController extends HomePageController {

@@ -23,72 +23,75 @@ class HomeSearchField extends StatelessWidget {
     final theme = Theme.of(context);
     final platform = platformLabel?.trim() ?? '';
     final secondary = placeholderSecondary?.trim() ?? '';
-    return AppSkinSurface(
-      role: AppSkinSurfaceRole.search,
-      borderRadius: BorderRadius.circular(16),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: <Widget>[
-                AppSkinIcon(
-                  role: AppSkinIconRole.search,
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: RichText(
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    text: TextSpan(
-                      children: <InlineSpan>[
-                        TextSpan(
-                          text: placeholderPrimary,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.8,
-                            ),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (secondary.isNotEmpty)
+    return SizedBox(
+      height: 40,
+      child: AppSkinSurface(
+        role: AppSkinSurfaceRole.search,
+        borderRadius: BorderRadius.circular(14),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: <Widget>[
+                  AppSkinIcon(
+                    role: AppSkinIconRole.search,
+                    color: theme.colorScheme.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: RichText(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
+                        children: <InlineSpan>[
                           TextSpan(
-                            text: ' $secondary',
+                            text: placeholderPrimary,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.8,
+                              ),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (platform.isNotEmpty) ...<Widget>[
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      platform,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w500,
+                          if (secondary.isNotEmpty)
+                            TextSpan(
+                              text: ' $secondary',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
+                  if (platform.isNotEmpty) ...<Widget>[
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        platform,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
