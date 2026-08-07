@@ -8,15 +8,20 @@ RequestOptions _options({Map<String, dynamic>? headers}) {
 
 void main() {
   group('AuthTokenInterceptor', () {
-    test('有 token 时设置双 header', () {
+    test('有 token 时只设置标准 Authorization header', () {
       final interceptor = AuthTokenInterceptor(() => 'abc123', () => 'zh');
       final options = _options();
       final handler = _TestInterceptorHandler();
 
       interceptor.onRequest(options, handler);
 
-      expect(options.headers['authorization'], 'Bearer abc123');
       expect(options.headers['Authorization'], 'Bearer abc123');
+      expect(
+        options.headers.keys
+            .where((key) => key.toLowerCase() == 'authorization')
+            .toList(),
+        <String>['Authorization'],
+      );
     });
 
     test('无 token（null）时跳过 token header', () {
@@ -38,6 +43,7 @@ void main() {
       interceptor.onRequest(options, handler);
 
       expect(options.headers.containsKey('authorization'), isFalse);
+      expect(options.headers.containsKey('Authorization'), isFalse);
     });
 
     test('有 localeCode 时设置 Accept-Language', () {
@@ -67,8 +73,13 @@ void main() {
 
       interceptor.onRequest(options, handler);
 
-      expect(options.headers['authorization'], 'Bearer my-token');
       expect(options.headers['Authorization'], 'Bearer my-token');
+      expect(
+        options.headers.keys
+            .where((key) => key.toLowerCase() == 'authorization')
+            .toList(),
+        <String>['Authorization'],
+      );
       expect(options.headers['Accept-Language'], 'en;q=0.9');
     });
 

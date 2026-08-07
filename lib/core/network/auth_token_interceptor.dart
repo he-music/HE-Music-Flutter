@@ -11,9 +11,6 @@ class AuthTokenInterceptor extends Interceptor {
     final token = _readToken();
     final localeCode = _readLocaleCode().trim();
     if (token != null && token.isNotEmpty) {
-      // 后端要求使用小写 header: authorization
-      // 同时保留 Authorization 兼容不同网关/代理行为。
-      options.headers['authorization'] = 'Bearer $token';
       options.headers['Authorization'] = 'Bearer $token';
     }
     if (localeCode.isNotEmpty) {

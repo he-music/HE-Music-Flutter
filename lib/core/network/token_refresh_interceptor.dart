@@ -217,7 +217,6 @@ class TokenRefreshInterceptor extends Interceptor {
       ),
     );
     try {
-      original.headers['authorization'] = 'Bearer $newToken';
       original.headers['Authorization'] = 'Bearer $newToken';
       original.extra['tokenRefreshed'] = true;
       return await retryDio.fetch<dynamic>(original);
