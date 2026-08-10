@@ -7,10 +7,11 @@ import 'package:marquee/marquee.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/player/styles/cassette_player_palette.dart';
 import '../../domain/entities/player_quality_option.dart';
 import '../providers/player_providers.dart';
 
-enum PlayerTrackHeaderLayout { standard, mobileLandscape }
+enum PlayerTrackHeaderLayout { standard, mobileLandscape, cassetteLabel }
 
 class PlayerTrackHeader extends ConsumerWidget {
   const PlayerTrackHeader({
@@ -20,6 +21,7 @@ class PlayerTrackHeader extends ConsumerWidget {
     required this.onOpenSpeed,
     this.onOpenArtist,
     this.layout = PlayerTrackHeaderLayout.standard,
+    this.showCassetteMetadataBadges = true,
     super.key,
   });
 
@@ -29,6 +31,7 @@ class PlayerTrackHeader extends ConsumerWidget {
   final VoidCallback onOpenSpeed;
   final VoidCallback? onOpenArtist;
   final PlayerTrackHeaderLayout layout;
+  final bool showCassetteMetadataBadges;
 
   /// 共享播放器布局用于预留固定歌曲信息槽位的高度。
   static const double layoutHeight = 58;
@@ -52,8 +55,9 @@ class PlayerTrackHeader extends ConsumerWidget {
     final artist = track?.artist?.trim().isNotEmpty == true
         ? track!.artist!.trim()
         : '-';
+    final cassettePalette = CassettePlayerPalette.maybeOf(context);
     final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
-      color: Colors.white,
+      color: cassettePalette?.foreground ?? Colors.white,
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
     );
@@ -87,23 +91,153 @@ class PlayerTrackHeader extends ConsumerWidget {
       );
     }
 
-    final qualities = ref.watch(
-      playerControllerProvider.select(
-        (state) => state.currentAvailableQualities,
-      ),
-    );
-    final qualityName = ref.watch(
-      playerControllerProvider.select(
-        (state) => state.currentSelectedQualityName,
-      ),
-    );
-    final speed = ref.watch(
-      playerControllerProvider.select((state) => state.speed),
-    );
-    final isRadioMode = ref.watch(
-      playerControllerProvider.select((state) => state.isRadioMode),
-    );
+    final needsFullMetadata =
+        layout != PlayerTrackHeaderLayout.cassetteLabel ||
+        showCassetteMetadataBadges;
+    final qualities = needsFullMetadata
+        ? ref.watch(
+            playerControllerProvider.select(
+              (state) => state.currentAvailableQualities,
+            ),
+          )
+        : const <PlayerQualityOption>[];
+    final qualityName = needsFullMetadata
+        ? ref.watch(
+            playerControllerProvider.select(
+              (state) => state.currentSelectedQualityName,
+            ),
+          )
+        : null;
+    final speed = needsFullMetadata
+        ? ref.watch(playerControllerProvider.select((state) => state.speed))
+        : 1.0;
+    final isRadioMode = needsFullMetadata
+        ? ref.watch(
+            playerControllerProvider.select((state) => state.isRadioMode),
+          )
+        : false;
     final quality = _findQualityByName(qualities, qualityName);
+    if (layout == PlayerTrackHeaderLayout.cassetteLabel) {
+      final palette = cassettePalette ?? CassettePlayerPalette.fallback;
+      return LayoutBuilder(
+        key: const ValueKey<String>('player-cassette-track-header'),
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 42;
+          final titleHeight = showCassetteMetadataBadges
+              ? (compact ? 15.0 : 18.0)
+              : 13.0;
+          final artistHeight = showCassetteMetadataBadges
+              ? (compact ? 16.0 : 19.0)
+              : 13.0;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              SizedBox(
+                height: titleHeight,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        title,
+                        key: const ValueKey<String>('player-track-title'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.foreground,
+                          fontSize: showCassetteMetadataBadges
+                              ? (compact ? 10 : 12)
+                              : 10,
+                          height: 1,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                    if (presentation.isTrackTransitioning)
+                      Semantics(
+                        liveRegion: true,
+                        label: AppI18n.format(
+                          ref.watch(appConfigProvider),
+                          'player.transition.preparing_track',
+                          <String, String>{'title': title},
+                        ),
+                        child: SizedBox.square(
+                          key: const ValueKey<String>(
+                            'player-track-preparing-indicator',
+                          ),
+                          dimension: compact ? 10 : 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: palette.edge,
+                          ),
+                        ),
+                      ),
+                    if (showCassetteMetadataBadges && isRadioMode) ...<Widget>[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.radio_rounded,
+                        size: compact ? 10 : 12,
+                        color: palette.edge,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: showCassetteMetadataBadges ? (compact ? 1 : 2) : 1,
+              ),
+              SizedBox(
+                height: artistHeight,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _ArtistAction(
+                        onTap: onOpenArtist,
+                        child: Text(
+                          artist,
+                          key: const ValueKey<String>('player-cassette-artist'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: palette.secondaryForeground,
+                            fontSize: showCassetteMetadataBadges
+                                ? (compact ? 8 : 10)
+                                : 8,
+                            height: 1,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (showCassetteMetadataBadges) const SizedBox(width: 5),
+                    if (showCassetteMetadataBadges &&
+                        quality != null &&
+                        !presentation.isTrackTransitioning) ...<Widget>[
+                      _PlayerMetadataBadge(
+                        key: const ValueKey<String>('player-quality-badge'),
+                        label: quality.name,
+                        onTap: onOpenQuality,
+                        compact: true,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    if (showCassetteMetadataBadges)
+                      _PlayerMetadataBadge(
+                        key: const ValueKey<String>('player-speed-badge'),
+                        label: '${speed.toStringAsFixed(speed == 1 ? 0 : 2)}x',
+                        onTap: onOpenSpeed,
+                        compact: true,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
     return SizedBox(
       key: const ValueKey<String>('player-track-header'),
       height: layoutHeight,
@@ -474,35 +608,45 @@ class _PlayerMetadataBadge extends StatelessWidget {
   const _PlayerMetadataBadge({
     required this.label,
     required this.onTap,
+    this.compact = false,
     super.key,
   });
 
   final String label;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final palette = CassettePlayerPalette.maybeOf(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(4),
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 4 : 6,
+            vertical: compact ? 2 : 3,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.22),
+              color:
+                  palette?.edge.withValues(alpha: 0.46) ??
+                  Colors.white.withValues(alpha: 0.22),
               width: 0.7,
             ),
           ),
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.92),
+              color:
+                  palette?.foreground.withValues(alpha: 0.92) ??
+                  Colors.white.withValues(alpha: 0.92),
               fontWeight: FontWeight.w500,
               letterSpacing: 0,
-              fontSize: 10,
+              fontSize: compact ? 8 : 10,
               height: 1,
             ),
           ),

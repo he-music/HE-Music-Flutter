@@ -27,6 +27,7 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
     this.track,
     this.isPortrait = false,
     this.artistPhotoImageProviderBuilder,
+    this.onClassicPaletteChanged,
   });
 
   final AppPlayerStageKind stageKind;
@@ -38,6 +39,9 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
 
   /// 测试可注入固定图片，运行时默认使用网络缓存图片。
   final ArtistPhotoImageProviderBuilder? artistPhotoImageProviderBuilder;
+
+  /// 复用背景已解析的封面色，避免前景组件再次解码封面。
+  final ValueChanged<List<Color>>? onClassicPaletteChanged;
 
   @override
   ConsumerState<PlayerBackdrop> createState() => _PlayerBackdropState();
@@ -243,6 +247,7 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
       AppPlayerStageKind.cassette => _ClassicGradientBackdrop(
         backdropKey: 'player-backdrop-cassette',
         imageProvider: widget.imageProvider,
+        onPaletteChanged: widget.onClassicPaletteChanged,
       ),
       AppPlayerStageKind.artistPhoto => _ArtistPhotoBackdrop(
         visualState: _artistPhotoState,
@@ -465,10 +470,12 @@ class _ClassicGradientBackdrop extends StatefulWidget {
   const _ClassicGradientBackdrop({
     required this.backdropKey,
     required this.imageProvider,
+    this.onPaletteChanged,
   });
 
   final String backdropKey;
   final ImageProvider<Object>? imageProvider;
+  final ValueChanged<List<Color>>? onPaletteChanged;
 
   @override
   State<_ClassicGradientBackdrop> createState() =>
@@ -496,6 +503,12 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageProvider != widget.imageProvider) {
       _refreshPalette();
+    } else if (oldWidget.onPaletteChanged != widget.onPaletteChanged &&
+        _currentPalette.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        widget.onPaletteChanged?.call(List<Color>.of(_currentPalette));
+      });
     }
   }
 
@@ -503,13 +516,17 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
     final generation = ++_paletteGeneration;
     final resolved = await _loadPalette(widget.imageProvider);
     if (!mounted || generation != _paletteGeneration) return;
+    final target = resolved.isEmpty
+        ? _fallbackClassicColors(Theme.of(context))
+        : resolved;
     setState(() {
       _previousPalette = _currentPalette.isEmpty
-          ? resolved
+          ? target
           : List<Color>.of(_currentPalette);
-      _currentPalette = resolved;
+      _currentPalette = target;
       _paletteVersion++;
     });
+    widget.onPaletteChanged?.call(List<Color>.of(target));
   }
 
   @override

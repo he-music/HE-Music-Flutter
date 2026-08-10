@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/player/styles/cassette_player_palette.dart';
 import '../../domain/entities/player_play_mode.dart';
 
 class PlayerControlBar extends StatelessWidget {
@@ -121,33 +122,55 @@ class _PrimaryControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    final palette = CassettePlayerPalette.maybeOf(context);
+    final foreground = palette?.foreground ?? Colors.white;
+    final button = IconButton(
       onPressed: onPressed,
       icon: isTrackTransitioning
           ? Semantics(
               label: preparingLabel,
               child: SizedBox.square(
                 dimension: compact ? 34 : 42,
-                child: const Center(
+                child: Center(
                   child: SizedBox.square(
-                    key: ValueKey<String>('player-control-preparing-indicator'),
+                    key: const ValueKey<String>(
+                      'player-control-preparing-indicator',
+                    ),
                     dimension: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.4,
-                      color: Colors.white,
+                      color: foreground,
                     ),
                   ),
                 ),
               ),
             )
           : Icon(icon, size: compact ? 34 : 42),
-      color: Colors.white,
+      color: foreground,
       style: IconButton.styleFrom(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        backgroundColor:
+            palette?.surfaceDeep.withValues(alpha: 0.72) ?? Colors.transparent,
+        foregroundColor: foreground,
         shadowColor: Colors.transparent,
         padding: EdgeInsets.all(compact ? 8 : 12),
+        side: palette == null
+            ? null
+            : BorderSide(color: palette.accent.withValues(alpha: 0.58)),
       ),
+    );
+    if (palette == null) return button;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: palette.accent.withValues(alpha: 0.18),
+            blurRadius: 14,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: button,
     );
   }
 }
@@ -167,10 +190,11 @@ class _RoundControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = CassettePlayerPalette.maybeOf(context);
     return IconButton(
       onPressed: onPressed,
       icon: Icon(icon, size: iconSize),
-      color: Colors.white,
+      color: palette?.foreground ?? Colors.white,
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,
         shadowColor: Colors.transparent,
@@ -196,12 +220,15 @@ class _SideControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = CassettePlayerPalette.maybeOf(context);
     return IconButton(
       onPressed: onPressed,
       tooltip: tooltip,
       icon: Icon(icon),
       iconSize: compact ? 18 : 22,
-      color: Colors.white.withValues(alpha: 0.84),
+      color:
+          palette?.edge.withValues(alpha: 0.88) ??
+          Colors.white.withValues(alpha: 0.84),
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,
         shadowColor: Colors.transparent,

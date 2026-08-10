@@ -167,6 +167,39 @@ void main() {
     );
   });
 
+  testWidgets('cassette label fits title artist quality and speed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildHeaderApp(
+        _ShortArtistController.new,
+        width: 260,
+        height: 44,
+        layout: PlayerTrackHeaderLayout.cassetteLabel,
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('player-cassette-track-header')),
+      findsOneWidget,
+    );
+    expect(find.text('一首很长但必须省略的歌曲标题'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('player-cassette-artist')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-quality-badge')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-speed-badge')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'overflowing mobile landscape metadata pauses five seconds at its start',
     (tester) async {
@@ -212,6 +245,7 @@ void main() {
 Widget _buildHeaderApp(
   PlayerController Function() controllerFactory, {
   double width = 300,
+  double? height,
   PlayerTrackHeaderLayout layout = PlayerTrackHeaderLayout.standard,
   VoidCallback? onOpenArtist,
 }) {
@@ -221,6 +255,7 @@ Widget _buildHeaderApp(
       home: Scaffold(
         body: SizedBox(
           width: width,
+          height: height,
           child: PlayerTrackHeader(
             noTrackText: 'No track',
             artistSlotWidth: 100,

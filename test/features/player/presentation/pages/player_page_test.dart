@@ -891,6 +891,136 @@ void main() {
       find.byKey(const ValueKey<String>('cassette-player-stage')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('player-cassette-track-header')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-track-header')),
+      findsNothing,
+    );
+    expect(find.text('在线歌曲'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('player-cassette-artist')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-quality-badge')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-speed-badge')),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey<String>('player-cassette-track-header')),
+        matching: find.byKey(
+          const ValueKey<String>('cassette-stage-ignore-pointer'),
+        ),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('desktop cassette keeps metadata inside the label', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 960));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.cassetteId,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('player-cassette-track-header')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-track-header')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mobile landscape cassette keeps compact metadata in the label', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(700, 420));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.cassetteId,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('player-track-header')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-cassette-track-header')),
+      findsOneWidget,
+    );
+    expect(find.text('在线歌曲'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('player-cassette-artist')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('cassette-label-cover')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('cassette-label-cover')))
+          .width,
+      greaterThan(34),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-quality-badge')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-speed-badge')),
+      findsNothing,
+    );
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey<String>('player-cassette-artist')),
+        matching: find.byKey(const ValueKey<String>('player-artist-action')),
+      ),
+      findsNothing,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('player-stage-cassette')))
+          .aspectRatio,
+      closeTo(1.60, 0.001),
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    debugDefaultTargetPlatformOverride = null;
   });
 
   test('player artist photo direction follows window orientation', () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/theme/player/styles/cassette_player_palette.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_control_bar.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_progress_bar.dart';
@@ -85,6 +86,48 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('cassette palette colors progress and playback controls', (
+    tester,
+  ) async {
+    final palette = CassettePlayerPalette.fromBackdrop(const <Color>[
+      Color(0xFF7E57C2),
+      Color(0xFFFFCA28),
+      Color(0xFF4527A0),
+      Color(0xFF1A1230),
+    ]);
+    await tester.pumpWidget(
+      _buildControls(
+        palette: palette,
+        isTrackTransitioning: false,
+        onPrevious: () {},
+        onNext: () {},
+        onOpenQueue: () {},
+        onPlayPause: () {},
+        onCyclePlayMode: () {},
+        onSeek: (_) {},
+      ),
+    );
+
+    final sliderTheme = tester.widget<SliderTheme>(
+      find.ancestor(
+        of: find.byKey(const ValueKey<String>('player-progress-slider')),
+        matching: find.byType(SliderTheme),
+      ),
+    );
+    expect(sliderTheme.data.activeTrackColor, palette.accent);
+    expect(sliderTheme.data.thumbColor, palette.foreground);
+
+    final playButton = _button(tester, Icons.play_arrow_rounded);
+    expect(
+      playButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
+      palette.foreground,
+    );
+    expect(
+      playButton.style?.backgroundColor?.resolve(const <WidgetState>{}),
+      palette.surfaceDeep.withValues(alpha: 0.72),
+    );
+  });
 }
 
 Widget _buildControls({
@@ -95,8 +138,10 @@ Widget _buildControls({
   required VoidCallback onPlayPause,
   required VoidCallback onCyclePlayMode,
   required ValueChanged<Duration> onSeek,
+  CassettePlayerPalette? palette,
 }) {
   return MaterialApp(
+    theme: ThemeData(extensions: <ThemeExtension<dynamic>>[?palette]),
     home: Scaffold(
       body: Column(
         children: <Widget>[

@@ -15,6 +15,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../../../app/theme/player/app_player_style_registry.dart';
+import '../../../../app/theme/player/styles/cassette_player_palette.dart';
 import '../../../../core/device/screen_wake_lock.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
@@ -91,6 +92,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _usesRealtimeSpectrum = false;
   RealtimeSpectrumController? _spectrumController;
   bool _spectrumSyncScheduled = false;
+  CassettePlayerPalette _cassettePalette = CassettePlayerPalette.fallback;
 
   @override
   void initState() {
@@ -334,6 +336,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 isPortrait: usePortraitArtistPhoto,
                 artistPhotoImageProviderBuilder:
                     widget.artistPhotoImageProviderBuilder,
+                onClassicPaletteChanged:
+                    playerStyle.stageKind == AppPlayerStageKind.cassette
+                    ? _handleCassettePaletteChanged
+                    : null,
               ),
             ),
             Positioned.fill(
@@ -343,75 +349,80 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 right: !isMobileLandscape,
                 bottom: !isMobileLandscape,
                 minimum: landscapeSafeMinimum,
-                child: PlayerResponsiveLayout(
-                  pageController: _pageController,
-                  onLayoutModeResolved: _handleLayoutModeResolved,
-                  allowMobileLandscape: allowMobileLandscape,
-                  onPageChanged: (index) {
-                    final pageToRestore = _mobilePageToRestore;
-                    if (pageToRestore != null && index != pageToRestore) {
-                      return;
-                    }
-                    if (_currentPage == index) {
-                      return;
-                    }
-                    setState(() => _currentPage = index);
-                    _requestSpectrumVisibilitySync();
-                  },
-                  topBarBuilder: (context, spec) => _PlayerTopBar(
-                    currentPage: _currentPage,
-                    total: _pageCount,
-                    showPageIndicator:
-                        spec.mode == PlayerLayoutMode.mobilePortrait,
-                    onClose: () => unawaited(_closePlayer()),
-                    onTapDot: _animateToPage,
-                  ),
-                  mainPlayerBuilder: (context, spec) => _PlayerMetaControlPage(
-                    noTrackText: AppI18n.t(config, 'player.noTrack'),
-                    controller: controller,
-                    layoutSpec: spec,
-                    stageKind: playerStyle.stageKind,
-                    stageMaxWidth: playerStyle.geometry.stageMaxWidth,
-                    track: displayedTrack,
-                    onOpenArtist: onOpenArtist,
-                    onOpenQueue: _openQueueSheet,
-                    onOpenMore: _openMoreSheet,
-                    onOpenLyrics: () => _animateToPage(1),
-                    onOpenQuality: () =>
-                        _openCurrentQualitySheet(context, controller),
-                    onOpenSpeed: () {
-                      final speed = ref.read(
-                        playerControllerProvider.select((s) => s.speed),
-                      );
-                      _openSpeedSheet(context, controller, speed);
+                child: _CassettePaletteScope(
+                  enabled: playerStyle.stageKind == AppPlayerStageKind.cassette,
+                  palette: _cassettePalette,
+                  child: PlayerResponsiveLayout(
+                    pageController: _pageController,
+                    onLayoutModeResolved: _handleLayoutModeResolved,
+                    allowMobileLandscape: allowMobileLandscape,
+                    onPageChanged: (index) {
+                      final pageToRestore = _mobilePageToRestore;
+                      if (pageToRestore != null && index != pageToRestore) {
+                        return;
+                      }
+                      if (_currentPage == index) {
+                        return;
+                      }
+                      setState(() => _currentPage = index);
+                      _requestSpectrumVisibilitySync();
                     },
-                  ),
-                  mobileLandscapeBuilder: (context, spec) =>
-                      _PlayerMobileLandscapeLayout(
-                        noTrackText: AppI18n.t(config, 'player.noTrack'),
-                        controller: controller,
-                        layoutSpec: spec,
-                        stageKind: playerStyle.stageKind,
-                        stageMaxWidth: playerStyle.geometry.stageMaxWidth,
-                        track: displayedTrack,
-                        lyrics: buildLyricPage(),
-                        exitLandscapeTooltip: AppI18n.t(
-                          config,
-                          'player.action.exit_landscape',
+                    topBarBuilder: (context, spec) => _PlayerTopBar(
+                      currentPage: _currentPage,
+                      total: _pageCount,
+                      showPageIndicator:
+                          spec.mode == PlayerLayoutMode.mobilePortrait,
+                      onClose: () => unawaited(_closePlayer()),
+                      onTapDot: _animateToPage,
+                    ),
+                    mainPlayerBuilder: (context, spec) =>
+                        _PlayerMetaControlPage(
+                          noTrackText: AppI18n.t(config, 'player.noTrack'),
+                          controller: controller,
+                          layoutSpec: spec,
+                          stageKind: playerStyle.stageKind,
+                          stageMaxWidth: playerStyle.geometry.stageMaxWidth,
+                          track: displayedTrack,
+                          onOpenArtist: onOpenArtist,
+                          onOpenQueue: _openQueueSheet,
+                          onOpenMore: _openMoreSheet,
+                          onOpenLyrics: () => _animateToPage(1),
+                          onOpenQuality: () =>
+                              _openCurrentQualitySheet(context, controller),
+                          onOpenSpeed: () {
+                            final speed = ref.read(
+                              playerControllerProvider.select((s) => s.speed),
+                            );
+                            _openSpeedSheet(context, controller, speed);
+                          },
                         ),
-                        onExitLandscape: () => unawaited(_exitLandscape()),
-                        onOpenArtist: onOpenArtist,
-                        onOpenQueue: _openQueueSheet,
-                        onOpenQuality: () =>
-                            _openCurrentQualitySheet(context, controller),
-                        onOpenSpeed: () {
-                          final speed = ref.read(
-                            playerControllerProvider.select((s) => s.speed),
-                          );
-                          _openSpeedSheet(context, controller, speed);
-                        },
-                      ),
-                  lyricsBuilder: (context, spec) => buildLyricPage(),
+                    mobileLandscapeBuilder: (context, spec) =>
+                        _PlayerMobileLandscapeLayout(
+                          noTrackText: AppI18n.t(config, 'player.noTrack'),
+                          controller: controller,
+                          layoutSpec: spec,
+                          stageKind: playerStyle.stageKind,
+                          stageMaxWidth: playerStyle.geometry.stageMaxWidth,
+                          track: displayedTrack,
+                          lyrics: buildLyricPage(),
+                          exitLandscapeTooltip: AppI18n.t(
+                            config,
+                            'player.action.exit_landscape',
+                          ),
+                          onExitLandscape: () => unawaited(_exitLandscape()),
+                          onOpenArtist: onOpenArtist,
+                          onOpenQueue: _openQueueSheet,
+                          onOpenQuality: () =>
+                              _openCurrentQualitySheet(context, controller),
+                          onOpenSpeed: () {
+                            final speed = ref.read(
+                              playerControllerProvider.select((s) => s.speed),
+                            );
+                            _openSpeedSheet(context, controller, speed);
+                          },
+                        ),
+                    lyricsBuilder: (context, spec) => buildLyricPage(),
+                  ),
                 ),
               ),
             ),
@@ -419,6 +430,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         ),
       ),
     );
+  }
+
+  void _handleCassettePaletteChanged(List<Color> colors) {
+    if (!mounted) return;
+    final palette = CassettePlayerPalette.fromBackdrop(colors);
+    if (palette == _cassettePalette) return;
+    setState(() => _cassettePalette = palette);
   }
 
   Future<void> _openCurrentQualitySheet(
@@ -1474,6 +1492,33 @@ bool supportsPlayerOrientationControlsForTest({
   return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 }
 
+class _CassettePaletteScope extends StatelessWidget {
+  const _CassettePaletteScope({
+    required this.enabled,
+    required this.palette,
+    required this.child,
+  });
+
+  final bool enabled;
+  final CassettePlayerPalette palette;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+    final base = Theme.of(context);
+    final extensions = List<ThemeExtension<dynamic>>.of(base.extensions.values)
+      ..removeWhere((extension) => extension is CassettePlayerPalette);
+    extensions.add(palette);
+    return AnimatedTheme(
+      duration: const Duration(milliseconds: 900),
+      curve: Curves.easeOutCubic,
+      data: base.copyWith(extensions: extensions),
+      child: child,
+    );
+  }
+}
+
 class _PlayerTopBar extends StatelessWidget {
   const _PlayerTopBar({
     required this.currentPage,
@@ -1491,6 +1536,8 @@ class _PlayerTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = CassettePlayerPalette.maybeOf(context);
+    final foreground = palette?.foreground ?? Colors.white;
     return SizedBox(
       height: 44,
       child: Stack(
@@ -1500,7 +1547,7 @@ class _PlayerTopBar extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: IconButton(
               onPressed: onClose,
-              style: IconButton.styleFrom(foregroundColor: Colors.white),
+              style: IconButton.styleFrom(foregroundColor: foreground),
               icon: const Icon(Icons.keyboard_arrow_down_rounded),
             ),
           ),
@@ -1519,8 +1566,8 @@ class _PlayerTopBar extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: active
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.32),
+                          ? palette?.accent ?? Colors.white
+                          : foreground.withValues(alpha: 0.32),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -1567,6 +1614,8 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gap = layoutSpec.verticalGap;
+    final palette = CassettePlayerPalette.maybeOf(context);
+    final usesCassetteLabel = stageKind == AppPlayerStageKind.cassette;
     final exitRail = SizedBox(
       key: const ValueKey<String>('player-mobile-landscape-exit-rail'),
       width: 48,
@@ -1576,7 +1625,9 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
           key: const ValueKey<String>('player-mobile-landscape-exit-button'),
           onPressed: onExitLandscape,
           tooltip: exitLandscapeTooltip,
-          style: IconButton.styleFrom(foregroundColor: Colors.white),
+          style: IconButton.styleFrom(
+            foregroundColor: palette?.foreground ?? Colors.white,
+          ),
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
         ),
       ),
@@ -1589,6 +1640,17 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
       onOpenSpeed: onOpenSpeed,
       layout: PlayerTrackHeaderLayout.mobileLandscape,
     );
+    final cassetteLabel = usesCassetteLabel
+        ? PlayerTrackHeader(
+            noTrackText: noTrackText,
+            artistSlotWidth: layoutSpec.artistSlotWidth,
+            onOpenArtist: null,
+            onOpenQuality: onOpenQuality,
+            onOpenSpeed: onOpenSpeed,
+            layout: PlayerTrackHeaderLayout.cassetteLabel,
+            showCassetteMetadataBadges: false,
+          )
+        : null;
     final controls = Row(
       key: const ValueKey<String>('player-mobile-landscape-controls'),
       children: <Widget>[
@@ -1671,6 +1733,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
                     stageKind: stageKind,
                     track: track,
                     maxWidth: stageMaxWidth,
+                    cassetteLabel: cassetteLabel,
                   ),
                 ),
               ),
@@ -1684,8 +1747,10 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
           flex: 3,
           child: Column(
             children: <Widget>[
-              trackHeader,
-              SizedBox(height: gap),
+              if (!usesCassetteLabel) ...<Widget>[
+                trackHeader,
+                SizedBox(height: gap),
+              ],
               Expanded(child: lyrics),
               SizedBox(height: gap),
               controls,
@@ -1729,13 +1794,18 @@ class _PlayerMetaControlPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gap = layoutSpec.verticalGap;
+    final usesCassetteLabel = stageKind == AppPlayerStageKind.cassette;
     final trackHeader = PlayerTrackHeader(
       noTrackText: noTrackText,
       artistSlotWidth: layoutSpec.artistSlotWidth,
       onOpenArtist: onOpenArtist,
       onOpenQuality: onOpenQuality,
       onOpenSpeed: onOpenSpeed,
+      layout: usesCassetteLabel
+          ? PlayerTrackHeaderLayout.cassetteLabel
+          : PlayerTrackHeaderLayout.standard,
     );
+    final cassetteLabel = usesCassetteLabel ? trackHeader : null;
     final utilityBar = _PlayerUtilityBar(onOpenMore: onOpenMore);
     final controls = <Widget>[
       utilityBar,
@@ -1759,12 +1829,15 @@ class _PlayerMetaControlPage extends StatelessWidget {
                 stageKind: stageKind,
                 track: track,
                 maxWidth: stageMaxWidth,
+                cassetteLabel: cassetteLabel,
               ),
             ),
           ),
           SizedBox(height: gap),
-          trackHeader,
-          SizedBox(height: gap),
+          if (!usesCassetteLabel) ...<Widget>[
+            trackHeader,
+            SizedBox(height: gap),
+          ],
           ...controls,
         ],
       );
@@ -1781,16 +1854,18 @@ class _PlayerMetaControlPage extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final stageAspectRatio = stageKind == AppPlayerStageKind.cassette
-                  ? 1.48
+                  ? cassettePlayerStageAspectRatio
                   : 1.0;
               final idealStageWidth = constraints.maxWidth < stageMaxWidth
                   ? constraints.maxWidth
                   : stageMaxWidth;
               final idealStageHeight = idealStageWidth / stageAspectRatio;
               final reservedInformationHeight =
-                  PlayerTrackHeader.layoutHeight +
                   PlayerCompactLyricSection.layoutHeight +
-                  gap * 3;
+                  gap * 2 +
+                  (usesCassetteLabel
+                      ? 0
+                      : PlayerTrackHeader.layoutHeight + gap);
               final availableStageHeight =
                   constraints.maxHeight - reservedInformationHeight;
               final stageHeight = availableStageHeight <= 0
@@ -1807,11 +1882,14 @@ class _PlayerMetaControlPage extends StatelessWidget {
                       stageKind: stageKind,
                       track: track,
                       maxWidth: stageMaxWidth,
+                      cassetteLabel: cassetteLabel,
                     ),
                   ),
                   SizedBox(height: gap),
-                  trackHeader,
-                  SizedBox(height: gap),
+                  if (!usesCassetteLabel) ...<Widget>[
+                    trackHeader,
+                    SizedBox(height: gap),
+                  ],
                   lyricPreview,
                   SizedBox(height: gap),
                   const Expanded(
@@ -1860,12 +1938,15 @@ class _PlayerUtilityRow extends ConsumerWidget {
     final isTrackTransitioning = ref.watch(
       playerControllerProvider.select((state) => state.isTrackTransitioning),
     );
+    final palette = CassettePlayerPalette.maybeOf(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         _PlayerUtilityButton(
           icon: Icons.more_horiz_rounded,
-          color: Colors.white.withValues(alpha: 0.82),
+          color:
+              palette?.foreground.withValues(alpha: 0.88) ??
+              Colors.white.withValues(alpha: 0.82),
           onTap: isTrackTransitioning ? null : onOpenMore,
         ),
       ],
@@ -1901,10 +1982,12 @@ class _PlayerFavoriteButton extends ConsumerWidget {
         ),
       ),
     );
+    final palette = CassettePlayerPalette.maybeOf(context);
 
     final color = isFavorited
-        ? Colors.redAccent
-        : Colors.white.withValues(alpha: 0.82);
+        ? palette?.accent ?? Colors.redAccent
+        : palette?.foreground.withValues(alpha: 0.88) ??
+              Colors.white.withValues(alpha: 0.82);
 
     return _PlayerUtilityButton(
       icon: isFavorited

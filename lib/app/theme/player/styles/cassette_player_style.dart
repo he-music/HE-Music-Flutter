@@ -14,11 +14,11 @@ const AppPlayerStylePackage cassettePlayerStyle = AppPlayerStylePackage(
   colors: AppPlayerStyleColors(
     backgroundStart: classicPlayerBackgroundStart,
     backgroundEnd: classicPlayerBackgroundEnd,
-    foreground: Color(0xFFF5F1E8),
-    secondaryForeground: Color(0xBFD8D6CC),
-    accent: Color(0xFFE9C75C),
-    controlSurface: Color(0x33344C49),
-    controlBorder: Color(0x3D9ED7CF),
+    foreground: Color(0xFFF4F0E7),
+    secondaryForeground: Color(0xBFD6E1DE),
+    accent: Color(0xFF70E1D1),
+    controlSurface: Color(0x40151F21),
+    controlBorder: Color(0x6670E1D1),
   ),
   geometry: AppPlayerStyleGeometry(stageMaxWidth: 470, controlRadius: 16),
   systemOverlayStyle: SystemUiOverlayStyle(

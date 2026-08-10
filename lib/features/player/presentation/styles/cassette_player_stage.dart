@@ -3,9 +3,37 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/theme/player/styles/cassette_player_palette.dart';
 import '../../domain/entities/player_track.dart';
 import '../helpers/player_artwork_helper.dart';
 import '../providers/player_providers.dart';
+
+Path _cassetteShellPath(Size size) {
+  final cut = size.height * 0.09;
+  return Path()
+    ..moveTo(cut, 0)
+    ..lineTo(size.width - cut, 0)
+    ..lineTo(size.width, cut)
+    ..lineTo(size.width, size.height - cut)
+    ..lineTo(size.width - cut, size.height)
+    ..lineTo(cut, size.height)
+    ..lineTo(0, size.height - cut)
+    ..lineTo(0, cut)
+    ..close();
+}
+
+Path _notchedRectPath(Rect rect, double cut) {
+  return Path()
+    ..moveTo(rect.left + cut, rect.top)
+    ..lineTo(rect.right - cut, rect.top)
+    ..lineTo(rect.right, rect.top + cut)
+    ..lineTo(rect.right, rect.bottom - cut)
+    ..lineTo(rect.right - cut, rect.bottom)
+    ..lineTo(rect.left + cut, rect.bottom)
+    ..lineTo(rect.left, rect.bottom - cut)
+    ..lineTo(rect.left, rect.top + cut)
+    ..close();
+}
 
 @visibleForTesting
 double resolveCassetteTapeProgress(Duration position, Duration duration) {
@@ -14,9 +42,10 @@ double resolveCassetteTapeProgress(Duration position, Duration duration) {
 }
 
 class CassettePlayerStage extends ConsumerStatefulWidget {
-  const CassettePlayerStage({required this.track, super.key});
+  const CassettePlayerStage({required this.track, this.label, super.key});
 
   final PlayerTrack? track;
+  final Widget? label;
 
   @override
   ConsumerState<CassettePlayerStage> createState() =>
@@ -65,52 +94,71 @@ class _CassettePlayerStageState extends ConsumerState<CassettePlayerStage>
       widget.track?.artworkUrl,
       widget.track?.artworkBytes,
     );
+    final palette = CassettePlayerPalette.of(context);
 
-    return IgnorePointer(
-      key: const ValueKey<String>('cassette-stage-ignore-pointer'),
-      child: RepaintBoundary(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final height = constraints.maxHeight;
-            final reelSize = height * 0.27;
-            return Stack(
-              key: const ValueKey<String>('cassette-player-stage'),
-              children: <Widget>[
-                Positioned.fill(child: const _CassetteTapeLayer()),
-                Positioned(
-                  left: width * 0.31 - reelSize / 2,
-                  top: height * 0.50 - reelSize / 2,
-                  child: _CassetteReel(
-                    key: const ValueKey<String>('cassette-left-reel'),
-                    size: reelSize,
-                    turns: _reelController,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        final reelSize = height * 0.30;
+        return Stack(
+          key: const ValueKey<String>('cassette-player-stage'),
+          children: <Widget>[
+            Positioned.fill(
+              child: IgnorePointer(
+                key: const ValueKey<String>('cassette-stage-ignore-pointer'),
+                child: RepaintBoundary(
+                  child: Stack(
+                    children: <Widget>[
+                      Positioned.fill(child: _CassetteTapeLayer(palette)),
+                      Positioned.fill(
+                        child: CustomPaint(
+                          key: const ValueKey<String>('cassette-light-sweep'),
+                          painter: CassetteLightSweepPainter(
+                            phase: _reelController,
+                            palette: palette,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: width * 0.28 - reelSize / 2,
+                        top: height * 0.57 - reelSize / 2,
+                        child: _CassetteReel(
+                          key: const ValueKey<String>('cassette-left-reel'),
+                          size: reelSize,
+                          turns: _reelController,
+                          palette: palette,
+                        ),
+                      ),
+                      Positioned(
+                        left: width * 0.72 - reelSize / 2,
+                        top: height * 0.57 - reelSize / 2,
+                        child: _CassetteReel(
+                          key: const ValueKey<String>('cassette-right-reel'),
+                          size: reelSize,
+                          turns: _reelController,
+                          palette: palette,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Positioned(
-                  left: width * 0.69 - reelSize / 2,
-                  top: height * 0.50 - reelSize / 2,
-                  child: _CassetteReel(
-                    key: const ValueKey<String>('cassette-right-reel'),
-                    size: reelSize,
-                    turns: _reelController,
-                  ),
-                ),
-                Positioned(
-                  left: width * 0.12,
-                  right: width * 0.12,
-                  top: height * 0.10,
-                  height: height * 0.23,
-                  child: _CassetteLabel(
-                    track: widget.track,
-                    imageProvider: imageProvider,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+              ),
+            ),
+            Positioned(
+              left: width * 0.10,
+              right: width * 0.10,
+              top: height * 0.045,
+              height: height * 0.285,
+              child: _CassetteLabel(
+                imageProvider: imageProvider,
+                palette: palette,
+                child: widget.label,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -127,7 +175,9 @@ class _CassettePlayerStageState extends ConsumerState<CassettePlayerStage>
 }
 
 class _CassetteTapeLayer extends ConsumerWidget {
-  const _CassetteTapeLayer();
+  const _CassetteTapeLayer(this.palette);
+
+  final CassettePlayerPalette palette;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -147,7 +197,7 @@ class _CassetteTapeLayer extends ConsumerWidget {
       builder: (context, value, child) {
         return CustomPaint(
           key: const ValueKey<String>('cassette-shell-painter'),
-          painter: CassetteShellPainter(tapeProgress: value),
+          painter: CassetteShellPainter(tapeProgress: value, palette: palette),
         );
       },
     );
@@ -155,10 +205,15 @@ class _CassetteTapeLayer extends ConsumerWidget {
 }
 
 class _CassetteLabel extends StatelessWidget {
-  const _CassetteLabel({required this.track, required this.imageProvider});
+  const _CassetteLabel({
+    required this.imageProvider,
+    required this.palette,
+    required this.child,
+  });
 
-  final PlayerTrack? track;
   final ImageProvider<Object>? imageProvider;
+  final CassettePlayerPalette palette;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -166,79 +221,52 @@ class _CassetteLabel extends StatelessWidget {
     return DecoratedBox(
       key: const ValueKey<String>('cassette-track-label'),
       decoration: BoxDecoration(
-        color: const Color(0xFFE9E0C9),
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: const Color(0xFFB8AD94)),
+        color: palette.surfaceDeep.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: palette.edge.withValues(alpha: 0.68)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: palette.edge.withValues(alpha: 0.14),
+            blurRadius: 10,
+          ),
+        ],
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           // 手机横屏时收紧标签内边距，避免改变磁带主体比例。
-          final verticalPadding = constraints.maxHeight < 46 ? 1.5 : 6.0;
+          final compact = constraints.maxHeight < 48;
+          final padding = compact ? 4.0 : 6.0;
+          final labelFontSize = compact ? 8.0 : 10.0;
           return Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 9,
-              vertical: verticalPadding,
-            ),
+            padding: EdgeInsets.all(padding),
             child: Row(
               children: <Widget>[
                 AspectRatio(
+                  key: const ValueKey<String>('cassette-label-cover'),
                   aspectRatio: 1,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: image == null
-                        ? const ColoredBox(
-                            color: Color(0xFF34534F),
-                            child: Icon(
-                              Icons.music_note_rounded,
-                              color: Color(0xFFE9E0C9),
-                              size: 18,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: palette.edge.withValues(alpha: 0.42),
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(1),
+                      child: image == null
+                          ? _buildFallbackCover()
+                          : Image(
+                              image: image,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildFallbackCover(),
                             ),
-                          )
-                        : Image(
-                            image: image,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const ColoredBox(
-                                  color: Color(0xFF34534F),
-                                  child: Icon(
-                                    Icons.music_note_rounded,
-                                    color: Color(0xFFE9E0C9),
-                                    size: 18,
-                                  ),
-                                ),
-                          ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: compact ? 6 : 9),
                 Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        track?.title ?? '-',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF263532),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        track?.artist ?? '-',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF52635F),
-                          fontSize: 10,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: child ?? _buildDecorativeLabel(labelFontSize, compact),
                 ),
               ],
             ),
@@ -247,13 +275,73 @@ class _CassetteLabel extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildFallbackCover() {
+    return ColoredBox(
+      color: palette.surfaceRaised,
+      child: Icon(Icons.music_note_rounded, color: palette.edge, size: 16),
+    );
+  }
+
+  Widget _buildDecorativeLabel(double labelFontSize, bool compact) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: ColoredBox(
+                color: palette.edge.withValues(alpha: 0.42),
+                child: const SizedBox(height: 1),
+              ),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              'SIDE A',
+              style: TextStyle(
+                color: palette.edge,
+                fontSize: labelFontSize,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: compact ? 3 : 5),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: ColoredBox(
+                color: palette.foreground.withValues(alpha: 0.20),
+                child: const SizedBox(height: 1),
+              ),
+            ),
+            const SizedBox(width: 6),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: palette.accent,
+                shape: BoxShape.circle,
+              ),
+              child: const SizedBox.square(dimension: 4),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _CassetteReel extends StatelessWidget {
-  const _CassetteReel({required this.size, required this.turns, super.key});
+  const _CassetteReel({
+    required this.size,
+    required this.turns,
+    required this.palette,
+    super.key,
+  });
 
   final double size;
   final Animation<double> turns;
+  final CassettePlayerPalette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -261,103 +349,181 @@ class _CassetteReel extends StatelessWidget {
       turns: turns,
       child: SizedBox.square(
         dimension: size,
-        child: CustomPaint(painter: const CassetteReelPainter()),
+        child: CustomPaint(painter: CassetteReelPainter(palette: palette)),
       ),
     );
   }
 }
 
 class CassetteShellPainter extends CustomPainter {
-  const CassetteShellPainter({required this.tapeProgress});
+  const CassetteShellPainter({
+    required this.tapeProgress,
+    this.palette = CassettePlayerPalette.fallback,
+  });
 
   final double tapeProgress;
+  final CassettePlayerPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final outer = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(size.height * 0.09),
-    );
-    canvas.drawRRect(
-      outer,
+    final shell = _cassetteShellPath(size);
+    canvas.drawPath(
+      shell,
       Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+        ..color = palette.edge.withValues(alpha: 0.22)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.height * 0.055),
+    );
+    canvas.drawPath(
+      shell,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: <Color>[
-            Color(0xFF566C68),
-            Color(0xFF2D3D3A),
-            Color(0xFF192724),
+            palette.surface.withValues(alpha: 0.96),
+            palette.surfaceDeep.withValues(alpha: 0.96),
           ],
         ).createShader(Offset.zero & size),
     );
-    canvas.drawRRect(
-      outer.deflate(size.height * 0.014),
+    canvas.drawPath(
+      shell,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = size.height * 0.012
-        ..color = Colors.white.withValues(alpha: 0.16),
+        ..color = palette.edge.withValues(alpha: 0.78),
     );
 
-    final window = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        size.width * 0.16,
-        size.height * 0.36,
-        size.width * 0.68,
-        size.height * 0.31,
-      ),
-      Radius.circular(size.height * 0.045),
+    final windowRect = Rect.fromLTWH(
+      size.width * 0.075,
+      size.height * 0.34,
+      size.width * 0.85,
+      size.height * 0.43,
     );
-    canvas.drawRRect(window, Paint()..color = const Color(0xB3192221));
-    canvas.drawRRect(
+    final window = _notchedRectPath(windowRect, size.height * 0.055);
+    canvas.drawPath(
+      window,
+      Paint()..color = palette.surfaceDeep.withValues(alpha: 0.90),
+    );
+    canvas.drawPath(
       window,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = const Color(0x668FB6AE),
+        ..strokeWidth = size.height * 0.008
+        ..color = palette.edge.withValues(alpha: 0.42),
     );
 
-    final leftCenter = Offset(size.width * 0.31, size.height * 0.50);
-    final rightCenter = Offset(size.width * 0.69, size.height * 0.50);
-    final maxTapeRadius = size.height * 0.125;
-    final minTapeRadius = size.height * 0.075;
+    final leftCenter = Offset(size.width * 0.28, size.height * 0.57);
+    final rightCenter = Offset(size.width * 0.72, size.height * 0.57);
+    final maxTapeRadius = size.height * 0.185;
+    final minTapeRadius = size.height * 0.095;
+    // 两侧磁带盘半径随播放进度反向变化，拖动后磁带量同步过渡。
     final leftRadius = _lerp(maxTapeRadius, minTapeRadius, tapeProgress);
     final rightRadius = _lerp(minTapeRadius, maxTapeRadius, tapeProgress);
-    final tapePaint = Paint()..color = const Color(0xFF211715);
+    final tapePaint = Paint()
+      ..color = Color.lerp(palette.surfaceDeep, palette.accent, 0.14)!;
     canvas.drawCircle(leftCenter, leftRadius, tapePaint);
     canvas.drawCircle(rightCenter, rightRadius, tapePaint);
+    _drawTapeRings(canvas, leftCenter, leftRadius);
+    _drawTapeRings(canvas, rightCenter, rightRadius);
+
     canvas.drawLine(
-      Offset(leftCenter.dx, leftCenter.dy + leftRadius * 0.72),
-      Offset(rightCenter.dx, rightCenter.dy + rightRadius * 0.72),
+      leftCenter,
+      rightCenter,
       Paint()
-        ..color = const Color(0xFF2C1C18)
+        ..color = Color.lerp(palette.surfaceRaised, palette.accent, 0.24)!
         ..strokeWidth = size.height * 0.018
         ..strokeCap = StrokeCap.round,
     );
-
-    final lowerPlate = Path()
-      ..moveTo(size.width * 0.23, size.height * 0.73)
-      ..lineTo(size.width * 0.77, size.height * 0.73)
-      ..lineTo(size.width * 0.68, size.height * 0.92)
-      ..lineTo(size.width * 0.32, size.height * 0.92)
-      ..close();
-    canvas.drawPath(lowerPlate, Paint()..color = const Color(0xFFBBC2B9));
-    canvas.drawPath(
-      lowerPlate,
+    final progressEnd = Offset(
+      _lerp(leftCenter.dx, rightCenter.dx, tapeProgress),
+      leftCenter.dy,
+    );
+    canvas.drawLine(
+      leftCenter,
+      progressEnd,
       Paint()
-        ..style = PaintingStyle.stroke
-        ..color = const Color(0xFF6E7770),
+        ..color = palette.accent.withValues(alpha: 0.42)
+        ..strokeWidth = size.height * 0.045
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.height * 0.04),
+    );
+    canvas.drawLine(
+      leftCenter,
+      progressEnd,
+      Paint()
+        ..color = palette.accent
+        ..strokeWidth = size.height * 0.010
+        ..strokeCap = StrokeCap.round,
     );
 
-    final screwPaint = Paint()..color = const Color(0xFFC7CCC7);
-    for (final center in <Offset>[
-      Offset(size.width * 0.07, size.height * 0.10),
-      Offset(size.width * 0.93, size.height * 0.10),
-      Offset(size.width * 0.08, size.height * 0.88),
-      Offset(size.width * 0.92, size.height * 0.88),
-    ]) {
-      canvas.drawCircle(center, size.height * 0.018, screwPaint);
+    final dataRail = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        size.width * 0.20,
+        size.height * 0.86,
+        size.width * 0.60,
+        size.height * 0.042,
+      ),
+      Radius.circular(size.height * 0.021),
+    );
+    canvas.drawRRect(dataRail, Paint()..color = palette.surfaceDeep);
+    final railStart = size.width * 0.225;
+    final railGap = size.width * 0.065;
+    for (var index = 0; index < 9; index++) {
+      canvas.drawLine(
+        Offset(railStart + railGap * index, size.height * 0.881),
+        Offset(
+          railStart + railGap * index + size.width * 0.024,
+          size.height * 0.881,
+        ),
+        Paint()
+          ..color = index == 0
+              ? palette.accent
+              : palette.edge.withValues(alpha: 0.38)
+          ..strokeWidth = size.height * 0.008
+          ..strokeCap = StrokeCap.round,
+      );
     }
+
+    for (final center in <Offset>[
+      Offset(size.width * 0.045, size.height * 0.15),
+      Offset(size.width * 0.955, size.height * 0.15),
+      Offset(size.width * 0.045, size.height * 0.85),
+      Offset(size.width * 0.955, size.height * 0.85),
+    ]) {
+      _drawFastener(canvas, center, size.height * 0.024);
+    }
+  }
+
+  void _drawTapeRings(Canvas canvas, Offset center, double radius) {
+    for (final scale in <double>[0.72, 0.46]) {
+      canvas.drawCircle(
+        center,
+        radius * scale,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = radius * 0.035
+          ..color = palette.accent.withValues(alpha: 0.12),
+      );
+    }
+  }
+
+  void _drawFastener(Canvas canvas, Offset center, double radius) {
+    canvas.drawCircle(
+      center,
+      radius * 1.8,
+      Paint()
+        ..color = palette.edge.withValues(alpha: 0.24)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius),
+    );
+    canvas.drawCircle(center, radius, Paint()..color = palette.surfaceDeep);
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = radius * 0.32
+        ..color = palette.edge.withValues(alpha: 0.85),
+    );
   }
 
   double _lerp(double start, double end, double value) {
@@ -366,42 +532,105 @@ class CassetteShellPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CassetteShellPainter oldDelegate) {
-    return oldDelegate.tapeProgress != tapeProgress;
+    return oldDelegate.tapeProgress != tapeProgress ||
+        oldDelegate.palette != palette;
+  }
+}
+
+class CassetteLightSweepPainter extends CustomPainter {
+  CassetteLightSweepPainter({
+    required Animation<double> phase,
+    required this.palette,
+  }) : _phase = phase,
+       super(repaint: phase);
+
+  final Animation<double> _phase;
+  final CassettePlayerPalette palette;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerX = -size.width * 0.22 + size.width * 1.44 * _phase.value;
+    final sweepWidth = size.width * 0.10;
+    final sweep = Path()
+      ..moveTo(centerX - sweepWidth, 0)
+      ..lineTo(centerX, 0)
+      ..lineTo(centerX + sweepWidth, size.height)
+      ..lineTo(centerX, size.height)
+      ..close();
+    canvas
+      ..save()
+      ..clipPath(_cassetteShellPath(size))
+      ..drawPath(
+        sweep,
+        Paint()
+          ..shader = LinearGradient(
+            colors: <Color>[
+              palette.edge.withValues(alpha: 0),
+              palette.edge.withValues(alpha: 0.14),
+              palette.foreground.withValues(alpha: 0),
+            ],
+          ).createShader(sweep.getBounds()),
+      )
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CassetteLightSweepPainter oldDelegate) {
+    return oldDelegate.palette != palette;
   }
 }
 
 class CassetteReelPainter extends CustomPainter {
-  const CassetteReelPainter();
+  const CassetteReelPainter({this.palette = CassettePlayerPalette.fallback});
+
+  final CassettePlayerPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
     final radius = size.shortestSide / 2;
-    canvas.drawCircle(center, radius, Paint()..color = const Color(0xFFE0DED3));
     canvas.drawCircle(
       center,
-      radius * 0.72,
-      Paint()..color = const Color(0xFF6D7772),
+      radius,
+      Paint()
+        ..color = palette.edge.withValues(alpha: 0.32)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius * 0.20),
+    );
+    canvas.drawCircle(
+      center,
+      radius * 0.92,
+      Paint()..color = palette.surfaceDeep,
+    );
+    canvas.drawCircle(
+      center,
+      radius * 0.88,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = radius * 0.07
+        ..color = palette.edge,
+    );
+    canvas.drawCircle(
+      center,
+      radius * 0.62,
+      Paint()..color = palette.surfaceRaised,
     );
     final spokePaint = Paint()
-      ..color = const Color(0xFFECE9DB)
-      ..strokeWidth = radius * 0.17
+      ..color = palette.foreground
+      ..strokeWidth = radius * 0.13
       ..strokeCap = StrokeCap.round;
-    for (var index = 0; index < 6; index++) {
-      final angle = (math.pi * 2 * index) / 6;
+    for (var index = 0; index < 8; index++) {
+      final angle = (math.pi * 2 * index) / 8;
       canvas.drawLine(
         center + Offset(math.cos(angle), math.sin(angle)) * radius * 0.24,
-        center + Offset(math.cos(angle), math.sin(angle)) * radius * 0.62,
+        center + Offset(math.cos(angle), math.sin(angle)) * radius * 0.54,
         spokePaint,
       );
     }
-    canvas.drawCircle(
-      center,
-      radius * 0.20,
-      Paint()..color = const Color(0xFF26312F),
-    );
+    canvas.drawCircle(center, radius * 0.17, Paint()..color = palette.accent);
   }
 
   @override
-  bool shouldRepaint(covariant CassetteReelPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CassetteReelPainter oldDelegate) {
+    return oldDelegate.palette != palette;
+  }
 }

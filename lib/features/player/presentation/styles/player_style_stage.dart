@@ -9,17 +9,21 @@ import 'cassette_player_stage.dart';
 import 'radial_spectrum_player_stage.dart';
 import 'vinyl_player_stage.dart';
 
+const double cassettePlayerStageAspectRatio = 1.60;
+
 class PlayerStyleStage extends StatelessWidget {
   const PlayerStyleStage({
     required this.stageKind,
     required this.track,
     required this.maxWidth,
+    this.cassetteLabel,
     super.key,
   });
 
   final AppPlayerStageKind stageKind;
   final PlayerTrack? track;
   final double maxWidth;
+  final Widget? cassetteLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +35,7 @@ class PlayerStyleStage extends StatelessWidget {
           );
         }
         final isCassette = stageKind == AppPlayerStageKind.cassette;
-        final aspectRatio = isCassette ? 1.48 : 1.0;
+        final aspectRatio = isCassette ? cassettePlayerStageAspectRatio : 1.0;
         final width = math.min(
           math.min(constraints.maxWidth, maxWidth),
           constraints.maxHeight * aspectRatio,
@@ -44,7 +48,10 @@ class PlayerStyleStage extends StatelessWidget {
             height: height,
             child: switch (stageKind) {
               AppPlayerStageKind.vinyl => VinylPlayerStage(track: track),
-              AppPlayerStageKind.cassette => CassettePlayerStage(track: track),
+              AppPlayerStageKind.cassette => CassettePlayerStage(
+                track: track,
+                label: cassetteLabel,
+              ),
               AppPlayerStageKind.radialSpectrum => RadialSpectrumPlayerStage(
                 track: track,
               ),

@@ -91,6 +91,30 @@ void main() {
     );
   });
 
+  testWidgets('cassette receives the resolved backdrop palette once', (
+    tester,
+  ) async {
+    final palettes = <List<Color>>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: PlayerBackdrop(
+              stageKind: AppPlayerStageKind.cassette,
+              imageProvider: null,
+              onClassicPaletteChanged: palettes.add,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(Duration.zero);
+
+    expect(palettes, hasLength(1));
+    expect(palettes.single, hasLength(4));
+    expect(palettes.single.toSet(), hasLength(4));
+  });
+
   testWidgets('fluid backdrop renders a static mesh for reduced motion', (
     tester,
   ) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/theme/player/styles/cassette_player_palette.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
@@ -8,6 +9,30 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/features/player/presentation/styles/cassette_player_stage.dart';
 
 void main() {
+  test('cassette palette keeps artwork hue and readable foreground', () {
+    final palette = CassettePlayerPalette.fromBackdrop(const <Color>[
+      Color(0xFF1E88E5),
+      Color(0xFFFFA726),
+      Color(0xFF0D47A1),
+      Color(0xFF10243A),
+    ]);
+
+    final edge = HSLColor.fromColor(palette.edge);
+    expect(edge.hue, inInclusiveRange(195, 220));
+    expect(edge.saturation, inInclusiveRange(0.52, 0.82));
+    expect(
+      _contrastRatio(palette.foreground, palette.surfaceDeep),
+      greaterThan(4.5),
+    );
+  });
+
+  test('cassette palette uses stable fallback without artwork colors', () {
+    expect(
+      CassettePlayerPalette.fromBackdrop(const <Color>[]),
+      CassettePlayerPalette.fallback,
+    );
+  });
+
   test('cassette tape progress normalizes and clamps playback timing', () {
     expect(
       resolveCassetteTapeProgress(
@@ -93,6 +118,10 @@ void main() {
 
     await tester.pumpWidget(_buildStage(container));
 
+    expect(find.text('SIDE A'), findsOneWidget);
+    expect(find.text(_track.title), findsNothing);
+    expect(find.text('Cassette Artist'), findsNothing);
+
     final initialStage = tester.widget<Stack>(
       find.byKey(const ValueKey<String>('cassette-player-stage')),
     );
@@ -162,6 +191,37 @@ void main() {
 
     expect(rotation.value, initial);
   });
+
+  testWidgets('cassette metadata label remains interactive above the painter', (
+    tester,
+  ) async {
+    final container = _createContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _buildStage(
+        container,
+        label: const Text(
+          'Cassette Track',
+          key: ValueKey<String>('cassette-interactive-label'),
+        ),
+      ),
+    );
+
+    final label = find.byKey(
+      const ValueKey<String>('cassette-interactive-label'),
+    );
+    expect(label, findsOneWidget);
+    expect(
+      find.ancestor(
+        of: label,
+        matching: find.byKey(
+          const ValueKey<String>('cassette-stage-ignore-pointer'),
+        ),
+      ),
+      findsNothing,
+    );
+  });
 }
 
 ProviderContainer _createContainer() {
@@ -180,24 +240,35 @@ _CassetteTestController _readController(ProviderContainer container) {
 Widget _buildStage(
   ProviderContainer container, {
   bool disableAnimations = false,
+  Widget? label,
 }) {
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(disableAnimations: disableAnimations),
-        child: const Scaffold(
+        child: Scaffold(
           body: Center(
             child: SizedBox(
               width: 355,
               height: 240,
-              child: CassettePlayerStage(track: _track),
+              child: CassettePlayerStage(track: _track, label: label),
             ),
           ),
         ),
       ),
     ),
   );
+}
+
+double _contrastRatio(Color foreground, Color background) {
+  final lighter = foreground.computeLuminance() > background.computeLuminance()
+      ? foreground.computeLuminance()
+      : background.computeLuminance();
+  final darker = foreground.computeLuminance() > background.computeLuminance()
+      ? background.computeLuminance()
+      : foreground.computeLuminance();
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 const PlayerTrack _track = PlayerTrack(
