@@ -76,7 +76,7 @@ enum _DiscoverEntryType { ranking, playlist, artist, video, radio }
 
 const double _homeSearchHeight = 48;
 const double _homeSearchHideOffset = _homeSearchHeight + 8;
-const Duration _homeSearchAnimationDuration = Duration(milliseconds: 240);
+const Duration _homeSearchAnimationDuration = Duration(milliseconds: 480);
 const Duration _homeSearchIdleRevealDelay = Duration(seconds: 3);
 
 List<OnlinePlatform> _platformsForPage(
@@ -223,11 +223,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                             controller: _pageController,
                             onPageChanged: (index) {
                               if (index >= 0 && index < availablePages.length) {
-                                unawaited(
-                                  homeController.selectPage(
-                                    availablePages[index],
-                                  ),
-                                );
+                                final page = availablePages[index];
+                                unawaited(homeController.selectPage(page));
                               }
                             },
                             children: availablePages
@@ -585,6 +582,12 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
   }
 
   bool _handleContentScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis == Axis.horizontal) {
+      if (notification is ScrollEndNotification) {
+        _showSearchAfterPageSwitch();
+      }
+      return false;
+    }
     if (notification.metrics.axis != Axis.vertical) {
       return false;
     }
@@ -628,6 +631,11 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
 
   bool _isPastSearchHideOffset(ScrollMetrics metrics) {
     return metrics.pixels - metrics.minScrollExtent >= _homeSearchHideOffset;
+  }
+
+  void _showSearchAfterPageSwitch() {
+    _searchRevealTimer?.cancel();
+    _searchVisible.value = true;
   }
 
   void _scheduleSearchReveal() {

@@ -191,6 +191,10 @@ void main() {
     expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
     expect(find.byType(NestedScrollView), findsNothing);
     expect(searchClip, findsOneWidget);
+    final searchSlide = tester.widget<AnimatedSlide>(
+      find.descendant(of: searchClip, matching: find.byType(AnimatedSlide)),
+    );
+    expect(searchSlide.duration, const Duration(milliseconds: 480));
     expect(
       tester.getTopLeft(searchClip).dy,
       greaterThanOrEqualTo(tester.getBottomLeft(find.text('推荐')).dy),
@@ -219,6 +223,62 @@ void main() {
     expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
     expect(tester.getTopLeft(find.byType(HomeSearchField)), searchTopLeft);
     expect(tester.getTopLeft(find.text('推荐')), tabsTop);
+  });
+
+  testWidgets('home search reveals after every tab switch', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(_buildScrollableHomeTestApp());
+    await tester.pumpAndSettle();
+
+    final searchTopLeft = tester.getTopLeft(find.byType(HomeSearchField));
+
+    await tester.tap(find.text('发现'));
+    await tester.pumpAndSettle();
+
+    final discoverPage = find.byKey(
+      const PageStorageKey<String>('home-discover'),
+    );
+    final discoverScrollView = find.descendant(
+      of: discoverPage,
+      matching: find.byType(CustomScrollView),
+    );
+
+    await tester.drag(discoverScrollView, const Offset(0, -240));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeSearchField).hitTestable(), findsNothing);
+
+    await tester.tap(find.text('推荐'));
+    await tester.pumpAndSettle();
+
+    final recommendScrollable = find.descendant(
+      of: find.byKey(const PageStorageKey<String>('home-recommend')),
+      matching: find.byType(Scrollable),
+    );
+    final recommendPosition = tester
+        .state<ScrollableState>(recommendScrollable.first)
+        .position;
+    expect(recommendPosition.pixels, recommendPosition.minScrollExtent);
+    expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
+    expect(tester.getTopLeft(find.byType(HomeSearchField)), searchTopLeft);
+
+    await tester.tap(find.text('发现'));
+    await tester.pumpAndSettle();
+
+    final discoverScrollable = find.descendant(
+      of: discoverPage,
+      matching: find.byType(Scrollable),
+    );
+    final discoverPosition = tester
+        .state<ScrollableState>(discoverScrollable.first)
+        .position;
+    expect(discoverPosition.pixels, greaterThanOrEqualTo(56));
+    expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
+    expect(tester.getTopLeft(find.byType(HomeSearchField)), searchTopLeft);
   });
 
   testWidgets('home search reveals after three seconds without scrolling', (
