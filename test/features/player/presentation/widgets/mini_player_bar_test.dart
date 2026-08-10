@@ -125,6 +125,79 @@ void main() {
     expect(controller.nextCalls, 3);
     expect(find.text('歌曲 D').hitTestable(), findsOneWidget);
   });
+
+  testWidgets('mini player commits a swipe only after pointer release', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 960));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    late _TestSwipeMiniPlayerController controller;
+    await tester.pumpWidget(
+      _buildMiniPlayerTestApp(
+        controllerFactory: () {
+          controller = _TestSwipeMiniPlayerController();
+          return controller;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final pageView = find.byType(PageView);
+    final cancelledGesture = await tester.startGesture(
+      tester.getCenter(pageView),
+    );
+    for (var frame = 1; frame <= 8; frame += 1) {
+      await cancelledGesture.moveBy(
+        const Offset(-100, 0),
+        timeStamp: Duration(milliseconds: frame * 16),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(controller.nextCalls, 0);
+
+    for (var frame = 9; frame <= 16; frame += 1) {
+      await cancelledGesture.moveBy(
+        const Offset(100, 0),
+        timeStamp: Duration(milliseconds: frame * 16),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(controller.nextCalls, 0);
+    expect(controller.previousCalls, 0);
+
+    await cancelledGesture.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 400),
+    );
+    await tester.pump(const Duration(milliseconds: 128));
+    await cancelledGesture.up(timeStamp: const Duration(milliseconds: 416));
+    await tester.pumpAndSettle();
+
+    expect(controller.nextCalls, 0);
+    expect(controller.previousCalls, 0);
+
+    final committedGesture = await tester.startGesture(
+      tester.getCenter(pageView),
+    );
+    for (var frame = 1; frame <= 8; frame += 1) {
+      await committedGesture.moveBy(
+        const Offset(-100, 0),
+        timeStamp: Duration(milliseconds: frame * 16),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(controller.nextCalls, 0);
+
+    await committedGesture.up(timeStamp: const Duration(milliseconds: 144));
+    await tester.pumpAndSettle();
+
+    expect(controller.nextCalls, 1);
+    expect(controller.previousCalls, 0);
+  });
 }
 
 Widget _buildMiniPlayerTestApp({
@@ -219,6 +292,7 @@ class _TestRadioMiniPlayerController extends PlayerController {
 
 class _TestSwipeMiniPlayerController extends PlayerController {
   int nextCalls = 0;
+  int previousCalls = 0;
 
   @override
   PlayerPlaybackState build() {
@@ -237,5 +311,10 @@ class _TestSwipeMiniPlayerController extends PlayerController {
   @override
   Future<void> playNext() async {
     nextCalls += 1;
+  }
+
+  @override
+  Future<void> playPrevious() async {
+    previousCalls += 1;
   }
 }
