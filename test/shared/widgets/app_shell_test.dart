@@ -91,6 +91,31 @@ void main() {
     expect(tester.getRect(miniPlayer), initialMiniPlayerRect);
     expect(tester.getRect(navigationBar), initialNavigationBarRect);
   });
+
+  testWidgets('shell uses compact bottom chrome heights', (tester) async {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.forest,
+    ).resolve(AppSkinRegistry.classicId);
+    final router = _createRouter();
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(_ImmersiveAppConfigController.new),
+          playerControllerProvider.overrideWith(_TestPlayerController.new),
+        ],
+        child: MaterialApp.router(
+          theme: AppTheme.light(skin),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(find.byType(MiniPlayerBar)).height, 56);
+    expect(tester.getSize(find.byType(NavigationBar)).height, 60);
+  });
 }
 
 GoRouter _createRouter() {

@@ -48,7 +48,7 @@ class _MobileLayout extends ConsumerWidget {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
           child: AppSkinSurface(
             role: AppSkinSurfaceRole.navigation,
             child: NavigationBar(

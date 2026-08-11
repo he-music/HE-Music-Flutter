@@ -55,7 +55,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
           child: Material(
             color: theme.colorScheme.surface,
             elevation: 4,

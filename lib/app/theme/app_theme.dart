@@ -164,7 +164,7 @@ abstract final class AppTheme {
         indicatorColor: geometry.showNavigationIndicatorPill
             ? colors.navigationIndicator
             : Colors.transparent,
-        height: 72,
+        height: 60,
         elevation: 0,
         labelTextStyle: WidgetStatePropertyAll(
           textTheme.labelMedium?.copyWith(

@@ -79,11 +79,11 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
     final bar = LayoutBuilder(
       builder: (context, constraints) {
         return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+          padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
           child: AppSkinSurface(
             role: AppSkinSurfaceRole.miniPlayer,
             child: SizedBox(
-              height: 58,
+              height: 52,
               child: Row(
                 children: <Widget>[
                   const SizedBox(width: 6),
