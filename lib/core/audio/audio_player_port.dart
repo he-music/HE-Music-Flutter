@@ -21,6 +21,7 @@ abstract class AudioPlayerPort {
   Stream<bool> get loadingStream;
   Stream<bool> get completedStream;
   Stream<Duration> get positionStream;
+  Stream<Duration> get bufferedPositionStream => const Stream<Duration>.empty();
   Stream<Duration?> get durationStream;
   Stream<int?> get currentIndexStream;
   Stream<dynamic> get customEventStream;

@@ -1,6 +1,7 @@
 import '../../../../app/config/app_config_state.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/network/network_status_port.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../domain/entities/player_quality_option.dart';
 import '../../domain/entities/player_track.dart';
@@ -31,11 +32,15 @@ class PlayerQualityManager {
   PlayerQualityManager({
     required List<OnlinePlatform> Function() platformsReader,
     required AppConfigState Function() configReader,
+    NetworkConnectionType Function()? networkTypeReader,
   }) : _platformsReader = platformsReader,
-       _configReader = configReader;
+       _configReader = configReader,
+       _networkTypeReader =
+           networkTypeReader ?? (() => NetworkConnectionType.wifi);
 
   final List<OnlinePlatform> Function() _platformsReader;
   final AppConfigState Function() _configReader;
+  final NetworkConnectionType Function() _networkTypeReader;
 
   /// 解析曲目可用的音质列表。
   List<PlayerQualityOption> resolveAvailableQualities(PlayerTrack track) {
@@ -81,9 +86,12 @@ class PlayerQualityManager {
       return forced;
     }
     final config = _configReader();
+    final preference = _networkTypeReader() == NetworkConnectionType.cellular
+        ? config.cellularOnlineAudioQualityPreference
+        : config.wifiOnlineAudioQualityPreference;
     final matched = selectPreferredAudioQuality(
       availableQualities,
-      preference: config.onlineAudioQualityPreference,
+      preference: preference,
       lastSelectedQualityName: config.lastSelectedOnlineAudioQualityName,
       nameOf: (PlayerQualityOption option) => option.name,
       formatOf: (PlayerQualityOption option) => option.format,

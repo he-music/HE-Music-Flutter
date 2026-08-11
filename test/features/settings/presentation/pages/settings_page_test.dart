@@ -182,6 +182,50 @@ void main() {
     expect(find.text('逐字歌词'), findsOneWidget);
   });
 
+  testWidgets('playback settings keep separate Wi-Fi and cellular qualities', (
+    tester,
+  ) async {
+    final container = _createContainer(authToken: null, localeCode: 'en');
+    addTearDown(container.dispose);
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(_buildSettingsApp(container: container));
+    await tester.pump();
+
+    await tester.tap(find.text('Playback'));
+    await tester.pumpAndSettle();
+    expect(find.text('Wi-Fi Audio Quality'), findsOneWidget);
+    expect(find.text('Cellular Audio Quality'), findsOneWidget);
+
+    await tester.tap(find.text('Wi-Fi Audio Quality'));
+    await tester.pumpAndSettle();
+    final flacOption = find.text('flac').last;
+    await tester.ensureVisible(flacOption);
+    await tester.pump();
+    await tester.tap(flacOption);
+    await tester.pumpAndSettle();
+    var config = container.read(appConfigProvider);
+    expect(config.wifiOnlineAudioQualityPreference, AppOnlineAudioQuality.flac);
+    expect(
+      config.cellularOnlineAudioQualityPreference,
+      AppOnlineAudioQuality.mp3320,
+    );
+
+    await tester.tap(find.text('Cellular Audio Quality'));
+    await tester.pumpAndSettle();
+    final mp3128Option = find.text('128mp3').last;
+    await tester.ensureVisible(mp3128Option);
+    await tester.pump();
+    await tester.tap(mp3128Option);
+    await tester.pumpAndSettle();
+    config = container.read(appConfigProvider);
+    expect(config.wifiOnlineAudioQualityPreference, AppOnlineAudioQuality.flac);
+    expect(
+      config.cellularOnlineAudioQualityPreference,
+      AppOnlineAudioQuality.mp3128,
+    );
+  });
+
   testWidgets('mobile appearance section shows grouped settings', (
     tester,
   ) async {

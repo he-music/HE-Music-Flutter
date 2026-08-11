@@ -7,13 +7,15 @@ import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/config/app_theme_mode.dart';
 import 'package:he_music_flutter/core/error/app_exception.dart';
+import 'package:he_music_flutter/core/network/network_status_port.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_quality_manager.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 AppConfigState _config({
-  AppOnlineAudioQuality preference = AppOnlineAudioQuality.auto,
+  AppOnlineAudioQuality wifiPreference = AppOnlineAudioQuality.auto,
+  AppOnlineAudioQuality cellularPreference = AppOnlineAudioQuality.mp3320,
   String? lastSelectedQualityName,
 }) {
   return AppConfigState(
@@ -25,7 +27,8 @@ AppConfigState _config({
     showContentBackground: false,
     isMonochrome: false,
     localeCode: 'zh',
-    onlineAudioQualityPreference: preference,
+    wifiOnlineAudioQualityPreference: wifiPreference,
+    cellularOnlineAudioQualityPreference: cellularPreference,
     autoCheckUpdates: true,
     githubDownloadAccelerationEnabled: false,
     githubDownloadProxyAutoUpdateEnabled: true,
@@ -204,6 +207,31 @@ void main() {
           availableQualities: qualities,
         );
         expect(result, '128k');
+      });
+
+      test('Wi-Fi 与蜂窝网络使用各自偏好', () {
+        var networkType = NetworkConnectionType.wifi;
+        final mgr = PlayerQualityManager(
+          platformsReader: () => [],
+          configReader: () => _config(
+            wifiPreference: AppOnlineAudioQuality.mp3320,
+            cellularPreference: AppOnlineAudioQuality.mp3128,
+          ),
+          networkTypeReader: () => networkType,
+        );
+        final qualities = mgr.resolveAvailableQualities(
+          _track(links: [_link128, _link320]),
+        );
+
+        expect(
+          mgr.resolveSelectedQualityName(availableQualities: qualities),
+          '320k',
+        );
+        networkType = NetworkConnectionType.cellular;
+        expect(
+          mgr.resolveSelectedQualityName(availableQualities: qualities),
+          '128k',
+        );
       });
     });
 

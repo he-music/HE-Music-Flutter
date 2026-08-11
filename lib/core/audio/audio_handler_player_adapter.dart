@@ -15,7 +15,8 @@ class AudioHandlerPlayerAdapter implements AudioPlayerPort, AudioSpectrumPort {
     return _handler.syncConfig(
       apiBaseUrl: config.apiBaseUrl,
       authToken: config.authToken,
-      qualityPreference: config.onlineAudioQualityPreference,
+      wifiQualityPreference: config.wifiOnlineAudioQualityPreference,
+      cellularQualityPreference: config.cellularOnlineAudioQualityPreference,
       lastSelectedQualityName: config.lastSelectedOnlineAudioQualityName,
       enableDesktopLyric: config.enableDesktopLyric,
       enableDesktopLyricLock: config.enableDesktopLyricLock,
@@ -57,6 +58,10 @@ class AudioHandlerPlayerAdapter implements AudioPlayerPort, AudioSpectrumPort {
   Stream<Duration> get positionStream => _handler.positionStream;
 
   @override
+  Stream<Duration> get bufferedPositionStream =>
+      _handler.bufferedPositionStream;
+
+  @override
   Stream<Duration?> get durationStream => _handler.durationStream;
 
   @override
@@ -74,6 +79,8 @@ class AudioHandlerPlayerAdapter implements AudioPlayerPort, AudioSpectrumPort {
 
   @override
   Future<void> stopSpectrumCapture() => _handler.stopSpectrumCapture();
+
+  Future<void> retryCurrentPlayback() => _handler.retryCurrentPlayback();
 
   @override
   Future<CurrentLyricStateSnapshot> getCurrentLyricState() {

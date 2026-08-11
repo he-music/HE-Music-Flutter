@@ -262,6 +262,175 @@ void main() {
     expect(state.duration, const Duration(minutes: 3));
   });
 
+  group('播放失败恢复和缓冲状态', () {
+    test('播放失败事件保留类型、transition 和可重试语义', () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.replaceQueue(
+        _buildQueue(),
+        startIndex: 0,
+        autoplay: false,
+      );
+
+      audioPlayer.emitCustomEvent(<String, dynamic>{
+        'type': 'playbackTransitionError',
+        'transitionId': 17,
+        'code': 'networkUnavailable',
+        'retryable': true,
+      });
+      await Future<void>.delayed(Duration.zero);
+
+      final failure = container.read(playerControllerProvider).playbackFailure;
+      expect(failure, isNotNull);
+      expect(failure!.transitionId, 17);
+      expect(failure.code, 'networkUnavailable');
+      expect(failure.retryable, isTrue);
+      expect(failure.message, isNotEmpty);
+
+      await controller.setVolume(0.5);
+      expect(
+        container.read(playerControllerProvider).playbackFailure?.transitionId,
+        17,
+      );
+
+      audioPlayer.emitCustomEvent(<String, dynamic>{
+        'type': 'playbackTransitionRecovered',
+        'transitionId': 17,
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(playerControllerProvider).playbackFailure, isNull);
+    });
+
+    test('重复播放按钮重试只强刷一次并恢复进度', () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.replaceQueue(
+        _buildQueue(),
+        startIndex: 0,
+        autoplay: false,
+      );
+      audioPlayer.emitPosition(Duration.zero);
+      audioPlayer.emitPosition(const Duration(seconds: 42));
+      audioPlayer.emitCustomEvent(<String, dynamic>{
+        'type': 'playbackTransitionError',
+        'transitionId': 18,
+        'code': 'globalTransient',
+        'retryable': true,
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(playerControllerProvider).position,
+        const Duration(seconds: 42),
+      );
+      final pendingReload = Completer<void>();
+      audioPlayer.setQueueCompleter = pendingReload;
+
+      final first = controller.togglePlayPause();
+      final second = controller.togglePlayPause();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(audioPlayer.setQueueCallCount, 2);
+      expect(audioPlayer.lastSetQueueForceReloadCurrent, isTrue);
+      pendingReload.complete();
+      await Future.wait(<Future<void>>[first, second]);
+
+      expect(audioPlayer.seekPositions, <Duration>[
+        const Duration(seconds: 42),
+      ]);
+      expect(audioPlayer.playCallCount, 1);
+      expect(container.read(playerControllerProvider).playbackFailure, isNull);
+    });
+
+    test('手动重试失败时保留原可重试失败', () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.replaceQueue(
+        _buildQueue(),
+        startIndex: 0,
+        autoplay: false,
+      );
+      audioPlayer.emitCustomEvent(<String, dynamic>{
+        'type': 'playbackTransitionError',
+        'transitionId': 19,
+        'code': 'globalTransient',
+        'retryable': true,
+      });
+      await Future<void>.delayed(Duration.zero);
+      audioPlayer.setQueueError = StateError('reload failed');
+
+      await expectLater(controller.retryCurrentPlayback(), throwsStateError);
+
+      final failure = container.read(playerControllerProvider).playbackFailure;
+      expect(failure?.transitionId, 19);
+      expect(failure?.retryable, isTrue);
+    });
+
+    test('缓冲位置随流更新，并在切歌和清空队列时归零', () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.replaceQueue(
+        _buildQueue(),
+        startIndex: 0,
+        autoplay: false,
+      );
+
+      audioPlayer.emitBufferedPosition(const Duration(seconds: 50));
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(playerControllerProvider).bufferedPosition,
+        const Duration(seconds: 50),
+      );
+
+      audioPlayer.emitCurrentIndex(1);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(playerControllerProvider).bufferedPosition,
+        Duration.zero,
+      );
+
+      audioPlayer.emitBufferedPosition(const Duration(seconds: 12));
+      await Future<void>.delayed(Duration.zero);
+      await controller.clearQueue();
+      expect(
+        container.read(playerControllerProvider).bufferedPosition,
+        Duration.zero,
+      );
+    });
+  });
+
   group('有效播放会话', () {
     test('playing 流建立会话，loading 保持会话，明确暂停结束会话', () async {
       final audioPlayer = _FakeAudioPlayerPort();
@@ -414,7 +583,9 @@ void main() {
 
       harness.audioPlayer.emitCustomEvent(<String, dynamic>{
         'type': 'playbackTransitionError',
+        'transitionId': 100,
         'code': 'globalTransient',
+        'retryable': true,
       });
       await Future<void>.delayed(Duration.zero);
       expect(
@@ -1291,6 +1462,8 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
       StreamController<bool>.broadcast();
   final StreamController<Duration> _positionController =
       StreamController<Duration>.broadcast();
+  final StreamController<Duration> _bufferedPositionController =
+      StreamController<Duration>.broadcast();
   final StreamController<Duration?> _durationController =
       StreamController<Duration?>.broadcast();
   final StreamController<int?> _currentIndexController =
@@ -1302,15 +1475,19 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   int? lastQueueInitialIndex;
   AudioTrack? lastSetSourceTrack;
   int setSourceCallCount = 0;
+  bool lastSetQueueForceReloadCurrent = false;
   bool lastSetQueueIsRadioMode = false;
   String? lastSetQueueRadioId;
   String? lastSetQueueRadioPlatform;
   int? lastSetQueueRadioPageIndex;
   Completer<void>? setQueueCompleter;
   Completer<void>? setSourceCompleter;
+  Object? setQueueError;
   Object? playError;
   final Completer<void> setQueueStarted = Completer<void>();
   int setQueueCallCount = 0;
+  int playCallCount = 0;
+  final List<Duration> seekPositions = <Duration>[];
   bool hasLoadedQueue = false;
 
   @override
@@ -1324,6 +1501,10 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
 
   @override
   Stream<Duration> get positionStream => _positionController.stream;
+
+  @override
+  Stream<Duration> get bufferedPositionStream =>
+      _bufferedPositionController.stream;
 
   @override
   Stream<Duration?> get durationStream => _durationController.stream;
@@ -1353,6 +1534,7 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
     hasLoadedQueue = false;
     lastQueueTracks = List<AudioTrack>.from(tracks);
     lastQueueInitialIndex = initialIndex;
+    lastSetQueueForceReloadCurrent = forceReloadCurrent;
     lastSetQueueIsRadioMode = isRadioMode;
     lastSetQueueRadioId = currentRadioId;
     lastSetQueueRadioPlatform = currentRadioPlatform;
@@ -1361,6 +1543,10 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
       setQueueStarted.complete();
     }
     await setQueueCompleter?.future;
+    final error = setQueueError;
+    if (error != null) {
+      throw error;
+    }
     hasLoadedQueue = true;
   }
 
@@ -1386,6 +1572,7 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
 
   @override
   Future<void> play() async {
+    playCallCount += 1;
     final error = playError;
     if (error != null) {
       throw error;
@@ -1399,7 +1586,9 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   Future<void> stop() async {}
 
   @override
-  Future<void> seek(Duration position) async {}
+  Future<void> seek(Duration position) async {
+    seekPositions.add(position);
+  }
 
   @override
   Future<void> setVolume(double volume) async {}
@@ -1419,6 +1608,7 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
     await _loadingController.close();
     await _completedController.close();
     await _positionController.close();
+    await _bufferedPositionController.close();
     await _durationController.close();
     await _currentIndexController.close();
     await _customEventController.close();
@@ -1442,6 +1632,10 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
 
   void emitPosition(Duration value) {
     _positionController.add(value);
+  }
+
+  void emitBufferedPosition(Duration value) {
+    _bufferedPositionController.add(value);
   }
 
   void emitDuration(Duration? value) {

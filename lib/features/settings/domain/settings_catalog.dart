@@ -32,7 +32,8 @@ abstract final class SettingsItemIds {
   static const skinAnimation = 'skin-animation';
   static const contentBackground = 'content-background';
   static const monochrome = 'monochrome';
-  static const onlineAudioQuality = 'online-audio-quality';
+  static const wifiOnlineAudioQuality = 'wifi-online-audio-quality';
+  static const cellularOnlineAudioQuality = 'cellular-online-audio-quality';
   static const lyricHighlightColor = 'lyric-highlight-color';
   static const lyricFontPreset = 'lyric-font-preset';
   static const wordByWordLyric = 'word-by-word-lyric';
@@ -196,13 +197,22 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     keywords: <String>['黑白', '灰度', '外观'],
   ),
   SettingsItemNode(
-    id: SettingsItemIds.onlineAudioQuality,
+    id: SettingsItemIds.wifiOnlineAudioQuality,
     sectionId: SettingsSectionIds.playback,
     groupId: SettingsGroupIds.playbackAudio,
-    titleKey: 'settings.audio_quality',
+    titleKey: 'settings.audio_quality.wifi',
     kind: SettingsItemKind.select,
     icon: Icons.high_quality_rounded,
-    keywords: <String>['音质', '播放', '无损'],
+    keywords: <String>['音质', '播放', '无损', 'Wi-Fi'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.cellularOnlineAudioQuality,
+    sectionId: SettingsSectionIds.playback,
+    groupId: SettingsGroupIds.playbackAudio,
+    titleKey: 'settings.audio_quality.cellular',
+    kind: SettingsItemKind.select,
+    icon: Icons.network_cell_rounded,
+    keywords: <String>['音质', '播放', '蜂窝网络', '移动网络'],
   ),
   SettingsItemNode(
     id: SettingsItemIds.lyricHighlightColor,

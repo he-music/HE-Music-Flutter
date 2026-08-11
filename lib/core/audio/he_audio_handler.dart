@@ -29,6 +29,7 @@ import '../../shared/utils/cover_resolver.dart';
 import '../../shared/utils/audio_quality_selector.dart';
 import '../device/device_info_provider.dart';
 import '../network/auth_token_interceptor.dart';
+import '../network/network_status_port.dart';
 import '../network/token_refresh_interceptor.dart';
 import 'audio_player_port.dart';
 import 'audio_player_factory.dart';
@@ -43,7 +44,8 @@ class HeAudioHandlerRuntimeConfig {
     required this.authToken,
     required this.refreshToken,
     required this.tokenExpiresAt,
-    required this.qualityPreference,
+    required this.wifiQualityPreference,
+    required this.cellularQualityPreference,
     required this.lastSelectedQualityName,
     required this.enableDesktopLyric,
     required this.enableDesktopLyricLock,
@@ -58,7 +60,8 @@ class HeAudioHandlerRuntimeConfig {
   final String? authToken;
   final String? refreshToken;
   final int? tokenExpiresAt;
-  final AppOnlineAudioQuality qualityPreference;
+  final AppOnlineAudioQuality wifiQualityPreference;
+  final AppOnlineAudioQuality cellularQualityPreference;
   final String? lastSelectedQualityName;
   final bool enableDesktopLyric;
   final bool enableDesktopLyricLock;
@@ -80,6 +83,10 @@ typedef HeAudioHandlerFetchSongUrl =
 typedef HeAudioHandlerSetAudioSource =
     Future<Duration?> Function(AudioSource source, AudioPlayer player);
 typedef HeAudioHandlerPlay = Future<void> Function(AudioPlayer player);
+typedef HeAudioHandlerPause = Future<void> Function(AudioPlayer player);
+typedef HeAudioHandlerSeek =
+    Future<void> Function(Duration position, AudioPlayer player);
+typedef HeAudioHandlerPosition = Duration Function(AudioPlayer player);
 typedef HeAudioHandlerDispose = Future<void> Function(AudioPlayer player);
 typedef HeAudioHandlerStartVisualizer =
     Future<void> Function(AudioPlayer player);
@@ -107,15 +114,16 @@ typedef HeAudioHandlerFetchLyrics =
 
 @visibleForTesting
 Future<HeAudioHandlerRuntimeConfig> loadHeAudioHandlerRuntimeConfig({
-  AppConfigDataSource dataSource = const AppConfigDataSource(),
+  AppConfigDataSource? dataSource,
 }) async {
-  final config = await dataSource.load();
+  final config = await (dataSource ?? const AppConfigDataSource()).load();
   return HeAudioHandlerRuntimeConfig(
     apiBaseUrl: config.apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), ''),
     authToken: config.authToken?.trim(),
     refreshToken: config.refreshToken?.trim(),
     tokenExpiresAt: config.tokenExpiresAt,
-    qualityPreference: config.onlineAudioQualityPreference,
+    wifiQualityPreference: config.wifiOnlineAudioQualityPreference,
+    cellularQualityPreference: config.cellularOnlineAudioQualityPreference,
     lastSelectedQualityName: config.lastSelectedOnlineAudioQualityName?.trim(),
     enableDesktopLyric: config.enableDesktopLyric,
     enableDesktopLyricLock: config.enableDesktopLyricLock,
@@ -155,6 +163,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     HeAudioHandlerFetchLyrics? fetchLyricsOverride,
     HeAudioHandlerSetAudioSource? setAudioSourceOverride,
     HeAudioHandlerPlay? playOverride,
+    HeAudioHandlerPause? pauseOverride,
+    HeAudioHandlerSeek? seekOverride,
+    HeAudioHandlerPosition? positionOverride,
     HeAudioHandlerDispose? disposeOverride,
     HeAudioHandlerStartVisualizer? startVisualizerOverride,
     HeAudioHandlerStopVisualizer? stopVisualizerOverride,
@@ -162,6 +173,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     HeAudioHandlerNow? nowOverride,
     HeAudioHandlerLog? logOverride,
     DeviceInfoGetter? getDeviceInfoOverride,
+    AppConfigDataSource? configDataSourceOverride,
+    NetworkStatusPort? networkStatusPort,
     Random? randomOverride,
     OverlayChannelService? overlayLyricsServiceOverride,
   }) : _player = player ?? createHeAudioPlayer(),
@@ -170,6 +183,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
        _fetchLyricsOverride = fetchLyricsOverride,
        _setAudioSourceOverride = setAudioSourceOverride,
        _playOverride = playOverride,
+       _pauseOverride = pauseOverride,
+       _seekOverride = seekOverride,
+       _positionOverride = positionOverride,
        _disposeOverride = disposeOverride,
        _startVisualizerOverride = startVisualizerOverride,
        _stopVisualizerOverride = stopVisualizerOverride,
@@ -177,12 +193,25 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
        _now = nowOverride ?? DateTime.now,
        _logOverride = logOverride,
        _getDeviceInfoOverride = getDeviceInfoOverride,
+       _configDataSource =
+           configDataSourceOverride ?? const AppConfigDataSource(),
+       _networkStatusPort = networkStatusPort ?? globalNetworkStatusPort,
        _random = randomOverride ?? Random(),
        _overlayLyricsService =
            overlayLyricsServiceOverride ?? OverlayLyricsService() {
     _appLifecycleListener = AppLifecycleListener(
       onStateChange: _onAppLifecycleChanged,
     );
+    _networkConnectionType = _networkStatusPort.lastKnown;
+    _networkStatusSubscription = _networkStatusPort.changes.listen(
+      (next) {
+        _networkStatusEventVersion += 1;
+        _handleNetworkStatusChanged(next);
+      },
+      onError: (_, _) =>
+          _logTransition('network.status.failure', _transitionId),
+    );
+    unawaited(_syncInitialNetworkStatus());
     _player.playerStateStream.listen((_) {
       _refreshDurationFromPlayer();
       _broadcastPlaybackState();
@@ -193,7 +222,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _player.playbackEventStream.listen((_) {
       _refreshDurationFromPlayer();
       _broadcastPlaybackState();
-    });
+    }, onError: _handlePlaybackStreamError);
     _player
         .createPositionStream(
           minPeriod: _overlayPositionPeriod,
@@ -230,6 +259,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final HeAudioHandlerFetchLyrics? _fetchLyricsOverride;
   final HeAudioHandlerSetAudioSource? _setAudioSourceOverride;
   final HeAudioHandlerPlay? _playOverride;
+  final HeAudioHandlerPause? _pauseOverride;
+  final HeAudioHandlerSeek? _seekOverride;
+  final HeAudioHandlerPosition? _positionOverride;
   final HeAudioHandlerDispose? _disposeOverride;
   final HeAudioHandlerStartVisualizer? _startVisualizerOverride;
   final HeAudioHandlerStopVisualizer? _stopVisualizerOverride;
@@ -237,9 +269,13 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final HeAudioHandlerNow _now;
   final HeAudioHandlerLog? _logOverride;
   final DeviceInfoGetter? _getDeviceInfoOverride;
+  final AppConfigDataSource _configDataSource;
+  final NetworkStatusPort _networkStatusPort;
   final OverlayChannelService _overlayLyricsService;
   final Random _random;
   late final AppLifecycleListener _appLifecycleListener;
+  late final StreamSubscription<NetworkConnectionType>
+  _networkStatusSubscription;
   final StreamController<AudioSpectrumFrame> _spectrumFrameController =
       StreamController<AudioSpectrumFrame>.broadcast();
   final AudioSpectrumProjector _spectrumProjector =
@@ -306,13 +342,21 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   String _apiBaseUrl = AppEnvironment.apiBaseUrl;
   String? _authToken = AppConfigState.initial.authToken;
-  AppOnlineAudioQuality _qualityPreference = AppOnlineAudioQuality.auto;
+  AppOnlineAudioQuality _wifiQualityPreference = AppOnlineAudioQuality.auto;
+  AppOnlineAudioQuality _cellularQualityPreference =
+      AppOnlineAudioQuality.mp3320;
+  NetworkConnectionType _networkConnectionType = NetworkConnectionType.wifi;
+  int _networkStatusEventVersion = 0;
+  bool _playIntent = false;
+  _PendingPlaybackRecovery? _pendingPlaybackRecovery;
+  Future<void>? _playbackRecoveryFuture;
   String? _lastSelectedQualityName;
 
   Future<void> syncConfig({
     required String apiBaseUrl,
     required String? authToken,
-    required AppOnlineAudioQuality qualityPreference,
+    required AppOnlineAudioQuality wifiQualityPreference,
+    required AppOnlineAudioQuality cellularQualityPreference,
     required String? lastSelectedQualityName,
     required bool enableDesktopLyric,
     required bool enableDesktopLyricLock,
@@ -326,7 +370,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final shouldCloseOverlay = _enableDesktopLyric && !enableDesktopLyric;
     _apiBaseUrl = apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     _authToken = authToken?.trim();
-    _qualityPreference = qualityPreference;
+    _wifiQualityPreference = wifiQualityPreference;
+    _cellularQualityPreference = cellularQualityPreference;
     _lastSelectedQualityName = lastSelectedQualityName?.trim();
     _enableDesktopLyric = enableDesktopLyric;
     _enableDesktopLyricLock = enableDesktopLyricLock;
@@ -393,6 +438,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     int? currentRadioPageIndex,
   }) async {
     final transitionId = _beginTransition();
+    _playIntent = false;
     final previousIndex = _committedIndex;
     final previousCurrent = _safeTrack(_committedIndex);
     final stagedTracks = List<AudioTrack>.unmodifiable(tracks);
@@ -453,6 +499,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       );
     } on _StaleTransitionException {
       return;
+    } catch (error) {
+      _broadcastTransitionError(error, transitionId);
+      rethrow;
     }
   }
 
@@ -464,7 +513,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final transitionId = _beginTransition();
     final next = <AudioTrack>[..._tracks];
     next[_committedIndex] = track;
-    final resumePosition = _player.position;
+    final resumePosition = _currentPosition;
     final wasPlaying = _player.playing;
     try {
       await _loadTrackAt(
@@ -476,6 +525,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       );
     } on _StaleTransitionException {
       return;
+    } catch (error) {
+      _broadcastTransitionError(error, transitionId);
+      rethrow;
     }
     try {
       _guardTransition(transitionId);
@@ -483,7 +535,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       return;
     }
     if (resumePosition > Duration.zero) {
-      await _player.seek(resumePosition);
+      await _seek(resumePosition);
     }
     if (wasPlaying) {
       _requestPlay(transitionId);
@@ -494,6 +546,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (_tracks.isEmpty) {
       return;
     }
+    _playIntent = true;
     final transitionId = _beginTransition();
     await _ensureRadioNextPageIfNeeded(targetIndex: index);
     try {
@@ -506,6 +559,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       );
     } on _StaleTransitionException {
       return;
+    } catch (error) {
+      _broadcastTransitionError(error, transitionId);
+      rethrow;
     }
   }
 
@@ -555,6 +611,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     minPeriod: _positionStreamPeriod,
     maxPeriod: _positionStreamPeriod,
   );
+
+  Stream<Duration> get bufferedPositionStream =>
+      playbackState.map((state) => state.bufferedPosition).distinct();
 
   Stream<AudioSpectrumFrame> get spectrumFrameStream =>
       _spectrumFrameController.stream;
@@ -706,27 +765,51 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   @override
   Future<void> play() async {
+    _playIntent = true;
+    if (_pendingPlaybackRecovery != null) {
+      await retryCurrentPlayback();
+      return;
+    }
+    if (_isCurrentRemoteTrack &&
+        _networkConnectionType == NetworkConnectionType.offline) {
+      _rememberCurrentPlaybackRecovery();
+      _broadcastTransitionError(
+        const _NetworkUnavailableException(),
+        _transitionId,
+      );
+      return;
+    }
     _requestPlay(_transitionId);
   }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    _playIntent = false;
+    final override = _pauseOverride;
+    if (override == null) {
+      await _player.pause();
+    } else {
+      await override(_player);
+    }
+  }
 
   @override
   Future<void> stop() async {
+    _playIntent = false;
     _beginTransition();
     await _player.stop();
     _broadcastPlaybackState();
   }
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) => _seek(position);
 
   @override
   Future<void> skipToNext() async {
     if (_tracks.isEmpty) {
       return;
     }
+    _playIntent = true;
     if (_isRadioMode && _committedIndex >= _tracks.length - 1) {
       _cancelManualIntent(clearDesired: true);
       final transitionId = _beginTransition(cancelManualIntent: false);
@@ -743,6 +826,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (_tracks.isEmpty) {
       return;
     }
+    _playIntent = true;
     _scheduleManualSkip(-1);
   }
 
@@ -932,6 +1016,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<void> disposeHandler() async {
     _beginTransition();
     _appLifecycleListener.dispose();
+    await _networkStatusSubscription.cancel();
     _spectrumDisposed = true;
     _spectrumCaptureTarget = false;
     try {
@@ -977,6 +1062,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _guardTransition(transitionId);
       Object? lastError;
       for (var attempt = 1; attempt <= _setSourceMaxAttempts; attempt += 1) {
+        if (_networkConnectionType == NetworkConnectionType.offline &&
+            shouldRefreshRemotePlaybackUrl(track)) {
+          throw const _NetworkUnavailableException();
+        }
         try {
           final generation = ++_sourceGeneration;
           _latestVisualizerFftCapture = null;
@@ -1089,6 +1178,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     bool preservePending = false,
   }) {
     _transitionId += 1;
+    _pendingPlaybackRecovery = null;
+    _playbackRecoveryFuture = null;
     if (!preservePending) {
       _pendingIndex = null;
       _pendingShuffleOrder = null;
@@ -1114,6 +1205,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   void _requestPlay(int transitionId) {
+    _playIntent = true;
     final override = _playOverride;
     final future = override == null ? _player.play() : override(_player);
     unawaited(
@@ -1128,6 +1220,134 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   void _onAppLifecycleChanged(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshDurationFromPlayer();
+    }
+  }
+
+  Future<void> _syncInitialNetworkStatus() async {
+    final eventVersion = _networkStatusEventVersion;
+    try {
+      final current = await _networkStatusPort.current();
+      if (eventVersion == _networkStatusEventVersion) {
+        _handleNetworkStatusChanged(current);
+      }
+    } catch (_) {
+      _logTransition('network.status.failure', _transitionId);
+    }
+  }
+
+  void _handleNetworkStatusChanged(NetworkConnectionType next) {
+    final previous = _networkConnectionType;
+    _networkConnectionType = next;
+    if (previous == NetworkConnectionType.offline &&
+        next != NetworkConnectionType.offline &&
+        _pendingPlaybackRecovery != null) {
+      unawaited(_startPlaybackRecovery().catchError((_) {}));
+    }
+  }
+
+  void _handlePlaybackStreamError(Object error, StackTrace stackTrace) {
+    _broadcastTransitionError(error, _transitionId);
+  }
+
+  bool get _isCurrentRemoteTrack {
+    final track = _safeTrack(_committedIndex);
+    return track != null && shouldRefreshRemotePlaybackUrl(track);
+  }
+
+  void _rememberCurrentPlaybackRecovery() {
+    final track = _safeTrack(_committedIndex);
+    if (track == null || !shouldRefreshRemotePlaybackUrl(track)) {
+      return;
+    }
+    final previous = _pendingPlaybackRecovery;
+    final position = _currentPosition;
+    _pendingPlaybackRecovery = _PendingPlaybackRecovery(
+      transitionId: _transitionId,
+      trackKey: _trackCacheKey(track),
+      index: _committedIndex,
+      position:
+          previous != null &&
+              previous.transitionId == _transitionId &&
+              previous.trackKey == _trackCacheKey(track) &&
+              previous.position > position
+          ? previous.position
+          : position,
+    );
+  }
+
+  /// 强刷当前远程音源。通知栏、播放器按钮和联网恢复共享同一单飞入口。
+  Future<void> retryCurrentPlayback() {
+    _playIntent = true;
+    _rememberCurrentPlaybackRecovery();
+    if (_pendingPlaybackRecovery == null) {
+      _requestPlay(_transitionId);
+      return Future<void>.value();
+    }
+    return _startPlaybackRecovery();
+  }
+
+  Future<void> _startPlaybackRecovery() {
+    final active = _playbackRecoveryFuture;
+    if (active != null) {
+      return active;
+    }
+    late final Future<void> future;
+    future = _recoverPendingPlayback().whenComplete(() {
+      if (identical(_playbackRecoveryFuture, future)) {
+        _playbackRecoveryFuture = null;
+      }
+    });
+    _playbackRecoveryFuture = future;
+    return future;
+  }
+
+  Future<void> _recoverPendingPlayback() async {
+    final snapshot = _pendingPlaybackRecovery;
+    if (snapshot == null) {
+      return;
+    }
+    if (_networkConnectionType == NetworkConnectionType.offline) {
+      const error = _NetworkUnavailableException();
+      _broadcastTransitionError(error, snapshot.transitionId);
+      throw error;
+    }
+    final current = _safeTrack(_committedIndex);
+    if (snapshot.transitionId != _transitionId ||
+        current == null ||
+        snapshot.index != _committedIndex ||
+        snapshot.trackKey != _trackCacheKey(current)) {
+      if (identical(_pendingPlaybackRecovery, snapshot)) {
+        _pendingPlaybackRecovery = null;
+      }
+      return;
+    }
+    try {
+      await _loadTrackAt(
+        snapshot.index,
+        autoplay: false,
+        transitionId: snapshot.transitionId,
+        forceUrlRefresh: true,
+      );
+      _guardTransition(snapshot.transitionId);
+      if (snapshot.position > Duration.zero) {
+        await _seek(snapshot.position);
+        _guardTransition(snapshot.transitionId);
+      }
+      if (identical(_pendingPlaybackRecovery, snapshot)) {
+        _pendingPlaybackRecovery = null;
+      }
+      customEvent.add(<String, dynamic>{
+        'type': 'playbackTransitionRecovered',
+        'transitionId': snapshot.transitionId,
+      });
+      if (_playIntent) {
+        _requestPlay(snapshot.transitionId);
+      }
+    } on _StaleTransitionException {
+      return;
+    } catch (error) {
+      _broadcastTransitionError(error, snapshot.transitionId);
+      rethrow;
     }
   }
 
@@ -1185,6 +1405,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         );
       }
       return track;
+    }
+    if (_networkConnectionType == NetworkConnectionType.offline) {
+      throw const _NetworkUnavailableException();
     }
     final matchedQuality = _resolvePreferredLink(track.links);
     final platform = track.platform?.trim() ?? '';
@@ -1340,13 +1563,16 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<void> _recoverConfig() async {
-    final config = await loadHeAudioHandlerRuntimeConfig();
+    final config = await loadHeAudioHandlerRuntimeConfig(
+      dataSource: _configDataSource,
+    );
     _apiBaseUrl = config.apiBaseUrl;
     _authToken = config.authToken;
     globalTokenHolder.accessToken ??= config.authToken;
     globalTokenHolder.refreshToken ??= config.refreshToken;
     globalTokenHolder.expiresAt ??= config.tokenExpiresAt;
-    _qualityPreference = config.qualityPreference;
+    _wifiQualityPreference = config.wifiQualityPreference;
+    _cellularQualityPreference = config.cellularQualityPreference;
     _lastSelectedQualityName = config.lastSelectedQualityName;
     _enableDesktopLyric = config.enableDesktopLyric;
     _enableDesktopLyricLock = config.enableDesktopLyricLock;
@@ -1361,7 +1587,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   LinkInfo? _resolvePreferredLink(List<LinkInfo> links) {
     return selectPreferredAudioQuality(
       links,
-      preference: _qualityPreference,
+      preference: _networkConnectionType == NetworkConnectionType.cellular
+          ? _cellularQualityPreference
+          : _wifiQualityPreference,
       lastSelectedQualityName: _lastSelectedQualityName,
       nameOf: (LinkInfo link) => link.name,
       formatOf: (LinkInfo link) => link.format,
@@ -1432,6 +1660,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }) async {
     Object? lastError;
     for (var attempt = 1; attempt <= _fetchSongUrlMaxAttempts; attempt += 1) {
+      if (_networkConnectionType == NetworkConnectionType.offline) {
+        throw const _NetworkUnavailableException();
+      }
       try {
         final payload = await _fetchSongUrl(
           songId: songId,
@@ -1502,6 +1733,18 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     return _player.setAudioSource(source);
   }
 
+  Duration get _currentPosition {
+    final override = _positionOverride;
+    return override == null ? _player.position : override(_player);
+  }
+
+  Future<void> _seek(Duration position) {
+    final override = _seekOverride;
+    return override == null
+        ? _player.seek(position)
+        : override(position, _player);
+  }
+
   Future<void> _handlePlaybackCompleted(int generation) async {
     if (_tracks.isEmpty ||
         _singleLoopEnabled ||
@@ -1536,6 +1779,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   @visibleForTesting
   Future<void> handlePlaybackCompletedForTesting() {
     return _handlePlaybackCompleted(_sourceGeneration);
+  }
+
+  @visibleForTesting
+  void handlePlaybackErrorForTesting(Object error) {
+    _broadcastTransitionError(error, _transitionId);
   }
 
   Future<void> _playNextAvailableFrom(int sourceIndex, int transitionId) async {
@@ -1607,6 +1855,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (error is _TrackUnavailableException) {
       return _PlaybackFailureCategory.trackUnavailable;
     }
+    if (error is _NetworkUnavailableException ||
+        _networkConnectionType == NetworkConnectionType.offline) {
+      return _PlaybackFailureCategory.networkUnavailable;
+    }
     if (error is DioException) {
       final statusCode = error.response?.statusCode;
       if (statusCode == 404 || statusCode == 410) {
@@ -1631,6 +1883,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       return;
     }
     final category = _classifyPlaybackError(error);
+    if (category == _PlaybackFailureCategory.networkUnavailable) {
+      _rememberCurrentPlaybackRecovery();
+    }
     _logTransition(
       'transition.failure',
       transitionId,
@@ -1638,6 +1893,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     );
     customEvent.add(<String, dynamic>{
       'type': 'playbackTransitionError',
+      'transitionId': transitionId,
       'code': category.name,
       'retryable': category != _PlaybackFailureCategory.trackUnavailable,
     });
@@ -2034,6 +2290,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<bool> _loadRadioNextPage() async {
+    if (_networkConnectionType == NetworkConnectionType.offline) {
+      throw const _NetworkUnavailableException();
+    }
     final radioId = _currentRadioId!;
     final radioPlatform = _currentRadioPlatform!;
     final sourcePageIndex = _currentRadioPageIndex!;
@@ -2042,6 +2301,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     List<SongInfo> songs = const <SongInfo>[];
     Object? lastError;
     for (var attempt = 1; attempt <= _radioFetchMaxAttempts; attempt += 1) {
+      if (_networkConnectionType == NetworkConnectionType.offline) {
+        throw const _NetworkUnavailableException();
+      }
       try {
         songs = await _fetchRadioSongs(
           id: radioId,
@@ -2052,6 +2314,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         break;
       } catch (error) {
         lastError = error;
+        if (_networkConnectionType == NetworkConnectionType.offline) {
+          throw const _NetworkUnavailableException();
+        }
         if (attempt < _radioFetchMaxAttempts) {
           // 指数退避：第1次失败等5s，第2次等10s。
           await Future<void>.delayed(_radioFetchBaseDelay * attempt);
@@ -2232,7 +2497,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         refreshCoordinator: globalTokenRefreshCoordinator,
         getDeviceInfo: _loadDeviceInfoForRefresh,
         onTokensRefreshed: (accessToken, refreshToken, expiresAt) {
-          return const AppConfigDataSource().saveTokens(
+          return _configDataSource.saveTokens(
             accessToken,
             refreshToken,
             expiresAt,
@@ -2383,6 +2648,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
 enum _PlaybackFailureCategory {
   cancelled,
+  networkUnavailable,
   globalTransient,
   trackUnavailable,
   unknown,
@@ -2439,6 +2705,24 @@ class _UnchangedPlaybackUrlException implements Exception {
 
 class _NoPlayableTrackException implements Exception {
   const _NoPlayableTrackException();
+}
+
+class _NetworkUnavailableException implements Exception {
+  const _NetworkUnavailableException();
+}
+
+class _PendingPlaybackRecovery {
+  const _PendingPlaybackRecovery({
+    required this.transitionId,
+    required this.trackKey,
+    required this.index,
+    required this.position,
+  });
+
+  final int transitionId;
+  final String trackKey;
+  final int index;
+  final Duration position;
 }
 
 late final HeAudioHandler globalHeAudioHandler;

@@ -44,7 +44,8 @@ void main() {
           authToken: 'token-123',
           refreshToken: 'refresh-123',
           tokenExpiresAt: 123,
-          onlineAudioQualityPreference: AppOnlineAudioQuality.flac,
+          wifiOnlineAudioQualityPreference: AppOnlineAudioQuality.flac,
+          cellularOnlineAudioQualityPreference: AppOnlineAudioQuality.mp3192,
           lastSelectedOnlineAudioQualityName: 'FLAC',
         ),
       );
@@ -57,7 +58,8 @@ void main() {
       expect(config.authToken, 'token-123');
       expect(config.refreshToken, 'refresh-123');
       expect(config.tokenExpiresAt, 123);
-      expect(config.qualityPreference, AppOnlineAudioQuality.flac);
+      expect(config.wifiQualityPreference, AppOnlineAudioQuality.flac);
+      expect(config.cellularQualityPreference, AppOnlineAudioQuality.mp3192);
       expect(config.lastSelectedQualityName, 'FLAC');
     },
   );
@@ -78,7 +80,9 @@ void main() {
       'app_version': '1.0.0',
       'device_name': 'Test Mac',
     };
+    const configDataSource = AppConfigDataSource();
     final handler = HeAudioHandler(
+      configDataSourceOverride: configDataSource,
       getDeviceInfoOverride: () async => deviceInfo,
       fetchLyricsOverride:
           ({
@@ -96,7 +100,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: server.baseUrl,
       authToken: 'expired-token',
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -122,7 +127,7 @@ void main() {
     expect(globalTokenHolder.accessToken, 'fresh-token');
     expect(globalTokenHolder.refreshToken, 'fresh-refresh-token');
     expect(globalTokenHolder.expiresAt, 123);
-    final persisted = await const AppConfigDataSource().load();
+    final persisted = await configDataSource.load();
     expect(persisted.authToken, 'fresh-token');
     expect(persisted.refreshToken, 'fresh-refresh-token');
     expect(persisted.tokenExpiresAt, 123);
@@ -131,7 +136,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: server.baseUrl,
       authToken: 'expired-token',
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -188,7 +194,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: true,
       enableDesktopLyricLock: false,
@@ -250,7 +257,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -320,7 +328,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -378,7 +387,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -453,7 +463,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -522,7 +533,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -578,7 +590,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -653,7 +666,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -754,7 +768,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -857,7 +872,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: null,
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,
@@ -956,7 +972,8 @@ void main() {
     await handler.syncConfig(
       apiBaseUrl: 'https://api.example.com',
       authToken: 'token-1',
-      qualityPreference: AppOnlineAudioQuality.auto,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
       lastSelectedQualityName: null,
       enableDesktopLyric: false,
       enableDesktopLyricLock: false,

@@ -5,6 +5,7 @@ const _defaultSliderMax = 1.0;
 class PlayerProgressBar extends StatelessWidget {
   const PlayerProgressBar({
     required this.position,
+    this.bufferedPosition = Duration.zero,
     required this.duration,
     required this.onSeek,
     this.enabled = true,
@@ -12,6 +13,7 @@ class PlayerProgressBar extends StatelessWidget {
   });
 
   final Duration position;
+  final Duration bufferedPosition;
   final Duration duration;
   final ValueChanged<Duration> onSeek;
   final bool enabled;
@@ -20,6 +22,10 @@ class PlayerProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxMillis = _maxDurationMillis(duration);
     final currentMillis = _clampPosition(position, maxMillis);
+    final bufferedMillis = _clampPosition(
+      bufferedPosition > position ? bufferedPosition : position,
+      maxMillis,
+    );
     final theme = Theme.of(context);
 
     return Column(
@@ -30,6 +36,7 @@ class PlayerProgressBar extends StatelessWidget {
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
             activeTrackColor: Colors.white,
+            secondaryActiveTrackColor: Colors.white.withValues(alpha: 0.32),
             inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
             thumbColor: Colors.white,
             overlayColor: Colors.white.withValues(alpha: 0.14),
@@ -37,6 +44,7 @@ class PlayerProgressBar extends StatelessWidget {
           child: Slider(
             key: const ValueKey<String>('player-progress-slider'),
             value: currentMillis.toDouble(),
+            secondaryTrackValue: bufferedMillis.toDouble(),
             max: maxMillis.toDouble(),
             onChanged: enabled
                 ? (value) => onSeek(Duration(milliseconds: value.toInt()))

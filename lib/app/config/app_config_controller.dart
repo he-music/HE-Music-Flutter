@@ -114,8 +114,12 @@ class AppConfigController extends Notifier<AppConfigState> {
     _update(state.copyWith(localeCode: localeCode));
   }
 
-  void setOnlineAudioQualityPreference(AppOnlineAudioQuality quality) {
-    _update(state.copyWith(onlineAudioQualityPreference: quality));
+  void setWifiOnlineAudioQualityPreference(AppOnlineAudioQuality quality) {
+    _update(state.copyWith(wifiOnlineAudioQualityPreference: quality));
+  }
+
+  void setCellularOnlineAudioQualityPreference(AppOnlineAudioQuality quality) {
+    _update(state.copyWith(cellularOnlineAudioQualityPreference: quality));
   }
 
   void setAutoCheckUpdates(bool value) {
@@ -294,7 +298,9 @@ class AppConfigController extends Notifier<AppConfigState> {
       showContentBackground: loaded.showContentBackground,
       isMonochrome: loaded.isMonochrome,
       localeCode: loaded.localeCode,
-      onlineAudioQualityPreference: loaded.onlineAudioQualityPreference,
+      wifiOnlineAudioQualityPreference: loaded.wifiOnlineAudioQualityPreference,
+      cellularOnlineAudioQualityPreference:
+          loaded.cellularOnlineAudioQualityPreference,
       autoCheckUpdates: loaded.autoCheckUpdates,
       githubDownloadAccelerationEnabled:
           loaded.githubDownloadAccelerationEnabled,

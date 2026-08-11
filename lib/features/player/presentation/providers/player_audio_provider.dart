@@ -30,7 +30,10 @@ final audioPlayerPortProvider = Provider<AudioPlayerPort>((ref) {
       (config) => (
         apiBaseUrl: config.apiBaseUrl,
         authToken: config.authToken,
-        onlineAudioQualityPreference: config.onlineAudioQualityPreference,
+        wifiOnlineAudioQualityPreference:
+            config.wifiOnlineAudioQualityPreference,
+        cellularOnlineAudioQualityPreference:
+            config.cellularOnlineAudioQualityPreference,
         lastSelectedOnlineAudioQualityName:
             config.lastSelectedOnlineAudioQualityName,
         enableDesktopLyric: config.enableDesktopLyric,

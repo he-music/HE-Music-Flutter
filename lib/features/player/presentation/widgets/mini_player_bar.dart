@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/app_message_service.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
@@ -36,6 +38,33 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      playerControllerProvider.select((state) => state.playbackFailure),
+      (previous, next) {
+        if (next == null ||
+            next.transitionId == previous?.transitionId ||
+            next.message.trim().isEmpty) {
+          return;
+        }
+        AppMessageService.showError(
+          next.message,
+          actionLabel: next.retryable
+              ? AppI18n.tByLocaleCode(
+                  ref.read(appConfigProvider).localeCode,
+                  'common.retry',
+                )
+              : null,
+          onAction: next.retryable
+              ? () => unawaited(
+                  ref
+                      .read(playerControllerProvider.notifier)
+                      .retryCurrentPlayback()
+                      .catchError((_) {}),
+                )
+              : null,
+        );
+      },
+    );
     final player = ref.watch(
       playerControllerProvider.select(_selectionProjector.project),
     );

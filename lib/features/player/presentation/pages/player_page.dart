@@ -250,16 +250,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<String?>(
-      playerControllerProvider.select((state) => state.errorMessage),
-      (previous, next) {
-        final message = next?.trim() ?? '';
-        if (message.isEmpty || message == previous?.trim()) {
-          return;
-        }
-        AppMessageService.showError(message);
-      },
-    );
     final config = ref.watch(appConfigProvider);
     final playerStyle = AppPlayerStyleRegistry.instance.resolve(
       config.playerStyleId,
@@ -2067,11 +2057,15 @@ class _PlayerProgressSection extends ConsumerWidget {
     final duration = ref.watch(
       playerControllerProvider.select((state) => state.duration),
     );
+    final bufferedPosition = ref.watch(
+      playerControllerProvider.select((state) => state.bufferedPosition),
+    );
     final isTrackTransitioning = ref.watch(
       playerControllerProvider.select((state) => state.isTrackTransitioning),
     );
     return PlayerProgressBar(
       position: position,
+      bufferedPosition: bufferedPosition,
       duration: duration,
       onSeek: onSeek,
       enabled: !isTrackTransitioning,

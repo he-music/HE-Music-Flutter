@@ -10,8 +10,16 @@ class AppMessageService {
   static String? _lastMessage;
   static DateTime? _lastAt;
 
-  static void showError(String message) =>
-      _show(message, ToastificationType.error);
+  static void showError(
+    String message, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) => _show(
+    message,
+    ToastificationType.error,
+    actionLabel: actionLabel,
+    onAction: onAction,
+  );
 
   static void showSuccess(String message) =>
       _show(message, ToastificationType.success);
@@ -22,7 +30,12 @@ class AppMessageService {
   static void showWarning(String message) =>
       _show(message, ToastificationType.warning);
 
-  static void _show(String message, ToastificationType type) {
+  static void _show(
+    String message,
+    ToastificationType type, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
     final normalized = message.trim();
     if (normalized.isEmpty) {
       return;
@@ -47,13 +60,29 @@ class AppMessageService {
         ? Color.lerp(type.color, Colors.white, 0.2)!
         : type.color;
     toastification.dismissAll(delayForAnimation: false);
-    toastification.show(
+    final normalizedActionLabel = actionLabel?.trim() ?? '';
+    late final ToastificationItem item;
+    item = toastification.show(
       overlayState: overlay,
       type: type,
       style: ToastificationStyle.flat,
       alignment: compact ? Alignment.topCenter : Alignment.topRight,
       title: Text(normalized),
-      autoCloseDuration: const Duration(seconds: 3),
+      description: normalizedActionLabel.isEmpty || onAction == null
+          ? null
+          : Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                onPressed: () {
+                  toastification.dismiss(item);
+                  onAction();
+                },
+                child: Text(normalizedActionLabel),
+              ),
+            ),
+      autoCloseDuration: Duration(
+        seconds: normalizedActionLabel.isEmpty ? 3 : 5,
+      ),
       primaryColor: primaryColor,
       backgroundColor: colorScheme.surfaceContainerHigh,
       foregroundColor: colorScheme.onSurface,

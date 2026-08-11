@@ -44,6 +44,9 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
     final duration = ref.watch(
       playerControllerProvider.select((state) => state.duration),
     );
+    final bufferedPosition = ref.watch(
+      playerControllerProvider.select((state) => state.bufferedPosition),
+    );
     final title = track?.title ?? noTrackText;
     final artist = track?.artist ?? '';
     final imageProvider = artworkProvider(
@@ -57,6 +60,7 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
         children: <Widget>[
           PlayerProgressBar(
             position: position,
+            bufferedPosition: bufferedPosition,
             duration: duration,
             onSeek: controller.seek,
           ),

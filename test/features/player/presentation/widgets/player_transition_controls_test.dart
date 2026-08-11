@@ -148,6 +148,42 @@ void main() {
       palette.surfaceDeep.withValues(alpha: 0.72),
     );
   });
+
+  testWidgets(
+    'progress slider exposes played, buffered, and remaining ranges',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PlayerProgressBar(
+              position: const Duration(seconds: 30),
+              bufferedPosition: const Duration(seconds: 90),
+              duration: const Duration(minutes: 3),
+              onSeek: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      final slider = tester.widget<Slider>(
+        find.byKey(const ValueKey<String>('player-progress-slider')),
+      );
+      final sliderTheme = tester.widget<SliderTheme>(
+        find.ancestor(
+          of: find.byKey(const ValueKey<String>('player-progress-slider')),
+          matching: find.byType(SliderTheme),
+        ),
+      );
+
+      expect(slider.value, 30000);
+      expect(slider.secondaryTrackValue, 90000);
+      expect(slider.max, 180000);
+      expect(
+        sliderTheme.data.secondaryActiveTrackColor,
+        Colors.white.withValues(alpha: 0.32),
+      );
+    },
+  );
 }
 
 Widget _buildControls({

@@ -75,9 +75,15 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
         subtitleBuilder: (config) =>
             AppI18n.t(config, 'settings.monochrome.desc'),
       ),
-      SettingsItemIds.onlineAudioQuality: SettingsItemPresentation(
+      SettingsItemIds.wifiOnlineAudioQuality: SettingsItemPresentation(
         subtitleBuilder: (config) => settingsOnlineAudioQualityDescription(
-          config.onlineAudioQualityPreference,
+          config.wifiOnlineAudioQualityPreference,
+          config,
+        ),
+      ),
+      SettingsItemIds.cellularOnlineAudioQuality: SettingsItemPresentation(
+        subtitleBuilder: (config) => settingsOnlineAudioQualityDescription(
+          config.cellularOnlineAudioQualityPreference,
           config,
         ),
       ),
@@ -167,7 +173,9 @@ AppSkinIconRole settingsItemIconRole(String itemId) {
     SettingsItemIds.skinAnimation => AppSkinIconRole.settingsSkinAnimation,
     SettingsItemIds.contentBackground => AppSkinIconRole.settingsSkin,
     SettingsItemIds.monochrome => AppSkinIconRole.settingsMonochrome,
-    SettingsItemIds.onlineAudioQuality => AppSkinIconRole.settingsAudioQuality,
+    SettingsItemIds.wifiOnlineAudioQuality ||
+    SettingsItemIds.cellularOnlineAudioQuality =>
+      AppSkinIconRole.settingsAudioQuality,
     SettingsItemIds.lyricHighlightColor =>
       AppSkinIconRole.settingsLyricHighlight,
     SettingsItemIds.lyricFontPreset => AppSkinIconRole.settingsLyricFont,

@@ -19,7 +19,8 @@ class AppConfigState {
     required this.showContentBackground,
     required this.isMonochrome,
     required this.localeCode,
-    required this.onlineAudioQualityPreference,
+    required this.wifiOnlineAudioQualityPreference,
+    required this.cellularOnlineAudioQualityPreference,
     required this.autoCheckUpdates,
     required this.githubDownloadAccelerationEnabled,
     required this.githubDownloadProxyAutoUpdateEnabled,
@@ -47,7 +48,8 @@ class AppConfigState {
   final bool showContentBackground;
   final bool isMonochrome;
   final String localeCode;
-  final AppOnlineAudioQuality onlineAudioQualityPreference;
+  final AppOnlineAudioQuality wifiOnlineAudioQualityPreference;
+  final AppOnlineAudioQuality cellularOnlineAudioQualityPreference;
   final bool autoCheckUpdates;
   final bool githubDownloadAccelerationEnabled;
   final bool githubDownloadProxyAutoUpdateEnabled;
@@ -76,7 +78,8 @@ class AppConfigState {
     bool? showContentBackground,
     bool? isMonochrome,
     String? localeCode,
-    AppOnlineAudioQuality? onlineAudioQualityPreference,
+    AppOnlineAudioQuality? wifiOnlineAudioQualityPreference,
+    AppOnlineAudioQuality? cellularOnlineAudioQualityPreference,
     bool? autoCheckUpdates,
     bool? githubDownloadAccelerationEnabled,
     bool? githubDownloadProxyAutoUpdateEnabled,
@@ -112,8 +115,12 @@ class AppConfigState {
           showContentBackground ?? this.showContentBackground,
       isMonochrome: isMonochrome ?? this.isMonochrome,
       localeCode: localeCode ?? this.localeCode,
-      onlineAudioQualityPreference:
-          onlineAudioQualityPreference ?? this.onlineAudioQualityPreference,
+      wifiOnlineAudioQualityPreference:
+          wifiOnlineAudioQualityPreference ??
+          this.wifiOnlineAudioQualityPreference,
+      cellularOnlineAudioQualityPreference:
+          cellularOnlineAudioQualityPreference ??
+          this.cellularOnlineAudioQualityPreference,
       autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
       githubDownloadAccelerationEnabled:
           githubDownloadAccelerationEnabled ??
@@ -158,7 +165,8 @@ class AppConfigState {
     showContentBackground: false,
     isMonochrome: false,
     localeCode: 'zh',
-    onlineAudioQualityPreference: AppOnlineAudioQuality.auto,
+    wifiOnlineAudioQualityPreference: AppOnlineAudioQuality.auto,
+    cellularOnlineAudioQualityPreference: AppOnlineAudioQuality.mp3320,
     autoCheckUpdates: true,
     githubDownloadAccelerationEnabled: false,
     githubDownloadProxyAutoUpdateEnabled: true,

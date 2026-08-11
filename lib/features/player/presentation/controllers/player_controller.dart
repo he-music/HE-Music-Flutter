@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/config/app_lyric_highlight_mode.dart';
+import '../../../../app/i18n/app_i18n.dart';
 import '../../../../core/audio/audio_handler_player_adapter.dart';
 import '../../../../core/audio/audio_player_port.dart';
 import '../../../../core/audio/audio_track.dart';
 import '../../../../core/network/network_error_message.dart';
+import '../../../../core/network/network_status_port.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../lyrics_overlay/data/overlay_message.dart';
@@ -19,6 +21,7 @@ import '../../../music_library/data/providers/local_library_providers.dart';
 import '../../../radio/presentation/providers/radio_providers.dart';
 import '../../domain/entities/player_history_item.dart';
 import '../../domain/entities/player_play_mode.dart';
+import '../../domain/entities/player_playback_failure.dart';
 import '../../domain/entities/player_playback_state.dart';
 import '../../domain/entities/player_quality_option.dart';
 import '../../domain/entities/player_queue_source.dart';
@@ -52,6 +55,8 @@ class PlayerController extends Notifier<PlayerPlaybackState>
   int _settledManualSkipTransitionId = -1;
   int _playbackSessionTransitionId = 0;
   int? _protectedPlaybackSessionTransitionId;
+  int _latestPlaybackFailureTransitionId = -1;
+  Future<void>? _retryCurrentPlaybackFuture;
 
   @override
   PlayerPlaybackState get currentState => state;
@@ -86,6 +91,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       platformsReader: () =>
           ref.read(onlinePlatformsProvider).value ?? const [],
       configReader: () => ref.read(appConfigProvider),
+      networkTypeReader: () => globalNetworkStatusPort.lastKnown,
     );
     _queueManager = PlayerQueueManager(
       dataSource: ref.read(playerQueueDataSourceProvider),
@@ -150,6 +156,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       isLoading: false,
       isPlaybackSessionActive: false,
       position: Duration.zero,
+      bufferedPosition: Duration.zero,
       duration: Duration.zero,
       volume: defaultPlayerVolume,
       speed: defaultPlayerSpeed,
@@ -270,6 +277,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               queue: queue,
               currentIndex: startIndex,
               position: Duration.zero,
+              bufferedPosition: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               playMode: nextPlayMode,
@@ -292,6 +300,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               previousPlayModeBeforeRadio: nextPreviousPlayModeBeforeRadio,
               clearPreviousPlayModeBeforeRadio: !isRadioMode,
               clearError: true,
+              clearPlaybackFailure: true,
             );
           },
       applyResolvedState: (TrackPlaybackResolution resolution) {
@@ -337,6 +346,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               currentIndex: targetIndex,
               playMode: snapshot.playMode,
               position: Duration.zero,
+              bufferedPosition: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               queueSource: snapshot.source,
@@ -353,6 +363,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               clearPreviousPlayModeBeforeRadio:
                   snapshot.previousPlayModeBeforeRadio == null,
               clearError: true,
+              clearPlaybackFailure: true,
             );
           },
       applyResolvedState: (TrackPlaybackResolution resolution) {
@@ -368,6 +379,10 @@ class PlayerController extends Notifier<PlayerPlaybackState>
 
   Future<void> togglePlayPause() async {
     await _ensureInitialized();
+    if (state.playbackFailure?.retryable == true) {
+      await retryCurrentPlayback();
+      return;
+    }
     if (state.isPlaying) {
       _endPlaybackSession();
       await _execute(() async {
@@ -405,6 +420,63 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     }
   }
 
+  Future<void> retryCurrentPlayback() {
+    final active = _retryCurrentPlaybackFuture;
+    if (active != null) {
+      return active;
+    }
+    late final Future<void> future;
+    future = _retryCurrentPlayback().whenComplete(() {
+      if (identical(_retryCurrentPlaybackFuture, future)) {
+        _retryCurrentPlaybackFuture = null;
+      }
+    });
+    _retryCurrentPlaybackFuture = future;
+    return future;
+  }
+
+  Future<void> _retryCurrentPlayback() async {
+    await _ensureInitialized();
+    final failure = state.playbackFailure;
+    final track = state.currentTrack;
+    if (failure == null || !failure.retryable || track == null) {
+      return;
+    }
+    final resumePosition = state.position;
+    final sessionTransitionId = _beginPlaybackSessionTransition();
+    try {
+      await _execute(() async {
+        if (_audioPlayer case final AudioHandlerPlayerAdapter adapter) {
+          await adapter.retryCurrentPlayback();
+        } else {
+          await _audioPlayer.setQueue(
+            state.queue.map(_toAudioTrack).toList(growable: false),
+            initialIndex: state.currentIndex,
+            forceReloadCurrent: true,
+            isRadioMode: state.isRadioMode,
+            currentRadioId: state.currentRadioId,
+            currentRadioPlatform: state.currentRadioPlatform,
+            currentRadioPageIndex: state.currentRadioPageIndex,
+          );
+          if (resumePosition > Duration.zero) {
+            await _audioPlayer.seek(resumePosition);
+          }
+          await _audioPlayer.play();
+        }
+        state = state.copyWith(clearError: true, clearPlaybackFailure: true);
+      });
+    } catch (_) {
+      state = state.copyWith(
+        playbackFailure: failure,
+        errorMessage: state.errorMessage ?? failure.message,
+      );
+      _failPlaybackSessionTransition(sessionTransitionId);
+      rethrow;
+    } finally {
+      _finishPlaybackSessionTransition(sessionTransitionId);
+    }
+  }
+
   Future<void> playAt(int index) async {
     await _ensureInitialized();
     _queueManager.validateQueueInput(state.queue, index);
@@ -420,9 +492,11 @@ class PlayerController extends Notifier<PlayerPlaybackState>
             return state.copyWith(
               currentIndex: index,
               position: Duration.zero,
+              bufferedPosition: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               clearError: true,
+              clearPlaybackFailure: true,
             );
           },
       applyResolvedState: (TrackPlaybackResolution resolution) {
@@ -483,6 +557,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               queue: nextQueue,
               currentIndex: targetIndex,
               position: Duration.zero,
+              bufferedPosition: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               playMode: nextPlayMode,
@@ -493,6 +568,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               clearCurrentRadioPageIndex: true,
               clearPreviousPlayModeBeforeRadio: true,
               clearError: true,
+              clearPlaybackFailure: true,
             );
           },
       applyResolvedState: (TrackPlaybackResolution resolution) {
@@ -583,12 +659,14 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               queue: nextQueue,
               currentIndex: targetIndex,
               position: Duration.zero,
+              bufferedPosition: Duration.zero,
               currentAvailableQualities: availableQualities,
               currentSelectedQualityName: selectedQualityName,
               playMode: nextPlayMode,
               clearQueueSource: true,
               clearPreviousPlayModeBeforeRadio: true,
               clearError: true,
+              clearPlaybackFailure: true,
             );
           },
       applyResolvedState: (TrackPlaybackResolution resolution) {
@@ -624,6 +702,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         isLoading: false,
         isPlaybackSessionActive: false,
         position: Duration.zero,
+        bufferedPosition: Duration.zero,
         duration: Duration.zero,
         currentAvailableQualities: const <PlayerQualityOption>[],
         isRadioMode: false,
@@ -635,6 +714,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         clearCurrentRadioPageIndex: true,
         clearPreviousPlayModeBeforeRadio: true,
         clearError: true,
+        clearPlaybackFailure: true,
       );
     });
     await _queueManager.persistQueueState(this);
@@ -766,6 +846,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         : null;
     state = state.copyWith(
       position: Duration.zero,
+      bufferedPosition: Duration.zero,
       currentSelectedQualityName: matchedOption.name,
       clearError: true,
     );
@@ -794,6 +875,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         _guardTrackSwitchRequest(requestId);
         await _audioPlayer.setSource(_toAudioTrack(resolution.track));
         _guardTrackSwitchRequest(requestId);
+        state = state.copyWith(clearPlaybackFailure: true);
         if (resumePosition > Duration.zero) {
           await _audioPlayer.seek(resumePosition);
           state = state.copyWith(position: resumePosition, clearError: true);
@@ -827,6 +909,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       state = state.copyWith(
         isPlaying: false,
         isLoading: false,
+        bufferedPosition: Duration.zero,
         clearError: true,
       );
     });
@@ -941,6 +1024,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         isPlaybackSessionActive: liveState.isPlaybackSessionActive,
         position: liveState.position,
         duration: liveState.duration,
+        bufferedPosition: liveState.bufferedPosition,
         clearRequestedTrackIndex: true,
         clearRequestedTransitionId: true,
       );
@@ -1064,13 +1148,36 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     }
     final type = '${event['type'] ?? ''}'.trim();
     if (type == 'playbackTransitionError') {
+      final transitionId = event['transitionId'];
       final code = '${event['code'] ?? ''}'.trim();
+      final retryable = event['retryable'];
+      if (transitionId is! int ||
+          transitionId < 0 ||
+          transitionId < _latestPlaybackFailureTransitionId ||
+          code.isEmpty ||
+          retryable is! bool) {
+        return;
+      }
+      _latestPlaybackFailureTransitionId = transitionId;
+      final message = _playbackFailureMessage(code);
       _endPlaybackSession();
       state = state.copyWith(
-        errorMessage: code == 'trackUnavailable'
-            ? '播放失败，当前歌曲暂无可用音源'
-            : '播放失败，请检查网络后重试',
+        errorMessage: message,
+        playbackFailure: PlayerPlaybackFailure(
+          transitionId: transitionId,
+          code: code,
+          retryable: retryable,
+          message: message,
+        ),
       );
+      return;
+    }
+    if (type == 'playbackTransitionRecovered') {
+      final transitionId = event['transitionId'];
+      if (transitionId is int &&
+          transitionId == state.playbackFailure?.transitionId) {
+        state = state.copyWith(clearError: true, clearPlaybackFailure: true);
+      }
       return;
     }
     if (type == 'manualSkipTarget') {
@@ -1109,6 +1216,12 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         queue.isNotEmpty && currentIndex >= 0 && currentIndex < queue.length
         ? queue[currentIndex]
         : null;
+    final previousTrack = state.currentTrack;
+    final changedTrack =
+        currentTrack == null ||
+        previousTrack == null ||
+        _queueManager.trackKey(currentTrack) !=
+            _queueManager.trackKey(previousTrack);
     final availableQualities = currentTrack == null
         ? const <PlayerQualityOption>[]
         : _qualityManager.resolveAvailableQualities(currentTrack);
@@ -1135,6 +1248,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     state = state.copyWith(
       queue: queue,
       currentIndex: queue.isEmpty ? 0 : currentIndex.clamp(0, queue.length - 1),
+      bufferedPosition: changedTrack ? Duration.zero : state.bufferedPosition,
       isPlaybackSessionActive: state.isPlaybackSessionActive,
       previousPreviewIndex: _previewIndexFromEvent(
         event['previousPreviewIndex'],
@@ -1162,7 +1276,23 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       clearRequestedTrackIndex: !manualSkipTargetActive,
       clearRequestedTransitionId: !manualSkipTargetActive,
       clearError: true,
+      clearPlaybackFailure: changedTrack,
     );
+  }
+
+  String _playbackFailureMessage(String code) {
+    final config = ref.read(appConfigProvider);
+    return switch (code) {
+      'networkUnavailable' => AppI18n.t(
+        config,
+        'player.playback.error.network_unavailable',
+      ),
+      'trackUnavailable' => AppI18n.t(
+        config,
+        'player.playback.error.track_unavailable',
+      ),
+      _ => AppI18n.t(config, 'player.playback.error.retryable'),
+    };
   }
 
   void _handleManualSkipTarget(Map<dynamic, dynamic> event) {
@@ -1383,11 +1513,13 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     state = state.copyWith(
       currentIndex: safeIndex,
       position: Duration.zero,
+      bufferedPosition: Duration.zero,
       currentAvailableQualities: availableQualities,
       currentSelectedQualityName: selectedQualityName,
       clearRequestedTrackIndex: true,
       clearRequestedTransitionId: true,
       clearError: true,
+      clearPlaybackFailure: true,
     );
     unawaited(_syncAutoLyricHighlightColor());
     _streamManager.markFreshPositionPending();

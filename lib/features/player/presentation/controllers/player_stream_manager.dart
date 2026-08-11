@@ -57,6 +57,7 @@ class PlayerStreamManager {
   StreamSubscription<bool>? _loadingSubscription;
   StreamSubscription<int?>? _currentIndexSubscription;
   StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration>? _bufferedPositionSubscription;
   StreamSubscription<Duration?>? _durationSubscription;
   StreamSubscription<bool>? _completedSubscription;
   StreamSubscription<dynamic>? _customEventSubscription;
@@ -116,6 +117,16 @@ class PlayerStreamManager {
       );
     }, onError: _handleStreamError);
 
+    _bufferedPositionSubscription = audioPlayer.bufferedPositionStream.listen((
+      position,
+    ) {
+      callback.updateState(
+        (state) => state.copyWith(
+          bufferedPosition: position < Duration.zero ? Duration.zero : position,
+        ),
+      );
+    }, onError: _handleStreamError);
+
     _durationSubscription = audioPlayer.durationStream.listen((duration) {
       if (duration == null || duration <= Duration.zero) {
         return;
@@ -144,6 +155,7 @@ class PlayerStreamManager {
     _loadingSubscription?.cancel();
     _currentIndexSubscription?.cancel();
     _positionSubscription?.cancel();
+    _bufferedPositionSubscription?.cancel();
     _durationSubscription?.cancel();
     _completedSubscription?.cancel();
     _customEventSubscription?.cancel();

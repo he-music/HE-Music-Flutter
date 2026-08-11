@@ -298,16 +298,40 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ref.read(appConfigProvider.notifier).toggleMonochrome(),
         highlighted: _highlightedItemId == item.id,
       ),
-      SettingsItemIds.onlineAudioQuality => SettingsSelectTile(
+      SettingsItemIds.wifiOnlineAudioQuality => SettingsSelectTile(
         icon: item.icon,
         iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: settingsOnlineAudioQualityLabel(
-          config.onlineAudioQualityPreference,
+          config.wifiOnlineAudioQualityPreference,
           config,
         ),
-        onTap: _openOnlineAudioQualitySheet,
+        onTap: () => _openOnlineAudioQualitySheet(
+          titleKey: 'settings.audio_quality.wifi',
+          currentValue: config.wifiOnlineAudioQualityPreference,
+          onSelected: ref
+              .read(appConfigProvider.notifier)
+              .setWifiOnlineAudioQualityPreference,
+        ),
+        highlighted: _highlightedItemId == item.id,
+      ),
+      SettingsItemIds.cellularOnlineAudioQuality => SettingsSelectTile(
+        icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
+        title: AppI18n.t(config, item.titleKey),
+        subtitle: settingsItemSubtitle(item.id, config),
+        trailingText: settingsOnlineAudioQualityLabel(
+          config.cellularOnlineAudioQualityPreference,
+          config,
+        ),
+        onTap: () => _openOnlineAudioQualitySheet(
+          titleKey: 'settings.audio_quality.cellular',
+          currentValue: config.cellularOnlineAudioQualityPreference,
+          onSelected: ref
+              .read(appConfigProvider.notifier)
+              .setCellularOnlineAudioQualityPreference,
+        ),
         highlighted: _highlightedItemId == item.id,
       ),
       SettingsItemIds.lyricHighlightColor => SettingsSelectTile(
@@ -679,12 +703,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Future<void> _openOnlineAudioQualitySheet() {
+  Future<void> _openOnlineAudioQualitySheet({
+    required String titleKey,
+    required AppOnlineAudioQuality currentValue,
+    required ValueChanged<AppOnlineAudioQuality> onSelected,
+  }) {
     final config = ref.read(appConfigProvider);
     return showSettingsSingleChoiceSheet<AppOnlineAudioQuality>(
       context: context,
-      title: AppI18n.t(config, 'settings.audio_quality'),
-      currentValue: config.onlineAudioQualityPreference,
+      title: AppI18n.t(config, titleKey),
+      currentValue: currentValue,
       options: AppOnlineAudioQuality.values
           .map(
             (item) => SettingsChoiceOption<AppOnlineAudioQuality>(
@@ -695,11 +723,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           )
           .toList(growable: false),
-      onSelected: (value) {
-        ref
-            .read(appConfigProvider.notifier)
-            .setOnlineAudioQualityPreference(value);
-      },
+      onSelected: onSelected,
     );
   }
 

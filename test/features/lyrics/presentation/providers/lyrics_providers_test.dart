@@ -98,6 +98,9 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   Stream<Duration> get positionStream => const Stream<Duration>.empty();
 
   @override
+  Stream<Duration> get bufferedPositionStream => const Stream<Duration>.empty();
+
+  @override
   Stream<Duration?> get durationStream => const Stream<Duration?>.empty();
 
   @override

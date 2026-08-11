@@ -1,4 +1,5 @@
 import 'player_play_mode.dart';
+import 'player_playback_failure.dart';
 import 'player_quality_option.dart';
 import 'player_queue_snapshot.dart';
 import 'player_queue_source.dart';
@@ -17,6 +18,7 @@ class PlayerPlaybackState {
     required this.isPlaybackSessionActive,
     required this.position,
     required this.duration,
+    this.bufferedPosition = Duration.zero,
     required this.volume,
     required this.speed,
     required this.playMode,
@@ -34,6 +36,7 @@ class PlayerPlaybackState {
     this.requestedTrackIndex,
     this.requestedTransitionId,
     this.errorMessage,
+    this.playbackFailure,
   });
 
   final List<PlayerTrack> queue;
@@ -44,6 +47,7 @@ class PlayerPlaybackState {
   final bool isPlaybackSessionActive;
   final Duration position;
   final Duration duration;
+  final Duration bufferedPosition;
   final double volume;
   final double speed;
   final PlayerPlayMode playMode;
@@ -61,6 +65,7 @@ class PlayerPlaybackState {
   final int? requestedTrackIndex;
   final int? requestedTransitionId;
   final String? errorMessage;
+  final PlayerPlaybackFailure? playbackFailure;
 
   PlayerTrack? get currentTrack {
     if (queue.isEmpty || currentIndex < 0 || currentIndex >= queue.length) {
@@ -90,6 +95,7 @@ class PlayerPlaybackState {
     bool? isPlaybackSessionActive,
     Duration? position,
     Duration? duration,
+    Duration? bufferedPosition,
     double? volume,
     double? speed,
     PlayerPlayMode? playMode,
@@ -118,7 +124,9 @@ class PlayerPlaybackState {
     int? requestedTransitionId,
     bool clearRequestedTransitionId = false,
     String? errorMessage,
+    PlayerPlaybackFailure? playbackFailure,
     bool clearError = false,
+    bool clearPlaybackFailure = false,
   }) {
     return PlayerPlaybackState(
       queue: queue ?? this.queue,
@@ -130,6 +138,7 @@ class PlayerPlaybackState {
           isPlaybackSessionActive ?? this.isPlaybackSessionActive,
       position: position ?? this.position,
       duration: duration ?? this.duration,
+      bufferedPosition: bufferedPosition ?? this.bufferedPosition,
       volume: volume ?? this.volume,
       speed: speed ?? this.speed,
       playMode: playMode ?? this.playMode,
@@ -168,6 +177,9 @@ class PlayerPlaybackState {
           ? null
           : requestedTransitionId ?? this.requestedTransitionId,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      playbackFailure: clearPlaybackFailure
+          ? null
+          : playbackFailure ?? this.playbackFailure,
     );
   }
 
@@ -181,6 +193,7 @@ class PlayerPlaybackState {
       isPlaybackSessionActive: false,
       position: Duration.zero,
       duration: Duration.zero,
+      bufferedPosition: Duration.zero,
       volume: defaultPlayerVolume,
       speed: defaultPlayerSpeed,
       playMode: PlayerPlayMode.sequence,

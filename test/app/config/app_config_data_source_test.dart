@@ -28,7 +28,8 @@ void main() {
         showContentBackground: true,
         isMonochrome: true,
         localeCode: 'en',
-        onlineAudioQualityPreference: AppOnlineAudioQuality.flac,
+        wifiOnlineAudioQualityPreference: AppOnlineAudioQuality.flac,
+        cellularOnlineAudioQualityPreference: AppOnlineAudioQuality.mp3192,
         lastSelectedOnlineAudioQualityName: 'sq',
         autoCheckUpdates: true,
         githubDownloadAccelerationEnabled: true,
@@ -53,7 +54,11 @@ void main() {
     expect(state.showContentBackground, isTrue);
     expect(state.isMonochrome, isTrue);
     expect(state.localeCode, 'en');
-    expect(state.onlineAudioQualityPreference, AppOnlineAudioQuality.flac);
+    expect(state.wifiOnlineAudioQualityPreference, AppOnlineAudioQuality.flac);
+    expect(
+      state.cellularOnlineAudioQualityPreference,
+      AppOnlineAudioQuality.mp3192,
+    );
     expect(state.lastSelectedOnlineAudioQualityName, 'sq');
     expect(state.autoCheckUpdates, isTrue);
     expect(state.githubDownloadAccelerationEnabled, isTrue);
@@ -255,6 +260,44 @@ void main() {
     expect(state.authToken, 'fresh-token');
     expect(state.refreshToken, 'fresh-refresh-token');
     expect(state.tokenExpiresAt, 123);
+  });
+
+  test('new installs use separate Wi-Fi and cellular defaults', () async {
+    final state = await const AppConfigDataSource().load();
+
+    expect(state.wifiOnlineAudioQualityPreference, AppOnlineAudioQuality.auto);
+    expect(
+      state.cellularOnlineAudioQualityPreference,
+      AppOnlineAudioQuality.mp3320,
+    );
+  });
+
+  test('legacy audio quality migrates to both network preferences', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'app_config.online_audio_quality_preference': 'flac',
+    });
+    const dataSource = AppConfigDataSource();
+
+    final state = await dataSource.load();
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(state.wifiOnlineAudioQualityPreference, AppOnlineAudioQuality.flac);
+    expect(
+      state.cellularOnlineAudioQualityPreference,
+      AppOnlineAudioQuality.flac,
+    );
+    expect(
+      prefs.getString('app_config.wifi_online_audio_quality_preference'),
+      'flac',
+    );
+    expect(
+      prefs.getString('app_config.cellular_online_audio_quality_preference'),
+      'flac',
+    );
+    expect(
+      prefs.containsKey('app_config.online_audio_quality_preference'),
+      isFalse,
+    );
   });
 }
 

@@ -20,8 +20,12 @@ const _skinAnimationEnabledKey = 'app_config.skin_animation_enabled';
 const _showContentBackgroundKey = 'app_config.show_content_background';
 const _monochromeKey = 'app_config.monochrome';
 const _localeKey = 'app_config.locale';
-const _onlineAudioQualityPreferenceKey =
+const _legacyOnlineAudioQualityPreferenceKey =
     'app_config.online_audio_quality_preference';
+const _wifiOnlineAudioQualityPreferenceKey =
+    'app_config.wifi_online_audio_quality_preference';
+const _cellularOnlineAudioQualityPreferenceKey =
+    'app_config.cellular_online_audio_quality_preference';
 const _lastSelectedOnlineAudioQualityNameKey =
     'app_config.last_selected_online_audio_quality';
 const _autoCheckUpdatesKey = 'app_config.auto_check_updates';
@@ -57,6 +61,7 @@ class AppConfigDataSource {
       hasStoredValue: prefs.containsKey(_refreshTokenKey),
     );
     final tokenExpiresAt = prefs.getInt(_tokenExpiresAtKey);
+    await _migrateAudioQualityPreferences(prefs);
     final lyricHighlightMode = _readLyricHighlightMode(prefs);
     final storedCustomSkin = prefs.getString(_customSkinKey);
     final customSkin = AppCustomSkinConfig.tryDecode(storedCustomSkin);
@@ -90,8 +95,15 @@ class AppConfigDataSource {
           AppConfigState.initial.showContentBackground,
       isMonochrome: prefs.getBool(_monochromeKey) ?? false,
       localeCode: _readLocaleCode(prefs.getString(_localeKey)),
-      onlineAudioQualityPreference: AppOnlineAudioQuality.fromValue(
-        prefs.getString(_onlineAudioQualityPreferenceKey),
+      wifiOnlineAudioQualityPreference: _readNetworkAudioQuality(
+        prefs,
+        _wifiOnlineAudioQualityPreferenceKey,
+        fallback: AppConfigState.initial.wifiOnlineAudioQualityPreference,
+      ),
+      cellularOnlineAudioQualityPreference: _readNetworkAudioQuality(
+        prefs,
+        _cellularOnlineAudioQualityPreferenceKey,
+        fallback: AppConfigState.initial.cellularOnlineAudioQualityPreference,
       ),
       autoCheckUpdates: prefs.getBool(_autoCheckUpdatesKey) ?? true,
       githubDownloadAccelerationEnabled:
@@ -145,9 +157,14 @@ class AppConfigDataSource {
     await prefs.setBool(_monochromeKey, state.isMonochrome);
     await prefs.setString(_localeKey, state.localeCode);
     await prefs.setString(
-      _onlineAudioQualityPreferenceKey,
-      state.onlineAudioQualityPreference.value,
+      _wifiOnlineAudioQualityPreferenceKey,
+      state.wifiOnlineAudioQualityPreference.value,
     );
+    await prefs.setString(
+      _cellularOnlineAudioQualityPreferenceKey,
+      state.cellularOnlineAudioQualityPreference.value,
+    );
+    await prefs.remove(_legacyOnlineAudioQualityPreferenceKey);
     await prefs.setBool(_autoCheckUpdatesKey, state.autoCheckUpdates);
     await prefs.setBool(
       _githubDownloadAccelerationEnabledKey,
@@ -293,6 +310,39 @@ class AppConfigDataSource {
 
   String? _readLastSelectedOnlineAudioQualityName(String? value) {
     return _readNullableString(value);
+  }
+
+  AppOnlineAudioQuality _readNetworkAudioQuality(
+    SharedPreferences prefs,
+    String key, {
+    required AppOnlineAudioQuality fallback,
+  }) {
+    final value = prefs.getString(key);
+    if (value != null) {
+      return AppOnlineAudioQuality.fromValue(value);
+    }
+    final legacyValue = prefs.getString(_legacyOnlineAudioQualityPreferenceKey);
+    return legacyValue == null
+        ? fallback
+        : AppOnlineAudioQuality.fromValue(legacyValue);
+  }
+
+  Future<void> _migrateAudioQualityPreferences(SharedPreferences prefs) async {
+    final legacy = prefs.getString(_legacyOnlineAudioQualityPreferenceKey);
+    if (legacy == null) {
+      return;
+    }
+    final normalized = AppOnlineAudioQuality.fromValue(legacy).value;
+    if (!prefs.containsKey(_wifiOnlineAudioQualityPreferenceKey)) {
+      await prefs.setString(_wifiOnlineAudioQualityPreferenceKey, normalized);
+    }
+    if (!prefs.containsKey(_cellularOnlineAudioQualityPreferenceKey)) {
+      await prefs.setString(
+        _cellularOnlineAudioQualityPreferenceKey,
+        normalized,
+      );
+    }
+    await prefs.remove(_legacyOnlineAudioQualityPreferenceKey);
   }
 
   String? _readNullableString(String? value) {

@@ -42,6 +42,10 @@ class JustAudioPlayerAdapter implements AudioPlayerPort {
   }
 
   @override
+  Stream<Duration> get bufferedPositionStream =>
+      _player.bufferedPositionStream.distinct();
+
+  @override
   Stream<Duration?> get durationStream => _player.durationStream;
 
   @override

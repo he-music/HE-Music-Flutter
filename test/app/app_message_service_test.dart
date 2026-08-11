@@ -71,6 +71,27 @@ void main() {
     expect(find.text('短暂错误'), findsNothing);
   });
 
+  testWidgets('error action runs callback and dismisses the toast', (
+    tester,
+  ) async {
+    await _pumpHost(tester, width: 400);
+    var retryCount = 0;
+
+    AppMessageService.showError(
+      '播放失败',
+      actionLabel: '重试',
+      onAction: () => retryCount += 1,
+    );
+    await _pumpToastEntrance(tester);
+
+    expect(find.text('重试'), findsOneWidget);
+    await tester.tap(find.text('重试'));
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(retryCount, 1);
+    expect(find.text('播放失败'), findsNothing);
+  });
+
   testWidgets('shows success, info, and warning message variants', (
     tester,
   ) async {
