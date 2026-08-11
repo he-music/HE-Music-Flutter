@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
-import 'package:he_music_flutter/app/theme/player/styles/cassette_player_palette.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_control_bar.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_progress_bar.dart';
@@ -87,15 +87,19 @@ void main() {
     );
   });
 
-  testWidgets('cassette palette colors progress and playback controls', (
+  testWidgets('scene palette colors only the primary playback control', (
     tester,
   ) async {
-    final palette = CassettePlayerPalette.fromBackdrop(const <Color>[
-      Color(0xFF7E57C2),
-      Color(0xFFFFCA28),
-      Color(0xFF4527A0),
-      Color(0xFF1A1230),
-    ]);
+    const palette = PlayerScenePalette(
+      surface: Color(0xFF253535),
+      surfaceDeep: Color(0xFF101818),
+      surfaceRaised: Color(0xFF344747),
+      edge: Color(0xFF8BC9BD),
+      accent: Color(0xFFE2B56D),
+      foreground: Color(0xFFF5FAF8),
+      secondaryForeground: Color(0xC7DCE8E4),
+      onAccent: Color(0xFF17201E),
+    );
     await tester.pumpWidget(
       _buildControls(
         palette: palette,
@@ -115,8 +119,24 @@ void main() {
         matching: find.byType(SliderTheme),
       ),
     );
-    expect(sliderTheme.data.activeTrackColor, palette.accent);
-    expect(sliderTheme.data.thumbColor, palette.foreground);
+    expect(sliderTheme.data.activeTrackColor, Colors.white);
+    expect(
+      sliderTheme.data.inactiveTrackColor,
+      Colors.white.withValues(alpha: 0.2),
+    );
+    expect(sliderTheme.data.thumbColor, Colors.white);
+    expect(sliderTheme.data.overlayColor, Colors.white.withValues(alpha: 0.14));
+
+    expect(
+      _button(tester, Icons.repeat_rounded).color,
+      Colors.white.withValues(alpha: 0.84),
+    );
+    expect(
+      _button(tester, Icons.queue_music_rounded).color,
+      Colors.white.withValues(alpha: 0.84),
+    );
+    expect(_button(tester, Icons.skip_previous_rounded).color, Colors.white);
+    expect(_button(tester, Icons.skip_next_rounded).color, Colors.white);
 
     final playButton = _button(tester, Icons.play_arrow_rounded);
     expect(
@@ -138,7 +158,7 @@ Widget _buildControls({
   required VoidCallback onPlayPause,
   required VoidCallback onCyclePlayMode,
   required ValueChanged<Duration> onSeek,
-  CassettePlayerPalette? palette,
+  PlayerScenePalette? palette,
 }) {
   return MaterialApp(
     theme: ThemeData(extensions: <ThemeExtension<dynamic>>[?palette]),

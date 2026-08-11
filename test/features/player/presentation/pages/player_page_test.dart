@@ -10,11 +10,13 @@ import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/router/app_route_observers.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
 import 'package:he_music_flutter/core/audio/audio_spectrum_frame.dart';
 import 'package:he_music_flutter/core/audio/audio_spectrum_port.dart';
 import 'package:he_music_flutter/core/device/screen_wake_lock.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/favorite_song_status_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
@@ -831,6 +833,62 @@ void main() {
       find.byKey(const ValueKey<String>('player-backdrop-classic')),
       findsOneWidget,
     );
+    final stage = find.byKey(const ValueKey<String>('classic-player-stage'));
+    final palette = PlayerScenePalette.maybeOf(tester.element(stage));
+    expect(palette, isNotNull);
+    final sliderTheme = tester.widget<SliderTheme>(
+      find.ancestor(
+        of: find.byKey(const ValueKey<String>('player-progress-slider')),
+        matching: find.byType(SliderTheme),
+      ),
+    );
+    expect(sliderTheme.data.activeTrackColor, Colors.white);
+    final pageIndicators = tester
+        .widgetList<AnimatedContainer>(
+          find.descendant(
+            of: find.byKey(const ValueKey<String>('player-page-indicator')),
+            matching: find.byType(AnimatedContainer),
+          ),
+        )
+        .toList();
+    expect(pageIndicators, hasLength(2));
+    expect(
+      (pageIndicators.first.decoration as BoxDecoration).color,
+      Colors.white,
+    );
+    expect(
+      (pageIndicators.last.decoration as BoxDecoration).color,
+      Colors.white.withValues(alpha: 0.32),
+    );
+  });
+
+  testWidgets('favorite heart stays red across all player styles', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(PlayerPage)),
+    );
+    container
+        .read(favoriteSongStatusProvider.notifier)
+        .addSong(songId: 'song-1', platform: 'qq');
+    await tester.pump();
+
+    for (final styleId in AppPlayerStyleRegistry.builtInIds) {
+      container.read(appConfigProvider.notifier).setPlayerStyleId(styleId);
+      await tester.pump();
+
+      final heart = tester.widget<Icon>(find.byIcon(Icons.favorite_rounded));
+      expect(heart.color, Colors.redAccent, reason: styleId);
+    }
   });
 
   testWidgets('player page switches stage backdrop from config', (
@@ -858,6 +916,14 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('vinyl-player-stage')),
       findsOneWidget,
+    );
+    expect(
+      PlayerScenePalette.maybeOf(
+        tester.element(
+          find.byKey(const ValueKey<String>('vinyl-player-stage')),
+        ),
+      ),
+      isNull,
     );
 
     await tester.pumpWidget(const SizedBox.shrink());

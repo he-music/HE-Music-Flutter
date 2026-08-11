@@ -91,28 +91,83 @@ void main() {
     );
   });
 
-  testWidgets('cassette receives the resolved backdrop palette once', (
+  testWidgets('classic and cassette receive the resolved backdrop palette', (
     tester,
   ) async {
+    for (final stageKind in <AppPlayerStageKind>[
+      AppPlayerStageKind.classic,
+      AppPlayerStageKind.cassette,
+    ]) {
+      final palettes = <List<Color>>[];
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: PlayerBackdrop(
+                stageKind: stageKind,
+                imageProvider: null,
+                onClassicPaletteChanged: palettes.add,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(Duration.zero);
+
+      expect(palettes, hasLength(1));
+      expect(palettes.single, hasLength(4));
+      expect(palettes.single.toSet(), hasLength(4));
+    }
+  });
+
+  testWidgets('classic reports a new palette after artwork changes', (
+    tester,
+  ) async {
+    final imageProvider = ValueNotifier<ImageProvider<Object>>(
+      const AssetImage('assets/skins/classic/preview_light.png'),
+    );
     final palettes = <List<Color>>[];
+    addTearDown(imageProvider.dispose);
+    Future<void> pumpUntilPaletteCount(int count) async {
+      for (var attempt = 0; attempt < 120; attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+        if (palettes.length >= count) return;
+      }
+      throw TestFailure('经典播放器封面色在 6 秒内未完成解析');
+    }
+
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
           home: Scaffold(
-            body: PlayerBackdrop(
-              stageKind: AppPlayerStageKind.cassette,
-              imageProvider: null,
-              onClassicPaletteChanged: palettes.add,
+            body: ValueListenableBuilder<ImageProvider<Object>>(
+              valueListenable: imageProvider,
+              builder: (context, value, child) {
+                return PlayerBackdrop(
+                  stageKind: AppPlayerStageKind.classic,
+                  imageProvider: value,
+                  onClassicPaletteChanged: palettes.add,
+                );
+              },
             ),
           ),
         ),
       ),
     );
-    await tester.pump(Duration.zero);
+    await pumpUntilPaletteCount(1);
+    final firstPalette = palettes.last;
 
-    expect(palettes, hasLength(1));
-    expect(palettes.single, hasLength(4));
-    expect(palettes.single.toSet(), hasLength(4));
+    imageProvider.value = const AssetImage(
+      'assets/skins/city_sound_creator/preview_dark.png',
+    );
+    await pumpUntilPaletteCount(2);
+
+    expect(palettes, hasLength(2));
+    expect(palettes.last, isNot(equals(firstPalette)));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('fluid backdrop renders a static mesh for reduced motion', (

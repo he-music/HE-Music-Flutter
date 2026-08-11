@@ -7,6 +7,7 @@ import 'package:marquee/marquee.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/theme/player/styles/cassette_player_palette.dart';
 import '../../domain/entities/player_quality_option.dart';
 import '../providers/player_providers.dart';
@@ -55,9 +56,9 @@ class PlayerTrackHeader extends ConsumerWidget {
     final artist = track?.artist?.trim().isNotEmpty == true
         ? track!.artist!.trim()
         : '-';
-    final cassettePalette = CassettePlayerPalette.maybeOf(context);
+    final scenePalette = PlayerScenePalette.maybeOf(context);
     final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
-      color: cassettePalette?.foreground ?? Colors.white,
+      color: scenePalette?.foreground ?? Colors.white,
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
     );
@@ -118,7 +119,7 @@ class PlayerTrackHeader extends ConsumerWidget {
         : false;
     final quality = _findQualityByName(qualities, qualityName);
     if (layout == PlayerTrackHeaderLayout.cassetteLabel) {
-      final palette = cassettePalette ?? CassettePlayerPalette.fallback;
+      final palette = scenePalette ?? CassettePlayerPalette.fallback;
       return LayoutBuilder(
         key: const ValueKey<String>('player-cassette-track-header'),
         builder: (context, constraints) {
@@ -267,15 +268,15 @@ class PlayerTrackHeader extends ConsumerWidget {
                           'player.transition.preparing_track',
                           <String, String>{'title': title},
                         ),
-                        child: const Center(
+                        child: Center(
                           child: SizedBox.square(
-                            key: ValueKey<String>(
+                            key: const ValueKey<String>(
                               'player-track-preparing-indicator',
                             ),
                             dimension: 14,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: scenePalette?.edge ?? Colors.white,
                             ),
                           ),
                         ),
@@ -301,7 +302,9 @@ class PlayerTrackHeader extends ConsumerWidget {
                     child: _OverflowMarquee(
                       text: artist,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.72),
+                        color:
+                            scenePalette?.secondaryForeground ??
+                            Colors.white.withValues(alpha: 0.72),
                         fontWeight: FontWeight.w400,
                         letterSpacing: 0,
                       ),
@@ -618,7 +621,7 @@ class _PlayerMetadataBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = CassettePlayerPalette.maybeOf(context);
+    final palette = PlayerScenePalette.maybeOf(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -661,18 +664,27 @@ class _PlayerRadioModeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = PlayerScenePalette.maybeOf(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color:
+            palette?.surfaceRaised.withValues(alpha: 0.42) ??
+            Colors.white.withValues(alpha: 0.12),
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
+          color:
+              palette?.edge.withValues(alpha: 0.32) ??
+              Colors.white.withValues(alpha: 0.18),
           width: 0.7,
         ),
       ),
-      child: const Padding(
-        padding: EdgeInsets.all(4),
-        child: Icon(Icons.radio_rounded, size: 13, color: Colors.white),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(
+          Icons.radio_rounded,
+          size: 13,
+          color: palette?.foreground ?? Colors.white,
+        ),
       ),
     );
   }

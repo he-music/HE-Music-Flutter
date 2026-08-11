@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/theme/player/styles/cassette_player_palette.dart';
+import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../domain/entities/player_play_mode.dart';
 
 class PlayerControlBar extends StatelessWidget {
@@ -122,7 +122,7 @@ class _PrimaryControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = CassettePlayerPalette.maybeOf(context);
+    final palette = PlayerScenePalette.maybeOf(context);
     final foreground = palette?.foreground ?? Colors.white;
     final button = IconButton(
       onPressed: onPressed,
@@ -190,11 +190,10 @@ class _RoundControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = CassettePlayerPalette.maybeOf(context);
     return IconButton(
       onPressed: onPressed,
       icon: Icon(icon, size: iconSize),
-      color: palette?.foreground ?? Colors.white,
+      color: Colors.white,
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,
         shadowColor: Colors.transparent,
@@ -220,15 +219,12 @@ class _SideControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = CassettePlayerPalette.maybeOf(context);
     return IconButton(
       onPressed: onPressed,
       tooltip: tooltip,
       icon: Icon(icon),
       iconSize: compact ? 18 : 22,
-      color:
-          palette?.edge.withValues(alpha: 0.88) ??
-          Colors.white.withValues(alpha: 0.84),
+      color: Colors.white.withValues(alpha: 0.84),
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,
         shadowColor: Colors.transparent,

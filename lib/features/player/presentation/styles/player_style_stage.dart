@@ -6,6 +6,7 @@ import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../domain/entities/player_track.dart';
 import '../widgets/player_cover_hero.dart';
 import 'cassette_player_stage.dart';
+import 'classic_player_stage.dart';
 import 'radial_spectrum_player_stage.dart';
 import 'vinyl_player_stage.dart';
 
@@ -47,6 +48,7 @@ class PlayerStyleStage extends StatelessWidget {
             width: width,
             height: height,
             child: switch (stageKind) {
+              AppPlayerStageKind.classic => ClassicPlayerStage(track: track),
               AppPlayerStageKind.vinyl => VinylPlayerStage(track: track),
               AppPlayerStageKind.cassette => CassettePlayerStage(
                 track: track,

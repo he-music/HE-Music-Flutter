@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../lyrics/domain/entities/lyric_document.dart';
 import '../../../lyrics/domain/entities/lyric_line.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
@@ -39,6 +40,7 @@ class PlayerCompactLyricSection extends ConsumerWidget {
       _compactLyricTextProvider.select((currentText) => currentText),
     );
     final theme = Theme.of(context);
+    final palette = PlayerScenePalette.maybeOf(context);
     return SizedBox(
       height: layoutHeight,
       width: double.infinity,
@@ -70,7 +72,7 @@ class PlayerCompactLyricSection extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      color: Colors.white.withValues(
+                      color: (palette?.foreground ?? Colors.white).withValues(
                         alpha: text.isEmpty ? 0.56 : 0.92,
                       ),
                       fontWeight: FontWeight.w500,

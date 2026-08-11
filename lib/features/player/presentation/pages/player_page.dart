@@ -12,10 +12,12 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_route_observers.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../../../app/theme/player/app_player_style_registry.dart';
 import '../../../../app/theme/player/styles/cassette_player_palette.dart';
+import '../../../../app/theme/player/styles/classic_player_palette.dart';
 import '../../../../core/device/screen_wake_lock.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
@@ -92,7 +94,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _usesRealtimeSpectrum = false;
   RealtimeSpectrumController? _spectrumController;
   bool _spectrumSyncScheduled = false;
-  CassettePlayerPalette _cassettePalette = CassettePlayerPalette.fallback;
+  List<Color> _classicBackdropColors = const <Color>[];
 
   @override
   void initState() {
@@ -262,6 +264,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final playerStyle = AppPlayerStyleRegistry.instance.resolve(
       config.playerStyleId,
     );
+    final scenePalette = _resolvePlayerScenePalette(
+      playerStyle.stageKind,
+      _classicBackdropColors,
+    );
     final controller = ref.read(playerControllerProvider.notifier);
     final presentation = ref.watch(
       playerControllerProvider.select(
@@ -336,10 +342,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 isPortrait: usePortraitArtistPhoto,
                 artistPhotoImageProviderBuilder:
                     widget.artistPhotoImageProviderBuilder,
-                onClassicPaletteChanged:
-                    playerStyle.stageKind == AppPlayerStageKind.cassette
-                    ? _handleCassettePaletteChanged
-                    : null,
+                onClassicPaletteChanged: scenePalette == null
+                    ? null
+                    : _handleClassicPaletteChanged,
               ),
             ),
             Positioned.fill(
@@ -349,9 +354,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 right: !isMobileLandscape,
                 bottom: !isMobileLandscape,
                 minimum: landscapeSafeMinimum,
-                child: _CassettePaletteScope(
-                  enabled: playerStyle.stageKind == AppPlayerStageKind.cassette,
-                  palette: _cassettePalette,
+                child: _PlayerScenePaletteScope(
+                  palette: scenePalette,
                   child: PlayerResponsiveLayout(
                     pageController: _pageController,
                     onLayoutModeResolved: _handleLayoutModeResolved,
@@ -432,11 +436,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     );
   }
 
-  void _handleCassettePaletteChanged(List<Color> colors) {
+  void _handleClassicPaletteChanged(List<Color> colors) {
     if (!mounted) return;
-    final palette = CassettePlayerPalette.fromBackdrop(colors);
-    if (palette == _cassettePalette) return;
-    setState(() => _cassettePalette = palette);
+    if (listEquals(colors, _classicBackdropColors)) return;
+    setState(() {
+      _classicBackdropColors = List<Color>.unmodifiable(colors);
+    });
   }
 
   Future<void> _openCurrentQualitySheet(
@@ -1492,24 +1497,36 @@ bool supportsPlayerOrientationControlsForTest({
   return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 }
 
-class _CassettePaletteScope extends StatelessWidget {
-  const _CassettePaletteScope({
-    required this.enabled,
-    required this.palette,
-    required this.child,
-  });
+PlayerScenePalette? _resolvePlayerScenePalette(
+  AppPlayerStageKind stageKind,
+  List<Color> backdropColors,
+) {
+  return switch (stageKind) {
+    AppPlayerStageKind.classic => classicPlayerScenePaletteFromBackdrop(
+      backdropColors,
+    ),
+    AppPlayerStageKind.cassette => CassettePlayerPalette.fromBackdrop(
+      backdropColors,
+    ),
+    _ => null,
+  };
+}
 
-  final bool enabled;
-  final CassettePlayerPalette palette;
+class _PlayerScenePaletteScope extends StatelessWidget {
+  const _PlayerScenePaletteScope({required this.palette, required this.child});
+
+  final PlayerScenePalette? palette;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    if (!enabled) return child;
+    final palette = this.palette;
     final base = Theme.of(context);
     final extensions = List<ThemeExtension<dynamic>>.of(base.extensions.values)
-      ..removeWhere((extension) => extension is CassettePlayerPalette);
-    extensions.add(palette);
+      ..removeWhere((extension) => extension is PlayerScenePalette);
+    if (palette != null) {
+      extensions.add(palette);
+    }
     return AnimatedTheme(
       duration: const Duration(milliseconds: 900),
       curve: Curves.easeOutCubic,
@@ -1536,7 +1553,7 @@ class _PlayerTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = CassettePlayerPalette.maybeOf(context);
+    final palette = PlayerScenePalette.maybeOf(context);
     final foreground = palette?.foreground ?? Colors.white;
     return SizedBox(
       height: 44,
@@ -1566,8 +1583,8 @@ class _PlayerTopBar extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: active
-                          ? palette?.accent ?? Colors.white
-                          : foreground.withValues(alpha: 0.32),
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.32),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -1614,7 +1631,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gap = layoutSpec.verticalGap;
-    final palette = CassettePlayerPalette.maybeOf(context);
+    final palette = PlayerScenePalette.maybeOf(context);
     final usesCassetteLabel = stageKind == AppPlayerStageKind.cassette;
     final exitRail = SizedBox(
       key: const ValueKey<String>('player-mobile-landscape-exit-rail'),
@@ -1938,7 +1955,7 @@ class _PlayerUtilityRow extends ConsumerWidget {
     final isTrackTransitioning = ref.watch(
       playerControllerProvider.select((state) => state.isTrackTransitioning),
     );
-    final palette = CassettePlayerPalette.maybeOf(context);
+    final palette = PlayerScenePalette.maybeOf(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -1982,10 +1999,10 @@ class _PlayerFavoriteButton extends ConsumerWidget {
         ),
       ),
     );
-    final palette = CassettePlayerPalette.maybeOf(context);
+    final palette = PlayerScenePalette.maybeOf(context);
 
     final color = isFavorited
-        ? palette?.accent ?? Colors.redAccent
+        ? Colors.redAccent
         : palette?.foreground.withValues(alpha: 0.88) ??
               Colors.white.withValues(alpha: 0.82);
 

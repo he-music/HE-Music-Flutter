@@ -236,6 +236,7 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
       AppPlayerStageKind.classic => _ClassicGradientBackdrop(
         backdropKey: 'player-backdrop-classic',
         imageProvider: widget.imageProvider,
+        onPaletteChanged: widget.onClassicPaletteChanged,
       ),
       AppPlayerStageKind.fluid => FluidPlayerBackdrop(
         imageProvider: widget.imageProvider,

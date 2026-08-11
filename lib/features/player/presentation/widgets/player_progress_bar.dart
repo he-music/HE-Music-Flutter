@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme/player/styles/cassette_player_palette.dart';
-
 const _defaultSliderMax = 1.0;
 
 class PlayerProgressBar extends StatelessWidget {
@@ -23,9 +21,6 @@ class PlayerProgressBar extends StatelessWidget {
     final maxMillis = _maxDurationMillis(duration);
     final currentMillis = _clampPosition(position, maxMillis);
     final theme = Theme.of(context);
-    final palette = CassettePlayerPalette.maybeOf(context);
-    final activeColor = palette?.accent ?? Colors.white;
-    final foreground = palette?.foreground ?? Colors.white;
 
     return Column(
       children: <Widget>[
@@ -34,12 +29,10 @@ class PlayerProgressBar extends StatelessWidget {
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-            activeTrackColor: activeColor,
-            inactiveTrackColor:
-                palette?.edge.withValues(alpha: 0.22) ??
-                Colors.white.withValues(alpha: 0.2),
-            thumbColor: foreground,
-            overlayColor: activeColor.withValues(alpha: 0.14),
+            activeTrackColor: Colors.white,
+            inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
+            thumbColor: Colors.white,
+            overlayColor: Colors.white.withValues(alpha: 0.14),
           ),
           child: Slider(
             key: const ValueKey<String>('player-progress-slider'),
@@ -56,17 +49,13 @@ class PlayerProgressBar extends StatelessWidget {
             Text(
               _formatDuration(position),
               style: theme.textTheme.bodySmall?.copyWith(
-                color:
-                    palette?.secondaryForeground ??
-                    Colors.white.withValues(alpha: 0.74),
+                color: Colors.white.withValues(alpha: 0.74),
               ),
             ),
             Text(
               _formatDuration(duration),
               style: theme.textTheme.bodySmall?.copyWith(
-                color:
-                    palette?.secondaryForeground ??
-                    Colors.white.withValues(alpha: 0.74),
+                color: Colors.white.withValues(alpha: 0.74),
               ),
             ),
           ],

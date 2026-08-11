@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/theme/player/styles/cassette_player_palette.dart';
 import '../../domain/entities/player_track.dart';
 import '../helpers/player_artwork_helper.dart';
@@ -94,7 +95,8 @@ class _CassettePlayerStageState extends ConsumerState<CassettePlayerStage>
       widget.track?.artworkUrl,
       widget.track?.artworkBytes,
     );
-    final palette = CassettePlayerPalette.of(context);
+    final palette =
+        PlayerScenePalette.maybeOf(context) ?? CassettePlayerPalette.fallback;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -177,7 +179,7 @@ class _CassettePlayerStageState extends ConsumerState<CassettePlayerStage>
 class _CassetteTapeLayer extends ConsumerWidget {
   const _CassetteTapeLayer(this.palette);
 
-  final CassettePlayerPalette palette;
+  final PlayerScenePalette palette;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -212,7 +214,7 @@ class _CassetteLabel extends StatelessWidget {
   });
 
   final ImageProvider<Object>? imageProvider;
-  final CassettePlayerPalette palette;
+  final PlayerScenePalette palette;
   final Widget? child;
 
   @override
@@ -341,7 +343,7 @@ class _CassetteReel extends StatelessWidget {
 
   final double size;
   final Animation<double> turns;
-  final CassettePlayerPalette palette;
+  final PlayerScenePalette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -362,7 +364,7 @@ class CassetteShellPainter extends CustomPainter {
   });
 
   final double tapeProgress;
-  final CassettePlayerPalette palette;
+  final PlayerScenePalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -545,7 +547,7 @@ class CassetteLightSweepPainter extends CustomPainter {
        super(repaint: phase);
 
   final Animation<double> _phase;
-  final CassettePlayerPalette palette;
+  final PlayerScenePalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -583,7 +585,7 @@ class CassetteLightSweepPainter extends CustomPainter {
 class CassetteReelPainter extends CustomPainter {
   const CassetteReelPainter({this.palette = CassettePlayerPalette.fallback});
 
-  final CassettePlayerPalette palette;
+  final PlayerScenePalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
