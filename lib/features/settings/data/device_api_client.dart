@@ -33,9 +33,8 @@ class DeviceData {
       appVersion: '${map['app_version'] ?? ''}'.trim(),
       deviceName: '${map['device_name'] ?? ''}'.trim(),
       location: '${map['location'] ?? ''}'.trim(),
-      lastActiveAt: map['last_active_at'] is int
-          ? map['last_active_at'] as int
-          : 0,
+      // Proto JSON 会把 int64 编码为字符串，兼容字符串和整数响应。
+      lastActiveAt: int.tryParse('${map['last_active_at'] ?? ''}'.trim()) ?? 0,
       isCurrentDevice: map['is_current_device'] == true,
     );
   }
