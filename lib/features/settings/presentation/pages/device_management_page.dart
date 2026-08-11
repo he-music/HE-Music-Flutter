@@ -221,6 +221,12 @@ class _DeviceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isCurrent = device.isCurrentDevice;
+    final formattedLastActive = _formatLastActive(config, device.lastActiveAt);
+    final lastActiveText = formattedLastActive.isEmpty
+        ? ''
+        : AppI18n.format(config, 'settings.device_management.last_active', {
+            'time': formattedLastActive,
+          });
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -257,32 +263,45 @@ class _DeviceCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // 位置 + 时间
+                  // 位置和最后活跃时间分行显示，避免窄屏下互相挤压。
                   DefaultTextStyle(
                     style:
                         Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ) ??
                         const TextStyle(),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (device.location.isNotEmpty) ...[
-                          Icon(
-                            Icons.location_on_outlined,
-                            size: 14,
-                            color: colorScheme.onSurfaceVariant,
+                        if (device.location.isNotEmpty)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: 14,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 2),
+                              Expanded(child: Text(device.location)),
+                            ],
                           ),
-                          const SizedBox(width: 2),
-                          Text(device.location),
-                          const SizedBox(width: 12),
-                        ],
-                        Icon(
-                          Icons.access_time,
-                          size: 14,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(_formatLastActive(config, device.lastActiveAt)),
+                        if (device.location.isNotEmpty &&
+                            lastActiveText.isNotEmpty)
+                          const SizedBox(height: 2),
+                        if (lastActiveText.isNotEmpty)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: 14,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 2),
+                              Expanded(child: Text(lastActiveText)),
+                            ],
+                          ),
                       ],
                     ),
                   ),

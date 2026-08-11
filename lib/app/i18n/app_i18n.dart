@@ -426,7 +426,7 @@ abstract final class AppI18n {
           '确认删除其他所有设备？删除后其他设备将在当前会话过期后需要重新登录。',
       'settings.device_management.batch_delete_done': '已删除 {count} 台设备',
       'settings.device_management.empty': '暂无设备',
-      'settings.device_management.last_active': '最后活跃',
+      'settings.device_management.last_active': '最后活跃：{time}',
       'settings.device_management.just_now': '刚刚',
       'settings.device_management.minutes_ago': '{count} 分钟前',
       'settings.device_management.hours_ago': '{count} 小时前',
@@ -1254,7 +1254,7 @@ abstract final class AppI18n {
       'settings.device_management.batch_delete_done':
           '{count} device(s) removed',
       'settings.device_management.empty': 'No devices',
-      'settings.device_management.last_active': 'Last active',
+      'settings.device_management.last_active': 'Last active: {time}',
       'settings.device_management.just_now': 'Just now',
       'settings.device_management.minutes_ago': '{count} min ago',
       'settings.device_management.hours_ago': '{count} hour(s) ago',
