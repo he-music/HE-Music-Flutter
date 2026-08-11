@@ -29,7 +29,10 @@ import '../widgets/settings_single_choice_sheet.dart';
 import '../widgets/settings_tiles.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({this.sectionId, this.highlightedItemId, super.key});
+
+  final String? sectionId;
+  final String? highlightedItemId;
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
@@ -40,8 +43,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final Map<String, GlobalKey> _itemAnchorKeys = <String, GlobalKey>{};
 
   Timer? _highlightResetTimer;
-  String? _mobileSectionId;
   String? _highlightedItemId;
+
+  @override
+  void initState() {
+    super.initState();
+    _highlightedItemId = widget.highlightedItemId;
+    _scheduleHighlightReset(_highlightedItemId);
+  }
 
   @override
   void dispose() {
@@ -57,27 +66,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildMobileScaffold(BuildContext context, AppConfigState config) {
-    final showingSection = _mobileSectionId != null;
+    final sectionId = widget.sectionId;
+    final showingSection = sectionId != null;
     final title = showingSection
-        ? _sectionTitle(config, _mobileSectionId!)
+        ? _sectionTitle(config, sectionId)
         : AppI18n.t(config, 'settings.title');
-    return PopScope(
-      canPop: !showingSection,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop || !showingSection) return;
-        _closeMobileSection();
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          leading: AppBackButton(
-            onPressed: showingSection ? _closeMobileSection : null,
-          ),
-          title: Text(title),
-        ),
-        body: showingSection
-            ? _buildSectionPanel(config: config, sectionId: _mobileSectionId!)
-            : _buildMobileHome(config),
-      ),
+    return Scaffold(
+      key: ValueKey<String>('settings-page-${sectionId ?? 'home'}'),
+      appBar: AppBar(leading: const AppBackButton(), title: Text(title)),
+      body: showingSection
+          ? _buildSectionPanel(config: config, sectionId: sectionId)
+          : _buildMobileHome(config),
     );
   }
 
@@ -154,11 +153,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         return SettingsSearchResultTile(
           title: _searchPath(config, item),
           subtitle: _itemSearchSubtitle(config, item),
-          onTap: () => _openSearchResult(
-            sectionId: item.sectionId,
-            itemId: item.id,
-            isDesktop: isDesktop,
-          ),
+          onTap: () =>
+              _openSearchResult(sectionId: item.sectionId, itemId: item.id),
         );
       },
     );
@@ -508,37 +504,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _openSection(String sectionId, {String? highlightItemId}) {
-    setState(() {
-      _mobileSectionId = sectionId;
-      _highlightedItemId = highlightItemId;
-    });
     _clearSearch();
-    _scheduleHighlightReset(highlightItemId);
+    context.push(
+      AppRoutes.settingsSectionLocation(
+        sectionId,
+        highlightedItemId: highlightItemId,
+      ),
+    );
   }
 
-  void _closeMobileSection() {
-    setState(() {
-      _mobileSectionId = null;
-      _highlightedItemId = null;
-    });
-  }
-
-  void _openSearchResult({
-    required String sectionId,
-    required String itemId,
-    required bool isDesktop,
-  }) {
+  void _openSearchResult({required String sectionId, required String itemId}) {
     if (settingsNavigationDestinations.containsKey(itemId)) {
       _clearSearch();
       _openNavigationItem(itemId);
       return;
     }
-    setState(() {
-      _mobileSectionId = sectionId;
-      _highlightedItemId = itemId;
-    });
-    _clearSearch();
-    _scheduleHighlightReset(itemId);
+    _openSection(sectionId, highlightItemId: itemId);
   }
 
   void _clearSearch() {

@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
@@ -490,28 +489,8 @@ void main() {
     addTearDown(container.dispose);
     tester.view.physicalSize = const Size(1170, 2532);
     addTearDown(tester.view.resetPhysicalSize);
-    final router = GoRouter(
-      navigatorKey: rootNavigatorKey,
-      initialLocation: AppRoutes.settings,
-      routes: <GoRoute>[
-        GoRoute(
-          path: AppRoutes.home,
-          builder: (context, state) => const Scaffold(body: Text('home-page')),
-        ),
-        GoRoute(
-          path: AppRoutes.settings,
-          builder: (context, state) => const SettingsPage(),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
+    await tester.pumpWidget(_buildSettingsApp(container: container));
     await tester.pump();
     await tester.tap(find.text('帐号'));
     await tester.pumpAndSettle();
@@ -592,14 +571,56 @@ void main() {
 }
 
 Widget _buildSettingsApp({ProviderContainer? container, ThemeData? theme}) {
-  final scopeChild = MaterialApp(
+  final scopeChild = _SettingsTestApp(
     theme: theme ?? ThemeData(platform: TargetPlatform.android),
-    home: const SettingsPage(),
   );
   if (container == null) {
     return ProviderScope(child: scopeChild);
   }
   return UncontrolledProviderScope(container: container, child: scopeChild);
+}
+
+class _SettingsTestApp extends StatefulWidget {
+  const _SettingsTestApp({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  State<_SettingsTestApp> createState() => _SettingsTestAppState();
+}
+
+class _SettingsTestAppState extends State<_SettingsTestApp> {
+  late final GoRouter _router = GoRouter(
+    initialLocation: AppRoutes.settings,
+    routes: <GoRoute>[
+      GoRoute(
+        path: AppRoutes.home,
+        builder: (context, state) => const Scaffold(body: Text('home-page')),
+      ),
+      GoRoute(
+        path: AppRoutes.settings,
+        builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.settingsSection,
+        builder: (context, state) => SettingsPage(
+          sectionId: state.pathParameters['sectionId'],
+          highlightedItemId: state.uri.queryParameters['highlight'],
+        ),
+      ),
+    ],
+  );
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(theme: widget.theme, routerConfig: _router);
+  }
 }
 
 ProviderContainer _createContainer({

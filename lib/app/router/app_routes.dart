@@ -18,6 +18,7 @@ abstract final class AppRoutes {
   static const parseSourceUrl = '/online/parse';
   static const onlineComments = '/online/comments';
   static const settings = '/settings';
+  static const settingsSection = '/settings/section/:sectionId';
   static const settingsSkin = '/settings/skin';
   static const settingsGitHubDownloadAcceleration =
       '/settings/github-download-acceleration';
@@ -44,4 +45,16 @@ abstract final class AppRoutes {
   static const my = '/my';
   static const myHistory = '/my/history';
   static const myCollection = '/my/collection';
+
+  static String settingsSectionLocation(
+    String sectionId, {
+    String? highlightedItemId,
+  }) {
+    return Uri(
+      path: '/settings/section/$sectionId',
+      queryParameters: highlightedItemId == null
+          ? null
+          : <String, String>{'highlight': highlightedItemId},
+    ).toString();
+  }
 }

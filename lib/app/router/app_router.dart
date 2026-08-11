@@ -38,6 +38,7 @@ import '../../features/player/presentation/pages/player_page.dart';
 import '../../features/ranking/presentation/pages/ranking_detail_page.dart';
 import '../../features/ranking/presentation/pages/ranking_list_page.dart';
 import '../../features/radio/presentation/pages/radio_plaza_page.dart';
+import '../../features/settings/domain/settings_catalog.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/settings/presentation/pages/skin_selection_page.dart';
 import '../../features/song/presentation/pages/song_detail_page.dart';
@@ -72,6 +73,76 @@ class _RootContentRouteShell extends StatelessWidget {
       bottomNavigationBar: MiniPlayerBar(
         bottomSafeArea: true,
         onOpenFullPlayer: () => context.push(AppRoutes.player),
+      ),
+    );
+  }
+}
+
+/// 图片皮肤下页面背景透明，前后路由必须同步移动，避免内容叠画。
+class _SettingsSectionTransitionPage extends Page<void> {
+  const _SettingsSectionTransitionPage({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Route<void> createRoute(BuildContext context) {
+    return _SettingsSectionPageRoute(page: this);
+  }
+}
+
+class _SettingsSectionPageRoute extends PageRouteBuilder<void> {
+  _SettingsSectionPageRoute({required _SettingsSectionTransitionPage page})
+    : super(
+        settings: page,
+        transitionDuration: const Duration(milliseconds: 260),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (context, animation, secondaryAnimation) => page.child,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
+                reverseCurve: Curves.easeIn,
+              ),
+              child: SlideTransition(
+                position: _positionAnimation(
+                  animation,
+                  begin: const Offset(1, 0),
+                  end: Offset.zero,
+                ),
+                textDirection: Directionality.of(context),
+                child: child,
+              ),
+            ),
+      );
+
+  @override
+  DelegatedTransitionBuilder get delegatedTransition =>
+      (context, animation, secondaryAnimation, allowSnapshotting, child) {
+        if (child == null) {
+          return null;
+        }
+        return SlideTransition(
+          position: _positionAnimation(
+            secondaryAnimation,
+            begin: Offset.zero,
+            end: const Offset(-1, 0),
+          ),
+          textDirection: Directionality.of(context),
+          child: child,
+        );
+      };
+
+  static Animation<Offset> _positionAnimation(
+    Animation<double> animation, {
+    required Offset begin,
+    required Offset end,
+  }) {
+    return Tween<Offset>(begin: begin, end: end).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
       ),
     );
   }
@@ -284,6 +355,27 @@ List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
     path: AppRoutes.settings,
     parentNavigatorKey: rootNavigatorKey,
     builder: (context, state) => const SettingsPage(),
+  ),
+  GoRoute(
+    path: AppRoutes.settingsSection,
+    parentNavigatorKey: rootNavigatorKey,
+    redirect: (context, state) {
+      final sectionId = state.pathParameters['sectionId'];
+      final sectionExists = settingsSections.any(
+        (section) => section.id == sectionId,
+      );
+      return sectionExists ? null : AppRoutes.settings;
+    },
+    pageBuilder: (context, state) {
+      final sectionId = state.pathParameters['sectionId']!;
+      return _SettingsSectionTransitionPage(
+        key: state.pageKey,
+        child: SettingsPage(
+          sectionId: sectionId,
+          highlightedItemId: _readOptionalQuery(state, 'highlight'),
+        ),
+      );
+    },
   ),
   GoRoute(
     path: AppRoutes.about,

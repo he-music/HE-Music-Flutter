@@ -42,6 +42,7 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/pages/player_page.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
+import 'package:he_music_flutter/features/settings/domain/settings_catalog.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/account_password_page.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/account_profile_page.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_page.dart';
@@ -167,6 +168,58 @@ void main() {
 
     expect(find.byType(MiniPlayerBar), findsNothing);
     expect(find.text('路由测试歌曲'), findsNothing);
+  });
+
+  testWidgets('settings section slides in and returns through route stack', (
+    tester,
+  ) async {
+    final router = createAppRouter(AppRoutes.settings);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      _buildImmersiveRouterTestApp(router, _CountingAssetResolver()),
+    );
+    await tester.pumpAndSettle();
+
+    final sectionPage = find.byKey(
+      const ValueKey<String>('settings-page-lyrics'),
+    );
+    final homePage = find.byKey(const ValueKey<String>('settings-page-home'));
+
+    await tester.tap(find.text('歌词'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      router.state.uri.path,
+      AppRoutes.settingsSectionLocation(SettingsSectionIds.lyrics),
+    );
+    expect(sectionPage, findsOneWidget);
+    final startDx = tester.getTopLeft(sectionPage).dx;
+    expect(startDx, greaterThan(0));
+
+    await tester.pump(const Duration(milliseconds: 130));
+    final middleDx = tester.getTopLeft(sectionPage).dx;
+    expect(middleDx, greaterThan(0));
+    expect(middleDx, lessThan(startDx));
+    expect(
+      tester.getRect(homePage).right,
+      lessThanOrEqualTo(tester.getRect(sectionPage).left + 0.01),
+    );
+
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.getTopLeft(sectionPage).dx, closeTo(0, 0.01));
+
+    router.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(tester.getTopLeft(sectionPage).dx, greaterThan(0));
+
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(router.state.uri.path, AppRoutes.settings);
+    expect(
+      find.byKey(const ValueKey<String>('settings-page-home')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('immersive route transitions keep the root wallpaper visible', (
