@@ -34,8 +34,10 @@ class PlayerQueueList extends StatefulWidget {
 }
 
 class _PlayerQueueListState extends State<PlayerQueueList> {
+  static const double _currentTrackAlignment = 0.32;
+
   final ScrollController _scrollController = ScrollController();
-  final Map<String, GlobalKey> _itemKeys = <String, GlobalKey>{};
+  final GlobalKey _prototypeItemKey = GlobalKey();
 
   @override
   void initState() {
@@ -48,7 +50,8 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
   @override
   void didUpdateWidget(covariant PlayerQueueList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentIndex != widget.currentIndex ||
+    if ((!oldWidget.highlightCurrent && widget.highlightCurrent) ||
+        oldWidget.currentIndex != widget.currentIndex ||
         oldWidget.queue.length != widget.queue.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToCurrent();
@@ -63,26 +66,41 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
   }
 
   void _scrollToCurrent({bool animated = true}) {
-    if (widget.queue.isEmpty) {
+    if (!mounted ||
+        !widget.highlightCurrent ||
+        widget.queue.isEmpty ||
+        !_scrollController.hasClients) {
       return;
     }
     final safeIndex = widget.currentIndex.clamp(0, widget.queue.length - 1);
-    final track = widget.queue[safeIndex];
-    final itemIdentity =
-        '${track.platform ?? ''}|${track.id}|${track.path ?? ''}|$safeIndex';
-    final key = _itemKeys[itemIdentity];
-    final context = key?.currentContext;
-    if (context == null) {
+    final itemExtent = _prototypeItemKey.currentContext?.size?.height;
+    final position = _scrollController.position;
+    if (itemExtent == null ||
+        itemExtent <= 0 ||
+        !position.hasContentDimensions) {
       return;
     }
-    final duration = animated
-        ? const Duration(milliseconds: 220)
-        : Duration.zero;
-    Scrollable.ensureVisible(
-      context,
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      alignment: 0.32,
+    // prototypeItem 让 Sliver 可按索引直达目标区间，无需先构建前面的歌曲行。
+    final targetOffset =
+        (safeIndex * itemExtent -
+                (position.viewportDimension - itemExtent) *
+                    _currentTrackAlignment)
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble();
+    if (animated) {
+      _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
+    _scrollController.jumpTo(targetOffset);
+  }
+
+  Widget _buildPrototypeItem(BuildContext context) {
+    return IgnorePointer(
+      child: _buildItem(context, 0, itemKey: _prototypeItemKey),
     );
   }
 
@@ -104,6 +122,7 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
     if (!widget.editable) {
       return ListView.builder(
         controller: _scrollController,
+        prototypeItem: _buildPrototypeItem(context),
         itemCount: widget.queue.length,
         itemBuilder: (context, index) => _buildItem(context, index),
       );
@@ -111,24 +130,23 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
     return ReorderableListView.builder(
       scrollController: _scrollController,
       buildDefaultDragHandles: false,
+      prototypeItem: _buildPrototypeItem(context),
       itemCount: widget.queue.length,
       onReorder: (oldIndex, newIndex) => widget.onReorder!(oldIndex, newIndex),
       itemBuilder: _buildItem,
     );
   }
 
-  Widget _buildItem(BuildContext context, int index) {
+  Widget _buildItem(BuildContext context, int index, {Key? itemKey}) {
     final theme = Theme.of(context);
     final track = widget.queue[index];
+    final artist = track.artist;
     final isCurrent = widget.highlightCurrent && index == widget.currentIndex;
     final itemIdentity =
         '${track.platform ?? ''}|${track.id}|${track.path ?? ''}|$index';
-    final itemKey = _itemKeys.putIfAbsent(itemIdentity, GlobalKey.new);
     return Padding(
-      key: itemKey,
-      padding: EdgeInsets.only(
-        bottom: index == widget.queue.length - 1 ? 0 : 2,
-      ),
+      key: itemKey ?? ValueKey<String>(itemIdentity),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -164,9 +182,9 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        (track.artist ?? 'Unknown Artist').trim().isEmpty
+                        artist == null || artist.trim().isEmpty
                             ? 'Unknown Artist'
-                            : track.artist!,
+                            : artist,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(

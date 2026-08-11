@@ -27,18 +27,15 @@ class _PlayerQueuePanelContentState
     extends ConsumerState<PlayerQueuePanelContent>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  int _activeTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this, initialIndex: 0)
-      ..addListener(_handleTabChanged);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: 0);
   }
 
   @override
   void dispose() {
-    _tabController.removeListener(_handleTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -114,8 +111,8 @@ class _PlayerQueuePanelContentState
           ),
         ),
         Expanded(
-          child: IndexedStack(
-            index: _activeTabIndex,
+          child: TabBarView(
+            controller: _tabController,
             children: <Widget>[
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -148,20 +145,6 @@ class _PlayerQueuePanelContentState
         ),
       ],
     );
-  }
-
-  void _handleTabChanged() {
-    if (_tabController.indexIsChanging) {
-      setState(() {
-        _activeTabIndex = _tabController.index;
-      });
-      return;
-    }
-    if (_activeTabIndex != _tabController.index) {
-      setState(() {
-        _activeTabIndex = _tabController.index;
-      });
-    }
   }
 
   void _openSource(BuildContext context, PlayerQueueSource source) {
