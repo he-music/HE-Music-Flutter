@@ -232,8 +232,61 @@ void main() {
     expect(controller.nextCalls, 0);
 
     await committedGesture.up(timeStamp: const Duration(milliseconds: 144));
+    await tester.pump();
+
+    expect(controller.nextCalls, 1);
+    expect(controller.previousCalls, 0);
+
     await tester.pumpAndSettle();
 
+    expect(controller.nextCalls, 1);
+    expect(controller.previousCalls, 0);
+  });
+
+  testWidgets('mini player commits a ballistic page before scrolling ends', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 960));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    late _TestSwipeMiniPlayerController controller;
+    var scrollEndCount = 0;
+    int? scrollEndCountWhenNextCalled;
+    await tester.pumpWidget(
+      _buildMiniPlayerTestApp(
+        controllerFactory: () {
+          controller = _TestSwipeMiniPlayerController();
+          controller.onNextCall = () {
+            scrollEndCountWhenNextCalled = scrollEndCount;
+          };
+          return controller;
+        },
+        onScrollEnd: (_) {
+          scrollEndCount += 1;
+          return false;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final pageController = tester
+        .widget<PageView>(find.byType(PageView))
+        .controller!;
+    pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.linear,
+    );
+    for (var frame = 0; frame < 30 && controller.nextCalls == 0; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(controller.nextCalls, 1);
+    expect(scrollEndCountWhenNextCalled, 0);
+
+    await tester.pumpAndSettle();
+
+    expect(scrollEndCount, greaterThan(0));
     expect(controller.nextCalls, 1);
     expect(controller.previousCalls, 0);
   });
@@ -241,7 +294,9 @@ void main() {
 
 Widget _buildMiniPlayerTestApp({
   PlayerController Function()? controllerFactory,
+  bool Function(ScrollEndNotification)? onScrollEnd,
 }) {
+  final miniPlayer = MiniPlayerBar(onOpenFullPlayer: () {});
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
@@ -250,7 +305,14 @@ Widget _buildMiniPlayerTestApp({
       ),
     ],
     child: MaterialApp(
-      home: Scaffold(body: MiniPlayerBar(onOpenFullPlayer: () {})),
+      home: Scaffold(
+        body: onScrollEnd == null
+            ? miniPlayer
+            : NotificationListener<ScrollEndNotification>(
+                onNotification: onScrollEnd,
+                child: miniPlayer,
+              ),
+      ),
     ),
   );
 }
@@ -362,6 +424,7 @@ class _TestPendingTrackMiniPlayerController extends PlayerController {
 class _TestSwipeMiniPlayerController extends PlayerController {
   int nextCalls = 0;
   int previousCalls = 0;
+  VoidCallback? onNextCall;
 
   @override
   PlayerPlaybackState build() {
@@ -380,6 +443,7 @@ class _TestSwipeMiniPlayerController extends PlayerController {
   @override
   Future<void> playNext() async {
     nextCalls += 1;
+    onNextCall?.call();
   }
 
   @override

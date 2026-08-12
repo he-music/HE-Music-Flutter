@@ -227,6 +227,7 @@ class _TrackPageViewState extends State<_TrackPageView> {
   int _anchorPage = _initialPage;
   int _settledPage = _initialPage;
   int _pendingPage = _initialPage;
+  bool _pointerDown = false;
   bool _returningToAnchor = false;
 
   @override
@@ -257,48 +258,66 @@ class _TrackPageViewState extends State<_TrackPageView> {
   @override
   Widget build(BuildContext context) {
     return ClipRect(
-      child: NotificationListener<ScrollEndNotification>(
-        onNotification: _handleScrollEnd,
-        child: PageView.builder(
-          controller: _controller,
-          physics: widget.previousTrack == null && widget.nextTrack == null
-              ? const NeverScrollableScrollPhysics()
-              : const PageScrollPhysics(),
-          onPageChanged: _handlePageChanged,
-          itemBuilder: (context, index) {
-            final pageTrack = _trackForPage(index);
-            return _TrackPage(
-              track: pageTrack.track,
-              isRadioMode: pageTrack.isCurrent && widget.isRadioMode,
-              onTap: widget.onTap,
-            );
-          },
+      child: Listener(
+        onPointerDown: (_) => _pointerDown = true,
+        onPointerUp: (_) => _handlePointerEnd(),
+        onPointerCancel: (_) => _handlePointerEnd(),
+        child: NotificationListener<ScrollEndNotification>(
+          onNotification: _handleScrollEnd,
+          child: PageView.builder(
+            controller: _controller,
+            physics: widget.previousTrack == null && widget.nextTrack == null
+                ? const NeverScrollableScrollPhysics()
+                : const PageScrollPhysics(),
+            onPageChanged: _handlePageChanged,
+            itemBuilder: (context, index) {
+              final pageTrack = _trackForPage(index);
+              return _TrackPage(
+                track: pageTrack.track,
+                isRadioMode: pageTrack.isCurrent && widget.isRadioMode,
+                onTap: widget.onTap,
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
   void _handlePageChanged(int page) {
-    // PageView 越过中线就会回调；先只更新预览，抬手并停稳后再切歌。
+    // 按压期间允许拖回取消；松手后的惯性越页则立即提交。
     _pendingPage = page;
+    if (!_pointerDown) {
+      _commitPendingPage();
+    }
+  }
+
+  void _handlePointerEnd() {
+    _pointerDown = false;
+    _commitPendingPage();
   }
 
   bool _handleScrollEnd(ScrollEndNotification notification) {
+    _commitPendingPage();
+    return false;
+  }
+
+  void _commitPendingPage() {
     if (_returningToAnchor) {
       if (_pendingPage == _anchorPage) {
         _returningToAnchor = false;
         _settledPage = _anchorPage;
       }
-      return false;
+      return;
     }
     final delta = _pendingPage - _settledPage;
     if (delta == 0) {
-      return false;
+      return;
     }
     if (delta > 0) {
       if (widget.nextTrack == null) {
         _returnToAnchor();
-        return false;
+        return;
       }
       for (var index = 0; index < delta; index += 1) {
         widget.onNext();
@@ -306,14 +325,13 @@ class _TrackPageViewState extends State<_TrackPageView> {
     } else {
       if (widget.previousTrack == null) {
         _returnToAnchor();
-        return false;
+        return;
       }
       for (var index = 0; index < -delta; index += 1) {
         widget.onPrevious();
       }
     }
     _settledPage = _pendingPage;
-    return false;
   }
 
   ({_MiniPlayerTrack? track, bool isCurrent}) _trackForPage(int page) {
