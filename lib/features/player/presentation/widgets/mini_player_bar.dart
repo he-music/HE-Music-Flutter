@@ -452,7 +452,7 @@ class _MiniPlayerSelection {
   ) {
     return _MiniPlayerSelection(
       queue: queue,
-      currentIndex: state.currentIndex,
+      currentIndex: state.requestedTrackIndex ?? state.currentIndex,
       previousPreviewIndex: state.previousPreviewIndex,
       nextPreviewIndex: state.nextPreviewIndex,
       playMode: state.playMode,
@@ -566,7 +566,6 @@ class _CoverImage extends StatelessWidget {
           width: 46,
           height: 46,
           fit: BoxFit.cover,
-          gaplessPlayback: true,
           errorBuilder: (_, error, stackTrace) => Container(
             width: 46,
             height: 46,
@@ -597,7 +596,6 @@ class _CoverImage extends StatelessWidget {
               width: 46,
               height: 46,
               fit: BoxFit.cover,
-              gaplessPlayback: true,
               errorBuilder: (_, error, stackTrace) => Container(
                 width: 46,
                 height: 46,

@@ -86,6 +86,37 @@ void main() {
     expect(find.text('新歌曲'), findsOneWidget);
   });
 
+  testWidgets('mini player immediately displays pending track artwork', (
+    tester,
+  ) async {
+    late _TestPendingTrackMiniPlayerController controller;
+    await tester.pumpWidget(
+      _buildMiniPlayerTestApp(
+        controllerFactory: () {
+          controller = _TestPendingTrackMiniPlayerController();
+          return controller;
+        },
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Track A'), findsOneWidget);
+    expect(
+      (tester.widget<Image>(find.byType(Image)).image as FileImage).file.path,
+      '/tmp/cover-a.png',
+    );
+
+    controller.requestTrack(1);
+    await tester.pump();
+
+    expect(controller.snapshot.currentTrack?.id, 'track-a');
+    expect(controller.snapshot.displayTrack?.id, 'track-b');
+    expect(find.text('Track B'), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect((image.image as FileImage).file.path, '/tmp/cover-b.png');
+    expect(image.gaplessPlayback, isFalse);
+  });
+
   testWidgets('mini player previews each target during repeated next swipes', (
     tester,
   ) async {
@@ -288,6 +319,36 @@ class _TestRadioMiniPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _TestPendingTrackMiniPlayerController extends PlayerController {
+  PlayerPlaybackState get snapshot => state;
+
+  @override
+  PlayerPlaybackState build() {
+    return PlayerPlaybackState.initial(const <PlayerTrack>[
+      PlayerTrack(
+        id: 'track-a',
+        title: 'Track A',
+        artworkUrl: '/tmp/cover-a.png',
+      ),
+      PlayerTrack(
+        id: 'track-b',
+        title: 'Track B',
+        artworkUrl: '/tmp/cover-b.png',
+      ),
+    ]).copyWith(currentIndex: 0);
+  }
+
+  @override
+  Future<void> initialize() async {}
+
+  void requestTrack(int index) {
+    state = state.copyWith(
+      requestedTrackIndex: index,
+      requestedTransitionId: 1,
+    );
+  }
 }
 
 class _TestSwipeMiniPlayerController extends PlayerController {
