@@ -72,6 +72,34 @@ void main() {
     });
   }
 
+  testWidgets(
+    'mobile player pager spans full width while content keeps gutter',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final pagerRect = tester.getRect(
+        find.byKey(const ValueKey<String>('player-mobile-pager')),
+      );
+      final contentRect = tester.getRect(
+        find.byKey(const ValueKey<String>('player-mobile-primary-pane')),
+      );
+
+      expect(pagerRect.left, 0);
+      expect(pagerRect.right, 430);
+      expect(contentRect.left, 12);
+      expect(contentRect.right, 418);
+    },
+  );
+
   testWidgets('播放器分页和 PopupRoute 不释放常亮', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

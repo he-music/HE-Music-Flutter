@@ -53,10 +53,13 @@ class PlayerResponsiveLayout extends StatelessWidget {
 
   Widget _buildMobilePortrait(BuildContext context, PlayerLayoutSpec spec) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(spec.pageGutter, 6, spec.pageGutter, 12),
+      padding: const EdgeInsets.only(top: 6, bottom: 12),
       child: Column(
         children: <Widget>[
-          topBarBuilder(context, spec),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: spec.pageGutter),
+            child: topBarBuilder(context, spec),
+          ),
           SizedBox(height: spec.verticalGap),
           Expanded(
             child: PageView(
@@ -65,11 +68,17 @@ class PlayerResponsiveLayout extends StatelessWidget {
               allowImplicitScrolling: true,
               onPageChanged: onPageChanged,
               children: <Widget>[
-                KeyedSubtree(
-                  key: const ValueKey<String>('player-mobile-primary-pane'),
-                  child: mainPlayerBuilder(context, spec),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: spec.pageGutter),
+                  child: KeyedSubtree(
+                    key: const ValueKey<String>('player-mobile-primary-pane'),
+                    child: mainPlayerBuilder(context, spec),
+                  ),
                 ),
-                lyricsBuilder(context, spec),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: spec.pageGutter),
+                  child: lyricsBuilder(context, spec),
+                ),
               ],
             ),
           ),
