@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -101,10 +102,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Track A'), findsOneWidget);
+    final initialImage = tester.widget<Image>(find.byType(Image));
+    expect(initialImage.image, isA<CachedNetworkImageProvider>());
     expect(
-      (tester.widget<Image>(find.byType(Image)).image as FileImage).file.path,
-      '/tmp/cover-a.png',
+      (initialImage.image as CachedNetworkImageProvider).url,
+      'https://example.com/cover-a.png',
     );
+    expect(initialImage.gaplessPlayback, isTrue);
 
     controller.requestTrack(1);
     await tester.pump();
@@ -113,8 +117,12 @@ void main() {
     expect(controller.snapshot.displayTrack?.id, 'track-b');
     expect(find.text('Track B'), findsOneWidget);
     final image = tester.widget<Image>(find.byType(Image));
-    expect((image.image as FileImage).file.path, '/tmp/cover-b.png');
-    expect(image.gaplessPlayback, isFalse);
+    expect(image.image, isA<CachedNetworkImageProvider>());
+    expect(
+      (image.image as CachedNetworkImageProvider).url,
+      'https://example.com/cover-b.png',
+    );
+    expect(image.gaplessPlayback, isTrue);
   });
 
   testWidgets('mini player previews each target during repeated next swipes', (
@@ -330,12 +338,12 @@ class _TestPendingTrackMiniPlayerController extends PlayerController {
       PlayerTrack(
         id: 'track-a',
         title: 'Track A',
-        artworkUrl: '/tmp/cover-a.png',
+        artworkUrl: 'https://example.com/cover-a.png',
       ),
       PlayerTrack(
         id: 'track-b',
         title: 'Track B',
-        artworkUrl: '/tmp/cover-b.png',
+        artworkUrl: 'https://example.com/cover-b.png',
       ),
     ]).copyWith(currentIndex: 0);
   }

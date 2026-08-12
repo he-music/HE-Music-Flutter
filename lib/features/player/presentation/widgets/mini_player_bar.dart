@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,8 +14,8 @@ import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../domain/entities/player_play_mode.dart';
 import '../../domain/entities/player_playback_state.dart';
 import '../../domain/entities/player_track.dart';
+import '../helpers/player_artwork_helper.dart';
 import '../providers/player_providers.dart';
-import '../../../../shared/widgets/app_network_image.dart';
 import 'player_queue_sheet.dart';
 
 class MiniPlayerBar extends ConsumerStatefulWidget {
@@ -558,24 +557,8 @@ class _CoverImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (bytes != null && bytes!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.memory(
-          bytes!,
-          width: 46,
-          height: 46,
-          fit: BoxFit.cover,
-          errorBuilder: (_, error, stackTrace) => Container(
-            width: 46,
-            height: 46,
-            color: Theme.of(context).colorScheme.primaryContainer,
-            child: const Icon(Icons.music_note_rounded),
-          ),
-        ),
-      );
-    }
-    if (url == null || url!.isEmpty) {
+    final imageProvider = artworkProvider(url, bytes);
+    if (imageProvider == null) {
       return Container(
         width: 46,
         height: 46,
@@ -586,36 +569,22 @@ class _CoverImage extends StatelessWidget {
         child: const Icon(Icons.music_note_rounded),
       );
     }
-    // 本地缓存文件路径 vs 网络 URL
-    final isLocalPath = url!.startsWith('/');
+    final fallback = Container(
+      width: 46,
+      height: 46,
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: const Icon(Icons.music_note_rounded),
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: isLocalPath
-          ? Image.file(
-              File(url!),
-              width: 46,
-              height: 46,
-              fit: BoxFit.cover,
-              errorBuilder: (_, error, stackTrace) => Container(
-                width: 46,
-                height: 46,
-                color: Theme.of(context).colorScheme.primaryContainer,
-                child: const Icon(Icons.music_note_rounded),
-              ),
-            )
-          : AppNetworkImage(
-              url: url!,
-              width: 46,
-              height: 46,
-              fit: BoxFit.cover,
-              cacheWidth: 128,
-              fallback: Container(
-                width: 46,
-                height: 46,
-                color: Theme.of(context).colorScheme.primaryContainer,
-                child: const Icon(Icons.music_note_rounded),
-              ),
-            ),
+      child: Image(
+        image: imageProvider,
+        width: 46,
+        height: 46,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, error, stackTrace) => fallback,
+      ),
     );
   }
 }
