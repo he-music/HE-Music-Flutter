@@ -88,9 +88,18 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                   const SizedBox(width: 6),
                   GestureDetector(
                     onTap: widget.onOpenFullPlayer,
-                    child: _CoverImage(
-                      url: track.artworkUrl,
-                      bytes: track.artworkBytes,
+                    child: SizedBox.square(
+                      dimension: 46,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: _CoverImage(
+                          key: ValueKey<Object>(_coverKey(track)),
+                          url: track.artworkUrl,
+                          bytes: track.artworkBytes,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -543,6 +552,11 @@ _MiniPlayerTrack _miniPlayerTrackOf(PlayerTrack track) {
   );
 }
 
+// 歌曲或封面来源变化时保留旧封面，让 AnimatedSwitcher 完成交叉淡化。
+Object _coverKey(_MiniPlayerTrack track) {
+  return (track.platform, track.id, track.artworkUrl, track.artworkBytes);
+}
+
 class _MiniRadioModeIcon extends StatelessWidget {
   const _MiniRadioModeIcon({required this.theme});
 
@@ -568,7 +582,7 @@ class _MiniRadioModeIcon extends StatelessWidget {
 }
 
 class _CoverImage extends StatelessWidget {
-  const _CoverImage({required this.url, required this.bytes});
+  const _CoverImage({required this.url, required this.bytes, super.key});
 
   final String? url;
   final Uint8List? bytes;

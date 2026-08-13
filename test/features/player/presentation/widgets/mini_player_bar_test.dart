@@ -116,7 +116,21 @@ void main() {
     expect(controller.snapshot.currentTrack?.id, 'track-a');
     expect(controller.snapshot.displayTrack?.id, 'track-b');
     expect(find.text('Track B'), findsOneWidget);
-    final image = tester.widget<Image>(find.byType(Image));
+    expect(
+      _findNetworkImage('https://example.com/cover-a.png'),
+      findsOneWidget,
+    );
+    expect(
+      _findNetworkImage('https://example.com/cover-b.png'),
+      findsOneWidget,
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(_findNetworkImage('https://example.com/cover-a.png'), findsNothing);
+    final image = tester.widget<Image>(
+      _findNetworkImage('https://example.com/cover-b.png'),
+    );
     expect(image.image, isA<CachedNetworkImageProvider>());
     expect(
       (image.image as CachedNetworkImageProvider).url,
@@ -289,6 +303,15 @@ void main() {
     expect(scrollEndCount, greaterThan(0));
     expect(controller.nextCalls, 1);
     expect(controller.previousCalls, 0);
+  });
+}
+
+Finder _findNetworkImage(String url) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! Image || widget.image is! CachedNetworkImageProvider) {
+      return false;
+    }
+    return (widget.image as CachedNetworkImageProvider).url == url;
   });
 }
 
