@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
@@ -585,32 +586,21 @@ class _CommentListLoadingSkeleton extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(12, compact ? 10 : 8, 12, 12),
       itemCount: compact ? 4 : 5,
       separatorBuilder: (_, _) => SizedBox(height: compact ? 8 : 10),
-      itemBuilder: (context, index) => _CommentRowLoadingSkeleton(
-        compact: compact,
-        showReplyPreview: !compact && index == 0,
-      ),
+      itemBuilder: (_, _) => _CommentRowLoadingSkeleton(compact: compact),
     );
   }
 }
 
 class _CommentRowLoadingSkeleton extends StatelessWidget {
-  const _CommentRowLoadingSkeleton({
-    required this.compact,
-    required this.showReplyPreview,
-  });
+  const _CommentRowLoadingSkeleton({required this.compact});
 
   final bool compact;
-  final bool showReplyPreview;
 
   @override
   Widget build(BuildContext context) {
     final avatarSide = compact ? 28.0 : 36.0;
-    return Container(
+    final skeleton = Padding(
       padding: EdgeInsets.all(compact ? 10 : 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(compact ? 10 : 12),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -646,13 +636,10 @@ class _CommentRowLoadingSkeleton extends StatelessWidget {
               SkeletonBox(width: 42, height: 12, radius: 6),
             ],
           ),
-          if (showReplyPreview) ...<Widget>[
-            const SizedBox(height: 10),
-            const SkeletonBox(width: double.infinity, height: 48, radius: 10),
-          ],
         ],
       ),
     );
+    return AppSkinContentSurface(child: skeleton);
   }
 }
 
@@ -674,13 +661,10 @@ class _CommentCard extends StatelessWidget {
     final subComments = _asMapList(comment['sub_comments']);
     final preview = subComments.toList(growable: false);
     final hasMoreReplies = replyCount > subComments.length;
+    final theme = Theme.of(context);
 
-    return Container(
+    final cardContent = Padding(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -773,10 +757,12 @@ class _CommentCard extends StatelessWidget {
           if (preview.isNotEmpty || replyCount > 0) ...<Widget>[
             const SizedBox(height: 10),
             Container(
+              key: const ValueKey<String>('comment-reply-preview'),
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainer,
+                color:
+                    theme.cardTheme.color ?? theme.colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
@@ -814,6 +800,7 @@ class _CommentCard extends StatelessWidget {
         ],
       ),
     );
+    return AppSkinContentSurface(child: cardContent);
   }
 }
 
@@ -957,6 +944,7 @@ class _ReplySheet extends ConsumerStatefulWidget {
 class _ReplySheetState extends ConsumerState<_ReplySheet> {
   static const int _pageSize = 15;
 
+  final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _replies = <Map<String, dynamic>>[];
   bool _loading = true;
   bool _loadingMore = false;
@@ -968,7 +956,16 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     Future.microtask(_refresh);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
   }
 
   @override
@@ -1057,38 +1054,20 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
       );
     }
     return ListView.separated(
+      controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       itemCount: _replies.length + 1,
       separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         if (index >= _replies.length) {
-          if (_loadingMore) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10),
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            );
-          }
-          if (_hasMore) {
-            return Center(
-              child: TextButton(
-                onPressed: _loadMore,
-                child: Text(
-                  AppI18n.t(
-                    ref.read(appConfigProvider),
-                    'comments.load_more_replies',
-                  ),
-                ),
-              ),
-            );
-          }
-          return const SizedBox(height: 8);
+          return _CommentFooter(
+            loadingMore: _loadingMore,
+            hasMore: _hasMore,
+            error: _error,
+            hasComments: _replies.isNotEmpty,
+            onRetry: _loadMore,
+          );
         }
         final item = _replies[index];
         return _ReplyTile(comment: item);
@@ -1172,6 +1151,20 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
       });
     }
   }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients ||
+        _loading ||
+        _loadingMore ||
+        !_hasMore) {
+      return;
+    }
+    final position = _scrollController.position;
+    if (position.pixels < position.maxScrollExtent - 180) {
+      return;
+    }
+    unawaited(_loadMore());
+  }
 }
 
 class _ReplyTile extends StatelessWidget {
@@ -1186,12 +1179,8 @@ class _ReplyTile extends StatelessWidget {
     final content = _commentContent(comment);
     final timeText = _commentTime(comment);
     final praiseCount = _asInt(comment['praise_count']);
-    return Container(
+    final tile = Padding(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(10),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1250,6 +1239,7 @@ class _ReplyTile extends StatelessWidget {
         ],
       ),
     );
+    return AppSkinContentSurface(child: tile);
   }
 }
 
