@@ -11,12 +11,14 @@ class DetailPageShell extends StatelessWidget {
   const DetailPageShell({
     required this.child,
     this.bottomBar,
+    this.onBackRequested,
     this.resizeToAvoidBottomInset = true,
     super.key,
   });
 
   final Widget child;
   final Widget? bottomBar;
+  final VoidCallback? onBackRequested;
   final bool resizeToAvoidBottomInset;
 
   @override
@@ -26,12 +28,16 @@ class DetailPageShell extends StatelessWidget {
       valueListenable: SongActionsSheetController.hasOpenSheet,
       builder: (context, hasOpenSongActionsSheet, _) {
         return PopScope(
-          canPop: !hasOpenSongActionsSheet,
+          canPop: !hasOpenSongActionsSheet && onBackRequested == null,
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) {
               return;
             }
             if (SongActionsSheetController.dismissOpenSheet()) {
+              return;
+            }
+            if (onBackRequested != null) {
+              onBackRequested!();
               return;
             }
             context.appPopOrGo();

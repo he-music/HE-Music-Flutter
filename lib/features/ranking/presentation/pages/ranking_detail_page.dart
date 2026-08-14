@@ -90,6 +90,7 @@ class _RankingDetailPageState extends ConsumerState<RankingDetailPage> {
         AppI18n.t(config, 'ranking.fallback_title');
 
     return DetailPageShell(
+      onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: _songActions
@@ -334,7 +335,7 @@ class _Body extends ConsumerWidget {
             coverUrl: coverUrl,
             description: detail.description,
             onPreviewCover: () => onPreviewCover(detail.info.name, coverUrl),
-            onBack: () => context.appPopOrGo(),
+            onBack: batchMode ? onCancelBatch : () => context.appPopOrGo(),
             onShowDescription: () => onShowDescription(detail.description),
           ),
           SliverPersistentHeader(

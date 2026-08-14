@@ -76,6 +76,7 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
     );
 
     return DetailPageShell(
+      onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: _songActions
@@ -91,7 +92,12 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
           : null,
       child: Scaffold(
         appBar: AppBar(
-          leading: const AppBackButton(),
+          leading: AppBackButton(
+            onPressed: _isBatchMode ? () => _setBatchMode(false) : null,
+            tooltip: _isBatchMode
+                ? AppI18n.t(ref.read(appConfigProvider), 'detail.batch.cancel')
+                : null,
+          ),
           title: Text(AppI18n.t(ref.read(appConfigProvider), 'new_song.title')),
         ),
         body: Column(

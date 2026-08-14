@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/app_theme.dart';
+import '../../app/theme/skin/app_skin_icon.dart';
+import '../../app/theme/skin/app_skin_models.dart';
 import 'app_back_button.dart';
 
 class MusicDetailSliverAppBar extends StatelessWidget {
@@ -338,22 +340,27 @@ class _MusicDetailPlayAllHeaderContent extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          TextButton(
+          IconButton(
             onPressed: onSelectAll,
-            style: TextButton.styleFrom(
-              foregroundColor: allSelected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurface,
+            icon: AppSkinIcon(
+              role: allSelected
+                  ? AppSkinIconRole.batchDeselectAll
+                  : AppSkinIconRole.batchSelectAll,
             ),
-            child: Text(
-              AppI18n.tByLocaleCode(localeCode, 'detail.batch.select_all'),
+            color: allSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurface,
+            tooltip: AppI18n.tByLocaleCode(
+              localeCode,
+              allSelected
+                  ? 'detail.batch.deselect_all'
+                  : 'detail.batch.select_all',
             ),
           ),
-          TextButton(
+          IconButton(
             onPressed: onCancelBatch,
-            child: Text(
-              AppI18n.tByLocaleCode(localeCode, 'detail.batch.cancel'),
-            ),
+            icon: const AppSkinIcon(role: AppSkinIconRole.close),
+            tooltip: AppI18n.tByLocaleCode(localeCode, 'detail.batch.cancel'),
           ),
         ],
       );

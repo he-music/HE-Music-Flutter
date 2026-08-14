@@ -127,6 +127,11 @@ void main() {
 
     expect(_findSkinIcon(AppSkinIconRole.batchDeselectAll), findsOneWidget);
 
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(_findSkinIcon(AppSkinIconRole.close), findsNothing);
+
     await _disposePage(tester);
   });
 

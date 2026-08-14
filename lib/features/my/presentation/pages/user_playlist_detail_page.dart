@@ -105,6 +105,7 @@ class _UserPlaylistDetailPageState
     }
 
     return DetailPageShell(
+      onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: _songActions
@@ -193,7 +194,9 @@ class _UserPlaylistDetailPageState
               ),
             ],
             onPreviewCover: () => _previewCover(title, coverUrl),
-            onBack: () => context.appPopOrGo(),
+            onBack: _isBatchMode
+                ? () => _setBatchMode(false)
+                : () => context.appPopOrGo(),
             onShowDescription: () => showDetailDescriptionSheet(
               context,
               title: title,

@@ -108,8 +108,6 @@ void main() {
     await tester.pump();
     expect(find.text('1 selected'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Batch'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Play'));
     await tester.pumpAndSettle();
 

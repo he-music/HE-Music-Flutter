@@ -78,6 +78,7 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
     }
     final songActions = _buildSongActions(info);
     return DetailPageShell(
+      onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: songActions
@@ -168,7 +169,9 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
             title: info.title,
             imageUrl: info.cover,
           ),
-          onBack: () => context.appPopOrGo(),
+          onBack: _isBatchMode
+              ? () => _setBatchMode(false)
+              : () => context.appPopOrGo(),
           onShowDescription: () => showDetailDescriptionSheet(
             context,
             title: info.title,

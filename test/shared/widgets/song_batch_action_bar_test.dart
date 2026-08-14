@@ -3,7 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/shared/widgets/song_batch_action_bar.dart';
 
 void main() {
-  testWidgets('batch action bar opens bottom sheet actions', (tester) async {
+  testWidgets('batch action bar exposes actions directly', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     var playTapped = false;
     var addToQueueTapped = false;
     var addToPlaylistTapped = false;
@@ -31,43 +34,36 @@ void main() {
       ),
     );
 
-    expect(find.text('Batch'), findsOneWidget);
-    expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
-    expect(find.text('Play'), findsNothing);
-
-    await tester.tap(find.text('Batch'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.text('Batch'), findsNothing);
+    expect(find.byType(BottomSheet), findsNothing);
     expect(find.text('Play'), findsOneWidget);
     expect(find.text('Add to Queue'), findsOneWidget);
     expect(find.text('Add to Playlist'), findsOneWidget);
 
     await tester.tap(find.text('Play'));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(playTapped, isTrue);
 
-    await tester.tap(find.text('Batch'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Add to Queue'));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(addToQueueTapped, isTrue);
 
-    await tester.tap(find.text('Batch'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Add to Playlist'));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(addToPlaylistTapped, isTrue);
   });
 
-  testWidgets('batch action bar uses anchored context menu on desktop', (
+  testWidgets('batch action bar fits four actions on a narrow screen', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var removeTapped = false;
+
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(platform: TargetPlatform.macOS),
         home: MediaQuery(
-          data: const MediaQueryData(size: Size(1280, 900)),
+          data: const MediaQueryData(size: Size(320, 568)),
           child: Scaffold(
             body: const SizedBox.shrink(),
             bottomNavigationBar: SongBatchActionBar(
@@ -75,18 +71,24 @@ void main() {
               onPlayPressed: null,
               onAddToQueuePressed: null,
               onAddToPlaylistPressed: null,
+              onRemoveFromPlaylistPressed: () {
+                removeTapped = true;
+              },
             ),
           ),
         ),
       ),
     );
 
-    await tester.tap(find.text('Batch'));
-    await tester.pumpAndSettle();
-
     expect(find.byType(BottomSheet), findsNothing);
-    expect(find.byType(PopupMenuItem<VoidCallback>), findsWidgets);
     expect(find.text('Play'), findsOneWidget);
     expect(find.text('Add to Queue'), findsOneWidget);
+    expect(find.text('Remove from Playlist'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Remove from Playlist'));
+    await tester.pump();
+
+    expect(removeTapped, isTrue);
   });
 }

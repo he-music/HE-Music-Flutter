@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_i18n.dart';
-import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
-import '../utils/platform_utils.dart';
-import 'adaptive_action_menu.dart';
 
 class SongBatchActionBar extends StatelessWidget {
   const SongBatchActionBar({
@@ -28,37 +25,37 @@ class SongBatchActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localeCode = Localizations.localeOf(context).languageCode;
+    final actions = _buildActions(localeCode);
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       elevation: 6,
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-          child: Builder(
-            builder: (buttonContext) => FilledButton(
-              onPressed: enabled && !loading
-                  ? () => _showActionsSheet(buttonContext, localeCode)
-                  : null,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (loading) ...<Widget>[
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    AppI18n.tByLocaleCode(localeCode, 'detail.batch.action'),
-                  ),
-                ],
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: SizedBox(
+                height: 72,
+                child: loading
+                    ? const Center(
+                        child: SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : Row(
+                        children: <Widget>[
+                          for (final action in actions)
+                            Expanded(
+                              child: _BatchActionButton(
+                                action: action,
+                                enabled: enabled && action.onPressed != null,
+                              ),
+                            ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -67,86 +64,90 @@ class SongBatchActionBar extends StatelessWidget {
     );
   }
 
-  Future<void> _showActionsSheet(BuildContext context, String localeCode) {
-    if (shouldUseDesktopMenu(context)) {
-      return showAdaptiveActionMenu<VoidCallback>(
-        context: context,
-        anchorContext: context,
-        items: _buildActions(localeCode),
-      ).then((callback) {
-        callback?.call();
-      });
-    }
-    return showAppThemedBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        final maxHeight = MediaQuery.of(sheetContext).size.height * 0.60;
-        final items = _buildActions(localeCode);
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: 8),
-              children: <Widget>[
-                for (final item in items)
-                  ListTile(
-                    key: item.key,
-                    leading: item.iconRole != null
-                        ? AppSkinIcon(role: item.iconRole!)
-                        : item.icon == null
-                        ? null
-                        : Icon(item.icon),
-                    enabled: item.enabled,
-                    title: Text(item.label),
-                    onTap: item.enabled
-                        ? () {
-                            Navigator.of(sheetContext).pop();
-                            item.value();
-                          }
-                        : null,
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  List<AdaptiveActionMenuItem<VoidCallback>> _buildActions(String localeCode) {
-    return <AdaptiveActionMenuItem<VoidCallback>>[
-      AdaptiveActionMenuItem<VoidCallback>(
-        value: onPlayPressed ?? () {},
+  List<_BatchAction> _buildActions(String localeCode) {
+    return <_BatchAction>[
+      _BatchAction(
         label: AppI18n.tByLocaleCode(localeCode, 'song.action.play'),
         iconRole: AppSkinIconRole.batchPlay,
-        enabled: onPlayPressed != null,
+        onPressed: onPlayPressed,
       ),
-      AdaptiveActionMenuItem<VoidCallback>(
-        value: onAddToQueuePressed ?? () {},
+      _BatchAction(
         label: AppI18n.tByLocaleCode(localeCode, 'song.action.add_to_queue'),
-        iconRole: AppSkinIconRole.songAddToQueue,
-        enabled: onAddToQueuePressed != null,
+        iconRole: AppSkinIconRole.batchAddToQueue,
+        onPressed: onAddToQueuePressed,
       ),
-      AdaptiveActionMenuItem<VoidCallback>(
-        value: onAddToPlaylistPressed ?? () {},
+      _BatchAction(
         label: AppI18n.tByLocaleCode(
           localeCode,
           'detail.batch.add_to_playlist',
         ),
         iconRole: AppSkinIconRole.batchAddToPlaylist,
-        enabled: onAddToPlaylistPressed != null,
+        onPressed: onAddToPlaylistPressed,
       ),
       if (onRemoveFromPlaylistPressed != null)
-        AdaptiveActionMenuItem<VoidCallback>(
-          value: onRemoveFromPlaylistPressed!,
+        _BatchAction(
           label: AppI18n.tByLocaleCode(
             localeCode,
             'detail.batch.remove_from_playlist',
           ),
           iconRole: AppSkinIconRole.songRemove,
+          onPressed: onRemoveFromPlaylistPressed,
         ),
     ];
+  }
+}
+
+class _BatchAction {
+  const _BatchAction({
+    required this.label,
+    required this.iconRole,
+    required this.onPressed,
+  });
+
+  final String label;
+  final AppSkinIconRole iconRole;
+  final VoidCallback? onPressed;
+}
+
+class _BatchActionButton extends StatelessWidget {
+  const _BatchActionButton({required this.action, required this.enabled});
+
+  final _BatchAction action;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = enabled
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurface.withValues(alpha: 0.38);
+    return Tooltip(
+      message: action.label,
+      child: InkWell(
+        onTap: enabled ? action.onPressed : null,
+        borderRadius: BorderRadius.circular(6),
+        child: SizedBox.expand(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                AppSkinIcon(role: action.iconRole, size: 24, color: color),
+                const SizedBox(height: 3),
+                Flexible(
+                  child: Text(
+                    action.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelSmall?.copyWith(color: color),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

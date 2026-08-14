@@ -65,11 +65,14 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     final selectionController = ref.read(
       localLibrarySelectionProvider.notifier,
     );
+    final isMultiSelectMode = ref.watch(
+      localLibrarySelectionProvider.select((state) => state.isMultiSelectMode),
+    );
     final localeCode = ref.watch(
       appConfigProvider.select((config) => config.localeCode),
     );
     final isSearching = controller.searchState.isActive;
-    return Scaffold(
+    final page = Scaffold(
       appBar: _LocalLibraryAppBar(
         state: state,
         controller: controller,
@@ -134,6 +137,15 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
           ),
         ],
       ),
+    );
+    return PopScope(
+      canPop: !isMultiSelectMode,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && isMultiSelectMode) {
+          selectionController.exitMultiSelect();
+        }
+      },
+      child: page,
     );
   }
 

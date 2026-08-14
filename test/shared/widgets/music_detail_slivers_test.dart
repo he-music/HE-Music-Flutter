@@ -38,12 +38,12 @@ void main() {
     );
 
     expect(find.textContaining('2'), findsOneWidget);
-    expect(find.text('Select all'), findsOneWidget);
-    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.byTooltip('Select all'), findsOneWidget);
+    expect(find.byTooltip('Cancel'), findsOneWidget);
 
-    await tester.tap(find.text('Select all'));
+    await tester.tap(find.byTooltip('Select all'));
     await tester.pump();
-    await tester.tap(find.text('Cancel'));
+    await tester.tap(find.byTooltip('Cancel'));
     await tester.pump();
 
     expect(selectAllTapped, isTrue);

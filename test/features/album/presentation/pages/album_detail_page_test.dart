@@ -96,7 +96,7 @@ void main() {
     );
   });
 
-  testWidgets('album detail enters batch mode and toggles loaded songs', (
+  testWidgets('album detail exits batch mode before navigating back', (
     tester,
   ) async {
     final repository = _FakeAlbumDetailRepository();
@@ -122,12 +122,20 @@ void main() {
     await tester.tap(find.text('Batch'));
     await tester.pump();
 
-    expect(find.text('Batch'), findsOneWidget);
+    expect(find.text('Batch'), findsNothing);
+    expect(find.text('Play'), findsOneWidget);
 
     await tester.tap(find.text('专辑首屏歌曲'));
     await tester.pump();
 
     expect(find.text('1 selected'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(find.text('1 selected'), findsNothing);
+    expect(find.text('Batch'), findsOneWidget);
+    expect(find.text('专辑首屏歌曲'), findsOneWidget);
   });
 
   testWidgets('album detail clears selection when tapping select all twice', (
@@ -156,11 +164,11 @@ void main() {
     await tester.tap(find.text('Batch'));
     await tester.pump();
 
-    await tester.tap(find.text('Select all'));
+    await tester.tap(find.byTooltip('Select all'));
     await tester.pump();
     expect(find.text('2 selected'), findsOneWidget);
 
-    await tester.tap(find.text('Select all'));
+    await tester.tap(find.byTooltip('Deselect all'));
     await tester.pump();
     expect(find.text('0 selected'), findsOneWidget);
   });
@@ -190,10 +198,8 @@ void main() {
 
     await tester.tap(find.text('Batch'));
     await tester.pump();
-    await tester.tap(find.text('Select all'));
+    await tester.tap(find.byTooltip('Select all'));
     await tester.pump();
-    await tester.tap(find.text('Batch'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Play'));
     await tester.pumpAndSettle();
 
@@ -231,10 +237,8 @@ void main() {
 
     await tester.tap(find.text('Batch'));
     await tester.pump();
-    await tester.tap(find.text('Select all'));
+    await tester.tap(find.byTooltip('Select all'));
     await tester.pump();
-    await tester.tap(find.text('Batch'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Add to Queue'));
     await tester.pumpAndSettle();
 

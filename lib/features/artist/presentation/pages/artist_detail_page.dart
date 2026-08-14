@@ -190,6 +190,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
     );
 
     return DetailPageShell(
+      onBackRequested: _isSongBatchMode ? () => _setSongBatchMode(false) : null,
       bottomBar: _isSongBatchMode
           ? SongBatchActionBar(
               enabled: _selectedSongs(_songs).isNotEmpty,
@@ -212,7 +213,9 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
               songCount: _normalizeCount(content.songCount),
               albumCount: _normalizeCount(content.albumCount),
               videoCount: _normalizeCount(content.videoCount),
-              onBack: () => context.appPopOrGo(),
+              onBack: _isSongBatchMode
+                  ? () => _setSongBatchMode(false)
+                  : () => context.appPopOrGo(),
               onPreviewCover: () => _previewCover(title, coverUrl),
               onShowDescription: () => showDetailDescriptionSheet(
                 context,
