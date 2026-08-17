@@ -421,11 +421,10 @@ abstract final class AppI18n {
       'settings.device_management.count': '{count} 台设备',
       'settings.device_management.current_device': '当前设备',
       'settings.device_management.delete': '删除',
-      'settings.device_management.delete_confirm':
-          '确认删除该设备？删除后该设备将无法续期登录，当前会话过期后需要重新登录。',
-      'settings.device_management.batch_delete': '删除其他所有设备',
+      'settings.device_management.delete_confirm': '确定移除此设备？移除后，该设备将立即退出登录。',
+      'settings.device_management.batch_delete': '退出其他所有设备',
       'settings.device_management.batch_delete_confirm':
-          '确认删除其他所有设备？删除后其他设备将在当前会话过期后需要重新登录。',
+          '确定退出其他所有设备？操作后，这些设备将立即退出登录。',
       'settings.device_management.batch_delete_done': '已删除 {count} 台设备',
       'settings.device_management.empty': '暂无设备',
       'settings.device_management.last_active': '最后活跃：{time}',
@@ -1255,10 +1254,10 @@ abstract final class AppI18n {
       'settings.device_management.current_device': 'Current Device',
       'settings.device_management.delete': 'Remove',
       'settings.device_management.delete_confirm':
-          'Remove this device? It will not be able to renew its session and will need to sign in again after the current session expires.',
-      'settings.device_management.batch_delete': 'Remove All Other Devices',
+          'Remove this device? It will be signed out immediately.',
+      'settings.device_management.batch_delete': 'Sign Out All Other Devices',
       'settings.device_management.batch_delete_confirm':
-          'Remove all other devices? They will not be able to renew their sessions and will need to sign in again after their current sessions expire.',
+          'Sign out all other devices? These devices will be signed out immediately.',
       'settings.device_management.batch_delete_done':
           '{count} device(s) removed',
       'settings.device_management.empty': 'No devices',
