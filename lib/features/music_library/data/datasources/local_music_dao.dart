@@ -14,6 +14,32 @@ class LocalMusicDao {
 
   final LocalMusicDatabase _db;
 
+  static const _upsertSongSql =
+      'INSERT INTO local_songs '
+      '(id, title, artist, album, genre, year, disc_number, track_number, '
+      'duration_ms, file_path, folder_path, file_size, mime_type, '
+      'bitrate, sample_rate, has_artwork, metadata_edited, status, '
+      'scan_batch_id, scan_source, created_at, updated_at, modified_at) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?) '
+      'ON CONFLICT(id) DO UPDATE SET '
+      'title = CASE WHEN local_songs.metadata_edited = 1 THEN local_songs.title ELSE excluded.title END, '
+      'artist = CASE WHEN local_songs.metadata_edited = 1 THEN local_songs.artist ELSE excluded.artist END, '
+      'album = CASE WHEN local_songs.metadata_edited = 1 THEN local_songs.album ELSE excluded.album END, '
+      'genre = CASE WHEN local_songs.metadata_edited = 1 THEN local_songs.genre ELSE excluded.genre END, '
+      'year = CASE WHEN local_songs.metadata_edited = 1 THEN local_songs.year ELSE excluded.year END, '
+      'disc_number = CASE WHEN local_songs.metadata_edited = 1 THEN local_songs.disc_number ELSE excluded.disc_number END, '
+      'track_number = CASE WHEN local_songs.metadata_edited = 1 THEN local_songs.track_number ELSE excluded.track_number END, '
+      'duration_ms = excluded.duration_ms, '
+      'file_size = excluded.file_size, '
+      'mime_type = excluded.mime_type, '
+      'bitrate = excluded.bitrate, '
+      'sample_rate = excluded.sample_rate, '
+      'modified_at = excluded.modified_at, '
+      'folder_path = excluded.folder_path, '
+      'scan_batch_id = excluded.scan_batch_id, '
+      'scan_source = excluded.scan_source, '
+      'updated_at = excluded.updated_at';
+
   // ========== 查询 ==========
 
   /// 监听歌曲列表，支持搜索、排序、分页
@@ -289,57 +315,24 @@ class LocalMusicDao {
     String batchId,
   ) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    for (final song in songs) {
-      await _db.customInsert(
-        'INSERT INTO local_songs '
-        '(id, title, artist, album, genre, year, disc_number, track_number, '
-        'duration_ms, file_path, folder_path, file_size, mime_type, '
-        'bitrate, sample_rate, has_artwork, metadata_edited, status, '
-        'scan_batch_id, scan_source, created_at, updated_at, modified_at) '
-        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?) '
-        'ON CONFLICT(id) DO UPDATE SET '
-        'title = CASE WHEN excluded.metadata_edited = 1 THEN local_songs.title ELSE excluded.title END, '
-        'artist = CASE WHEN excluded.metadata_edited = 1 THEN local_songs.artist ELSE excluded.artist END, '
-        'album = CASE WHEN excluded.metadata_edited = 1 THEN local_songs.album ELSE excluded.album END, '
-        'genre = CASE WHEN excluded.metadata_edited = 1 THEN local_songs.genre ELSE excluded.genre END, '
-        'year = CASE WHEN excluded.metadata_edited = 1 THEN local_songs.year ELSE excluded.year END, '
-        'disc_number = CASE WHEN excluded.metadata_edited = 1 THEN local_songs.disc_number ELSE excluded.disc_number END, '
-        'track_number = CASE WHEN excluded.metadata_edited = 1 THEN local_songs.track_number ELSE excluded.track_number END, '
-        'duration_ms = excluded.duration_ms, '
-        'file_size = excluded.file_size, '
-        'mime_type = excluded.mime_type, '
-        'bitrate = excluded.bitrate, '
-        'sample_rate = excluded.sample_rate, '
-        'modified_at = excluded.modified_at, '
-        'folder_path = excluded.folder_path, '
-        'scan_batch_id = excluded.scan_batch_id, '
-        'scan_source = excluded.scan_source, '
-        'updated_at = excluded.updated_at',
-        variables: [
-          Variable.withString(song.id.value),
-          Variable.withString(song.title.value),
-          Variable.withString(song.artist.value),
-          Variable.withString(song.album.value),
-          Variable.withString(song.genre.value),
-          Variable<int>(song.year.value),
-          Variable<int>(song.discNumber.value),
-          Variable<int>(song.trackNumber.value),
-          Variable.withInt(song.durationMs.value),
-          Variable.withString(song.filePath.value),
-          Variable<String>(song.folderPath.value),
-          Variable.withInt(song.fileSize.value),
-          Variable.withString(song.mimeType.value),
-          Variable<int>(song.bitrate.value),
-          Variable<int>(song.sampleRate.value),
-          Variable.withString('active'),
-          Variable.withString(batchId),
-          Variable.withString(scanSource),
-          Variable.withInt(now),
-          Variable.withInt(now),
-          Variable<int>(song.modifiedAt.value),
-        ],
-      );
-    }
+    await _db.transaction(
+      () => _upsertSongsInBatch(songs, scanSource, batchId, now),
+    );
+  }
+
+  /// 原子提交一次扫描结果，避免歌曲、歌手关联和旧批次处于半完成状态。
+  Future<void> commitScanBatch({
+    required List<LocalSongsCompanion> songs,
+    required Map<String, List<String>> artistsBySongId,
+    required String scanSource,
+    required String batchId,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.transaction(() async {
+      await _upsertSongsInBatch(songs, scanSource, batchId, now);
+      await _replaceSongArtistsForBatch(artistsBySongId, scanSource, batchId);
+      await _deleteStaleBySource(scanSource, batchId);
+    });
   }
 
   /// 清理旧批次数据
@@ -350,13 +343,9 @@ class LocalMusicDao {
     String scanSource,
     String currentBatchId,
   ) async {
-    await (_db.delete(_db.localSongs)..where(
-          (t) =>
-              t.scanSource.equals(scanSource) &
-              t.scanBatchId.equals(currentBatchId).not() &
-              t.metadataEdited.equals(0),
-        ))
-        .go();
+    await _db.transaction(
+      () => _deleteStaleBySource(scanSource, currentBatchId),
+    );
   }
 
   /// 标记文件缺失
@@ -514,6 +503,157 @@ class LocalMusicDao {
   }
 
   // ========== 内部工具 ==========
+
+  Future<void> _upsertSongsInBatch(
+    List<LocalSongsCompanion> songs,
+    String scanSource,
+    String batchId,
+    int now,
+  ) async {
+    if (songs.isEmpty) return;
+    final updates = <TableUpdate>{
+      TableUpdate.onTable(_db.localSongs, kind: UpdateKind.insert),
+    };
+    await _db.batch((batch) {
+      for (final song in songs) {
+        batch.customStatement(_upsertSongSql, <Object?>[
+          song.id.value,
+          song.title.value,
+          song.artist.value,
+          song.album.value,
+          song.genre.value,
+          song.year.value,
+          song.discNumber.value,
+          song.trackNumber.value,
+          song.durationMs.value,
+          song.filePath.value,
+          song.folderPath.value,
+          song.fileSize.value,
+          song.mimeType.value,
+          song.bitrate.value,
+          song.sampleRate.value,
+          'active',
+          batchId,
+          scanSource,
+          now,
+          now,
+          song.modifiedAt.value,
+        ], updates);
+      }
+    });
+  }
+
+  Future<void> _replaceSongArtistsForBatch(
+    Map<String, List<String>> artistsBySongId,
+    String scanSource,
+    String batchId,
+  ) async {
+    final currentSongs =
+        await (_db.select(_db.localSongs)..where(
+              (song) =>
+                  song.scanSource.equals(scanSource) &
+                  song.scanBatchId.equals(batchId),
+            ))
+            .get();
+    if (currentSongs.isEmpty) return;
+
+    // 已编辑歌曲以数据库内保留的 artist 为准，避免重新扫描破坏关联。
+    final effectiveArtists = <String, List<String>>{};
+    final uniqueArtistNames = <String>{};
+    for (final song in currentSongs) {
+      final names = _normalizeArtistNames(
+        song.metadataEdited == 1
+            ? _splitArtistNames(song.artist)
+            : artistsBySongId[song.id] ?? _splitArtistNames(song.artist),
+      );
+      effectiveArtists[song.id] = names;
+      uniqueArtistNames.addAll(names);
+    }
+
+    if (uniqueArtistNames.isNotEmpty) {
+      await _db.batch((batch) {
+        batch.insertAll(
+          _db.artists,
+          uniqueArtistNames.map((name) => ArtistsCompanion(name: Value(name))),
+          mode: InsertMode.insertOrIgnore,
+        );
+      });
+    }
+
+    final artistIds = <String, int>{
+      for (final artist in await _db.select(_db.artists).get())
+        artist.name: artist.id,
+    };
+    await _db.batch((batch) {
+      for (final song in currentSongs) {
+        batch.deleteWhere(
+          _db.songArtists,
+          (relation) => relation.songId.equals(song.id),
+        );
+        for (final name in effectiveArtists[song.id]!) {
+          final artistId = artistIds[name];
+          if (artistId == null) continue;
+          batch.insert(
+            _db.songArtists,
+            SongArtistsCompanion(
+              songId: Value(song.id),
+              artistId: Value(artistId),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> _deleteStaleBySource(
+    String scanSource,
+    String currentBatchId,
+  ) async {
+    final staleRows =
+        await (_db.select(_db.localSongs)..where(
+              (song) =>
+                  song.scanSource.equals(scanSource) &
+                  song.scanBatchId.equals(currentBatchId).not() &
+                  song.metadataEdited.equals(0),
+            ))
+            .get();
+    if (staleRows.isEmpty) return;
+
+    // 先批量清理依赖表，再删除歌曲，满足外键约束。
+    await _db.batch((batch) {
+      for (final song in staleRows) {
+        batch.deleteWhere(
+          _db.playStats,
+          (stats) => stats.songId.equals(song.id),
+        );
+        batch.deleteWhere(
+          _db.songArtists,
+          (relation) => relation.songId.equals(song.id),
+        );
+      }
+    });
+    await _db.batch((batch) {
+      for (final song in staleRows) {
+        batch.deleteWhere(
+          _db.localSongs,
+          (candidate) => candidate.id.equals(song.id),
+        );
+      }
+    });
+  }
+
+  List<String> _splitArtistNames(String artist) {
+    return artist.split(RegExp(r'\s*/\s*'));
+  }
+
+  List<String> _normalizeArtistNames(Iterable<String> names) {
+    return names
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
 
   /// 根据排序字段名返回对应的列表达式
   Expression<Object> _sortColumn(LocalSongs t, String sortBy) {

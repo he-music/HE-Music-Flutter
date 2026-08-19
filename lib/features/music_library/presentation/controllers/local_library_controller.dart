@@ -81,12 +81,16 @@ class LocalLibrarySelectionController
 }
 
 class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
+  static const int songPageSize = 50;
+
   Timer? _debounceTimer;
   StreamSubscription<List<LocalSong>>? _songSubscription;
   StreamSubscription<List<ArtistGroup>>? _artistSubscription;
   StreamSubscription<List<AlbumGroup>>? _albumSubscription;
   StreamSubscription<List<GenreGroup>>? _genreSubscription;
   int _artworkLoadGeneration = 0;
+  int _songWatchGeneration = 0;
+  int _visibleSongLimit = songPageSize;
 
   /// 当前搜索状态
   LocalLibrarySearchState searchState = const LocalLibrarySearchState();
@@ -94,6 +98,11 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
   /// 当前排序维度
   SongSortBy sortBy = SongSortBy.title;
   bool sortAscending = true;
+
+  /// 歌曲列表分页状态
+  bool loadingMore = false;
+  bool hasMore = true;
+  String? loadMoreErrorMessage;
 
   /// 分组数据
   List<ArtistGroup> artistGroups = const [];
@@ -176,27 +185,82 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
 
   /// 监听歌曲列表流（带排序）
   void startWatchingSongs() {
-    _songSubscription?.cancel();
-    final repository = ref.read(localMusicRepositoryProvider);
-    _songSubscription = repository
-        .watchSongs(sortBy: sortBy.key, ascending: sortAscending)
-        .listen((songs) {
-          state = AsyncData(songs);
-          _loadArtworkForSongs(songs);
-        });
+    _startWatchingSongs(resetPagination: true);
     _startWatchingGroups();
+  }
+
+  Future<void> loadMore() async {
+    if (loadingMore || !hasMore) return;
+    loadingMore = true;
+    loadMoreErrorMessage = null;
+    _visibleSongLimit += songPageSize;
+    ref.notifyListeners();
+    _startWatchingSongs(resetPagination: false);
+  }
+
+  void _startWatchingSongs({required bool resetPagination}) {
+    final isLoadMoreRequest = !resetPagination;
+    final generation = ++_songWatchGeneration;
+    _songSubscription?.cancel();
+    if (resetPagination) {
+      _visibleSongLimit = songPageSize;
+      loadingMore = false;
+      hasMore = true;
+      loadMoreErrorMessage = null;
+    } else {
+      // Stream 可能同步发出首个快照，先保留加载更多状态直到回调确认结果。
+      loadingMore = true;
+    }
+    final repository = ref.read(localMusicRepositoryProvider);
+    final query = searchState.isActive && searchState.query.trim().isNotEmpty
+        ? searchState.query.trim()
+        : null;
+    _songSubscription = repository
+        .watchSongs(
+          searchQuery: query,
+          sortBy: sortBy.key,
+          ascending: sortAscending,
+          limit: _visibleSongLimit + 1,
+        )
+        .listen(
+          (songs) {
+            if (generation != _songWatchGeneration) return;
+            final visibleSongs = songs
+                .take(_visibleSongLimit)
+                .toList(growable: false);
+            hasMore = songs.length > _visibleSongLimit;
+            loadingMore = false;
+            loadMoreErrorMessage = null;
+            state = AsyncData(visibleSongs);
+            _loadArtworkForSongs(visibleSongs);
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (generation != _songWatchGeneration) return;
+            if (isLoadMoreRequest) {
+              // 加载更多失败时恢复到上一次可见范围；重置查询失败不能把上限减到 0。
+              if (_visibleSongLimit > songPageSize) {
+                _visibleSongLimit -= songPageSize;
+              }
+              loadingMore = false;
+              loadMoreErrorMessage = '$error';
+              ref.notifyListeners();
+              return;
+            }
+            state = AsyncError(error, stackTrace);
+          },
+        );
   }
 
   /// 从磁盘缓存加载封面字节，回填到歌曲列表
   Future<void> _loadArtworkForSongs(List<LocalSong> songs) async {
     final generation = ++_artworkLoadGeneration;
-    final extractor = ref.read(localArtworkExtractorProvider);
 
     // 筛选需要加载封面的歌曲
     final toLoad = songs
         .where((s) => s.hasArtwork && s.artworkBytes == null)
         .toList();
     if (toLoad.isEmpty) return;
+    final extractor = ref.read(localArtworkExtractorProvider);
 
     // 保留当前 state 中已加载的 artworkBytes，避免被 DB 流数据覆盖
     final currentArtwork = <String, Uint8List>{};
@@ -269,9 +333,15 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     _artistSubscription?.cancel();
     _albumSubscription?.cancel();
     _genreSubscription?.cancel();
+    // 使取消前已经排队的流回调失效，避免清空后旧快照又写回列表。
+    _songWatchGeneration++;
+    _artworkLoadGeneration++;
     artistGroups = const [];
     albumGroups = const [];
     genreGroups = const [];
+    loadingMore = false;
+    hasMore = false;
+    loadMoreErrorMessage = null;
     state = const AsyncData(<LocalSong>[]);
   }
 
@@ -281,7 +351,7 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     searchState = LocalLibrarySearchState(isActive: isActive);
     if (!isActive) {
       _debounceTimer?.cancel();
-      _songSubscription?.cancel();
+      startWatchingSongs();
     }
     ref.notifyListeners();
   }
@@ -297,17 +367,7 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
   }
 
   void _executeSearch(String query) {
-    _songSubscription?.cancel();
-    if (query.isEmpty) {
-      return;
-    }
-    final repository = ref.read(localMusicRepositoryProvider);
-    _songSubscription = repository.watchSongs(searchQuery: query).listen((
-      songs,
-    ) {
-      state = AsyncData(songs);
-      _loadArtworkForSongs(songs);
-    });
+    _startWatchingSongs(resetPagination: true);
   }
 
   /// 切换排序维度

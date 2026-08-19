@@ -11,6 +11,8 @@ abstract class LocalMusicRepository {
     String? searchQuery,
     String sortBy = 'title',
     bool ascending = true,
+    int offset = 0,
+    int limit = 50,
   });
 
   /// 监听指定艺术家的歌曲

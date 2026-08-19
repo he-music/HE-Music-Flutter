@@ -98,6 +98,144 @@ void main() {
         final results = await dao.getSongsWithoutArtwork();
         expect(results.length, 1);
       });
+
+      test('重新扫描时保留用户编辑过的标签字段', () async {
+        await dao.upsertSongs(
+          [
+            buildSong(
+              id: '1',
+              title: '扫描标题',
+              artist: '扫描歌手',
+              album: '扫描专辑',
+              filePath: '/same.mp3',
+            ),
+          ],
+          'macos',
+          'batch-1',
+        );
+        await dao.updateSongMetadata(
+          songId: '1',
+          title: '用户标题',
+          artist: '用户歌手',
+          album: '用户专辑',
+          genre: '用户流派',
+          year: 2026,
+        );
+        await dao.markMetadataEdited('1');
+
+        await dao.upsertSongs(
+          [
+            buildSong(
+              id: '1',
+              title: '新扫描标题',
+              artist: '新扫描歌手',
+              album: '新扫描专辑',
+              genre: '新扫描流派',
+              year: 2025,
+              filePath: '/same.mp3',
+              fileSize: 9000000,
+            ),
+          ],
+          'macos',
+          'batch-2',
+        );
+
+        final row = await db.select(db.localSongs).getSingle();
+        expect(row.title, '用户标题');
+        expect(row.artist, '用户歌手');
+        expect(row.album, '用户专辑');
+        expect(row.genre, '用户流派');
+        expect(row.year, 2026);
+        expect(row.fileSize, 9000000);
+        expect(row.scanBatchId, 'batch-2');
+      });
+    });
+
+    group('watchSongs', () {
+      test('offset 和 limit 可读取第 51 首后的歌曲', () async {
+        await dao.upsertSongs(
+          List<LocalSongsCompanion>.generate(60, (index) {
+            final number = '${index + 1}'.padLeft(3, '0');
+            return buildSong(
+              id: number,
+              title: 'Song $number',
+              filePath: '/music/$number.mp3',
+            );
+          }),
+          'macos',
+          'batch-1',
+        );
+
+        final songs = await dao.watchSongs(offset: 50, limit: 10).first;
+
+        expect(songs, hasLength(10));
+        expect(songs.first.id, '051');
+        expect(songs.last.id, '060');
+      });
+    });
+
+    group('commitScanBatch', () {
+      test('一次提交内批量更新歌曲、歌手关联和旧批次', () async {
+        await dao.upsertSongs(
+          [buildSong(id: 'stale', filePath: '/stale.mp3')],
+          'macos',
+          'batch-1',
+        );
+        await dao.linkSongToArtists('stale', ['旧歌手']);
+
+        await dao.commitScanBatch(
+          songs: [
+            buildSong(id: '1', filePath: '/one.mp3'),
+            buildSong(id: '2', filePath: '/two.mp3'),
+          ],
+          artistsBySongId: const {
+            '1': ['歌手 A', '歌手 B'],
+            '2': ['歌手 B'],
+          },
+          scanSource: 'macos',
+          batchId: 'batch-2',
+        );
+
+        final rows = await db.select(db.localSongs).get();
+        expect(rows.map((row) => row.id), unorderedEquals(['1', '2']));
+        expect(
+          await dao.getSongArtists('1'),
+          unorderedEquals(['歌手 A', '歌手 B']),
+        );
+        expect(await dao.getSongArtists('2'), ['歌手 B']);
+      });
+
+      test('任一步失败时回滚歌曲、关联和旧批次清理', () async {
+        await dao.upsertSongs(
+          [buildSong(id: 'stale', filePath: '/stale.mp3')],
+          'macos',
+          'batch-1',
+        );
+        await dao.linkSongToArtists('stale', ['旧歌手']);
+        await db.customStatement(
+          'CREATE TRIGGER fail_stale_delete '
+          'BEFORE DELETE ON local_songs '
+          "WHEN OLD.id = 'stale' "
+          "BEGIN SELECT RAISE(ABORT, 'stale delete failed'); END",
+        );
+
+        await expectLater(
+          dao.commitScanBatch(
+            songs: [buildSong(id: 'new', filePath: '/new.mp3')],
+            artistsBySongId: const {
+              'new': ['新歌手'],
+            },
+            scanSource: 'macos',
+            batchId: 'batch-2',
+          ),
+          throwsA(anything),
+        );
+
+        final rows = await db.select(db.localSongs).get();
+        expect(rows.map((row) => row.id), ['stale']);
+        expect(await dao.getSongArtists('stale'), ['旧歌手']);
+        expect(await dao.getSongArtists('new'), isEmpty);
+      });
     });
 
     group('deleteStaleBySource', () {

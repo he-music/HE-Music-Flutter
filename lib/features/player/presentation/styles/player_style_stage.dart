@@ -53,6 +53,7 @@ class PlayerStyleStage extends StatelessWidget {
               AppPlayerStageKind.cassette => CassettePlayerStage(
                 track: track,
                 label: cassetteLabel,
+                clipHorizontalOverflow: width < maxWidth,
               ),
               AppPlayerStageKind.radialSpectrum => RadialSpectrumPlayerStage(
                 track: track,

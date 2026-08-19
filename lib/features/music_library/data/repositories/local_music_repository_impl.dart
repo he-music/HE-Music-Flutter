@@ -64,6 +64,7 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     final companions = <LocalSongsCompanion>[];
+    final artistsBySongId = <String, List<String>>{};
     for (final track in tracks) {
       final metadata = await _metadataReader.read(
         track.filePath,
@@ -93,30 +94,16 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
           now,
         );
         companions.add(song);
+        artistsBySongId[song.id.value] = _splitArtistNames(song.artist.value);
       }
     }
 
-    // 写入 DB（ON CONFLICT UPSERT）
-    await _dao.upsertSongs(companions, scanSource, batchId);
-
-    // 为每首歌曲关联歌手
-    for (final song in companions) {
-      final artistStr = song.artist.value;
-      if (artistStr.isNotEmpty) {
-        // 分割歌手字符串（支持 " / " 分隔符）
-        final artistNames = artistStr
-            .split(RegExp(r'\s*/\s*'))
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
-        if (artistNames.isNotEmpty) {
-          await _dao.linkSongToArtists(song.id.value, artistNames);
-        }
-      }
-    }
-
-    // 清理旧批次数据
-    await _dao.deleteStaleBySource(scanSource, batchId);
+    await _dao.commitScanBatch(
+      songs: companions,
+      artistsBySongId: artistsBySongId,
+      scanSource: scanSource,
+      batchId: batchId,
+    );
 
     // 返回写入的歌曲列表
     return companions
@@ -147,10 +134,14 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     String? searchQuery,
     String sortBy = 'title',
     bool ascending = true,
+    int offset = 0,
+    int limit = 50,
   }) => _dao.watchSongs(
     searchQuery: searchQuery,
     sortBy: sortBy,
     ascending: ascending,
+    offset: offset,
+    limit: limit,
   );
 
   @override
@@ -208,6 +199,15 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
       }
     }
     return true;
+  }
+
+  List<String> _splitArtistNames(String artist) {
+    return artist
+        .split(RegExp(r'\s*/\s*'))
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
   }
 
   /// 构建 Drift 写入对象

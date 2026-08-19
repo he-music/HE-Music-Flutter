@@ -36,6 +36,34 @@ Path _notchedRectPath(Rect rect, double cut) {
     ..close();
 }
 
+class _CassetteHorizontalClipper extends CustomClipper<Rect> {
+  const _CassetteHorizontalClipper();
+
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTRB(0, -size.height, size.width, size.height * 2);
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Rect> oldClipper) => false;
+}
+
+class _CassetteHorizontalOverflowClip extends StatelessWidget {
+  const _CassetteHorizontalOverflowClip({
+    required this.enabled,
+    required this.child,
+  });
+
+  final bool enabled;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+    return ClipRect(clipper: const _CassetteHorizontalClipper(), child: child);
+  }
+}
+
 @visibleForTesting
 double resolveCassetteTapeProgress(Duration position, Duration duration) {
   if (duration <= Duration.zero) return 0;
@@ -43,10 +71,16 @@ double resolveCassetteTapeProgress(Duration position, Duration duration) {
 }
 
 class CassettePlayerStage extends ConsumerStatefulWidget {
-  const CassettePlayerStage({required this.track, this.label, super.key});
+  const CassettePlayerStage({
+    required this.track,
+    this.label,
+    this.clipHorizontalOverflow = false,
+    super.key,
+  });
 
   final PlayerTrack? track;
   final Widget? label;
+  final bool clipHorizontalOverflow;
 
   @override
   ConsumerState<CassettePlayerStage> createState() =>
@@ -112,7 +146,13 @@ class _CassettePlayerStageState extends ConsumerState<CassettePlayerStage>
                 child: RepaintBoundary(
                   child: Stack(
                     children: <Widget>[
-                      Positioned.fill(child: _CassetteTapeLayer(palette)),
+                      Positioned.fill(
+                        // 紧凑布局裁剪外壳横向阴影，桌面仍保留完整阴影。
+                        child: _CassetteHorizontalOverflowClip(
+                          enabled: widget.clipHorizontalOverflow,
+                          child: _CassetteTapeLayer(palette),
+                        ),
+                      ),
                       Positioned.fill(
                         child: CustomPaint(
                           key: const ValueKey<String>('cassette-light-sweep'),

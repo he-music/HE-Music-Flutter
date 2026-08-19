@@ -100,6 +100,9 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                 artistGroups: controller.artistGroups,
                 albumGroups: controller.albumGroups,
                 genreGroups: controller.genreGroups,
+                loadingMore: controller.loadingMore,
+                hasMore: controller.hasMore,
+                loadMoreErrorMessage: controller.loadMoreErrorMessage,
                 onViewChanged: (view) => setState(() => _view = view),
                 onPlayTap: (index) =>
                     _playLocalSong(context, ref, songs, index),
@@ -108,6 +111,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                 onMoreTap: (song) =>
                     _showMoreActionsSheet(context, song, localeCode, ref),
                 onSortChanged: controller.changeSortBy,
+                onLoadMore: controller.loadMore,
                 onLongPress: selectionController.enterMultiSelect,
                 onSelectionToggle: selectionController.toggleSelection,
               ),
@@ -499,11 +503,15 @@ class _SongList extends StatelessWidget {
     required this.artistGroups,
     required this.albumGroups,
     required this.genreGroups,
+    required this.loadingMore,
+    required this.hasMore,
+    required this.loadMoreErrorMessage,
     required this.onViewChanged,
     required this.onPlayTap,
     required this.onPlayGroupTap,
     required this.onMoreTap,
     required this.onSortChanged,
+    required this.onLoadMore,
     required this.onLongPress,
     required this.onSelectionToggle,
   });
@@ -518,11 +526,15 @@ class _SongList extends StatelessWidget {
   final List<ArtistGroup> artistGroups;
   final List<AlbumGroup> albumGroups;
   final List<GenreGroup> genreGroups;
+  final bool loadingMore;
+  final bool hasMore;
+  final String? loadMoreErrorMessage;
   final ValueChanged<_LocalLibraryView> onViewChanged;
   final ValueChanged<int> onPlayTap;
   final void Function(List<LocalSong> songs, int index) onPlayGroupTap;
   final void Function(LocalSong song) onMoreTap;
   final ValueChanged<SongSortBy> onSortChanged;
+  final Future<void> Function() onLoadMore;
   final void Function(String songId) onLongPress;
   final void Function(String songId) onSelectionToggle;
 
@@ -663,7 +675,11 @@ class _SongList extends StatelessWidget {
   Widget _buildSongList() {
     return SongListComponent(
       itemCount: songs.length,
-      enablePaging: false,
+      loadingMore: loadingMore,
+      hasMore: hasMore,
+      onLoadMore: onLoadMore,
+      loadMoreErrorMessage: loadMoreErrorMessage,
+      onRetryLoadMore: onLoadMore,
       // macOS 上歌曲为空时显示扫描按钮
       empty: Platform.isMacOS && songs.isEmpty
           ? _EmptyLibrary(onScan: onScan, localeCode: localeCode)

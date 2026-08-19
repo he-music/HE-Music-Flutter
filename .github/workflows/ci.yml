@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  FLUTTER_VERSION: "3.41.9"
+  JAVA_VERSION: "17"
+
+jobs:
+  check:
+    name: Analyze and Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 设置 Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: 设置 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: 安装依赖
+        run: make get
+
+      - name: 设置 Rive Linux 运行库
+        run: dart run rive_native:setup --verbose --clean --platform linux
+
+      - name: 检查格式
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: 静态分析
+        run: make analyze
+
+      - name: 运行测试
+        run: make test
