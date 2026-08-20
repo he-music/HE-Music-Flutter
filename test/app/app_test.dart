@@ -266,6 +266,39 @@ void main() {
     expect(apiClient.fetchPlatformsCallCount, 2);
   });
 
+  testWidgets('startup transform timeout shows timeout guidance', (
+    tester,
+  ) async {
+    final router = _createStartupTestRouter();
+    addTearDown(router.dispose);
+    final timeout = DioException.transformTimeout(
+      timeout: const Duration(seconds: 1),
+      requestOptions: RequestOptions(path: '/v1/platforms'),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(
+            () => _TestAppConfigController(
+              themeMode: AppThemeMode.light,
+              localeCode: 'zh',
+            ),
+          ),
+          appRouterProvider.overrideWithValue(router),
+          appStartupProvider.overrideWith((ref) => Future<void>.error(timeout)),
+          appConfigDataSourceProvider.overrideWithValue(
+            const _TestAppConfigDataSource(autoCheckUpdates: false),
+          ),
+        ],
+        child: const HeMusicApp(enableStartupGateInTests: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('网络连接超时，请检查网络后重试。'), findsOneWidget);
+  });
+
   testWidgets('startup checks updates only after initialization completes', (
     tester,
   ) async {

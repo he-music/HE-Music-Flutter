@@ -196,7 +196,7 @@ void main() {
 
     final pubspec = await File('pubspec.yaml').readAsString();
     expect(pubspec, contains('    - $_ambientPath'));
-    expect(pubspec, contains('  rive: ^0.14.9'));
+    expect(pubspec, contains('  rive: ^0.14.11'));
     final provenance = await File(
       'assets/skins/city_sound_creator/LICENSES.md',
     ).readAsString();

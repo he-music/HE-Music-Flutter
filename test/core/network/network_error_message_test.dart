@@ -80,6 +80,12 @@ void main() {
         expect(result, isNotNull);
       });
 
+      test('transformTimeout 返回超时消息', () {
+        final error = _dioException(type: DioExceptionType.transformTimeout);
+        final result = NetworkErrorMessage.resolve(error);
+        expect(result, '网络连接超时，请稍后重试');
+      });
+
       test('connectionError 返回连接失败消息', () {
         final error = _dioException(type: DioExceptionType.connectionError);
         final result = NetworkErrorMessage.resolve(error);

@@ -2457,7 +2457,7 @@ final class $$LocalSongsTableReferences
   static MultiTypedResultKey<$PlayStatsTable, List<PlayStat>>
   _playStatsRefsTable(_$LocalMusicDatabase db) => MultiTypedResultKey.fromTable(
     db.playStats,
-    aliasName: $_aliasNameGenerator(db.localSongs.id, db.playStats.songId),
+    aliasName: 'local_songs__id__play_stats__song_id',
   );
 
   $$PlayStatsTableProcessedTableManager get playStatsRefs {
@@ -2476,10 +2476,7 @@ final class $$LocalSongsTableReferences
   _songArtistsRefsTable(_$LocalMusicDatabase db) =>
       MultiTypedResultKey.fromTable(
         db.songArtists,
-        aliasName: $_aliasNameGenerator(
-          db.localSongs.id,
-          db.songArtists.songId,
-        ),
+        aliasName: 'local_songs__id__song_artists__song_id',
       );
 
   $$SongArtistsTableProcessedTableManager get songArtistsRefs {
@@ -3178,8 +3175,8 @@ final class $$PlayStatsTableReferences
     extends BaseReferences<_$LocalMusicDatabase, $PlayStatsTable, PlayStat> {
   $$PlayStatsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $LocalSongsTable _songIdTable(_$LocalMusicDatabase db) => db.localSongs
-      .createAlias($_aliasNameGenerator(db.playStats.songId, db.localSongs.id));
+  static $LocalSongsTable _songIdTable(_$LocalMusicDatabase db) =>
+      db.localSongs.createAlias('play_stats__song_id__local_songs__id');
 
   $$LocalSongsTableProcessedTableManager get songId {
     final $_column = $_itemColumn<String>('song_id')!;
@@ -3668,7 +3665,7 @@ final class $$ArtistsTableReferences
   _songArtistsRefsTable(_$LocalMusicDatabase db) =>
       MultiTypedResultKey.fromTable(
         db.songArtists,
-        aliasName: $_aliasNameGenerator(db.artists.id, db.songArtists.artistId),
+        aliasName: 'artists__id__song_artists__artist_id',
       );
 
   $$SongArtistsTableProcessedTableManager get songArtistsRefs {
@@ -3898,9 +3895,7 @@ final class $$SongArtistsTableReferences
   $$SongArtistsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $LocalSongsTable _songIdTable(_$LocalMusicDatabase db) =>
-      db.localSongs.createAlias(
-        $_aliasNameGenerator(db.songArtists.songId, db.localSongs.id),
-      );
+      db.localSongs.createAlias('song_artists__song_id__local_songs__id');
 
   $$LocalSongsTableProcessedTableManager get songId {
     final $_column = $_itemColumn<String>('song_id')!;
@@ -3917,9 +3912,7 @@ final class $$SongArtistsTableReferences
   }
 
   static $ArtistsTable _artistIdTable(_$LocalMusicDatabase db) =>
-      db.artists.createAlias(
-        $_aliasNameGenerator(db.songArtists.artistId, db.artists.id),
-      );
+      db.artists.createAlias('song_artists__artist_id__artists__id');
 
   $$ArtistsTableProcessedTableManager get artistId {
     final $_column = $_itemColumn<int>('artist_id')!;

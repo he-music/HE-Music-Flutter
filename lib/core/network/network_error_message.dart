@@ -50,7 +50,8 @@ class NetworkErrorMessage {
     return switch (error.type) {
       DioExceptionType.connectionTimeout ||
       DioExceptionType.receiveTimeout ||
-      DioExceptionType.sendTimeout => AppI18n.tByLocaleCode(
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.transformTimeout => AppI18n.tByLocaleCode(
         localeCode,
         'error.network.timeout',
       ),

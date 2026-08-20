@@ -47,7 +47,7 @@ fix:
 	$(DART) fix --apply
 
 gen:
-	$(DART) run build_runner build --delete-conflicting-outputs
+	$(DART) run build_runner build
 
 skin-previews:
 	$(FLUTTER) test --update-goldens test/app/theme/skin_preview_golden_test.dart
