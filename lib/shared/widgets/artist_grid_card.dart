@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config/app_config_controller.dart';
-import '../../app/config/app_config_state.dart';
 import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/skin/app_skin_surface.dart';
 import '../models/he_music_models.dart';
@@ -25,8 +24,10 @@ class ArtistGridCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final config = ref.watch(appConfigProvider);
-    final subtitle = _subtitle(config);
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
+    final subtitle = _subtitle(localeCode);
     return AppSkinContentSurface(
       child: Material(
         color: Colors.transparent,
@@ -103,7 +104,7 @@ class ArtistGridCard extends ConsumerWidget {
     );
   }
 
-  String _subtitle(AppConfigState config) {
+  String _subtitle(String localeCode) {
     final alias = artist.alias.trim();
     if (alias.isNotEmpty) {
       return alias;
@@ -112,8 +113,10 @@ class ArtistGridCard extends ConsumerWidget {
     if (songCount.isEmpty) {
       return '';
     }
-    return AppI18n.format(config, 'artist.meta.song_count', <String, String>{
-      'count': songCount,
-    });
+    return AppI18n.formatByLocaleCode(
+      localeCode,
+      'artist.meta.song_count',
+      <String, String>{'count': songCount},
+    );
   }
 }

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../domain/entities/player_play_mode.dart';
 
 class PlayerControlBar extends StatelessWidget {
   const PlayerControlBar({
-    required this.config,
+    required this.localeCode,
     required this.isPlaying,
     required this.playMode,
     this.showPlayModeButton = true,
@@ -23,7 +22,7 @@ class PlayerControlBar extends StatelessWidget {
     super.key,
   });
 
-  final AppConfigState config;
+  final String localeCode;
   final bool isPlaying;
   final PlayerPlayMode playMode;
   final bool showPlayModeButton;
@@ -66,7 +65,10 @@ class PlayerControlBar extends StatelessWidget {
             icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
             compact: compact,
             isTrackTransitioning: isTrackTransitioning,
-            preparingLabel: AppI18n.t(config, 'player.transition.preparing'),
+            preparingLabel: AppI18n.tByLocaleCode(
+              localeCode,
+              'player.transition.preparing',
+            ),
           ),
           SizedBox(width: compact ? 8 : 14),
           _RoundControlButton(
@@ -79,7 +81,7 @@ class PlayerControlBar extends StatelessWidget {
           if (showQueueButton)
             _SideControlButton(
               onPressed: onOpenQueue,
-              tooltip: AppI18n.t(config, 'player.queue.open'),
+              tooltip: AppI18n.tByLocaleCode(localeCode, 'player.queue.open'),
               icon: Icons.queue_music_rounded,
               compact: compact,
             ),
@@ -98,9 +100,18 @@ class PlayerControlBar extends StatelessWidget {
 
   String _modeTooltip(PlayerPlayMode mode) {
     return switch (mode) {
-      PlayerPlayMode.sequence => AppI18n.t(config, 'player.mode.sequence'),
-      PlayerPlayMode.shuffle => AppI18n.t(config, 'player.mode.shuffle'),
-      PlayerPlayMode.single => AppI18n.t(config, 'player.mode.single'),
+      PlayerPlayMode.sequence => AppI18n.tByLocaleCode(
+        localeCode,
+        'player.mode.sequence',
+      ),
+      PlayerPlayMode.shuffle => AppI18n.tByLocaleCode(
+        localeCode,
+        'player.mode.shuffle',
+      ),
+      PlayerPlayMode.single => AppI18n.tByLocaleCode(
+        localeCode,
+        'player.mode.single',
+      ),
     };
   }
 }

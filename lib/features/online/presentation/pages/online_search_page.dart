@@ -162,9 +162,6 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         keyword.isNotEmpty &&
         (_showSuggestionPanel || _searchFocusNode.hasFocus);
     final cacheKey = _currentCacheKey();
-    final likedSongKeys = ref.watch(
-      favoriteSongStatusProvider.select((state) => state.songKeys),
-    );
     final loading = cacheKey != null && _loadingCacheKeys.contains(cacheKey);
     final results = cacheKey == null
         ? const <Map<String, dynamic>>[]
@@ -249,7 +246,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                           comprehensiveResult: comprehensiveResult,
                           error: error,
                           initialLoading: initialLoading,
-                          likedSongKeys: likedSongKeys,
+                          likedSongKeys: const <String>{},
                           onTapItem: (type, item) => openSearchDetail(
                             context: context,
                             type: type,

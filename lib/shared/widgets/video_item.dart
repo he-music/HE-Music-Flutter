@@ -32,7 +32,9 @@ class VideoListItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     return AppSkinContentSurface(
       child: Material(
         color: Colors.transparent,
@@ -73,7 +75,10 @@ class VideoListItem extends ConsumerWidget {
                         const SizedBox(height: 5),
                         Text(
                           (creator ?? '').trim().isEmpty
-                              ? AppI18n.t(config, 'common.unknown_author')
+                              ? AppI18n.tByLocaleCode(
+                                  localeCode,
+                                  'common.unknown_author',
+                                )
                               : creator!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -116,9 +121,11 @@ class VideoGridItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     final author = (creator ?? '').trim().isEmpty
-        ? AppI18n.t(config, 'common.unknown_author')
+        ? AppI18n.tByLocaleCode(localeCode, 'common.unknown_author')
         : creator!;
     return AppSkinContentSurface(
       child: Material(

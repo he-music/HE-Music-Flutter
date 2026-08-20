@@ -67,8 +67,12 @@ class _PlayerLyricPageState extends ConsumerState<PlayerLyricPage> {
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(appConfigProvider);
-    final autoColorFuture = _resolveAutoHighlightColorFuture(config);
+    final lyricHighlightMode = ref.watch(
+      appConfigProvider.select((state) => state.lyricHighlightMode),
+    );
+    final autoColorFuture = _resolveAutoHighlightColorFuture(
+      lyricHighlightMode,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
       child: FutureBuilder<Color?>(
@@ -85,9 +89,9 @@ class _PlayerLyricPageState extends ConsumerState<PlayerLyricPage> {
     );
   }
 
-  Future<Color?>? _resolveAutoHighlightColorFuture(AppConfigState config) {
-    if (config.lyricHighlightMode != AppLyricHighlightMode.auto) {
-      _lastMode = config.lyricHighlightMode;
+  Future<Color?>? _resolveAutoHighlightColorFuture(AppLyricHighlightMode mode) {
+    if (mode != AppLyricHighlightMode.auto) {
+      _lastMode = mode;
       _highlightColorFuture = null;
       return null;
     }

@@ -10,17 +10,13 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
-import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
-import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
-import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
-import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/ranking_detail_request.dart';
 import '../../domain/entities/ranking_song.dart';
 import '../controllers/ranking_detail_controller.dart';
@@ -124,16 +120,6 @@ class _RankingDetailPageState extends ConsumerState<RankingDetailPage> {
                   _songActions.playAll(context, state.songs, startIndex: index),
               resolveSongCover: _songActions.resolveCoverUrl,
               resolvePlatformId: _songActions.resolvePlatformId,
-              isSongLiked: (song) => ref.read(
-                favoriteSongStatusProvider.select(
-                  (favorite) => favorite.songKeys.contains(
-                    buildFavoriteSongKey(
-                      songId: song.id,
-                      platform: _songActions.resolvePlatformId(song),
-                    ),
-                  ),
-                ),
-              ),
               onLikeSong: _songActions.toggleSongFavorite,
               onMoreSong: (song, coverUrl) => _songActions.showSongActions(
                 context: context,
@@ -271,7 +257,6 @@ class _Body extends ConsumerWidget {
     required this.onPlaySong,
     required this.resolveSongCover,
     required this.resolvePlatformId,
-    required this.isSongLiked,
     required this.onLikeSong,
     required this.onMoreSong,
     required this.onPlayAll,
@@ -293,7 +278,6 @@ class _Body extends ConsumerWidget {
   final void Function(RankingSong, String coverUrl, int index) onPlaySong;
   final String Function(RankingSong song) resolveSongCover;
   final String Function(RankingSong song) resolvePlatformId;
-  final bool Function(RankingSong song) isSongLiked;
   final Future<void> Function(RankingSong song) onLikeSong;
   final void Function(RankingSong, String coverUrl) onMoreSong;
   final VoidCallback onPlayAll;
@@ -311,11 +295,6 @@ class _Body extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = state.detail;
     final config = ref.watch(appConfigProvider);
-    final currentTrackIdentity = ref.watch(
-      playerControllerProvider.select(
-        (player) => currentTrackIdentityOf(player.currentTrack),
-      ),
-    );
     if (detail == null) {
       return const Center(child: Text('No detail content.'));
     }
@@ -366,10 +345,8 @@ class _Body extends ConsumerWidget {
         ),
         child: SongInfoListSection(
           songs: state.songs,
-          currentTrackIdentity: currentTrackIdentity,
           resolveSongCover: resolveSongCover,
           resolvePlatformId: resolvePlatformId,
-          isSongLiked: isSongLiked,
           onTapSong: onPlaySong,
           onLikeSong: onLikeSong,
           onMoreSong: onMoreSong,

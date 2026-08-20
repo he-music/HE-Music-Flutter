@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -26,66 +27,123 @@ class ArtworkEnricher extends ConsumerStatefulWidget {
 
 class _ArtworkEnricherState extends ConsumerState<ArtworkEnricher> {
   List<LocalSong>? _enriched;
-  bool _loading = false;
+  int _loadGeneration = 0;
 
   @override
   void didUpdateWidget(covariant ArtworkEnricher oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.songs, widget.songs)) {
-      _enriched = null;
-      _loadArtwork();
+    if (identical(oldWidget.songs, widget.songs)) {
+      return;
     }
+    final generation = ++_loadGeneration;
+    if (_enriched != null &&
+        _sameArtworkInputs(oldWidget.songs, widget.songs)) {
+      _enriched = _mergeLoadedArtwork(widget.songs);
+      return;
+    }
+    _enriched = null;
+    unawaited(_loadArtwork(generation));
   }
 
   @override
   void initState() {
     super.initState();
-    _loadArtwork();
+    unawaited(_loadArtwork(++_loadGeneration));
   }
 
-  Future<void> _loadArtwork() async {
+  Future<void> _loadArtwork(int generation) async {
     final songs = widget.songs;
-    if (songs.isEmpty) return;
+    if (songs.isEmpty) {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _enriched = songs);
+      }
+      return;
+    }
 
     final toLoad = songs
         .where((s) => s.hasArtwork && s.artworkBytes == null)
         .toList();
     if (toLoad.isEmpty) {
-      if (mounted) setState(() => _enriched = songs);
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _enriched = songs);
+      }
       return;
     }
 
-    if (_loading) return;
-    _loading = true;
+    final extractor = ref.read(localArtworkExtractorProvider);
+    final enriched = List<LocalSong>.from(songs);
+    final indexById = <String, int>{};
+    for (var index = 0; index < enriched.length; index++) {
+      indexById.putIfAbsent(enriched[index].id, () => index);
+    }
+    var nextIndex = 0;
+    var changed = false;
 
-    try {
-      final extractor = ref.read(localArtworkExtractorProvider);
-      final enriched = List<LocalSong>.from(songs);
-      var changed = false;
-
-      for (var i = 0; i < toLoad.length; i++) {
-        if (!mounted) return;
-        final song = toLoad[i];
-        final bytes = await extractor.getArtworkBytes(song.filePath);
-        if (bytes != null && bytes.isNotEmpty) {
-          final idx = enriched.indexWhere((s) => s.id == song.id);
-          if (idx != -1) {
-            enriched[idx] = song.copyWith(
-              artworkBytes: Uint8List.fromList(bytes),
-            );
-            changed = true;
-          }
+    // 磁盘读取受限于 I/O，使用小并发池缩短首屏等待，避免一次性创建过多任务。
+    Future<void> worker() async {
+      while (true) {
+        if (!mounted || generation != _loadGeneration) return;
+        final index = nextIndex++;
+        if (index >= toLoad.length) return;
+        final song = toLoad[index];
+        try {
+          final bytes = await extractor.getArtworkBytes(song.filePath);
+          if (!mounted || generation != _loadGeneration) return;
+          if (bytes == null || bytes.isEmpty) continue;
+          final enrichedIndex = indexById[song.id];
+          if (enrichedIndex == null) continue;
+          enriched[enrichedIndex] = song.copyWith(
+            artworkBytes: Uint8List.fromList(bytes),
+          );
+          changed = true;
+        } catch (_) {
+          // 单个封面读取失败不影响其余歌曲。
         }
       }
-
-      if (mounted && changed) {
-        setState(() => _enriched = enriched);
-      } else if (mounted && _enriched == null) {
-        setState(() => _enriched = songs);
-      }
-    } finally {
-      _loading = false;
     }
+
+    final workerCount = toLoad.length < 3 ? toLoad.length : 3;
+    await Future.wait<void>(
+      List<Future<void>>.generate(workerCount, (_) => worker()),
+    );
+    if (!mounted || generation != _loadGeneration) return;
+    if (changed || _enriched == null) {
+      setState(() => _enriched = enriched);
+    }
+  }
+
+  bool _sameArtworkInputs(List<LocalSong> previous, List<LocalSong> next) {
+    if (previous.length != next.length) {
+      return false;
+    }
+    for (var index = 0; index < previous.length; index++) {
+      final oldSong = previous[index];
+      final newSong = next[index];
+      if (oldSong.id != newSong.id ||
+          oldSong.filePath != newSong.filePath ||
+          oldSong.hasArtwork != newSong.hasArtwork ||
+          (oldSong.artworkBytes == null) != (newSong.artworkBytes == null)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<LocalSong> _mergeLoadedArtwork(List<LocalSong> songs) {
+    final previous = <String, Uint8List>{
+      for (final song in _enriched ?? const <LocalSong>[])
+        if (song.artworkBytes != null) song.id: song.artworkBytes!,
+    };
+    return songs
+        .map(
+          (song) =>
+              song.artworkBytes == null &&
+                  song.hasArtwork &&
+                  previous[song.id] != null
+              ? song.copyWith(artworkBytes: previous[song.id])
+              : song,
+        )
+        .toList(growable: false);
   }
 
   @override

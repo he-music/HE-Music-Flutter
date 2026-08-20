@@ -17,7 +17,6 @@ import '../../../../shared/helpers/song_batch_helpers.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
 import '../../../../shared/utils/cover_resolver.dart';
-import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
@@ -25,12 +24,9 @@ import '../../../../shared/widgets/detail_loading_skeleton.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
-import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../my/presentation/providers/favorite_collection_status_providers.dart';
-import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
-import '../../../player/presentation/providers/player_providers.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/entities/artist_detail_album.dart';
@@ -149,11 +145,6 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   Widget build(BuildContext context) {
     final provider = artistDetailControllerProvider(_request.cacheKey);
     final state = ref.watch(provider);
-    final currentTrackIdentity = ref.watch(
-      playerControllerProvider.select(
-        (player) => currentTrackIdentityOf(player.currentTrack),
-      ),
-    );
     final controller = ref.read(provider.notifier);
     final content = state.content;
     final platforms =
@@ -293,7 +284,6 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
           children: <Widget>[
             _ArtistSongsTab(
               songs: _songs,
-              currentTrackIdentity: currentTrackIdentity,
               loading: _songsLoading,
               error: _songsError,
               onRetry: _loadSongs,
@@ -316,16 +306,6 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
               resolveSongCover: _songActions.resolveCoverUrl,
               onTapSong: (song, coverUrl, index) =>
                   _songActions.playAll(context, _songs, startIndex: index),
-              isSongLiked: (song) => ref.read(
-                favoriteSongStatusProvider.select(
-                  (state) => state.songKeys.contains(
-                    buildFavoriteSongKey(
-                      songId: song.id,
-                      platform: song.platform,
-                    ),
-                  ),
-                ),
-              ),
               onLikeSong: _toggleSongLike,
               onMoreSong: (song, coverUrl) => _songActions.showSongActions(
                 context: context,
@@ -1127,7 +1107,6 @@ class _ArtistHeaderImage extends StatelessWidget {
 class _ArtistSongsTab extends StatelessWidget {
   const _ArtistSongsTab({
     required this.songs,
-    required this.currentTrackIdentity,
     required this.loading,
     required this.error,
     required this.onRetry,
@@ -1142,13 +1121,11 @@ class _ArtistSongsTab extends StatelessWidget {
     required this.onToggleSongSelection,
     required this.resolveSongCover,
     required this.onTapSong,
-    required this.isSongLiked,
     required this.onLikeSong,
     required this.onMoreSong,
   });
 
   final List<ArtistDetailSong> songs;
-  final CurrentTrackIdentity? currentTrackIdentity;
   final bool loading;
   final String? error;
   final Future<void> Function() onRetry;
@@ -1164,7 +1141,6 @@ class _ArtistSongsTab extends StatelessWidget {
   final String Function(ArtistDetailSong song) resolveSongCover;
   final Future<void> Function(ArtistDetailSong song, String coverUrl, int index)
   onTapSong;
-  final bool Function(ArtistDetailSong song) isSongLiked;
   final Future<void> Function(ArtistDetailSong song) onLikeSong;
   final void Function(ArtistDetailSong song, String coverUrl) onMoreSong;
 
@@ -1173,10 +1149,8 @@ class _ArtistSongsTab extends StatelessWidget {
     final localeCode = Localizations.localeOf(context).languageCode;
     return SongInfoListSection(
       songs: songs,
-      currentTrackIdentity: currentTrackIdentity,
       resolveSongCover: resolveSongCover,
       resolvePlatformId: (song) => song.platform,
-      isSongLiked: isSongLiked,
       onTapSong: onTapSong,
       onLikeSong: onLikeSong,
       onMoreSong: onMoreSong,

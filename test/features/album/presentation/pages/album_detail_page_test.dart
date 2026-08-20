@@ -16,6 +16,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 
 void main() {
   setUp(_TestPlayerController.reset);
@@ -47,54 +48,62 @@ void main() {
     expect(find.text('专辑首屏歌曲'), findsOneWidget);
   });
 
-  testWidgets('album detail ignores duration but rebuilds for track identity', (
-    tester,
-  ) async {
-    final repository = _FakeAlbumDetailRepository();
-    late _TestPlayerController playerController;
+  testWidgets(
+    'album detail keeps root stable and only updates matching song row',
+    (tester) async {
+      final repository = _FakeAlbumDetailRepository();
+      late _TestPlayerController playerController;
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWith(_TestAppConfigController.new),
-          playerControllerProvider.overrideWith(() {
-            playerController = _TestPlayerController();
-            return playerController;
-          }),
-          albumDetailRepositoryProvider.overrideWithValue(repository),
-          onlinePlatformsProvider.overrideWith(
-            _TestOnlinePlatformsController.new,
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(() {
+              playerController = _TestPlayerController();
+              return playerController;
+            }),
+            albumDetailRepositoryProvider.overrideWithValue(repository),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+          ],
+          child: const MaterialApp(
+            home: AlbumDetailPage(id: 'album-1', platform: 'qq', title: '测试专辑'),
           ),
-        ],
-        child: const MaterialApp(
-          home: AlbumDetailPage(id: 'album-1', platform: 'qq', title: '测试专辑'),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    final initialDetail = tester.widget<NestedScrollView>(
-      find.byType(NestedScrollView),
-    );
-    playerController.replaceCurrentTrack(
-      const PlayerTrack(id: 'song-1', title: '专辑首屏歌曲', platform: 'qq'),
-    );
-    await tester.pump();
+      final initialDetail = tester.widget<NestedScrollView>(
+        find.byType(NestedScrollView),
+      );
+      final initialSongRow = _songRow(tester, 'song-1');
+      expect(initialSongRow.isCurrent, isFalse);
 
-    final playingDetail = tester.widget<NestedScrollView>(
-      find.byType(NestedScrollView),
-    );
-    expect(playingDetail, isNot(same(initialDetail)));
+      playerController.replaceCurrentTrack(
+        const PlayerTrack(id: 'song-1', title: '专辑首屏歌曲', platform: 'qq'),
+      );
+      await tester.pump();
 
-    playerController.updateDuration(const Duration(minutes: 4));
-    await tester.pump();
+      final playingDetail = tester.widget<NestedScrollView>(
+        find.byType(NestedScrollView),
+      );
+      final playingSongRow = _songRow(tester, 'song-1');
+      expect(playingDetail, same(initialDetail));
+      expect(playingSongRow, isNot(same(initialSongRow)));
+      expect(playingSongRow.isCurrent, isTrue);
 
-    expect(
-      tester.widget<NestedScrollView>(find.byType(NestedScrollView)),
-      same(playingDetail),
-    );
-  });
+      playerController.updateDuration(const Duration(minutes: 4));
+      await tester.pump();
+
+      expect(
+        tester.widget<NestedScrollView>(find.byType(NestedScrollView)),
+        same(playingDetail),
+      );
+      expect(_songRow(tester, 'song-1'), same(playingSongRow));
+    },
+  );
 
   testWidgets('album detail exits batch mode before navigating back', (
     tester,
@@ -322,6 +331,12 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
       ),
     ];
   }
+}
+
+OnlineSongListItem _songRow(WidgetTester tester, String songId) {
+  return tester
+      .widgetList<OnlineSongListItem>(find.byType(OnlineSongListItem))
+      .singleWhere((item) => item.song.id == songId);
 }
 
 class _FakeAlbumDetailRepository implements AlbumDetailRepository {

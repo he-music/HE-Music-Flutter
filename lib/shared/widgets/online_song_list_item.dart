@@ -62,7 +62,9 @@ class OnlineSongListItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     return SongListItem(
       data: SongListItemData.fromSongInfo(
         song: song,
@@ -89,7 +91,7 @@ class OnlineSongListItem extends ConsumerWidget {
       onMoreVersionTap: onMoreVersionTap,
       contentAfterSubtitle: contentAfterSubtitle,
       footer: footer,
-      moreVersionLabel: AppI18n.t(config, 'song.more_versions'),
+      moreVersionLabel: AppI18n.tByLocaleCode(localeCode, 'song.more_versions'),
     );
   }
 }

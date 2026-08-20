@@ -28,7 +28,9 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
     final track = ref.watch(
       playerControllerProvider.select((state) => state.currentTrack),
     );
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     final isPlaying = ref.watch(
       playerControllerProvider.select((state) => state.isPlaying),
     );
@@ -70,7 +72,7 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(child: _buildTrackInfo(context, title, artist)),
               PlayerControlBar(
-                config: config,
+                localeCode: localeCode,
                 compact: true,
                 isPlaying: isPlaying,
                 playMode: playMode,

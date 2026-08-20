@@ -5,6 +5,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 
+const int _imageColorCacheCapacity = 24;
+final Map<_ImageColorCacheKey, List<Color>> _imageColorCache = {};
+final Map<_ImageColorCacheKey, Future<List<Color>>> _inFlightImageColors = {};
+
 /// 从图片中提取量化后的代表色，供播放器与自定义皮肤共同使用。
 Future<List<Color>> colorsFromImageProvider(
   ImageProvider<Object>? imageProvider, {
@@ -13,6 +17,47 @@ Future<List<Color>> colorsFromImageProvider(
   bool prioritizeSaturation = true,
 }) async {
   if (imageProvider == null) return const <Color>[];
+  final cacheKey = _ImageColorCacheKey(
+    provider: imageProvider,
+    maxColors: maxColors,
+    decodeWidth: decodeSize.width.toInt(),
+    decodeHeight: decodeSize.height.toInt(),
+    prioritizeSaturation: prioritizeSaturation,
+  );
+  final cached = _imageColorCache.remove(cacheKey);
+  if (cached != null) {
+    _imageColorCache[cacheKey] = cached;
+    return cached;
+  }
+  final inFlight = _inFlightImageColors[cacheKey];
+  if (inFlight != null) return inFlight;
+  final future = _extractColors(
+    imageProvider,
+    maxColors: maxColors,
+    decodeSize: decodeSize,
+    prioritizeSaturation: prioritizeSaturation,
+  );
+  _inFlightImageColors[cacheKey] = future;
+  try {
+    final colors = List<Color>.unmodifiable(await future);
+    if (colors.isNotEmpty) {
+      _imageColorCache[cacheKey] = colors;
+      if (_imageColorCache.length > _imageColorCacheCapacity) {
+        _imageColorCache.remove(_imageColorCache.keys.first);
+      }
+    }
+    return colors;
+  } finally {
+    _inFlightImageColors.remove(cacheKey);
+  }
+}
+
+Future<List<Color>> _extractColors(
+  ImageProvider<Object> imageProvider, {
+  required int maxColors,
+  required Size decodeSize,
+  required bool prioritizeSaturation,
+}) async {
   try {
     final imageStream = imageProvider.resolve(ImageConfiguration.empty);
     final completer = Completer<ui.Image>();
@@ -26,15 +71,22 @@ Future<List<Color>> colorsFromImageProvider(
       },
     );
     imageStream.addListener(listener);
-    final rawImage = await completer.future;
-    imageStream.removeListener(listener);
+    late final ui.Image rawImage;
+    try {
+      rawImage = await completer.future;
+    } finally {
+      imageStream.removeListener(listener);
+    }
 
-    final resized = await _decodeImageSized(rawImage, decodeSize);
-    final byteData = await resized.toByteData(
-      format: ui.ImageByteFormat.rawRgba,
-    );
-    rawImage.dispose();
-    resized.dispose();
+    ui.Image? resized;
+    ByteData? byteData;
+    try {
+      resized = await _decodeImageSized(rawImage, decodeSize);
+      byteData = await resized.toByteData(format: ui.ImageByteFormat.rawRgba);
+    } finally {
+      rawImage.dispose();
+      resized?.dispose();
+    }
     if (byteData == null) return const <Color>[];
 
     final pixels = argbPixelsFromRgbaBytes(byteData);
@@ -53,6 +105,41 @@ Future<List<Color>> colorsFromImageProvider(
   } catch (_) {
     return const <Color>[];
   }
+}
+
+class _ImageColorCacheKey {
+  const _ImageColorCacheKey({
+    required this.provider,
+    required this.maxColors,
+    required this.decodeWidth,
+    required this.decodeHeight,
+    required this.prioritizeSaturation,
+  });
+
+  final ImageProvider<Object> provider;
+  final int maxColors;
+  final int decodeWidth;
+  final int decodeHeight;
+  final bool prioritizeSaturation;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _ImageColorCacheKey &&
+        other.provider == provider &&
+        other.maxColors == maxColors &&
+        other.decodeWidth == decodeWidth &&
+        other.decodeHeight == decodeHeight &&
+        other.prioritizeSaturation == prioritizeSaturation;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    provider,
+    maxColors,
+    decodeWidth,
+    decodeHeight,
+    prioritizeSaturation,
+  );
 }
 
 Future<ui.Image> _decodeImageSized(ui.Image source, Size targetSize) {

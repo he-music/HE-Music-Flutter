@@ -11,7 +11,6 @@ import '../../../../../app/router/app_routes.dart';
 import '../../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../../shared/helpers/song_batch_helpers.dart';
 import '../../../../../shared/models/he_music_models.dart';
-import '../../../../../shared/utils/favorite_song_key.dart';
 import '../../../../../shared/widgets/app_back_button.dart';
 import '../../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../../shared/widgets/online_platform_tabs.dart';
@@ -19,10 +18,7 @@ import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../../shared/widgets/plaza_widgets.dart';
 import '../../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../../shared/widgets/song_info_list_section.dart';
-import '../../../../../shared/helpers/current_track_helper.dart';
-import '../../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../../online/domain/entities/online_platform.dart';
-import '../../../../player/presentation/providers/player_providers.dart';
 import '../providers/new_song_page_providers.dart';
 
 class NewSongPage extends ConsumerStatefulWidget {
@@ -66,14 +62,6 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(newSongPageControllerProvider);
     final controller = ref.read(newSongPageControllerProvider.notifier);
-    final currentTrackIdentity = ref.watch(
-      playerControllerProvider.select(
-        (playback) => currentTrackIdentityOf(playback.currentTrack),
-      ),
-    );
-    final favoriteSongKeys = ref.watch(
-      favoriteSongStatusProvider.select((favorite) => favorite.songKeys),
-    );
 
     return DetailPageShell(
       onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
@@ -131,18 +119,8 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
             Expanded(
               child: SongInfoListSection(
                 songs: state.songs,
-                currentTrackIdentity: currentTrackIdentity,
                 resolveSongCover: _songActions.resolveCoverUrl,
                 resolvePlatformId: _songActions.resolvePlatformId,
-                isSongLiked: (song) {
-                  final platformId = _songActions.resolvePlatformId(song);
-                  if (platformId.isEmpty) {
-                    return false;
-                  }
-                  return favoriteSongKeys.contains(
-                    buildFavoriteSongKey(songId: song.id, platform: platformId),
-                  );
-                },
                 artistAlbumTextBuilder: (song) => song.artistAlbumText,
                 subtitleTextBuilder: (song) => song.displaySubtitle,
                 onTapSong: (song, coverUrl, index) => _songActions.playAll(

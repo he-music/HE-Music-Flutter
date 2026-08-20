@@ -250,7 +250,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(appConfigProvider);
+    final config = ref.watch(
+      appConfigProvider.select(
+        (state) =>
+            (playerStyleId: state.playerStyleId, localeCode: state.localeCode),
+      ),
+    );
     final playerStyle = AppPlayerStyleRegistry.instance.resolve(
       config.playerStyleId,
     );
@@ -308,7 +313,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 _PlayerOrientationPreference.manualLandscape);
     Widget buildLyricPage() => PlayerLyricPage(
       key: _lyricPageKey,
-      emptyText: AppI18n.t(config, 'player.lyrics.empty'),
+      emptyText: AppI18n.tByLocaleCode(
+        config.localeCode,
+        'player.lyrics.empty',
+      ),
       onSeek: presentation.isTrackTransitioning ? null : controller.seek,
       artworkUrl: presentation.currentTrack?.artworkUrl,
       artworkBytes: presentation.currentTrack?.artworkBytes,
@@ -371,7 +379,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                     ),
                     mainPlayerBuilder: (context, spec) =>
                         _PlayerMetaControlPage(
-                          noTrackText: AppI18n.t(config, 'player.noTrack'),
+                          noTrackText: AppI18n.tByLocaleCode(
+                            config.localeCode,
+                            'player.noTrack',
+                          ),
                           controller: controller,
                           layoutSpec: spec,
                           stageKind: playerStyle.stageKind,
@@ -392,15 +403,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                         ),
                     mobileLandscapeBuilder: (context, spec) =>
                         _PlayerMobileLandscapeLayout(
-                          noTrackText: AppI18n.t(config, 'player.noTrack'),
+                          noTrackText: AppI18n.tByLocaleCode(
+                            config.localeCode,
+                            'player.noTrack',
+                          ),
                           controller: controller,
                           layoutSpec: spec,
                           stageKind: playerStyle.stageKind,
                           stageMaxWidth: playerStyle.geometry.stageMaxWidth,
                           track: displayedTrack,
                           lyrics: buildLyricPage(),
-                          exitLandscapeTooltip: AppI18n.t(
-                            config,
+                          exitLandscapeTooltip: AppI18n.tByLocaleCode(
+                            config.localeCode,
                             'player.action.exit_landscape',
                           ),
                           onExitLandscape: () => unawaited(_exitLandscape()),
@@ -2088,7 +2102,9 @@ class _PlayerControlSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     final isPlaying = ref.watch(
       playerControllerProvider.select((state) => state.isPlaying),
     );
@@ -2102,7 +2118,7 @@ class _PlayerControlSection extends ConsumerWidget {
       playerControllerProvider.select((state) => state.isTrackTransitioning),
     );
     return PlayerControlBar(
-      config: config,
+      localeCode: localeCode,
       compact: compactLayout,
       isPlaying: isPlaying,
       playMode: playMode,

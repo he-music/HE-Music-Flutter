@@ -11,6 +11,7 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/cover_resolver.dart';
 import '../../../../shared/widgets/online_song_list_item.dart';
 import '../../../../shared/widgets/song_list_item.dart';
+import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../domain/entities/online_platform.dart';
 import '../providers/online_providers.dart';
 import '../utils/search_text_highlight.dart';
@@ -92,8 +93,19 @@ class _OnlineSearchSongResultItemState
     final config = ref.read(appConfigProvider);
     final platforms =
         ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
+    final isCurrent = ref.watch(
+      playerControllerProvider.select(
+        (state) => isCurrentSongIdentity(
+          currentTrackIdentityOf(state.currentTrack),
+          song,
+        ),
+      ),
+    );
+    final isLiked = ref.watch(
+      favoriteSongStatusProvider.select(
+        (state) =>
+            song.platform.trim().isNotEmpty && state.songKeys.contains(songKey),
+      ),
     );
     final coverUrl = resolveSongCoverUrl(
       baseUrl: config.apiBaseUrl,
@@ -219,9 +231,9 @@ class _OnlineSearchSongResultItemState
             ]
           : const <String>[],
       coverUrl: coverUrl.trim().isEmpty ? null : coverUrl,
-      isCurrent: isCurrentSongTrack(currentTrack, song),
+      isCurrent: isCurrent,
       showMoreVersionButton: showMoreVersion,
-      isLiked: widget.likedSongKeys.contains(songKey),
+      isLiked: isLiked,
       onTap: () => widget.onTapSong(song),
       onLikeTap: () => unawaited(widget.onLikeSong(song)),
       onMoreTap: () => widget.onMoreSong(song),

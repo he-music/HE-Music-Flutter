@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
+import '../../features/my/presentation/providers/favorite_song_status_providers.dart';
+import '../../features/player/presentation/providers/player_providers.dart';
 import '../helpers/current_track_helper.dart';
 import '../helpers/song_batch_helpers.dart';
 import '../models/he_music_models.dart';
+import '../utils/favorite_song_key.dart';
 import 'music_detail_slivers.dart';
 import 'online_song_list_item.dart';
 import 'song_list_component.dart';
@@ -22,10 +25,8 @@ typedef SongInfoMoreCallback = void Function(SongInfo song, String coverUrl);
 class SongInfoListSection extends StatelessWidget {
   const SongInfoListSection({
     required this.songs,
-    required this.currentTrackIdentity,
     required this.resolveSongCover,
     required this.resolvePlatformId,
-    required this.isSongLiked,
     required this.onTapSong,
     required this.onLikeSong,
     required this.onMoreSong,
@@ -55,10 +56,8 @@ class SongInfoListSection extends StatelessWidget {
   });
 
   final List<SongInfo> songs;
-  final CurrentTrackIdentity? currentTrackIdentity;
   final String Function(SongInfo song) resolveSongCover;
   final String Function(SongInfo song) resolvePlatformId;
-  final bool Function(SongInfo song) isSongLiked;
   final SongInfoTapCallback onTapSong;
   final SongInfoActionCallback onLikeSong;
   final SongInfoMoreCallback onMoreSong;
@@ -126,21 +125,17 @@ class SongInfoListSection extends StatelessWidget {
       itemBuilder: (context, index) {
         final song = songs[index];
         final songCover = resolveSongCover(song);
-        return OnlineSongListItem(
+        final platform = resolvePlatformId(song);
+        return _SongInfoListRow(
           song: song,
           artistAlbumText: artistAlbumTextBuilder?.call(song),
           subtitleText: subtitleTextBuilder?.call(song) ?? '',
           coverUrl: songCover.trim().isEmpty ? null : songCover,
-          isCurrent: isCurrentSongIdentity(currentTrackIdentity, song),
-          isLiked: isSongLiked(song),
+          platform: platform,
           selectable: batchMode,
           selected: selectedSongKeys.contains(
-            buildSongBatchKey(
-              songId: song.id,
-              platform: resolvePlatformId(song),
-            ),
+            buildSongBatchKey(songId: song.id, platform: platform),
           ),
-          showActions: !batchMode,
           onTap: batchMode
               ? null
               : () {
@@ -163,6 +158,73 @@ class SongInfoListSection extends StatelessWidget {
           onMoreTap: batchMode ? null : () => onMoreSong(song, songCover),
         );
       },
+    );
+  }
+}
+
+/// 每行独立监听收藏和当前播放身份，避免单首歌曲变化重建整个列表。
+class _SongInfoListRow extends ConsumerWidget {
+  const _SongInfoListRow({
+    required this.song,
+    required this.platform,
+    required this.coverUrl,
+    required this.selectable,
+    required this.selected,
+    required this.onTap,
+    required this.onSelectTap,
+    required this.onLikeTap,
+    required this.onMoreTap,
+    this.artistAlbumText,
+    this.subtitleText = '',
+  });
+
+  final SongInfo song;
+  final String platform;
+  final String? coverUrl;
+  final String? artistAlbumText;
+  final String subtitleText;
+  final bool selectable;
+  final bool selected;
+  final VoidCallback? onTap;
+  final VoidCallback? onSelectTap;
+  final VoidCallback? onLikeTap;
+  final VoidCallback? onMoreTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final normalizedPlatform = platform.trim();
+    final songKey = buildFavoriteSongKey(
+      songId: song.id,
+      platform: normalizedPlatform,
+    );
+    final isLiked = ref.watch(
+      favoriteSongStatusProvider.select(
+        (state) =>
+            normalizedPlatform.isNotEmpty && state.songKeys.contains(songKey),
+      ),
+    );
+    final isCurrent = ref.watch(
+      playerControllerProvider.select(
+        (state) => isCurrentSongIdentity(
+          currentTrackIdentityOf(state.currentTrack),
+          song,
+        ),
+      ),
+    );
+    return OnlineSongListItem(
+      song: song,
+      artistAlbumText: artistAlbumText,
+      subtitleText: subtitleText,
+      coverUrl: coverUrl,
+      isCurrent: isCurrent,
+      isLiked: isLiked,
+      selectable: selectable,
+      selected: selected,
+      showActions: !selectable,
+      onTap: onTap,
+      onSelectTap: onSelectTap,
+      onLikeTap: onLikeTap,
+      onMoreTap: onMoreTap,
     );
   }
 }

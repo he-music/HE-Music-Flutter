@@ -12,19 +12,15 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
-import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
-import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../my/presentation/providers/favorite_collection_status_providers.dart';
-import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
-import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/album_detail_content.dart';
 import '../../domain/entities/album_detail_request.dart';
 import '../../domain/entities/album_detail_song.dart';
@@ -147,11 +143,6 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
     final coverUrl = content.coverUrl.trim();
     final description = content.description;
     final songs = content.songs;
-    final currentTrackIdentity = ref.watch(
-      playerControllerProvider.select(
-        (state) => currentTrackIdentityOf(state.currentTrack),
-      ),
-    );
     final isFavorited = ref.watch(
       favoriteCollectionStatusProvider.select(
         (state) => state.albumKeys.contains(
@@ -241,19 +232,8 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
         ),
         child: SongInfoListSection(
           songs: songs,
-          currentTrackIdentity: currentTrackIdentity,
           resolveSongCover: _songActions.resolveCoverUrl,
           resolvePlatformId: _songActions.resolvePlatformId,
-          isSongLiked: (song) => ref.watch(
-            favoriteSongStatusProvider.select(
-              (state) => state.songKeys.contains(
-                buildFavoriteSongKey(
-                  songId: song.id,
-                  platform: _songActions.resolvePlatformId(song),
-                ),
-              ),
-            ),
-          ),
           onTapSong: (song, coverUrl, index) =>
               _songActions.playAll(context, songs, startIndex: index),
           onLikeSong: (song) => _songActions.toggleSongFavorite(song),

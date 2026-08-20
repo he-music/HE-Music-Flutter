@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
+import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/song_info_list_section.dart';
 
@@ -40,10 +43,8 @@ void main() {
         _wrap(
           SongInfoListSection(
             songs: songs,
-            currentTrackIdentity: null,
             resolveSongCover: (_) => '',
             resolvePlatformId: (s) => s.platform,
-            isSongLiked: (_) => false,
             onTapSong: (_, _, _) {},
             onLikeSong: (_) {},
             onMoreSong: (_, _) {},
@@ -62,10 +63,8 @@ void main() {
         _wrap(
           SongInfoListSection(
             songs: songs,
-            currentTrackIdentity: null,
             resolveSongCover: (_) => '',
             resolvePlatformId: (s) => s.platform,
-            isSongLiked: (_) => false,
             onTapSong: (_, _, _) {},
             onLikeSong: (_) {},
             onMoreSong: (_, _) {},
@@ -81,10 +80,8 @@ void main() {
         _wrap(
           SongInfoListSection(
             songs: const [],
-            currentTrackIdentity: null,
             resolveSongCover: (_) => '',
             resolvePlatformId: (s) => s.platform,
-            isSongLiked: (_) => false,
             onTapSong: (_, _, _) {},
             onLikeSong: (_) {},
             onMoreSong: (_, _) {},
@@ -101,10 +98,8 @@ void main() {
         _wrap(
           SongInfoListSection(
             songs: const [],
-            currentTrackIdentity: null,
             resolveSongCover: (_) => '',
             resolvePlatformId: (s) => s.platform,
-            isSongLiked: (_) => false,
             onTapSong: (_, _, _) {},
             onLikeSong: (_) {},
             onMoreSong: (_, _) {},
@@ -121,11 +116,21 @@ void main() {
 
 Widget _wrap(Widget child) {
   return ProviderScope(
-    overrides: [appConfigProvider.overrideWith(_TestAppConfigController.new)],
+    overrides: [
+      appConfigProvider.overrideWith(_TestAppConfigController.new),
+      playerControllerProvider.overrideWith(_TestPlayerController.new),
+    ],
     child: MaterialApp(
       home: Scaffold(body: SizedBox(width: 400, height: 600, child: child)),
     ),
   );
+}
+
+class _TestPlayerController extends PlayerController {
+  @override
+  PlayerPlaybackState build() {
+    return PlayerPlaybackState.initial(const []);
+  }
 }
 
 class _TestAppConfigController extends AppConfigController {

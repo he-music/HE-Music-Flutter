@@ -63,7 +63,9 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     if (widget.initialLoading) {
       return ListView.separated(
         padding: EdgeInsets.zero,
@@ -74,7 +76,11 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
     }
     if (widget.itemCount == 0) {
       return widget.empty ??
-          Center(child: Text(AppI18n.t(config, 'search.result.empty')));
+          Center(
+            child: Text(
+              AppI18n.tByLocaleCode(localeCode, 'search.result.empty'),
+            ),
+          );
     }
     final showFooter =
         widget.enablePaging &&
@@ -110,7 +116,9 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
   }
 
   Widget _buildFooter(BuildContext context) {
-    final config = ref.watch(appConfigProvider);
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     if (widget.loadingMore) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
@@ -135,7 +143,7 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
                   ? null
                   : () => unawaited(widget.onRetryLoadMore!()),
               icon: const Icon(Icons.refresh_rounded),
-              label: Text(AppI18n.t(config, 'common.retry')),
+              label: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),
             ),
           ],
         ),
@@ -146,7 +154,7 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Center(
           child: Text(
-            AppI18n.t(config, 'search.result.no_more'),
+            AppI18n.tByLocaleCode(localeCode, 'search.result.no_more'),
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),

@@ -11,17 +11,13 @@ import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
 import '../../../../shared/models/he_music_models.dart';
-import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
-import '../../../../shared/helpers/current_track_helper.dart';
-import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
-import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/recommend_song_list_info.dart';
 import '../../domain/entities/recommend_song_list_request.dart';
 import '../../domain/entities/recommend_song_list_state.dart';
@@ -141,11 +137,6 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
     DetailSongActionHandler songActions,
   ) {
     final songs = info.songs;
-    final currentTrackIdentity = ref.watch(
-      playerControllerProvider.select(
-        (state) => currentTrackIdentityOf(state.currentTrack),
-      ),
-    );
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) => <Widget>[
         MusicDetailSliverAppBar(
@@ -212,19 +203,8 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
         ),
         child: SongInfoListSection(
           songs: songs,
-          currentTrackIdentity: currentTrackIdentity,
           resolveSongCover: songActions.resolveCoverUrl,
           resolvePlatformId: songActions.resolvePlatformId,
-          isSongLiked: (song) => ref.watch(
-            favoriteSongStatusProvider.select(
-              (state) => state.songKeys.contains(
-                buildFavoriteSongKey(
-                  songId: song.id,
-                  platform: songActions.resolvePlatformId(song),
-                ),
-              ),
-            ),
-          ),
           onTapSong: (song, coverUrl, index) =>
               songActions.playAll(context, songs, startIndex: index),
           onLikeSong: songActions.toggleSongFavorite,

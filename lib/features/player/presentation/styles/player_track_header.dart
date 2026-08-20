@@ -41,6 +41,9 @@ class PlayerTrackHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     final presentation = ref.watch(
       playerControllerProvider.select(
         (state) => (
@@ -158,8 +161,8 @@ class PlayerTrackHeader extends ConsumerWidget {
                     if (presentation.isTrackTransitioning)
                       Semantics(
                         liveRegion: true,
-                        label: AppI18n.format(
-                          ref.watch(appConfigProvider),
+                        label: AppI18n.formatByLocaleCode(
+                          localeCode,
                           'player.transition.preparing_track',
                           <String, String>{'title': title},
                         ),
@@ -263,8 +266,8 @@ class PlayerTrackHeader extends ConsumerWidget {
                 child: presentation.isTrackTransitioning
                     ? Semantics(
                         liveRegion: true,
-                        label: AppI18n.format(
-                          ref.watch(appConfigProvider),
+                        label: AppI18n.formatByLocaleCode(
+                          localeCode,
                           'player.transition.preparing_track',
                           <String, String>{'title': title},
                         ),

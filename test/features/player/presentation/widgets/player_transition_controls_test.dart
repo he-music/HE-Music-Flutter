@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_control_bar.dart';
@@ -208,7 +207,7 @@ Widget _buildControls({
             onSeek: onSeek,
           ),
           PlayerControlBar(
-            config: AppConfigState.initial.copyWith(localeCode: 'en'),
+            localeCode: 'en',
             isPlaying: false,
             playMode: PlayerPlayMode.sequence,
             isTrackTransitioning: isTrackTransitioning,
