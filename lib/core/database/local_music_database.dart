@@ -138,8 +138,28 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      await _ensurePerformanceIndexes();
     },
   );
+
+  Future<void> _ensurePerformanceIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_local_songs_scan_cleanup '
+      'ON local_songs (scan_source, scan_batch_id, metadata_edited)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_local_songs_status_title '
+      'ON local_songs (status, title)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_song_artists_song_id '
+      'ON song_artists (song_id)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_song_artists_artist_id '
+      'ON song_artists (artist_id)',
+    );
+  }
 }
 
 LazyDatabase _openConnection() {

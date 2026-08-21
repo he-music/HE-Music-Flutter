@@ -12,6 +12,7 @@ import '../datasources/local_music_query_data_source.dart';
 const _unknownArtist = '未知歌手';
 const _unknownAlbum = '未知专辑';
 const _minimumTrackDurationMilliseconds = 60 * 1000;
+const _metadataReadConcurrency = 3;
 const _callRecordingKeywords = <String>[
   'callrecord',
   'call_record',
@@ -62,39 +63,44 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     final batchId = const Uuid().v4();
     final scanSource = _detectScanSource();
     final now = DateTime.now().millisecondsSinceEpoch;
+    final existingRows = await _dao.getSongRowsBySource(scanSource);
+    final candidates = tracks
+        .where(_shouldKeepTrackBeforeMetadata)
+        .toList(growable: false);
+    final scanned = List<_ScannedLocalTrack?>.filled(candidates.length, null);
+    var nextIndex = 0;
 
-    final companions = <LocalSongsCompanion>[];
-    final artistsBySongId = <String, List<String>>{};
-    for (final track in tracks) {
-      final metadata = await _metadataReader.read(
-        track.filePath,
-        fetchArtwork: false,
-      );
-      // 合并时长：优先使用元数据中的实际时长
-      final effectiveDuration =
-          metadata?.duration?.inMilliseconds ?? track.duration;
-      final effectiveTrack = LocalMusicQueryTrack(
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        duration: effectiveDuration,
-        filePath: track.filePath,
-        mimeType: track.mimeType,
-        size: track.size,
-        artwork: track.artwork,
-      );
-
-      if (_shouldKeepTrack(effectiveTrack)) {
-        final song = _buildCompanion(
-          effectiveTrack,
-          metadata,
+    Future<void> worker() async {
+      while (true) {
+        final index = nextIndex++;
+        if (index >= candidates.length) {
+          return;
+        }
+        scanned[index] = await _scanTrack(
+          candidates[index],
+          existingRows,
           scanSource,
           batchId,
           now,
         );
-        companions.add(song);
-        artistsBySongId[song.id.value] = _splitArtistNames(song.artist.value);
+      }
+    }
+
+    final workerCount = candidates.length < _metadataReadConcurrency
+        ? candidates.length
+        : _metadataReadConcurrency;
+    if (workerCount > 0) {
+      await Future.wait<void>(
+        List<Future<void>>.generate(workerCount, (_) => worker()),
+      );
+    }
+
+    final companions = <LocalSongsCompanion>[];
+    final artistsBySongId = <String, List<String>>{};
+    for (final result in scanned.whereType<_ScannedLocalTrack>()) {
+      companions.add(result.song);
+      if (result.replaceArtistRelations) {
+        artistsBySongId[result.song.id.value] = result.artistNames;
       }
     }
 
@@ -103,6 +109,7 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
       artistsBySongId: artistsBySongId,
       scanSource: scanSource,
       batchId: batchId,
+      replaceOnlyProvidedArtists: true,
     );
 
     // 返回写入的歌曲列表
@@ -185,6 +192,80 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     return 'macos';
   }
 
+  Future<_ScannedLocalTrack?> _scanTrack(
+    LocalMusicQueryTrack track,
+    Map<String, LocalSongRow> existingRows,
+    String scanSource,
+    String batchId,
+    int now,
+  ) async {
+    final modifiedAt = _readTrackModifiedAt(track, scanSource, fallback: now);
+    final existing = existingRows[track.id];
+    if (_canReuseExistingSong(existing, track, modifiedAt)) {
+      final song = _buildCompanionFromExisting(
+        existing!,
+        track,
+        scanSource,
+        batchId,
+        now,
+        modifiedAt,
+      );
+      return _ScannedLocalTrack(
+        song: song,
+        artistNames: _splitArtistNames(song.artist.value),
+        replaceArtistRelations: existing.metadataEdited == 1,
+      );
+    }
+
+    final metadata = await _metadataReader.read(
+      track.filePath,
+      fetchArtwork: false,
+    );
+    // 合并时长：优先使用元数据中的实际时长。
+    final effectiveDuration =
+        metadata?.duration?.inMilliseconds ?? track.duration;
+    final effectiveTrack = LocalMusicQueryTrack(
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      duration: effectiveDuration,
+      filePath: track.filePath,
+      mimeType: track.mimeType,
+      size: track.size,
+      modifiedAt: modifiedAt,
+      artwork: track.artwork,
+    );
+
+    if (!_shouldKeepTrack(effectiveTrack)) {
+      return null;
+    }
+    final song = _buildCompanion(
+      effectiveTrack,
+      metadata,
+      scanSource,
+      batchId,
+      now,
+      modifiedAt,
+    );
+    return _ScannedLocalTrack(
+      song: song,
+      artistNames: _splitArtistNames(song.artist.value),
+      replaceArtistRelations: true,
+    );
+  }
+
+  bool _shouldKeepTrackBeforeMetadata(LocalMusicQueryTrack track) {
+    final path = track.filePath.trim().toLowerCase();
+    final fileName = Uri.file(track.filePath).pathSegments.last.toLowerCase();
+    for (final keyword in _callRecordingKeywords) {
+      if (path.contains(keyword) || fileName.contains(keyword)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   bool _shouldKeepTrack(LocalMusicQueryTrack track) {
     // duration < 0 表示文件系统扫描的未知时长，跳过时长过滤（后续元数据解析会补充）
     if (track.duration >= 0 &&
@@ -199,6 +280,21 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
       }
     }
     return true;
+  }
+
+  bool _canReuseExistingSong(
+    LocalSongRow? existing,
+    LocalMusicQueryTrack track,
+    int? modifiedAt,
+  ) {
+    if (existing == null) return false;
+    if (existing.filePath != track.filePath ||
+        existing.fileSize != track.size) {
+      return false;
+    }
+    return existing.modifiedAt != null &&
+        modifiedAt != null &&
+        existing.modifiedAt == modifiedAt;
   }
 
   List<String> _splitArtistNames(String artist) {
@@ -217,6 +313,7 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     String scanSource,
     String batchId,
     int now,
+    int? modifiedAt,
   ) {
     final fileName = Uri.file(track.filePath).pathSegments.last;
     final rawName = fileName.replaceAll(RegExp(r'\.[^.]+$'), '');
@@ -240,10 +337,9 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
 
     // 提取文件夹路径（仅 Android/macOS）
     final folderPath = scanSource != 'ios' ? _parentPath(track.filePath) : null;
-    // 文件修改时间用于后续增量判断；文件不可读时保留扫描时间作为兜底。
-    final modifiedAt = scanSource != 'ios'
-        ? _readModifiedAt(track.filePath, fallback: now)
-        : null;
+    // 文件修改时间用于后续增量判断；不可读时保留扫描时间作为兜底。
+    final effectiveModifiedAt =
+        modifiedAt ?? _readTrackModifiedAt(track, scanSource, fallback: now);
 
     return LocalSongsCompanion(
       id: Value(track.id),
@@ -267,6 +363,43 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
       scanBatchId: Value(batchId),
       scanSource: Value(scanSource),
       createdAt: Value(now),
+      updatedAt: Value(now),
+      modifiedAt: Value(effectiveModifiedAt),
+    );
+  }
+
+  LocalSongsCompanion _buildCompanionFromExisting(
+    LocalSongRow row,
+    LocalMusicQueryTrack track,
+    String scanSource,
+    String batchId,
+    int now,
+    int? modifiedAt,
+  ) {
+    return LocalSongsCompanion(
+      id: Value(row.id),
+      title: Value(row.title),
+      artist: Value(row.artist),
+      album: Value(row.album),
+      genre: Value(row.genre),
+      year: Value(row.year),
+      discNumber: Value(row.discNumber),
+      trackNumber: Value(row.trackNumber),
+      durationMs: Value(row.durationMs),
+      filePath: Value(track.filePath),
+      folderPath: Value(
+        scanSource != 'ios' ? _parentPath(track.filePath) : null,
+      ),
+      fileSize: Value(track.size),
+      mimeType: Value(track.mimeType),
+      bitrate: Value(row.bitrate),
+      sampleRate: Value(row.sampleRate),
+      hasArtwork: Value(row.hasArtwork),
+      metadataEdited: Value(row.metadataEdited),
+      status: const Value('active'),
+      scanBatchId: Value(batchId),
+      scanSource: Value(scanSource),
+      createdAt: Value(row.createdAt),
       updatedAt: Value(now),
       modifiedAt: Value(modifiedAt),
     );
@@ -292,6 +425,20 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     final segments = filePath.split('/');
     if (segments.length <= 1) return null;
     return segments.sublist(0, segments.length - 1).join('/');
+  }
+
+  int? _readTrackModifiedAt(
+    LocalMusicQueryTrack track,
+    String scanSource, {
+    required int fallback,
+  }) {
+    if (track.modifiedAt != null) {
+      return track.modifiedAt;
+    }
+    if (scanSource == 'ios') {
+      return null;
+    }
+    return _readModifiedAt(track.filePath, fallback: fallback);
   }
 
   int _readModifiedAt(String filePath, {required int fallback}) {
@@ -344,4 +491,16 @@ class _ParsedLocalSongMeta {
   final String title;
   final String artist;
   final String album;
+}
+
+class _ScannedLocalTrack {
+  const _ScannedLocalTrack({
+    required this.song,
+    required this.artistNames,
+    required this.replaceArtistRelations,
+  });
+
+  final LocalSongsCompanion song;
+  final List<String> artistNames;
+  final bool replaceArtistRelations;
 }

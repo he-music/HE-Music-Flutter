@@ -77,6 +77,16 @@ class LocalMusicDao {
     return query.watch().map((rows) => rows.map(_toEntity).toList());
   }
 
+  /// 读取指定平台已有歌曲行，供扫描流程按文件指纹跳过未变化的标签解析。
+  Future<Map<String, LocalSongRow>> getSongRowsBySource(
+    String scanSource,
+  ) async {
+    final rows = await (_db.select(
+      _db.localSongs,
+    )..where((song) => song.scanSource.equals(scanSource))).get();
+    return <String, LocalSongRow>{for (final row in rows) row.id: row};
+  }
+
   /// 监听指定艺术家的歌曲（使用关联表）
   Stream<List<LocalSong>> watchSongsByArtist(String artistName) {
     final query =
@@ -326,11 +336,17 @@ class LocalMusicDao {
     required Map<String, List<String>> artistsBySongId,
     required String scanSource,
     required String batchId,
+    bool replaceOnlyProvidedArtists = false,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     await _db.transaction(() async {
       await _upsertSongsInBatch(songs, scanSource, batchId, now);
-      await _replaceSongArtistsForBatch(artistsBySongId, scanSource, batchId);
+      await _replaceSongArtistsForBatch(
+        artistsBySongId,
+        scanSource,
+        batchId,
+        replaceOnlyProvidedArtists: replaceOnlyProvidedArtists,
+      );
       await _deleteStaleBySource(scanSource, batchId);
     });
   }
@@ -546,8 +562,9 @@ class LocalMusicDao {
   Future<void> _replaceSongArtistsForBatch(
     Map<String, List<String>> artistsBySongId,
     String scanSource,
-    String batchId,
-  ) async {
+    String batchId, {
+    required bool replaceOnlyProvidedArtists,
+  }) async {
     final currentSongs =
         await (_db.select(_db.localSongs)..where(
               (song) =>
@@ -556,11 +573,17 @@ class LocalMusicDao {
             ))
             .get();
     if (currentSongs.isEmpty) return;
+    final songsToReplace = replaceOnlyProvidedArtists
+        ? currentSongs
+              .where((song) => artistsBySongId.containsKey(song.id))
+              .toList(growable: false)
+        : currentSongs;
+    if (songsToReplace.isEmpty) return;
 
     // 已编辑歌曲以数据库内保留的 artist 为准，避免重新扫描破坏关联。
     final effectiveArtists = <String, List<String>>{};
     final uniqueArtistNames = <String>{};
-    for (final song in currentSongs) {
+    for (final song in songsToReplace) {
       final names = _normalizeArtistNames(
         song.metadataEdited == 1
             ? _splitArtistNames(song.artist)
@@ -585,7 +608,7 @@ class LocalMusicDao {
         artist.name: artist.id,
     };
     await _db.batch((batch) {
-      for (final song in currentSongs) {
+      for (final song in songsToReplace) {
         batch.deleteWhere(
           _db.songArtists,
           (relation) => relation.songId.equals(song.id),
@@ -610,37 +633,33 @@ class LocalMusicDao {
     String scanSource,
     String currentBatchId,
   ) async {
-    final staleRows =
-        await (_db.select(_db.localSongs)..where(
-              (song) =>
-                  song.scanSource.equals(scanSource) &
-                  song.scanBatchId.equals(currentBatchId).not() &
-                  song.metadataEdited.equals(0),
-            ))
-            .get();
-    if (staleRows.isEmpty) return;
-
-    // 先批量清理依赖表，再删除歌曲，满足外键约束。
-    await _db.batch((batch) {
-      for (final song in staleRows) {
-        batch.deleteWhere(
-          _db.playStats,
-          (stats) => stats.songId.equals(song.id),
-        );
-        batch.deleteWhere(
-          _db.songArtists,
-          (relation) => relation.songId.equals(song.id),
-        );
-      }
-    });
-    await _db.batch((batch) {
-      for (final song in staleRows) {
-        batch.deleteWhere(
-          _db.localSongs,
-          (candidate) => candidate.id.equals(song.id),
-        );
-      }
-    });
+    const staleWhere =
+        'scan_source = ? AND scan_batch_id != ? AND metadata_edited = 0';
+    final variables = <Variable<String>>[
+      Variable.withString(scanSource),
+      Variable.withString(currentBatchId),
+    ];
+    // 先清理依赖表，再删除歌曲，满足外键约束；批量 SQL 避免逐行删除放大扫描耗时。
+    await _db.customUpdate(
+      'DELETE FROM play_stats WHERE song_id IN '
+      '(SELECT id FROM local_songs WHERE $staleWhere)',
+      variables: variables,
+      updates: {_db.playStats},
+      updateKind: UpdateKind.delete,
+    );
+    await _db.customUpdate(
+      'DELETE FROM song_artists WHERE song_id IN '
+      '(SELECT id FROM local_songs WHERE $staleWhere)',
+      variables: variables,
+      updates: {_db.songArtists},
+      updateKind: UpdateKind.delete,
+    );
+    await _db.customUpdate(
+      'DELETE FROM local_songs WHERE $staleWhere',
+      variables: variables,
+      updates: {_db.localSongs},
+      updateKind: UpdateKind.delete,
+    );
   }
 
   List<String> _splitArtistNames(String artist) {

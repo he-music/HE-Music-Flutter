@@ -15,6 +15,7 @@ class LocalMusicQueryTrack {
     required this.filePath,
     required this.mimeType,
     required this.size,
+    this.modifiedAt,
     this.artwork,
   });
 
@@ -26,6 +27,7 @@ class LocalMusicQueryTrack {
   final String filePath;
   final String mimeType;
   final int size;
+  final int? modifiedAt;
   final List<int>? artwork;
 }
 
@@ -53,7 +55,7 @@ class LocalMusicQueryDataSource {
   }) async {
     if (Platform.isAndroid) {
       final tracks = await _scanner.scanTracks(
-        includeArtwork: true,
+        includeArtwork: false,
         filterJunkAudio: true,
       );
       return tracks
@@ -105,12 +107,14 @@ class LocalMusicQueryDataSource {
     final downloadDir = Directory('${docsDir.path}/Downloads');
     if (await downloadDir.exists()) {
       final seenPaths = <String>{...results.map((t) => t.filePath)};
-      final entities = downloadDir.listSync(recursive: true, followLinks: true);
-      for (final entity in entities) {
+      await for (final entity in downloadDir.list(
+        recursive: true,
+        followLinks: true,
+      )) {
         if (entity is! File) continue;
         if (!_isSupportedAudioFile(entity.path)) continue;
         if (!seenPaths.add(entity.path)) continue;
-        final stat = entity.statSync();
+        final stat = await entity.stat();
         results.add(
           LocalMusicQueryTrack(
             id: entity.path,
@@ -121,6 +125,7 @@ class LocalMusicQueryDataSource {
             filePath: entity.path,
             mimeType: _guessMimeType(entity.path),
             size: stat.size,
+            modifiedAt: stat.modified.millisecondsSinceEpoch,
           ),
         );
       }
@@ -181,6 +186,7 @@ class LocalMusicQueryDataSource {
               filePath: filePath,
               mimeType: _guessMimeType(filePath),
               size: stat.size,
+              modifiedAt: stat.modified.millisecondsSinceEpoch,
             ),
           );
         }

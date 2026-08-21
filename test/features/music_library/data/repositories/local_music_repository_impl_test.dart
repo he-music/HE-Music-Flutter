@@ -64,6 +64,31 @@ void main() {
     expect(songs.first.id, '2');
   });
 
+  test(
+    'scanSongs keeps tracks when tag duration corrects short query duration',
+    () async {
+      final db = _createTestDb();
+      addTearDown(db.close);
+      final fakeDataSource = _FakeLocalMusicQueryDataSource(
+        tracks: [
+          _makeTrack(id: '1', filePath: '/music/song.mp3', duration: 30000),
+        ],
+      );
+      final fakeMetadata = _FakeLocalAudioMetadataReader(
+        metadata: const LocalAudioMetadata(duration: Duration(seconds: 180)),
+      );
+      final dao = LocalMusicDao(db);
+
+      final repo = LocalMusicRepositoryImpl(fakeDataSource, fakeMetadata, dao);
+
+      final songs = await repo.scanSongs();
+
+      expect(fakeMetadata.readCount, 1);
+      expect(songs, hasLength(1));
+      expect(songs.first.id, '1');
+    },
+  );
+
   test('scanSongs filters call recording paths', () async {
     final db = _createTestDb();
     addTearDown(db.close);
@@ -158,6 +183,91 @@ void main() {
     // 验证歌手关联写入了数据库
     final artists = await dao.getSongArtists('1');
     expect(artists, containsAll(['歌手A', '歌手B']));
+  });
+
+  test('scanSongs skips tag read for unchanged files', () async {
+    final db = _createTestDb();
+    addTearDown(db.close);
+    final fakeDataSource = _FakeLocalMusicQueryDataSource(
+      tracks: [
+        _makeTrack(
+          id: '1',
+          filePath: '/music/song.mp3',
+          size: 1000,
+          modifiedAt: 100,
+        ),
+      ],
+    );
+    final fakeMetadata = _FakeLocalAudioMetadataReader(
+      metadata: const LocalAudioMetadata(
+        title: '第一次标题',
+        artist: '歌手A',
+        album: '专辑A',
+        duration: Duration(seconds: 180),
+      ),
+    );
+    final dao = LocalMusicDao(db);
+    final repo = LocalMusicRepositoryImpl(fakeDataSource, fakeMetadata, dao);
+
+    await repo.scanSongs();
+    fakeMetadata.metadata = const LocalAudioMetadata(
+      title: '第二次标题',
+      artist: '歌手B',
+      album: '专辑B',
+      duration: Duration(seconds: 180),
+    );
+    final songs = await repo.scanSongs();
+
+    expect(fakeMetadata.readCount, 1);
+    expect(songs, hasLength(1));
+    expect(songs.first.title, '第一次标题');
+    expect(await dao.getSongArtists('1'), ['歌手A']);
+  });
+
+  test('scanSongs rereads tags when file fingerprint changes', () async {
+    final db = _createTestDb();
+    addTearDown(db.close);
+    final fakeDataSource = _FakeLocalMusicQueryDataSource(
+      tracks: [
+        _makeTrack(
+          id: '1',
+          filePath: '/music/song.mp3',
+          size: 1000,
+          modifiedAt: 100,
+        ),
+      ],
+    );
+    final fakeMetadata = _FakeLocalAudioMetadataReader(
+      metadata: const LocalAudioMetadata(
+        title: '旧标题',
+        artist: '旧歌手',
+        album: '旧专辑',
+        duration: Duration(seconds: 180),
+      ),
+    );
+    final dao = LocalMusicDao(db);
+    final repo = LocalMusicRepositoryImpl(fakeDataSource, fakeMetadata, dao);
+
+    await repo.scanSongs();
+    fakeDataSource.tracks = [
+      _makeTrack(
+        id: '1',
+        filePath: '/music/song.mp3',
+        size: 1000,
+        modifiedAt: 200,
+      ),
+    ];
+    fakeMetadata.metadata = const LocalAudioMetadata(
+      title: '新标题',
+      artist: '新歌手',
+      album: '新专辑',
+      duration: Duration(seconds: 180),
+    );
+    final songs = await repo.scanSongs();
+
+    expect(fakeMetadata.readCount, 2);
+    expect(songs.single.title, '新标题');
+    expect(await dao.getSongArtists('1'), ['新歌手']);
   });
 
   test('scanSongs stores file stat modified time when available', () async {
@@ -257,6 +367,7 @@ LocalMusicQueryTrack _makeTrack({
   int duration = 180000,
   String mimeType = 'audio/mpeg',
   int size = 1024000,
+  int? modifiedAt,
 }) {
   return LocalMusicQueryTrack(
     id: id,
@@ -267,13 +378,14 @@ LocalMusicQueryTrack _makeTrack({
     filePath: filePath,
     mimeType: mimeType,
     size: size,
+    modifiedAt: modifiedAt,
   );
 }
 
 class _FakeLocalMusicQueryDataSource extends LocalMusicQueryDataSource {
   _FakeLocalMusicQueryDataSource({this.tracks = const []});
 
-  final List<LocalMusicQueryTrack> tracks;
+  List<LocalMusicQueryTrack> tracks;
 
   @override
   Future<bool> requestPermission() async => true;
@@ -287,11 +399,17 @@ class _FakeLocalMusicQueryDataSource extends LocalMusicQueryDataSource {
 class _FakeLocalAudioMetadataReader extends LocalAudioMetadataReader {
   _FakeLocalAudioMetadataReader({this.metadata});
 
-  final LocalAudioMetadata? metadata;
+  LocalAudioMetadata? metadata;
+  int readCount = 0;
+  final readPaths = <String>[];
 
   @override
   Future<LocalAudioMetadata?> read(
     String filePath, {
     bool fetchArtwork = false,
-  }) async => metadata;
+  }) async {
+    readCount++;
+    readPaths.add(filePath);
+    return metadata;
+  }
 }
