@@ -154,9 +154,9 @@ class SongListItem extends StatelessWidget {
         ? theme.colorScheme.primary.withValues(alpha: isCurrent ? 0.07 : 0.05)
         : Colors.transparent;
     final songRow = Row(
-      crossAxisAlignment: contentAfterSubtitle == null
-          ? CrossAxisAlignment.center
-          : CrossAxisAlignment.start,
+      crossAxisAlignment: alignCoverToTop
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: <Widget>[
         Expanded(
           child: InkWell(
@@ -190,7 +190,10 @@ class SongListItem extends StatelessWidget {
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        // 展开歌词/附加内容时把标题区固定在顶部，避免内容高度变化时上下漂移。
+                        mainAxisAlignment: alignCoverToTop
+                            ? MainAxisAlignment.start
+                            : MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
                           _ListItemText(
@@ -631,22 +634,20 @@ class _SongCover extends StatelessWidget {
         ),
       );
     }
-    return Stack(
-      children: <Widget>[
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: EdgeInsets.all(isCurrent ? 1.5 : 0),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isCurrent
-                  ? theme.colorScheme.primary.withValues(alpha: 0.35)
-                  : Colors.transparent,
-            ),
-          ),
-          child: child,
+    // 只改边框视觉，不改封面占位，避免当前播放态切换时列表项抖动。
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: _coverSize,
+      height: _coverSize,
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isCurrent
+              ? theme.colorScheme.primary.withValues(alpha: 0.35)
+              : Colors.transparent,
         ),
-      ],
+      ),
+      child: child,
     );
   }
 }

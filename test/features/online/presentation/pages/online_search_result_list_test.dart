@@ -208,6 +208,20 @@ void main() {
       find.byKey(const ValueKey('search-lyric-snippet-song-1|qq-1')),
     );
     final snippetFontSize = snippet.style?.fontSize;
+    final title = find.text('测试歌曲');
+    final artist = find.text('测试歌手 - 测试专辑');
+    final collapsedTitleTop = tester.getTopLeft(title).dy;
+    final collapsedArtistTop = tester.getTopLeft(artist).dy;
+    final likeButton = find.ancestor(
+      of: find.byIcon(Icons.favorite_border_rounded),
+      matching: find.byType(IconButton),
+    );
+    final moreButton = find.ancestor(
+      of: find.byIcon(Icons.more_horiz_rounded),
+      matching: find.byType(IconButton),
+    );
+    final collapsedLikeTop = tester.getTopLeft(likeButton).dy;
+    final collapsedMoreTop = tester.getTopLeft(moreButton).dy;
     expect(snippet.softWrap, isFalse);
     expect(snippet.maxLines, 1);
     expect(snippet.overflow, TextOverflow.ellipsis);
@@ -234,12 +248,16 @@ void main() {
     final collapsedCoverTop = tester.getTopLeft(cover).dy;
 
     await tester.tap(find.byKey(snippetKey));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.byKey(fullLyricKey), findsOneWidget);
     expect(find.byKey(snippetKey), findsNothing);
     expect(tappedSong, isNull);
     expect(find.text('收起歌词'), findsOneWidget);
     expect(tester.getTopLeft(cover).dy, collapsedCoverTop);
+    expect(tester.getTopLeft(title).dy, collapsedTitleTop);
+    expect(tester.getTopLeft(artist).dy, collapsedArtistTop);
+    expect(tester.getTopLeft(likeButton).dy, collapsedLikeTop);
+    expect(tester.getTopLeft(moreButton).dy, collapsedMoreTop);
     final fullLyricText = tester.widget<Text>(
       find.descendant(
         of: find.byKey(fullLyricKey),
@@ -269,19 +287,31 @@ void main() {
     );
 
     await tester.tap(find.byKey(fullLyricKey));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.byKey(fullLyricKey), findsNothing);
     expect(find.byKey(snippetKey), findsOneWidget);
     expect(tappedSong, isNull);
+    expect(tester.getTopLeft(title).dy, collapsedTitleTop);
+    expect(tester.getTopLeft(artist).dy, collapsedArtistTop);
+    expect(tester.getTopLeft(likeButton).dy, collapsedLikeTop);
+    expect(tester.getTopLeft(moreButton).dy, collapsedMoreTop);
 
     await tester.tap(toggle);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.byKey(fullLyricKey), findsOneWidget);
+    expect(tester.getTopLeft(title).dy, collapsedTitleTop);
+    expect(tester.getTopLeft(artist).dy, collapsedArtistTop);
+    expect(tester.getTopLeft(likeButton).dy, collapsedLikeTop);
+    expect(tester.getTopLeft(moreButton).dy, collapsedMoreTop);
 
     await tester.tap(toggle);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.byKey(fullLyricKey), findsNothing);
     expect(find.byKey(snippetKey), findsOneWidget);
+    expect(tester.getTopLeft(title).dy, collapsedTitleTop);
+    expect(tester.getTopLeft(artist).dy, collapsedArtistTop);
+    expect(tester.getTopLeft(likeButton).dy, collapsedLikeTop);
+    expect(tester.getTopLeft(moreButton).dy, collapsedMoreTop);
   });
 
   testWidgets('expanded version invokes action with the nested version song', (

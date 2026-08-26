@@ -43,6 +43,28 @@ void main() {
       expect(find.text('Current'), findsOneWidget);
     });
 
+    testWidgets('isCurrent 切换不应改变标题和歌手位置', (tester) async {
+      await tester.pumpWidget(_wrap(SongListItem(data: basicData)));
+      final normalTitleTop = tester.getTopLeft(find.text('稻香')).dy;
+      final normalArtistTop = tester.getTopLeft(find.text('周杰伦')).dy;
+
+      await tester.pumpWidget(
+        _wrap(
+          SongListItem(
+            data: SongListItemData(
+              title: '稻香',
+              artistAlbumText: '周杰伦',
+              subtitleText: '',
+              isCurrent: true,
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.getTopLeft(find.text('稻香')).dy, normalTitleTop);
+      expect(tester.getTopLeft(find.text('周杰伦')).dy, normalArtistTop);
+    });
+
     testWidgets('showActions 为 false 时不显示操作按钮', (tester) async {
       await tester.pumpWidget(
         _wrap(
