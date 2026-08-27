@@ -163,6 +163,8 @@ class _HotKeywordList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textStyle = theme.textTheme.bodyMedium;
     final displayed = items.take(12).toList(growable: false);
     return Column(
       children: displayed
@@ -177,15 +179,18 @@ class _HotKeywordList extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: <Widget>[
                     SizedBox(
                       width: 24,
                       child: Text(
                         '$rank',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        textAlign: TextAlign.left,
+                        style: textStyle?.copyWith(
                           color: rank <= 3
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).hintColor,
+                              ? theme.colorScheme.primary
+                              : theme.hintColor,
                         ),
                       ),
                     ),
@@ -195,6 +200,7 @@ class _HotKeywordList extends StatelessWidget {
                         keyword,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: textStyle,
                       ),
                     ),
                   ],

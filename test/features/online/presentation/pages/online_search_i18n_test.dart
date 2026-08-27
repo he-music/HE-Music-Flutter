@@ -71,6 +71,35 @@ void main() {
     expect(find.text('No hot searches'), findsOneWidget);
   });
 
+  testWidgets('search hot panel aligns hot rank with keyword text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildTestApp(
+        localeCode: 'zh',
+        child: OnlineSearchHotPanel(
+          localeCode: 'zh',
+          historyKeywords: const <String>[],
+          hotKeywords: const <String>['周杰伦'],
+          loadingHistory: false,
+          loadingHot: false,
+          onTapKeyword: (_) {},
+          onClearHistory: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final hotRow = tester.widget<Row>(
+      find.ancestor(of: find.text('1'), matching: find.byType(Row)).first,
+    );
+    final rankText = tester.widget<Text>(find.text('1'));
+
+    expect(hotRow.crossAxisAlignment, CrossAxisAlignment.baseline);
+    expect(hotRow.textBaseline, TextBaseline.alphabetic);
+    expect(rankText.textAlign, TextAlign.left);
+  });
+
   testWidgets(
     'search hot panel shows chinese clear tooltip when locale is zh',
     (tester) async {
