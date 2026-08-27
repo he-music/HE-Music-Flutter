@@ -33,6 +33,7 @@ import 'package:he_music_flutter/features/player/presentation/styles/player_styl
 import 'package:he_music_flutter/features/player/presentation/widgets/player_backdrop.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
+import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
@@ -541,11 +542,35 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+
+    await _scrollPlayerMoreSheetTo(tester, 'Download');
+    expect(find.text('Download'), findsOneWidget);
+    await _scrollPlayerMoreSheetTo(tester, 'Add to Playlist');
+    expect(find.text('Add to Playlist'), findsOneWidget);
+  });
+
+  testWidgets('player more sheet uses action sheet height cap', (tester) async {
+    const surfaceSize = Size(430, 1200);
+    await tester.binding.setSurfaceSize(surfaceSize);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
 
-    expect(find.text('Add to Playlist'), findsOneWidget);
-    expect(find.text('Download'), findsOneWidget);
+    final listFinder = find.byKey(
+      const ValueKey<String>('player-more-sheet-list'),
+    );
+    final mediaHeight = MediaQuery.sizeOf(tester.element(listFinder)).height;
+    expect(
+      tester.getSize(listFinder).height,
+      closeTo(mediaHeight * LayoutTokens.actionSheetMaxHeightFactor, 0.1),
+    );
   });
 
   testWidgets('player more sheet hides add to playlist for local track', (
@@ -689,8 +714,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
-    await tester.pumpAndSettle();
+    await _scrollPlayerMoreSheetTo(tester, 'Download');
     await tester.tap(find.text('Download'));
     await tester.pumpAndSettle();
 
@@ -713,8 +737,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
-    await tester.pumpAndSettle();
+    await _scrollPlayerMoreSheetTo(tester, 'View Detail');
 
     expect(find.text('View Detail'), findsOneWidget);
   });
@@ -777,8 +800,7 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.more_horiz_rounded));
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(ListView).last, const Offset(0, -600));
-      await tester.pumpAndSettle();
+      await _scrollPlayerMoreSheetTo(tester, 'View Detail');
 
       expect(find.text('View Detail'), findsOneWidget);
       expect(find.text('View Album'), findsNothing);
@@ -801,8 +823,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -300));
-    await tester.pumpAndSettle();
+    await _scrollPlayerMoreSheetTo(tester, 'Quality');
     await tester.tap(find.text('Quality'));
     await tester.pumpAndSettle();
 
@@ -2210,6 +2231,18 @@ Widget _buildPlayerTestApp({
       home: const AppPlayerStyleBoundary(child: PlayerPage()),
     ),
   );
+}
+
+Future<void> _scrollPlayerMoreSheetTo(WidgetTester tester, String label) async {
+  await tester.scrollUntilVisible(
+    find.text(label),
+    120,
+    scrollable: find.descendant(
+      of: find.byKey(const ValueKey<String>('player-more-sheet-list')),
+      matching: find.byType(Scrollable),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 class _EmptyArtistPhotoCache extends ArtistPhotoCache {

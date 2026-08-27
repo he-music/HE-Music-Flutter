@@ -6,6 +6,7 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart
 import 'package:he_music_flutter/app/theme/player/app_player_style_theme.dart';
 import 'package:he_music_flutter/features/download/presentation/widgets/download_quality_sheet.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_quality_option.dart';
+import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
@@ -153,6 +154,52 @@ void main() {
 
     expect(rootObserver.bottomSheetPushCount, 1);
     expect(branchObserver.bottomSheetPushCount, 0);
+  });
+
+  testWidgets('download quality sheet uses action sheet height cap', (
+    tester,
+  ) async {
+    const surfaceSize = Size(375, 520);
+    await tester.binding.setSurfaceSize(surfaceSize);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final qualities = List<PlayerQualityOption>.generate(
+      14,
+      (index) => PlayerQualityOption(
+        name: 'Q$index',
+        quality: index,
+        format: 'mp3',
+        url: 'https://example.com/q$index.mp3',
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FilledButton(
+              onPressed: () => showDownloadQualitySheet(
+                context: context,
+                qualities: qualities,
+              ),
+              child: const Text('Open tall'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open tall'));
+    await tester.pumpAndSettle();
+
+    final listFinder = find.byKey(
+      const ValueKey<String>('download-quality-sheet-list'),
+    );
+    final mediaHeight = MediaQuery.sizeOf(tester.element(listFinder)).height;
+    expect(
+      tester.getSize(listFinder).height,
+      closeTo(mediaHeight * LayoutTokens.actionSheetMaxHeightFactor, 0.1),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('download quality sheet follows player sheet brightness', (

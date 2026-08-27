@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_theme.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 import '../../../player/domain/entities/player_quality_option.dart';
 import '../../../../shared/models/he_music_models.dart';
 
@@ -39,29 +40,36 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
 }) {
   Widget buildSheet(BuildContext sheetContext) {
     final localeCode = Localizations.localeOf(sheetContext).languageCode;
+    final maxHeight =
+        MediaQuery.of(sheetContext).size.height *
+        LayoutTokens.actionSheetMaxHeightFactor;
     return SafeArea(
-      child: ListView(
-        shrinkWrap: true,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: Text(
-              AppI18n.tByLocaleCode(localeCode, 'download.quality.title'),
-              style: Theme.of(sheetContext).textTheme.titleMedium,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: ListView(
+          key: const ValueKey<String>('download-quality-sheet-list'),
+          shrinkWrap: true,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Text(
+                AppI18n.tByLocaleCode(localeCode, 'download.quality.title'),
+                style: Theme.of(sheetContext).textTheme.titleMedium,
+              ),
             ),
-          ),
-          for (final quality in qualities)
-            ListTile(
-              leading: const Icon(Icons.graphic_eq_rounded),
-              title: Text(_qualityTitle(quality)),
-              subtitle: _QualitySubtitle(quality: quality),
-              trailing: selectedQualityName == quality.name
-                  ? const Icon(Icons.check_rounded)
-                  : null,
-              onTap: () => Navigator.of(sheetContext).pop(quality),
-            ),
-          const SizedBox(height: 6),
-        ],
+            for (final quality in qualities)
+              ListTile(
+                leading: const Icon(Icons.graphic_eq_rounded),
+                title: Text(_qualityTitle(quality)),
+                subtitle: _QualitySubtitle(quality: quality),
+                trailing: selectedQualityName == quality.name
+                    ? const Icon(Icons.check_rounded)
+                    : null,
+                onTap: () => Navigator.of(sheetContext).pop(quality),
+              ),
+            const SizedBox(height: 6),
+          ],
+        ),
       ),
     );
   }
@@ -70,6 +78,7 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
   if (Theme.of(context).extension<AppPlayerStyleTheme>() != null) {
     return showPlayerStyledBottomSheet<PlayerQualityOption>(
       context: context,
+      isScrollControlled: true,
       builder: buildSheet,
     );
   }
@@ -77,6 +86,7 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
     context: context,
     useRootNavigator: true,
     showDragHandle: true,
+    isScrollControlled: true,
     builder: buildSheet,
   );
 }

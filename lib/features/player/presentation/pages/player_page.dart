@@ -19,6 +19,7 @@ import '../../../../app/theme/player/app_player_style_registry.dart';
 import '../../../../app/theme/player/styles/cassette_player_palette.dart';
 import '../../../../app/theme/player/styles/classic_player_palette.dart';
 import '../../../../core/device/screen_wake_lock.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
 import '../../../../shared/helpers/song_artist_navigation_helper.dart';
@@ -660,6 +661,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     unawaited(
       showPlayerStyledBottomSheet<_PlayerMoreAction>(
         context: context,
+        isScrollControlled: true,
         showDragHandle: true,
         builder: (sheetContext) => Consumer(
           builder: (context, ref, child) {
@@ -754,287 +756,284 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 ? resolvePlatformLabel(onlinePlatformId, platforms: platforms)
                 : 'LOCAL';
 
-            return SafeArea(
-              child: ListView(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-                children: <Widget>[
-                  if (track != null)
-                    PlayerSheetHero(
-                      coverUrl: track.artworkUrl,
-                      title: track.title,
-                      subtitle: (track.artist ?? '-').trim().isEmpty
-                          ? '-'
-                          : (track.artist ?? '-'),
-                    ),
-                  PlayerSheetActionTile(
-                    icon: Icons.speed_rounded,
-                    title: AppI18n.t(config, 'player.action.speed'),
-                    subtitle: '${speed.toStringAsFixed(2)}x',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openSpeedSheet(rootContext, controller, speed);
-                    },
+            return _buildConstrainedPlayerSheetList(
+              context: sheetContext,
+              listKey: const ValueKey<String>('player-more-sheet-list'),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+              children: <Widget>[
+                if (track != null)
+                  PlayerSheetHero(
+                    coverUrl: track.artworkUrl,
+                    title: track.title,
+                    subtitle: (track.artist ?? '-').trim().isEmpty
+                        ? '-'
+                        : (track.artist ?? '-'),
                   ),
+                PlayerSheetActionTile(
+                  icon: Icons.speed_rounded,
+                  title: AppI18n.t(config, 'player.action.speed'),
+                  subtitle: '${speed.toStringAsFixed(2)}x',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openSpeedSheet(rootContext, controller, speed);
+                  },
+                ),
+                PlayerSheetActionTile(
+                  icon: Icons.volume_up_rounded,
+                  title: AppI18n.t(config, 'player.action.volume'),
+                  subtitle: '${(volume * 100).round()}%',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openVolumeSheet(rootContext, controller, volume);
+                  },
+                ),
+                PlayerSheetActionTile(
+                  icon: Icons.palette_outlined,
+                  title: AppI18n.t(config, 'player.action.style'),
+                  onTap: () {
+                    Navigator.of(
+                      sheetContext,
+                    ).pop(_PlayerMoreAction.openStyleSelection);
+                  },
+                ),
+                if (_usesMobileOrientationControls)
                   PlayerSheetActionTile(
-                    icon: Icons.volume_up_rounded,
-                    title: AppI18n.t(config, 'player.action.volume'),
-                    subtitle: '${(volume * 100).round()}%',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openVolumeSheet(rootContext, controller, volume);
-                    },
-                  ),
-                  PlayerSheetActionTile(
-                    icon: Icons.palette_outlined,
-                    title: AppI18n.t(config, 'player.action.style'),
+                    icon: Icons.stay_current_landscape_rounded,
+                    title: AppI18n.t(config, 'player.action.landscape_mode'),
                     onTap: () {
                       Navigator.of(
                         sheetContext,
-                      ).pop(_PlayerMoreAction.openStyleSelection);
+                      ).pop(_PlayerMoreAction.enterLandscape);
                     },
                   ),
-                  if (_usesMobileOrientationControls)
-                    PlayerSheetActionTile(
-                      icon: Icons.stay_current_landscape_rounded,
-                      title: AppI18n.t(config, 'player.action.landscape_mode'),
-                      onTap: () {
-                        Navigator.of(
-                          sheetContext,
-                        ).pop(_PlayerMoreAction.enterLandscape);
-                      },
-                    ),
+                PlayerSheetActionTile(
+                  icon: Icons.search_rounded,
+                  title: AppI18n.t(config, 'player.action.search_same'),
+                  enabled: canSearchSameName,
+                  onTap: canSearchSameName
+                      ? () {
+                          Navigator.of(sheetContext).pop();
+                          _goToDetail(
+                            Uri(
+                              path: AppRoutes.onlineSearch,
+                              queryParameters: <String, String>{
+                                'platform': searchPlatformId,
+                                'keyword': onlineKeyword,
+                              },
+                            ).toString(),
+                          );
+                        }
+                      : null,
+                ),
+                PlayerSheetActionTile(
+                  icon: Icons.high_quality_rounded,
+                  title: AppI18n.t(config, 'player.action.quality'),
+                  subtitle: currentSelectedQualityOption?.name,
+                  enabled: canOnline && currentAvailableQualities.isNotEmpty,
+                  onTap: canOnline && currentAvailableQualities.isNotEmpty
+                      ? () async {
+                          Navigator.of(sheetContext).pop();
+                          final qualities = track != null
+                              ? await _resolveSongQualityOptions(
+                                  track: track,
+                                  platformId: onlinePlatformId,
+                                  ref: ref,
+                                )
+                              : displayQualities;
+                          if (!rootContext.mounted) {
+                            return;
+                          }
+                          _openQualitySheet(
+                            rootContext,
+                            controller,
+                            qualities,
+                            currentSelectedQuality,
+                          );
+                        }
+                      : null,
+                ),
+                if (canOnline)
                   PlayerSheetActionTile(
-                    icon: Icons.search_rounded,
-                    title: AppI18n.t(config, 'player.action.search_same'),
-                    enabled: canSearchSameName,
-                    onTap: canSearchSameName
+                    icon: Icons.download_rounded,
+                    title: AppI18n.t(config, 'player.action.download'),
+                    enabled: downloadQualities.isNotEmpty,
+                    onTap: downloadQualities.isEmpty
+                        ? null
+                        : () {
+                            Navigator.of(sheetContext).pop();
+                            unawaited(
+                              _downloadCurrentTrack(
+                                track: track!,
+                                platformId: onlinePlatformId,
+                                qualities: downloadQualities,
+                                selectedQualityName: currentSelectedQuality,
+                              ),
+                            );
+                          },
+                  ),
+                if (canViewDetail)
+                  PlayerSheetActionTile(
+                    icon: Icons.info_outline_rounded,
+                    title: AppI18n.t(config, 'song.action.view_detail'),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _goToDetail(
+                        Uri(
+                          path: AppRoutes.songDetail,
+                          queryParameters: <String, String>{
+                            'id': track.id,
+                            'platform': onlinePlatformId,
+                            'title': onlineTitle,
+                          },
+                        ).toString(),
+                      );
+                    },
+                  ),
+                if (canViewAlbum)
+                  PlayerSheetActionTile(
+                    icon: Icons.album_outlined,
+                    title: AppI18n.t(config, 'player.action.view_album'),
+                    subtitle: track?.album?.trim() ?? '',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _goToDetail(
+                        Uri(
+                          path: AppRoutes.albumDetail,
+                          queryParameters: <String, String>{
+                            'id': track!.albumId!.trim(),
+                            'platform': onlinePlatformId,
+                            if ((track.album ?? '').trim().isNotEmpty)
+                              'title': track.album!.trim(),
+                          },
+                        ).toString(),
+                      );
+                    },
+                  ),
+                if (canViewArtists)
+                  PlayerSheetActionTile(
+                    icon: Icons.person_outline_rounded,
+                    title: artistActionLabel,
+                    subtitle: track.artist ?? '',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _openArtistSelectionAndGo(
+                        platformId: onlinePlatformId,
+                        artists: track.artists,
+                      );
+                    },
+                  ),
+                if (canViewComments)
+                  PlayerSheetActionTile(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    title: AppI18n.t(config, 'player.action.view_comments'),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _goToDetail(
+                        Uri(
+                          path: AppRoutes.onlineComments,
+                          queryParameters: <String, String>{
+                            'id': onlineId,
+                            'platform': onlinePlatformId,
+                            'resource_type': 'song',
+                            if (onlineTitle.isNotEmpty) 'title': onlineTitle,
+                          },
+                        ).toString(),
+                      );
+                    },
+                  ),
+                if (canOnline)
+                  PlayerSheetActionTile(
+                    icon: Icons.library_add_rounded,
+                    title: AppI18n.t(config, 'detail.batch.add_to_playlist'),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(_addCurrentSongToUserPlaylist(track!));
+                    },
+                  ),
+                if (canOnline)
+                  PlayerSheetActionTile(
+                    icon: Icons.share_rounded,
+                    title: AppI18n.t(config, 'player.action.copy_share'),
+                    onTap: () async {
+                      Navigator.of(sheetContext).pop();
+                      await Clipboard.setData(
+                        ClipboardData(
+                          text: buildShareLink(
+                            type: 'song',
+                            platform: onlinePlatformId,
+                            id: track!.id,
+                          ),
+                        ),
+                      );
+                      if (!mounted) return;
+                      AppMessageService.showSuccess(
+                        AppI18n.t(config, 'player.copy.share_done'),
+                      );
+                    },
+                  ),
+                if (canOnline)
+                  PlayerSheetActionTile(
+                    icon: Icons.ondemand_video_rounded,
+                    title: AppI18n.t(config, 'player.action.watch_mv'),
+                    enabled: canWatchMv,
+                    onTap: canWatchMv
                         ? () {
                             Navigator.of(sheetContext).pop();
                             _goToDetail(
                               Uri(
-                                path: AppRoutes.onlineSearch,
+                                path: AppRoutes.videoDetail,
                                 queryParameters: <String, String>{
-                                  'platform': searchPlatformId,
-                                  'keyword': onlineKeyword,
+                                  'id': track!.mvId!.trim(),
+                                  'platform': onlinePlatformId,
+                                  if (onlineTitle.isNotEmpty)
+                                    'title': onlineTitle,
                                 },
                               ).toString(),
                             );
                           }
                         : null,
                   ),
-                  PlayerSheetActionTile(
-                    icon: Icons.high_quality_rounded,
-                    title: AppI18n.t(config, 'player.action.quality'),
-                    subtitle: currentSelectedQualityOption?.name,
-                    enabled: canOnline && currentAvailableQualities.isNotEmpty,
-                    onTap: canOnline && currentAvailableQualities.isNotEmpty
-                        ? () async {
-                            Navigator.of(sheetContext).pop();
-                            final qualities = track != null
-                                ? await _resolveSongQualityOptions(
-                                    track: track,
-                                    platformId: onlinePlatformId,
-                                    ref: ref,
-                                  )
-                                : displayQualities;
-                            if (!rootContext.mounted) {
-                              return;
-                            }
-                            _openQualitySheet(
-                              rootContext,
-                              controller,
-                              qualities,
-                              currentSelectedQuality,
-                            );
-                          }
-                        : null,
-                  ),
-                  if (canOnline)
-                    PlayerSheetActionTile(
-                      icon: Icons.download_rounded,
-                      title: AppI18n.t(config, 'player.action.download'),
-                      enabled: downloadQualities.isNotEmpty,
-                      onTap: downloadQualities.isEmpty
-                          ? null
-                          : () {
-                              Navigator.of(sheetContext).pop();
-                              unawaited(
-                                _downloadCurrentTrack(
-                                  track: track!,
-                                  platformId: onlinePlatformId,
-                                  qualities: downloadQualities,
-                                  selectedQualityName: currentSelectedQuality,
-                                ),
-                              );
-                            },
-                    ),
-                  if (canViewDetail)
-                    PlayerSheetActionTile(
-                      icon: Icons.info_outline_rounded,
-                      title: AppI18n.t(config, 'song.action.view_detail'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        _goToDetail(
-                          Uri(
-                            path: AppRoutes.songDetail,
-                            queryParameters: <String, String>{
-                              'id': track.id,
-                              'platform': onlinePlatformId,
-                              'title': onlineTitle,
-                            },
-                          ).toString(),
-                        );
-                      },
-                    ),
-                  if (canViewAlbum)
-                    PlayerSheetActionTile(
-                      icon: Icons.album_outlined,
-                      title: AppI18n.t(config, 'player.action.view_album'),
-                      subtitle: track?.album?.trim() ?? '',
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        _goToDetail(
-                          Uri(
-                            path: AppRoutes.albumDetail,
-                            queryParameters: <String, String>{
-                              'id': track!.albumId!.trim(),
-                              'platform': onlinePlatformId,
-                              if ((track.album ?? '').trim().isNotEmpty)
-                                'title': track.album!.trim(),
-                            },
-                          ).toString(),
-                        );
-                      },
-                    ),
-                  if (canViewArtists)
-                    PlayerSheetActionTile(
-                      icon: Icons.person_outline_rounded,
-                      title: artistActionLabel,
-                      subtitle: track.artist ?? '',
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        _openArtistSelectionAndGo(
-                          platformId: onlinePlatformId,
-                          artists: track.artists,
-                        );
-                      },
-                    ),
-                  if (canViewComments)
-                    PlayerSheetActionTile(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      title: AppI18n.t(config, 'player.action.view_comments'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        _goToDetail(
-                          Uri(
-                            path: AppRoutes.onlineComments,
-                            queryParameters: <String, String>{
-                              'id': onlineId,
-                              'platform': onlinePlatformId,
-                              'resource_type': 'song',
-                              if (onlineTitle.isNotEmpty) 'title': onlineTitle,
-                            },
-                          ).toString(),
-                        );
-                      },
-                    ),
-                  if (canOnline)
-                    PlayerSheetActionTile(
-                      icon: Icons.library_add_rounded,
-                      title: AppI18n.t(config, 'detail.batch.add_to_playlist'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        unawaited(_addCurrentSongToUserPlaylist(track!));
-                      },
-                    ),
-                  if (canOnline)
-                    PlayerSheetActionTile(
-                      icon: Icons.share_rounded,
-                      title: AppI18n.t(config, 'player.action.copy_share'),
-                      onTap: () async {
-                        Navigator.of(sheetContext).pop();
-                        await Clipboard.setData(
-                          ClipboardData(
-                            text: buildShareLink(
-                              type: 'song',
-                              platform: onlinePlatformId,
-                              id: track!.id,
-                            ),
-                          ),
-                        );
-                        if (!mounted) return;
-                        AppMessageService.showSuccess(
-                          AppI18n.t(config, 'player.copy.share_done'),
-                        );
-                      },
-                    ),
-                  if (canOnline)
-                    PlayerSheetActionTile(
-                      icon: Icons.ondemand_video_rounded,
-                      title: AppI18n.t(config, 'player.action.watch_mv'),
-                      enabled: canWatchMv,
-                      onTap: canWatchMv
-                          ? () {
-                              Navigator.of(sheetContext).pop();
-                              _goToDetail(
-                                Uri(
-                                  path: AppRoutes.videoDetail,
-                                  queryParameters: <String, String>{
-                                    'id': track!.mvId!.trim(),
-                                    'platform': onlinePlatformId,
-                                    if (onlineTitle.isNotEmpty)
-                                      'title': onlineTitle,
-                                  },
-                                ).toString(),
-                              );
-                            }
-                          : null,
-                    ),
-                  PlayerSheetActionTile(
-                    icon: Icons.copy_rounded,
-                    title: AppI18n.t(config, 'player.action.copy_name'),
-                    enabled: track != null && track.title.trim().isNotEmpty,
-                    onTap: track == null || track.title.trim().isEmpty
-                        ? null
-                        : () async {
-                            Navigator.of(sheetContext).pop();
-                            await Clipboard.setData(
-                              ClipboardData(text: track.title),
-                            );
-                            if (!mounted) return;
-                            AppMessageService.showSuccess(
-                              AppI18n.t(config, 'player.copy.name_done'),
-                            );
-                          },
-                  ),
-                  PlayerSheetActionTile(
-                    icon: Icons.copy_rounded,
-                    title: AppI18n.t(config, 'player.action.copy_id'),
-                    enabled: track != null && track.id.trim().isNotEmpty,
-                    onTap: track == null || track.id.trim().isEmpty
-                        ? null
-                        : () async {
-                            Navigator.of(sheetContext).pop();
-                            await Clipboard.setData(
-                              ClipboardData(text: track.id),
-                            );
-                            if (!mounted) return;
-                            AppMessageService.showSuccess(
-                              AppI18n.t(config, 'player.copy.id_done'),
-                            );
-                          },
-                  ),
-                  PlayerSourceInfoRow(
-                    label: AppI18n.format(
-                      config,
-                      'song.source',
-                      <String, String>{'platform': sourcePlatformLabel},
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                ],
-              ),
+                PlayerSheetActionTile(
+                  icon: Icons.copy_rounded,
+                  title: AppI18n.t(config, 'player.action.copy_name'),
+                  enabled: track != null && track.title.trim().isNotEmpty,
+                  onTap: track == null || track.title.trim().isEmpty
+                      ? null
+                      : () async {
+                          Navigator.of(sheetContext).pop();
+                          await Clipboard.setData(
+                            ClipboardData(text: track.title),
+                          );
+                          if (!mounted) return;
+                          AppMessageService.showSuccess(
+                            AppI18n.t(config, 'player.copy.name_done'),
+                          );
+                        },
+                ),
+                PlayerSheetActionTile(
+                  icon: Icons.copy_rounded,
+                  title: AppI18n.t(config, 'player.action.copy_id'),
+                  enabled: track != null && track.id.trim().isNotEmpty,
+                  onTap: track == null || track.id.trim().isEmpty
+                      ? null
+                      : () async {
+                          Navigator.of(sheetContext).pop();
+                          await Clipboard.setData(
+                            ClipboardData(text: track.id),
+                          );
+                          if (!mounted) return;
+                          AppMessageService.showSuccess(
+                            AppI18n.t(config, 'player.copy.id_done'),
+                          );
+                        },
+                ),
+                PlayerSourceInfoRow(
+                  label: AppI18n.format(config, 'song.source', <String, String>{
+                    'platform': sourcePlatformLabel,
+                  }),
+                ),
+                const SizedBox(height: 4),
+              ],
             );
           },
         ),
@@ -1295,28 +1294,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   ) {
     showPlayerStyledBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) {
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: <Widget>[
-              for (final quality in availableQualities)
-                ListTile(
-                  leading: const Icon(Icons.graphic_eq_rounded),
-                  title: Text(quality.name),
-                  subtitle: _buildQualitySubtitle(quality),
-                  trailing: current == quality.name
-                      ? const Icon(Icons.check_rounded)
-                      : null,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    controller.switchCurrentQualityByName(quality.name);
-                  },
-                ),
-              const SizedBox(height: 6),
-            ],
-          ),
+        return _buildConstrainedPlayerSheetList(
+          context: sheetContext,
+          listKey: const ValueKey<String>('player-quality-sheet-list'),
+          children: <Widget>[
+            for (final quality in availableQualities)
+              ListTile(
+                leading: const Icon(Icons.graphic_eq_rounded),
+                title: Text(quality.name),
+                subtitle: _buildQualitySubtitle(quality),
+                trailing: current == quality.name
+                    ? const Icon(Icons.check_rounded)
+                    : null,
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  controller.switchCurrentQualityByName(quality.name);
+                },
+              ),
+            const SizedBox(height: 6),
+          ],
         );
       },
     );
@@ -1393,34 +1392,35 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
     showPlayerStyledBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) {
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: <Widget>[
-              for (final artist in available)
-                ListTile(
-                  leading: const Icon(Icons.person_outline_rounded),
-                  title: Text(artist.name),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _goToDetail(
-                      Uri(
-                        path: AppRoutes.artistDetail,
-                        queryParameters: <String, String>{
-                          'id': artist.id.trim(),
-                          'platform': platformId,
-                          'title': artist.name.trim(),
-                        },
-                      ).toString(),
-                    );
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
+        return _buildConstrainedPlayerSheetList(
+          context: sheetContext,
+          listKey: const ValueKey<String>('player-artist-selection-sheet-list'),
+          maxHeightFactor: LayoutTokens.artistSelectionSheetMaxHeightFactor,
+          children: <Widget>[
+            for (final artist in available)
+              ListTile(
+                leading: const Icon(Icons.person_outline_rounded),
+                title: Text(artist.name),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _goToDetail(
+                    Uri(
+                      path: AppRoutes.artistDetail,
+                      queryParameters: <String, String>{
+                        'id': artist.id.trim(),
+                        'platform': platformId,
+                        'title': artist.name.trim(),
+                      },
+                    ).toString(),
+                  );
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
         );
       },
     );
@@ -1485,6 +1485,27 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
     return Text(parts.join(' · '));
   }
+}
+
+Widget _buildConstrainedPlayerSheetList({
+  required BuildContext context,
+  required List<Widget> children,
+  Key? listKey,
+  EdgeInsetsGeometry? padding,
+  double maxHeightFactor = LayoutTokens.actionSheetMaxHeightFactor,
+}) {
+  final maxHeight = MediaQuery.of(context).size.height * maxHeightFactor;
+  return SafeArea(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: ListView(
+        key: listKey,
+        shrinkWrap: true,
+        padding: padding,
+        children: children,
+      ),
+    ),
+  );
 }
 
 @visibleForTesting

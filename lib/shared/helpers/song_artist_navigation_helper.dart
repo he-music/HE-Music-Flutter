@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/app_message_service.dart';
 import '../../app/i18n/app_i18n.dart';
 import '../../app/router/app_routes.dart';
+import '../constants/layout_tokens.dart';
 import '../models/he_music_models.dart';
 
 Future<void> openSongArtistSelection({
@@ -41,7 +42,9 @@ Future<void> openSongArtistSelection({
     useRootNavigator: true,
     showDragHandle: true,
     builder: (sheetContext) {
-      final maxHeight = MediaQuery.of(sheetContext).size.height * 0.52;
+      final maxHeight =
+          MediaQuery.of(sheetContext).size.height *
+          LayoutTokens.artistSelectionSheetMaxHeightFactor;
       return SafeArea(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxHeight),

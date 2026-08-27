@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/utils/platform_utils.dart';
 import '../../../../shared/widgets/adaptive_action_menu.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -482,7 +483,9 @@ class _MoreButton extends StatelessWidget {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) {
-        final maxHeight = MediaQuery.of(sheetContext).size.height * 0.60;
+        final maxHeight =
+            MediaQuery.of(sheetContext).size.height *
+            LayoutTokens.actionSheetMaxHeightFactor;
         final items = _buildActions(localeCode, platform);
         return SafeArea(
           child: ConstrainedBox(

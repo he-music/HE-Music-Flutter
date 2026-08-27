@@ -4,6 +4,7 @@ import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
+import '../constants/layout_tokens.dart';
 import '../utils/platform_utils.dart';
 import 'adaptive_action_menu.dart';
 import 'app_network_image.dart';
@@ -331,7 +332,9 @@ class _SongActionsSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.of(context).size.height * 0.60;
+    final maxHeight =
+        MediaQuery.of(context).size.height *
+        LayoutTokens.actionSheetMaxHeightFactor;
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
