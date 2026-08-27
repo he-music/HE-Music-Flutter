@@ -34,11 +34,23 @@ class MyCollectionController extends Notifier<MyCollectionState> {
   Future<void> refreshAll() async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final playlists = await _repository.fetchFavorites(
-        MyFavoriteType.playlists,
+      final results = await Future.wait<List<MyFavoriteItem>>(
+        <Future<List<MyFavoriteItem>>>[
+          _repository.fetchFavorites(MyFavoriteType.playlists),
+          _repository.fetchFavorites(MyFavoriteType.artists),
+          _repository.fetchFavorites(MyFavoriteType.albums),
+        ],
       );
-      final artists = await _repository.fetchFavorites(MyFavoriteType.artists);
-      final albums = await _repository.fetchFavorites(MyFavoriteType.albums);
+      final playlists = results[0];
+      final artists = results[1];
+      final albums = results[2];
+      ref
+          .read(favoriteCollectionStatusProvider.notifier)
+          .replaceAllItems(
+            playlists: playlists,
+            artists: artists,
+            albums: albums,
+          );
       state = state.copyWith(
         loading: false,
         playlists: playlists,

@@ -86,8 +86,10 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     await _runAction(() async {
       final client = ref.read(onlineApiClientProvider);
       final profile = await client.fetchProfile();
-      await ref.read(favoriteSongStatusProvider.notifier).refresh();
-      await ref.read(favoriteCollectionStatusProvider.notifier).refresh();
+      await Future.wait<void>(<Future<void>>[
+        ref.read(favoriteSongStatusProvider.notifier).refresh(),
+        ref.read(favoriteCollectionStatusProvider.notifier).refresh(),
+      ]);
       state = state.copyWith(
         profile: profile,
         message: 'Profile fetched.',
@@ -405,8 +407,10 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     } else {
       configController.setAuthToken(accessToken);
     }
-    await ref.read(favoriteSongStatusProvider.notifier).refresh();
-    await ref.read(favoriteCollectionStatusProvider.notifier).refresh();
+    await Future.wait<void>(<Future<void>>[
+      ref.read(favoriteSongStatusProvider.notifier).refresh(),
+      ref.read(favoriteCollectionStatusProvider.notifier).refresh(),
+    ]);
   }
 
   void _validateNotEmpty(String input, String message) {

@@ -9,7 +9,13 @@ import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_environment.dart';
 import 'package:he_music_flutter/app/startup/app_startup_provider.dart';
 import 'package:he_music_flutter/core/network/token_refresh_interceptor.dart';
+import 'package:he_music_flutter/features/my/data/datasources/my_collection_api_client.dart';
+import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/favorite_collection_status_providers.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/my_collection_providers.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -27,13 +33,15 @@ void main() {
     globalTokenHolder.expiresAt = null;
   });
 
-  test('平台请求应等待配置和 token 水合完成', () async {
+  test('启动请求应等待配置和 token 水合完成', () async {
     final dataSource = _DelayedAppConfigDataSource();
     final apiClient = _RecordingOnlineApiClient();
+    final collectionClient = _RecordingMyCollectionApiClient();
     final container = ProviderContainer(
       overrides: [
         appConfigDataSourceProvider.overrideWithValue(dataSource),
         onlineApiClientProvider.overrideWithValue(apiClient),
+        myCollectionApiClientProvider.overrideWithValue(collectionClient),
       ],
     );
     addTearDown(container.dispose);
@@ -57,6 +65,18 @@ void main() {
     expect(config.refreshToken, 'saved-refresh-token');
     expect(config.tokenExpiresAt, 123);
     expect(apiClient.fetchPlatformsCallCount, 1);
+    expect(
+      collectionClient.fetchFavoriteTypes,
+      unorderedEquals(<MyFavoriteType>[
+        MyFavoriteType.playlists,
+        MyFavoriteType.artists,
+        MyFavoriteType.albums,
+      ]),
+    );
+    expect(
+      container.read(favoriteCollectionStatusProvider).playlistKeys,
+      contains(buildIdPlatformKey(id: 'playlist-1', platform: 'qq')),
+    );
   });
 
   test('平台加载错误应立即结束 startup 且不触发通用自动重试', () async {
@@ -156,5 +176,30 @@ class _RecordingOnlineApiClient extends OnlineApiClient {
         'feature_support_flag': 0,
       },
     ];
+  }
+}
+
+class _RecordingMyCollectionApiClient extends MyCollectionApiClient {
+  _RecordingMyCollectionApiClient() : super(Dio());
+
+  final List<MyFavoriteType> fetchFavoriteTypes = <MyFavoriteType>[];
+
+  @override
+  Future<List<IdPlatformInfo>> fetchFavoriteIdPlatforms(
+    MyFavoriteType type,
+  ) async {
+    fetchFavoriteTypes.add(type);
+    return switch (type) {
+      MyFavoriteType.playlists => const <IdPlatformInfo>[
+        IdPlatformInfo(id: 'playlist-1', platform: 'qq'),
+      ],
+      MyFavoriteType.artists => const <IdPlatformInfo>[
+        IdPlatformInfo(id: 'artist-1', platform: 'qq'),
+      ],
+      MyFavoriteType.albums => const <IdPlatformInfo>[
+        IdPlatformInfo(id: 'album-1', platform: 'qq'),
+      ],
+      MyFavoriteType.songs => const <IdPlatformInfo>[],
+    };
   }
 }

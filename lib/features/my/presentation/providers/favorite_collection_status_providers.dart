@@ -2,32 +2,37 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/utils/in_flight_request_cache.dart';
 import '../../../../shared/utils/id_platform_key.dart';
 import '../../domain/entities/favorite_collection_status_state.dart';
+import '../../domain/entities/my_favorite_item.dart';
 import '../../domain/entities/my_favorite_type.dart';
 import 'my_collection_providers.dart';
 
 class FavoriteCollectionStatusController
     extends Notifier<FavoriteCollectionStatusState> {
+  final _refreshRequests = InFlightRequestCache<String, void>();
+
   @override
   FavoriteCollectionStatusState build() {
     ref.listen<String?>(
       appConfigProvider.select((config) => config.authToken),
       (previous, next) {
-        final hadToken = (previous?.trim().isNotEmpty ?? false);
-        final hasToken = (next?.trim().isNotEmpty ?? false);
-        if (hadToken && !hasToken) {
+        final previousToken = previous?.trim() ?? '';
+        final nextToken = next?.trim() ?? '';
+        if (previousToken != nextToken) {
           clear();
         }
       },
     );
-    // 已有 token 时自动拉取收藏状态，避免重启后丢失
-    final currentToken = ref.read(appConfigProvider).authToken?.trim() ?? '';
-    if (currentToken.isNotEmpty) {
-      Future.microtask(() => refresh());
-    }
-
     return FavoriteCollectionStatusState.initial;
+  }
+
+  Future<void> ensureReady() {
+    if (state.ready) {
+      return Future<void>.value();
+    }
+    return refresh();
   }
 
   Future<void> refresh() async {
@@ -36,14 +41,24 @@ class FavoriteCollectionStatusController
       clear();
       return;
     }
+    await _refreshRequests.run(token, () => _refreshForToken(token));
+  }
+
+  Future<void> _refreshForToken(String token) async {
     final client = ref.read(myCollectionApiClientProvider);
-    final playlists = await client.fetchFavoriteIdPlatforms(
-      MyFavoriteType.playlists,
-    );
-    final artists = await client.fetchFavoriteIdPlatforms(
-      MyFavoriteType.artists,
-    );
-    final albums = await client.fetchFavoriteIdPlatforms(MyFavoriteType.albums);
+    final results =
+        await Future.wait<List<IdPlatformInfo>>(<Future<List<IdPlatformInfo>>>[
+          client.fetchFavoriteIdPlatforms(MyFavoriteType.playlists),
+          client.fetchFavoriteIdPlatforms(MyFavoriteType.artists),
+          client.fetchFavoriteIdPlatforms(MyFavoriteType.albums),
+        ]);
+    if (!ref.mounted ||
+        token != (ref.read(appConfigProvider).authToken?.trim() ?? '')) {
+      return;
+    }
+    final playlists = results[0];
+    final artists = results[1];
+    final albums = results[2];
     replaceAll(playlists: playlists, artists: artists, albums: albums);
   }
 
@@ -56,6 +71,19 @@ class FavoriteCollectionStatusController
       playlistKeys: _buildKeys(playlists),
       artistKeys: _buildKeys(artists),
       albumKeys: _buildKeys(albums),
+      ready: true,
+    );
+  }
+
+  void replaceAllItems({
+    required List<MyFavoriteItem> playlists,
+    required List<MyFavoriteItem> artists,
+    required List<MyFavoriteItem> albums,
+  }) {
+    state = state.copyWith(
+      playlistKeys: _buildItemKeys(playlists),
+      artistKeys: _buildItemKeys(artists),
+      albumKeys: _buildItemKeys(albums),
       ready: true,
     );
   }
@@ -137,6 +165,12 @@ class FavoriteCollectionStatusController
   }
 
   Set<String> _buildKeys(List<IdPlatformInfo> items) {
+    return items
+        .map((item) => buildIdPlatformKey(id: item.id, platform: item.platform))
+        .toSet();
+  }
+
+  Set<String> _buildItemKeys(List<MyFavoriteItem> items) {
     return items
         .map((item) => buildIdPlatformKey(id: item.id, platform: item.platform))
         .toSet();

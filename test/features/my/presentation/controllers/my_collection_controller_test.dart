@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
@@ -7,8 +9,10 @@ import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.da
 import 'package:he_music_flutter/features/my/domain/entities/my_overview_state.dart';
 import 'package:he_music_flutter/features/my/domain/repositories/my_collection_repository.dart';
 import 'package:he_music_flutter/features/my/presentation/controllers/my_overview_controller.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/favorite_collection_status_providers.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_collection_providers.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_overview_providers.dart';
+import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
 
 void main() {
   test('initialize should load all favorite types', () async {
@@ -35,6 +39,21 @@ void main() {
     expect(state.albums.length, 1);
     expect(state.selectedType, MyFavoriteType.playlists);
     expect(state.selectedItems.length, 1);
+
+    final favoriteState = container.read(favoriteCollectionStatusProvider);
+    expect(favoriteState.ready, isTrue);
+    expect(
+      favoriteState.playlistKeys,
+      contains(buildIdPlatformKey(id: 'playlist-1', platform: 'kuwo')),
+    );
+    expect(
+      favoriteState.artistKeys,
+      contains(buildIdPlatformKey(id: 'artist-1', platform: 'kuwo')),
+    );
+    expect(
+      favoriteState.albumKeys,
+      contains(buildIdPlatformKey(id: 'album-1', platform: 'kuwo')),
+    );
   });
 
   test('selectType should expose empty items for songs tab', () async {
@@ -87,6 +106,40 @@ void main() {
 
     expect(state.playlists.length, 0);
     expect(state.selectedItems, isEmpty);
+  });
+
+  test('refreshAll should start favorite type requests in parallel', () async {
+    final repository = _ControlledMyCollectionRepository();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        myOverviewControllerProvider.overrideWith(
+          _TestMyOverviewController.new,
+        ),
+        myCollectionRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final refresh = container
+        .read(myCollectionControllerProvider.notifier)
+        .refreshAll();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      repository.startedTypes,
+      unorderedEquals(<MyFavoriteType>[
+        MyFavoriteType.playlists,
+        MyFavoriteType.artists,
+        MyFavoriteType.albums,
+      ]),
+    );
+
+    repository.completeAll();
+    await refresh;
+
+    expect(container.read(myCollectionControllerProvider).loading, isFalse);
+    expect(container.read(favoriteCollectionStatusProvider).ready, isTrue);
   });
 }
 
@@ -156,5 +209,36 @@ class _FakeMyCollectionRepository implements MyCollectionRepository {
   }) async {
     final list = _itemsByType[type]!;
     list.removeWhere((item) => item.id == id && item.platform == platform);
+  }
+}
+
+class _ControlledMyCollectionRepository implements MyCollectionRepository {
+  final List<MyFavoriteType> startedTypes = <MyFavoriteType>[];
+  final Map<MyFavoriteType, Completer<List<MyFavoriteItem>>> _completers =
+      <MyFavoriteType, Completer<List<MyFavoriteItem>>>{
+        MyFavoriteType.playlists: Completer<List<MyFavoriteItem>>(),
+        MyFavoriteType.artists: Completer<List<MyFavoriteItem>>(),
+        MyFavoriteType.albums: Completer<List<MyFavoriteItem>>(),
+      };
+
+  @override
+  Future<List<MyFavoriteItem>> fetchFavorites(MyFavoriteType type) {
+    startedTypes.add(type);
+    return _completers[type]!.future;
+  }
+
+  @override
+  Future<void> removeFavorite({
+    required MyFavoriteType type,
+    required String id,
+    required String platform,
+  }) async {}
+
+  void completeAll() {
+    for (final entry in _completers.entries) {
+      if (!entry.value.isCompleted) {
+        entry.value.complete(const <MyFavoriteItem>[]);
+      }
+    }
   }
 }
