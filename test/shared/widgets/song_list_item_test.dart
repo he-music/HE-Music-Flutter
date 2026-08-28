@@ -31,6 +31,30 @@ void main() {
       expect(tapped, isTrue);
     });
 
+    testWidgets('歌曲按压区域应覆盖整行', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          SongListItem(
+            data: basicData,
+            onTap: () {},
+            onLikeTap: () {},
+            onMoreTap: () {},
+          ),
+        ),
+      );
+
+      final rowInkWell = find.ancestor(
+        of: find.text('稻香'),
+        matching: find.byType(InkWell),
+      );
+
+      expect(rowInkWell, findsOneWidget);
+      expect(
+        tester.getRect(rowInkWell),
+        tester.getRect(find.byType(SongListItem)),
+      );
+    });
+
     testWidgets('isCurrent 为 true 时标题应使用 primary 颜色', (tester) async {
       final data = SongListItemData(
         title: 'Current',
@@ -132,7 +156,7 @@ void main() {
       expect(songTapCount, 0);
     });
 
-    testWidgets('点击右侧操作按钮间隙不应触发歌曲点击', (tester) async {
+    testWidgets('点击右侧操作区域空白不应触发歌曲点击', (tester) async {
       var songTapCount = 0;
       await tester.pumpWidget(
         _wrap(
@@ -155,10 +179,13 @@ void main() {
       );
       final likeRect = tester.getRect(likeButton);
       final moreRect = tester.getRect(moreButton);
+      final itemRect = tester.getRect(find.byType(SongListItem));
 
       await tester.tapAt(
         Offset((likeRect.right + moreRect.left) / 2, likeRect.center.dy),
       );
+      await tester.tapAt(Offset(moreRect.center.dx, itemRect.top + 1));
+      await tester.tapAt(Offset(moreRect.center.dx, itemRect.bottom - 1));
 
       expect(songTapCount, 0);
     });

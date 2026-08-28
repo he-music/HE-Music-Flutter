@@ -150,112 +150,146 @@ class SongListItem extends StatelessWidget {
     final effectiveOnTap = selectable ? (onSelectTap ?? onTap) : onTap;
     final hasActions = showActions && (onLikeTap != null || onMoreTap != null);
     final alignCoverToTop = contentAfterSubtitle != null || footer != null;
+    final actionSlotWidth = hasActions
+        ? _ActionButtons.widthFor(
+                hasLike: onLikeTap != null,
+                hasMore: onMoreTap != null,
+              ) +
+              _ActionButtons.endPadding
+        : 0.0;
     final backgroundColor = isCurrent || isSelected
         ? theme.colorScheme.primary.withValues(alpha: isCurrent ? 0.07 : 0.05)
         : Colors.transparent;
-    final songRow = Row(
-      crossAxisAlignment: alignCoverToTop
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.center,
+    final songRow = Stack(
+      fit: StackFit.passthrough,
       children: <Widget>[
-        Expanded(
-          child: InkWell(
-            onTap: effectiveOnTap,
-            child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(
-                LayoutTokens.listItemInnerGutter,
-                11,
-                hasActions ? 0 : LayoutTokens.listItemInnerGutter,
-                11,
-              ),
-              child: Row(
-                crossAxisAlignment: alignCoverToTop
-                    ? CrossAxisAlignment.start
-                    : CrossAxisAlignment.center,
-                children: <Widget>[
-                  if (selectable) ...<Widget>[
-                    _SelectIndicator(selected: selected),
-                    const SizedBox(width: 12),
-                  ],
-                  _SongCover(
-                    url: data.coverUrl,
-                    bytes: data.coverBytes,
-                    isCurrent: isCurrent,
+        InkWell(
+          onTap: effectiveOnTap,
+          child: Row(
+            crossAxisAlignment: alignCoverToTop
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.center,
+            children: <Widget>[
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    LayoutTokens.listItemInnerGutter,
+                    11,
+                    hasActions ? 0 : LayoutTokens.listItemInnerGutter,
+                    11,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        minHeight: _SongCover._coverSize,
+                  child: Row(
+                    crossAxisAlignment: alignCoverToTop
+                        ? CrossAxisAlignment.start
+                        : CrossAxisAlignment.center,
+                    children: <Widget>[
+                      if (selectable) ...<Widget>[
+                        _SelectIndicator(selected: selected),
+                        const SizedBox(width: 12),
+                      ],
+                      _SongCover(
+                        url: data.coverUrl,
+                        bytes: data.coverBytes,
+                        isCurrent: isCurrent,
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        // 展开歌词/附加内容时把标题区固定在顶部，避免内容高度变化时上下漂移。
-                        mainAxisAlignment: alignCoverToTop
-                            ? MainAxisAlignment.start
-                            : MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          _ListItemText(
-                            text: data.title,
-                            spans: data.titleSpans,
-                            maxLines: 1,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w500,
-                              height: 1.12,
-                              color: isCurrent
-                                  ? theme.colorScheme.primary
-                                  : theme.textTheme.titleSmall?.color,
-                            ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minHeight: _SongCover._coverSize,
                           ),
-                          const SizedBox(height: 5),
-                          _ArtistAlbumLine(
-                            tags: data.tags,
-                            artistAlbum: data.artistAlbumText,
-                            artistAlbumSpans: data.artistAlbumSpans,
-                            isCurrent: isCurrent,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            // 展开歌词/附加内容时把标题区固定在顶部，避免内容高度变化时上下漂移。
+                            mainAxisAlignment: alignCoverToTop
+                                ? MainAxisAlignment.start
+                                : MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              _ListItemText(
+                                text: data.title,
+                                spans: data.titleSpans,
+                                maxLines: 1,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.12,
+                                  color: isCurrent
+                                      ? theme.colorScheme.primary
+                                      : theme.textTheme.titleSmall?.color,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              _ArtistAlbumLine(
+                                tags: data.tags,
+                                artistAlbum: data.artistAlbumText,
+                                artistAlbumSpans: data.artistAlbumSpans,
+                                isCurrent: isCurrent,
+                              ),
+                              if (data.subtitleText
+                                  .trim()
+                                  .isNotEmpty) ...<Widget>[
+                                const SizedBox(height: 3),
+                                _BottomMetaLine(
+                                  subtitle: data.subtitleText,
+                                  subtitleSpans: data.subtitleSpans,
+                                  isCurrent: isCurrent,
+                                ),
+                              ],
+                              if (contentAfterSubtitle != null) ...<Widget>[
+                                const SizedBox(height: 3),
+                                contentAfterSubtitle!,
+                              ],
+                              if (data.showMoreVersionButton) ...<Widget>[
+                                const SizedBox(height: 3),
+                                SongListItemTextAction(
+                                  onTap: onMoreVersionTap,
+                                  label: moreVersionLabel,
+                                ),
+                              ],
+                              if (data.subtitleText.trim().isEmpty &&
+                                  contentAfterSubtitle == null &&
+                                  !data.showMoreVersionButton)
+                                const SizedBox(height: 2)
+                              else
+                                const SizedBox(height: 1),
+                            ],
                           ),
-                          if (data.subtitleText.trim().isNotEmpty) ...<Widget>[
-                            const SizedBox(height: 3),
-                            _BottomMetaLine(
-                              subtitle: data.subtitleText,
-                              subtitleSpans: data.subtitleSpans,
-                              isCurrent: isCurrent,
-                            ),
-                          ],
-                          if (contentAfterSubtitle != null) ...<Widget>[
-                            const SizedBox(height: 3),
-                            contentAfterSubtitle!,
-                          ],
-                          if (data.showMoreVersionButton) ...<Widget>[
-                            const SizedBox(height: 3),
-                            SongListItemTextAction(
-                              onTap: onMoreVersionTap,
-                              label: moreVersionLabel,
-                            ),
-                          ],
-                          if (data.subtitleText.trim().isEmpty &&
-                              contentAfterSubtitle == null &&
-                              !data.showMoreVersionButton)
-                            const SizedBox(height: 2)
-                          else
-                            const SizedBox(height: 1),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+              if (hasActions) SizedBox(width: actionSlotWidth),
+            ],
           ),
         ),
         if (hasActions)
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(0, 11, 2, 11),
-            child: _ActionButtons(
-              liked: isLiked,
-              onLikeTap: onLikeTap,
-              onMoreTap: onMoreTap,
+          PositionedDirectional(
+            top: 0,
+            bottom: 0,
+            end: 0,
+            width: actionSlotWidth,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              child: Align(
+                alignment: alignCoverToTop
+                    ? AlignmentDirectional.topEnd
+                    : AlignmentDirectional.centerEnd,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    0,
+                    11,
+                    _ActionButtons.endPadding,
+                    11,
+                  ),
+                  child: _ActionButtons(
+                    liked: isLiked,
+                    onLikeTap: onLikeTap,
+                    onMoreTap: onMoreTap,
+                  ),
+                ),
+              ),
             ),
           ),
       ],
@@ -322,6 +356,13 @@ class _ActionButtons extends StatelessWidget {
   final VoidCallback? onLikeTap;
   final VoidCallback? onMoreTap;
 
+  static const actionExtent = 48.0;
+  static const endPadding = 2.0;
+
+  static double widthFor({required bool hasLike, required bool hasMore}) {
+    return hasLike && hasMore ? 90.0 : actionExtent;
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasLike = onLikeTap != null;
@@ -332,8 +373,7 @@ class _ActionButtons extends StatelessWidget {
     final iconColor = Theme.of(
       context,
     ).colorScheme.onSurfaceVariant.withValues(alpha: 0.78);
-    const actionExtent = 48.0;
-    final width = hasLike && hasMore ? 90.0 : actionExtent;
+    final width = widthFor(hasLike: hasLike, hasMore: hasMore);
     return SizedBox(
       width: width,
       height: actionExtent,
