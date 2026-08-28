@@ -122,7 +122,7 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
       playerControllerProvider.select((player) => player.isPlaying),
     );
     final currentTrack = ref.watch(
-      playerControllerProvider.select((player) => player.currentTrack),
+      playerControllerProvider.select((player) => player.displayTrack),
     );
     final platforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];

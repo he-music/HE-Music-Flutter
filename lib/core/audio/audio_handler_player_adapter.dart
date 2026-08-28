@@ -109,8 +109,11 @@ class AudioHandlerPlayerAdapter implements AudioPlayerPort, AudioSpectrumPort {
   }
 
   @override
-  Future<void> setSource(AudioTrack track) {
-    return _handler.replaceCurrentTrack(track);
+  Future<void> setSource(AudioTrack track, {String? forcedQualityName}) {
+    return _handler.replaceCurrentTrack(
+      track,
+      forcedQualityName: forcedQualityName,
+    );
   }
 
   @override

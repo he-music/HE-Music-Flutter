@@ -206,7 +206,7 @@ class _SongInfoListRow extends ConsumerWidget {
     final isCurrent = ref.watch(
       playerControllerProvider.select(
         (state) => isCurrentSongIdentity(
-          currentTrackIdentityOf(state.currentTrack),
+          currentTrackIdentityOf(state.displayTrack),
           song,
         ),
       ),

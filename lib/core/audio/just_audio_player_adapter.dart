@@ -89,7 +89,7 @@ class JustAudioPlayerAdapter implements AudioPlayerPort {
   }
 
   @override
-  Future<void> setSource(AudioTrack track) async {
+  Future<void> setSource(AudioTrack track, {String? forcedQualityName}) async {
     await setQueue(<AudioTrack>[track]);
   }
 

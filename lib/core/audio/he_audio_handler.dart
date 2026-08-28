@@ -230,6 +230,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         )
         .listen((position) {
           unawaited(_syncOverlayPosition(position));
+          unawaited(_refreshNextTrackUrlNearEnd(position));
         });
     _player.playerStateStream.listen((state) {
       if (state.processingState != ProcessingState.completed) {
@@ -252,6 +253,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   static const Duration _radioConnectTimeout = Duration(seconds: 10);
   static const Duration _radioReceiveTimeout = Duration(seconds: 15);
   static const Duration _radioSendTimeout = Duration(seconds: 10);
+  static const Duration _preloadRefreshLeadTime = Duration(minutes: 1);
+  static const Duration _preloadExpirySafetyMargin = Duration(seconds: 30);
 
   final AudioPlayer _player;
   final HeAudioHandlerFetchSongUrl? _fetchSongUrlOverride;
@@ -306,6 +309,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   int _sourceGeneration = 0;
   int? _armedSourceGeneration;
   int? _handledCompletionGeneration;
+  int? _nearEndPreloadRefreshGeneration;
   int _transitionId = 0;
   Timer? _manualSkipDebounceTimer;
   Timer? _manualSkipMaxBatchTimer;
@@ -368,11 +372,26 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }) async {
     final shouldOpenOverlay = !_enableDesktopLyric && enableDesktopLyric;
     final shouldCloseOverlay = _enableDesktopLyric && !enableDesktopLyric;
+    final previousActiveQuality =
+        _networkConnectionType == NetworkConnectionType.cellular
+        ? _cellularQualityPreference
+        : _wifiQualityPreference;
+    final previousLastSelectedQualityName = _lastSelectedQualityName;
+    final normalizedLastSelectedQualityName = lastSelectedQualityName?.trim();
+    final nextActiveQuality =
+        _networkConnectionType == NetworkConnectionType.cellular
+        ? cellularQualityPreference
+        : wifiQualityPreference;
+    final shouldRefreshPreload =
+        previousActiveQuality != nextActiveQuality ||
+        (nextActiveQuality.isAuto &&
+            previousLastSelectedQualityName !=
+                normalizedLastSelectedQualityName);
     _apiBaseUrl = apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     _authToken = authToken?.trim();
     _wifiQualityPreference = wifiQualityPreference;
     _cellularQualityPreference = cellularQualityPreference;
-    _lastSelectedQualityName = lastSelectedQualityName?.trim();
+    _lastSelectedQualityName = normalizedLastSelectedQualityName;
     _enableDesktopLyric = enableDesktopLyric;
     _enableDesktopLyricLock = enableDesktopLyricLock;
     _lyricHighlightMode = lyricHighlightMode;
@@ -381,6 +400,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _lyricFontPresetIndex = lyricFontPresetIndex;
     _enableWordByWordLyric = enableWordByWordLyric;
     _configRecovered = true;
+    if (shouldRefreshPreload &&
+        _networkConnectionType != NetworkConnectionType.offline &&
+        _tracks.isNotEmpty) {
+      unawaited(_preloadNextTrackUrl(_committedIndex));
+    }
     if (shouldCloseOverlay) {
       await _overlayLyricsService.close();
     }
@@ -505,7 +529,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
   }
 
-  Future<void> replaceCurrentTrack(AudioTrack track) async {
+  Future<void> replaceCurrentTrack(
+    AudioTrack track, {
+    String? forcedQualityName,
+  }) async {
     if (_tracks.isEmpty) {
       await setQueueData(<AudioTrack>[track], initialIndex: 0);
       return;
@@ -522,6 +549,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         transitionId: transitionId,
         sourceTracks: List<AudioTrack>.unmodifiable(next),
         forceUrlRefresh: true,
+        forcedQualityName: forcedQualityName,
       );
     } on _StaleTransitionException {
       return;
@@ -1044,6 +1072,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     int? shuffleCursor,
     bool forceShuffleRebuild = false,
     bool forceUrlRefresh = false,
+    String? forcedQualityName,
   }) async {
     final candidateTracks = sourceTracks ?? _tracks;
     final track = index < 0 || index >= candidateTracks.length
@@ -1058,7 +1087,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _pendingShuffleCursor = shuffleCursor;
     _logTransition('load.resolve.start', transitionId, track: track);
     try {
-      var resolved = await _resolveTrack(track, forceRefresh: forceUrlRefresh);
+      var resolved = await _resolveTrack(
+        track,
+        forceRefresh: forceUrlRefresh,
+        forcedQualityName: forcedQualityName,
+      );
       _guardTransition(transitionId);
       Object? lastError;
       for (var attempt = 1; attempt <= _setSourceMaxAttempts; attempt += 1) {
@@ -1115,7 +1148,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
             rethrow;
           }
           final failedUrl = resolved.url.trim();
-          resolved = await _resolveTrack(track, forceRefresh: true);
+          resolved = await _resolveTrack(
+            track,
+            forceRefresh: true,
+            forcedQualityName: forcedQualityName,
+          );
           _guardTransition(transitionId);
           if (resolved.url.trim() == failedUrl) {
             throw _UnchangedPlaybackUrlException(track.id);
@@ -1238,6 +1275,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   void _handleNetworkStatusChanged(NetworkConnectionType next) {
     final previous = _networkConnectionType;
     _networkConnectionType = next;
+    if (previous != next &&
+        next != NetworkConnectionType.offline &&
+        _tracks.isNotEmpty) {
+      unawaited(_preloadNextTrackUrl(_committedIndex));
+    }
     if (previous == NetworkConnectionType.offline &&
         next != NetworkConnectionType.offline &&
         _pendingPlaybackRecovery != null) {
@@ -1367,6 +1409,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<AudioTrack> _resolveTrack(
     AudioTrack track, {
     bool forceRefresh = false,
+    String? forcedQualityName,
   }) async {
     await _ensureConfigRecovered();
     final localPath = track.path?.trim() ?? '';
@@ -1389,7 +1432,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         return track;
       }
       final matchedDirect =
-          _resolvePreferredLink(track.links)?.url.trim() ?? '';
+          _resolvePreferredLink(
+            track.links,
+            forcedQualityName: forcedQualityName,
+          )?.url.trim() ??
+          '';
       if (matchedDirect.isNotEmpty) {
         return AudioTrack(
           id: track.id,
@@ -1409,7 +1456,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (_networkConnectionType == NetworkConnectionType.offline) {
       throw const _NetworkUnavailableException();
     }
-    final matchedQuality = _resolvePreferredLink(track.links);
+    final matchedQuality = _resolvePreferredLink(
+      track.links,
+      forcedQualityName: forcedQualityName,
+    );
     final platform = track.platform?.trim() ?? '';
     if (platform.isEmpty) {
       return track;
@@ -1445,34 +1495,72 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     );
   }
 
-  Future<void> _preloadNextTrackUrl(int sourceIndex) async {
-    // 电台模式先补足下一页，再解析下一首 URL，避免跨页时错过预加载。
-    await _ensureRadioNextPageIfNeeded(targetIndex: sourceIndex + 1);
-    if (_tracks.length < 2) {
-      return;
-    }
-    final nextIndex = _resolveNextTrackIndex(sourceIndex, advance: false);
-    final track = _safeTrack(nextIndex);
-    if (track == null ||
-        !shouldRefreshRemotePlaybackUrl(track) ||
-        _hasFreshResolvedPlaybackUrl(track)) {
-      return;
-    }
+  Future<void> _preloadNextTrackUrl(
+    int sourceIndex, {
+    Duration minimumRemainingValidity = Duration.zero,
+  }) async {
+    AudioTrack? track;
     try {
-      await _resolveTrack(track);
+      // 电台模式先补足下一页，再解析下一首 URL，避免跨页时错过预加载。
+      await _ensureRadioNextPageIfNeeded(targetIndex: sourceIndex + 1);
+      if (_tracks.length < 2) {
+        return;
+      }
+      final nextIndex = _resolveNextTrackIndex(sourceIndex, advance: false);
+      track = _safeTrack(nextIndex);
+      if (track == null ||
+          !shouldRefreshRemotePlaybackUrl(track) ||
+          _hasFreshResolvedPlaybackUrl(
+            track,
+            minimumRemainingValidity: minimumRemainingValidity,
+          )) {
+        return;
+      }
+      final cacheKey = _playbackUrlCacheKey(track);
+      await _resolveTrack(
+        track,
+        forceRefresh: _resolvedPlaybackUrls.containsKey(cacheKey),
+      );
     } catch (error) {
       // 预加载失败不能影响当前播放；真正切歌时仍会按正常链路重试。
       _logTransition('url.preload.failure', _transitionId, track: track);
     }
   }
 
-  bool _hasFreshResolvedPlaybackUrl(AudioTrack track) {
+  bool _hasFreshResolvedPlaybackUrl(
+    AudioTrack track, {
+    Duration minimumRemainingValidity = Duration.zero,
+  }) {
     final cacheKey = _playbackUrlCacheKey(track);
     final cached = _resolvedPlaybackUrls[cacheKey];
     if (cached == null) {
       return false;
     }
-    return _now().difference(cached.resolvedAt) < _preloadedPlaybackUrlTtl;
+    final age = _now().difference(cached.resolvedAt);
+    return age + minimumRemainingValidity < _preloadedPlaybackUrlTtl;
+  }
+
+  Future<void> _refreshNextTrackUrlNearEnd(Duration position) async {
+    final duration = _duration;
+    final committedSourceGeneration = _armedSourceGeneration;
+    if (duration == null ||
+        committedSourceGeneration == null ||
+        committedSourceGeneration != _sourceGeneration ||
+        duration <= _preloadRefreshLeadTime ||
+        position < Duration.zero ||
+        position >= duration) {
+      return;
+    }
+    final remaining = duration - position;
+    if (remaining > _preloadRefreshLeadTime ||
+        _nearEndPreloadRefreshGeneration == committedSourceGeneration) {
+      return;
+    }
+    _nearEndPreloadRefreshGeneration = committedSourceGeneration;
+    await _preloadNextTrackUrl(
+      _committedIndex,
+      minimumRemainingValidity: remaining + _preloadExpirySafetyMargin,
+    );
   }
 
   Future<String> _resolvePlaybackUrl({
@@ -1584,7 +1672,18 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _configRecovered = true;
   }
 
-  LinkInfo? _resolvePreferredLink(List<LinkInfo> links) {
+  LinkInfo? _resolvePreferredLink(
+    List<LinkInfo> links, {
+    String? forcedQualityName,
+  }) {
+    final forced = forcedQualityName?.trim() ?? '';
+    if (forced.isNotEmpty) {
+      for (final link in links) {
+        if (link.name.trim() == forced) {
+          return link;
+        }
+      }
+    }
     return selectPreferredAudioQuality(
       links,
       preference: _networkConnectionType == NetworkConnectionType.cellular
@@ -1784,6 +1883,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   @visibleForTesting
   void handlePlaybackErrorForTesting(Object error) {
     _broadcastTransitionError(error, _transitionId);
+  }
+
+  @visibleForTesting
+  Future<void> refreshNextTrackUrlNearEndForTesting(Duration position) {
+    return _refreshNextTrackUrlNearEnd(position);
   }
 
   Future<void> _playNextAvailableFrom(int sourceIndex, int transitionId) async {

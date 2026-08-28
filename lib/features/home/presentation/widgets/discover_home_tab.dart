@@ -470,9 +470,9 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                             playerControllerProvider.select(
                               (state) => _isCurrentHomeSong(
                                 currentTrackId:
-                                    state.currentTrack?.id.trim() ?? '',
+                                    state.displayTrack?.id.trim() ?? '',
                                 currentTrackPlatform:
-                                    (state.currentTrack?.platform ?? '').trim(),
+                                    (state.displayTrack?.platform ?? '').trim(),
                                 song: song,
                               ),
                             ),

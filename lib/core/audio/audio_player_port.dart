@@ -36,7 +36,7 @@ abstract class AudioPlayerPort {
     String? currentRadioPlatform,
     int? currentRadioPageIndex,
   });
-  Future<void> setSource(AudioTrack track);
+  Future<void> setSource(AudioTrack track, {String? forcedQualityName});
   Future<void> playAt(int index);
   Future<void> seekToNext();
   Future<void> seekToPrevious();

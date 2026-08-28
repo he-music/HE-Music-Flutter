@@ -26,7 +26,7 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final track = ref.watch(
-      playerControllerProvider.select((state) => state.currentTrack),
+      playerControllerProvider.select((state) => state.displayTrack),
     );
     final localeCode = ref.watch(
       appConfigProvider.select((config) => config.localeCode),
@@ -109,6 +109,7 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
             ? Image(
                 image: imageProvider,
                 fit: BoxFit.cover,
+                gaplessPlayback: true,
                 errorBuilder: (context, error, stack) => Container(
                   color: Colors.white.withValues(alpha: 0.1),
                   child: const Icon(

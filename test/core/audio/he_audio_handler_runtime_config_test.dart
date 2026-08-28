@@ -14,6 +14,7 @@ import 'package:he_music_flutter/app/config/app_environment.dart';
 import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
 import 'package:he_music_flutter/core/audio/audio_track.dart';
 import 'package:he_music_flutter/core/audio/he_audio_handler.dart';
+import 'package:he_music_flutter/core/network/network_status_port.dart';
 import 'package:he_music_flutter/core/network/token_refresh_interceptor.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
@@ -425,6 +426,219 @@ void main() {
       hasLength(song1RequestCountBeforeExpiry + 1),
     );
     expect(loadedUrls.last, startsWith('https://fresh.example.com/song-1-'));
+  });
+
+  test('手动切换当前音质后下一首仍按移动网络偏好预加载', () async {
+    final networkStatus = _TestNetworkStatusPort(
+      NetworkConnectionType.cellular,
+    );
+    final requests = <({String songId, int? quality, String? format})>[];
+    final handler = HeAudioHandler(
+      networkStatusPort: networkStatus,
+      fetchSongUrlOverride:
+          ({
+            required String songId,
+            required String platform,
+            int? quality,
+            String? format,
+          }) async {
+            requests.add((songId: songId, quality: quality, format: format));
+            return <String, dynamic>{
+              'url': 'https://fresh.example.com/$songId-$quality.$format',
+            };
+          },
+      setAudioSourceOverride: (source, player) async => null,
+    );
+    addTearDown(handler.disposeHandler);
+    addTearDown(networkStatus.dispose);
+    await handler.syncConfig(
+      apiBaseUrl: 'https://api.example.com',
+      authToken: null,
+      wifiQualityPreference: AppOnlineAudioQuality.flac,
+      cellularQualityPreference: AppOnlineAudioQuality.mp3192,
+      lastSelectedQualityName: null,
+      enableDesktopLyric: false,
+      enableDesktopLyricLock: false,
+      lyricHighlightMode: AppLyricHighlightMode.preset,
+      lyricHighlightPresetColorValue: AppLyricHighlightColor.sky.color
+          .toARGB32(),
+      lyricHighlightCustomColorValue: null,
+      lyricFontPresetIndex: AppLyricFontPreset.medium.index,
+      enableWordByWordLyric: false,
+    );
+    await handler.setQueueData(_qualityTestTracks, initialIndex: 0);
+    await Future<void>.delayed(Duration.zero);
+    await handler.replaceCurrentTrack(
+      _qualityTestTracks.first,
+      forcedQualityName: 'FLAC',
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(requests.where((request) => request.songId == 'song-1').last, (
+      songId: 'song-1',
+      quality: 999,
+      format: 'flac',
+    ));
+    expect(
+      requests.where((request) => request.songId == 'song-2').toList(),
+      <({String songId, int? quality, String? format})>[
+        (songId: 'song-2', quality: 192, format: 'mp3'),
+      ],
+    );
+  });
+
+  test('网络和当前网络偏好变化后重新预加载下一首', () async {
+    final networkStatus = _TestNetworkStatusPort(NetworkConnectionType.wifi);
+    final requests = <({String songId, int? quality, String? format})>[];
+    final loadedUrls = <String>[];
+    final handler = HeAudioHandler(
+      networkStatusPort: networkStatus,
+      fetchSongUrlOverride:
+          ({
+            required String songId,
+            required String platform,
+            int? quality,
+            String? format,
+          }) async {
+            requests.add((songId: songId, quality: quality, format: format));
+            return <String, dynamic>{
+              'url': 'https://fresh.example.com/$songId-$quality.$format',
+            };
+          },
+      setAudioSourceOverride: (source, player) async {
+        loadedUrls.add((source as UriAudioSource).uri.toString());
+        return null;
+      },
+      playOverride: (player) async {},
+    );
+    addTearDown(handler.disposeHandler);
+    addTearDown(networkStatus.dispose);
+    await handler.syncConfig(
+      apiBaseUrl: 'https://api.example.com',
+      authToken: null,
+      wifiQualityPreference: AppOnlineAudioQuality.flac,
+      cellularQualityPreference: AppOnlineAudioQuality.mp3192,
+      lastSelectedQualityName: null,
+      enableDesktopLyric: false,
+      enableDesktopLyricLock: false,
+      lyricHighlightMode: AppLyricHighlightMode.preset,
+      lyricHighlightPresetColorValue: AppLyricHighlightColor.sky.color
+          .toARGB32(),
+      lyricHighlightCustomColorValue: null,
+      lyricFontPresetIndex: AppLyricFontPreset.medium.index,
+      enableWordByWordLyric: false,
+    );
+    await handler.setQueueData(_qualityTestTracks, initialIndex: 0);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      requests.where((request) => request.songId == 'song-2').toList(),
+      <({String songId, int? quality, String? format})>[
+        (songId: 'song-2', quality: 999, format: 'flac'),
+      ],
+    );
+
+    networkStatus.emit(NetworkConnectionType.cellular);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      requests.where((request) => request.songId == 'song-2').toList(),
+      <({String songId, int? quality, String? format})>[
+        (songId: 'song-2', quality: 999, format: 'flac'),
+        (songId: 'song-2', quality: 192, format: 'mp3'),
+      ],
+    );
+
+    await handler.syncConfig(
+      apiBaseUrl: 'https://api.example.com',
+      authToken: null,
+      wifiQualityPreference: AppOnlineAudioQuality.flac,
+      cellularQualityPreference: AppOnlineAudioQuality.mp3320,
+      lastSelectedQualityName: null,
+      enableDesktopLyric: false,
+      enableDesktopLyricLock: false,
+      lyricHighlightMode: AppLyricHighlightMode.preset,
+      lyricHighlightPresetColorValue: AppLyricHighlightColor.sky.color
+          .toARGB32(),
+      lyricHighlightCustomColorValue: null,
+      lyricFontPresetIndex: AppLyricFontPreset.medium.index,
+      enableWordByWordLyric: false,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      requests.where((request) => request.songId == 'song-2').toList(),
+      <({String songId, int? quality, String? format})>[
+        (songId: 'song-2', quality: 999, format: 'flac'),
+        (songId: 'song-2', quality: 192, format: 'mp3'),
+        (songId: 'song-2', quality: 320, format: 'mp3'),
+      ],
+    );
+
+    await handler.skipToNext();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(
+      requests.where((request) => request.songId == 'song-2'),
+      hasLength(3),
+    );
+    expect(loadedUrls.last, 'https://fresh.example.com/song-2-320.mp3');
+  });
+
+  test('长歌曲结束前刷新有效期不足的下一首链接并供切歌复用', () async {
+    var now = DateTime(2026, 1, 1, 12);
+    final requestedSongIds = <String>[];
+    final handler = HeAudioHandler(
+      nowOverride: () => now,
+      fetchSongUrlOverride:
+          ({
+            required String songId,
+            required String platform,
+            int? quality,
+            String? format,
+          }) async {
+            requestedSongIds.add(songId);
+            return <String, dynamic>{
+              'url':
+                  'https://fresh.example.com/$songId-${requestedSongIds.length}.mp3',
+            };
+          },
+      setAudioSourceOverride: (source, player) async =>
+          const Duration(minutes: 8, seconds: 30),
+      playOverride: (player) async {},
+    );
+    addTearDown(handler.disposeHandler);
+    await handler.syncConfig(
+      apiBaseUrl: 'https://api.example.com',
+      authToken: null,
+      wifiQualityPreference: AppOnlineAudioQuality.auto,
+      cellularQualityPreference: AppOnlineAudioQuality.auto,
+      lastSelectedQualityName: null,
+      enableDesktopLyric: false,
+      enableDesktopLyricLock: false,
+      lyricHighlightMode: AppLyricHighlightMode.preset,
+      lyricHighlightPresetColorValue: AppLyricHighlightColor.sky.color
+          .toARGB32(),
+      lyricHighlightCustomColorValue: null,
+      lyricFontPresetIndex: AppLyricFontPreset.medium.index,
+      enableWordByWordLyric: false,
+    );
+    await handler.setQueueData(const <AudioTrack>[
+      AudioTrack(id: 'song-1', title: '长歌曲', url: '', platform: 'qq'),
+      AudioTrack(id: 'song-2', title: '下一首', url: '', platform: 'qq'),
+    ], initialIndex: 0);
+    await Future<void>.delayed(Duration.zero);
+    expect(requestedSongIds.where((id) => id == 'song-2'), hasLength(1));
+
+    now = now.add(const Duration(minutes: 7, seconds: 30));
+    await handler.refreshNextTrackUrlNearEndForTesting(
+      const Duration(minutes: 7, seconds: 30),
+    );
+    await handler.refreshNextTrackUrlNearEndForTesting(
+      const Duration(minutes: 7, seconds: 40),
+    );
+    expect(requestedSongIds.where((id) => id == 'song-2'), hasLength(2));
+
+    now = now.add(const Duration(minutes: 1));
+    await handler.skipToNext();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(requestedSongIds.where((id) => id == 'song-2'), hasLength(2));
   });
 
   test('随机播放时应该复用洗牌顺序中的预加载下一首链接', () async {
@@ -1020,6 +1234,31 @@ void main() {
   });
 }
 
+const _qualityTestTracks = <AudioTrack>[
+  AudioTrack(
+    id: 'song-1',
+    title: '第一首',
+    url: '',
+    platform: 'qq',
+    links: <LinkInfo>[
+      LinkInfo(name: '192mp3', quality: 192, format: 'mp3', size: '0', url: ''),
+      LinkInfo(name: '320mp3', quality: 320, format: 'mp3', size: '0', url: ''),
+      LinkInfo(name: 'FLAC', quality: 999, format: 'flac', size: '0', url: ''),
+    ],
+  ),
+  AudioTrack(
+    id: 'song-2',
+    title: '第二首',
+    url: '',
+    platform: 'qq',
+    links: <LinkInfo>[
+      LinkInfo(name: '192mp3', quality: 192, format: 'mp3', size: '0', url: ''),
+      LinkInfo(name: '320mp3', quality: 320, format: 'mp3', size: '0', url: ''),
+      LinkInfo(name: 'FLAC', quality: 999, format: 'flac', size: '0', url: ''),
+    ],
+  ),
+];
+
 class _SequenceRandom implements Random {
   _SequenceRandom(this._values);
 
@@ -1038,6 +1277,30 @@ class _SequenceRandom implements Random {
 
   @override
   double nextDouble() => nextInt(1000000) / 1000000;
+}
+
+class _TestNetworkStatusPort implements NetworkStatusPort {
+  _TestNetworkStatusPort(this._current);
+
+  final StreamController<NetworkConnectionType> _controller =
+      StreamController<NetworkConnectionType>.broadcast(sync: true);
+  NetworkConnectionType _current;
+
+  @override
+  Stream<NetworkConnectionType> get changes => _controller.stream;
+
+  @override
+  Future<NetworkConnectionType> current() async => _current;
+
+  @override
+  NetworkConnectionType get lastKnown => _current;
+
+  void emit(NetworkConnectionType next) {
+    _current = next;
+    _controller.add(next);
+  }
+
+  Future<void> dispose() => _controller.close();
 }
 
 class _AudioRefreshTestServer {

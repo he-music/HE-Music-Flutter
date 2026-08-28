@@ -151,7 +151,7 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
     }
     final currentTrackIdentity = ref.watch(
       playerControllerProvider.select(
-        (state) => currentTrackIdentityOf(state.currentTrack),
+        (state) => currentTrackIdentityOf(state.displayTrack),
       ),
     );
     final config = ref.watch(appConfigProvider);

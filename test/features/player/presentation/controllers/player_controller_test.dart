@@ -205,6 +205,12 @@ void main() {
 
     expect(container.read(playerControllerProvider).currentIndex, 0);
     expect(container.read(playerControllerProvider).currentTrack?.id, 'song-1');
+    expect(container.read(playerControllerProvider).requestedTrackIndex, 1);
+    expect(container.read(playerControllerProvider).displayTrack?.id, 'song-2');
+    expect(
+      container.read(playerControllerProvider).isTrackTransitioning,
+      isTrue,
+    );
 
     audioPlayer.emitDuration(null);
     await Future<void>.delayed(Duration.zero);
@@ -223,6 +229,9 @@ void main() {
     final state = container.read(playerControllerProvider);
     expect(state.currentIndex, 1);
     expect(state.currentTrack?.id, 'song-2');
+    expect(state.requestedTrackIndex, isNull);
+    expect(state.isTrackTransitioning, isFalse);
+    expect(audioPlayer.lastSetQueueForceReloadCurrent, isFalse);
     expect(state.isPlaying, isTrue);
     expect(state.duration, const Duration(minutes: 3));
   });
@@ -260,6 +269,35 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     state = container.read(playerControllerProvider);
     expect(state.duration, const Duration(minutes: 3));
+  });
+
+  test('切歌加载失败时回滚 pending 展示目标', () async {
+    final audioPlayer = _FakeAudioPlayerPort();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(audioPlayer),
+      ],
+    );
+    addTearDown(container.dispose);
+    addTearDown(audioPlayer.dispose);
+
+    final controller = container.read(playerControllerProvider.notifier);
+    await controller.replaceQueue(
+      _buildQueue(),
+      startIndex: 0,
+      autoplay: false,
+    );
+    audioPlayer.setQueueError = StateError('reload failed');
+
+    await expectLater(controller.playAt(1), throwsStateError);
+
+    final state = container.read(playerControllerProvider);
+    expect(state.currentIndex, 0);
+    expect(state.currentTrack?.id, 'song-1');
+    expect(state.requestedTrackIndex, isNull);
+    expect(state.isTrackTransitioning, isFalse);
+    expect(state.errorMessage, 'Bad state: reload failed');
   });
 
   group('播放失败恢复和缓冲状态', () {
@@ -795,6 +833,19 @@ void main() {
       harness.audioPlayer.emitCustomEvent(
         _queueStateEvent(
           transitionId: 50,
+          currentIndex: 0,
+          manualSkipTargetActive: false,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      state = harness.container.read(playerControllerProvider);
+      expect(state.currentTrack?.id, 'song-1');
+      expect(state.displayTrack?.id, 'song-3');
+      expect(state.isTrackTransitioning, isTrue);
+
+      harness.audioPlayer.emitCustomEvent(
+        _queueStateEvent(
+          transitionId: 50,
           currentIndex: 2,
           manualSkipTargetActive: false,
         ),
@@ -924,6 +975,7 @@ void main() {
     expect(apiClient.requests, isEmpty);
     expect(audioPlayer.setSourceCallCount, 1);
     expect(audioPlayer.lastSetSourceTrack?.url, isEmpty);
+    expect(audioPlayer.lastSetSourceForcedQualityName, 'FLAC');
     expect(
       container.read(playerControllerProvider).currentSelectedQualityName,
       'FLAC',
@@ -1474,6 +1526,7 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   List<AudioTrack> lastQueueTracks = const <AudioTrack>[];
   int? lastQueueInitialIndex;
   AudioTrack? lastSetSourceTrack;
+  String? lastSetSourceForcedQualityName;
   int setSourceCallCount = 0;
   bool lastSetQueueForceReloadCurrent = false;
   bool lastSetQueueIsRadioMode = false;
@@ -1551,9 +1604,10 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   }
 
   @override
-  Future<void> setSource(AudioTrack track) async {
+  Future<void> setSource(AudioTrack track, {String? forcedQualityName}) async {
     setSourceCallCount += 1;
     lastSetSourceTrack = track;
+    lastSetSourceForcedQualityName = forcedQualityName;
     lastQueueTracks = <AudioTrack>[track];
     lastQueueInitialIndex = 0;
     await setSourceCompleter?.future;

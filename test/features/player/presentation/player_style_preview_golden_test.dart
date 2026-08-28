@@ -453,7 +453,7 @@ class _PreviewAudioPlayerPort implements AudioPlayerPort {
   }) async {}
 
   @override
-  Future<void> setSource(AudioTrack track) async {}
+  Future<void> setSource(AudioTrack track, {String? forcedQualityName}) async {}
 
   @override
   Future<void> playAt(int index) async {}

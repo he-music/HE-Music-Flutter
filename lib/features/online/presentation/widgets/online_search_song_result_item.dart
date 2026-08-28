@@ -96,7 +96,7 @@ class _OnlineSearchSongResultItemState
     final isCurrent = ref.watch(
       playerControllerProvider.select(
         (state) => isCurrentSongIdentity(
-          currentTrackIdentityOf(state.currentTrack),
+          currentTrackIdentityOf(state.displayTrack),
           song,
         ),
       ),

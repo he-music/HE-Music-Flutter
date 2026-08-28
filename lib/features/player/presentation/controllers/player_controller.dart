@@ -873,7 +873,10 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         _guardTrackSwitchRequest(requestId);
         await _queueManager.persistQueueState(this);
         _guardTrackSwitchRequest(requestId);
-        await _audioPlayer.setSource(_toAudioTrack(resolution.track));
+        await _audioPlayer.setSource(
+          _toAudioTrack(resolution.track),
+          forcedQualityName: matchedOption.name,
+        );
         _guardTrackSwitchRequest(requestId);
         state = state.copyWith(clearPlaybackFailure: true);
         if (resumePosition > Duration.zero) {
@@ -939,9 +942,10 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     required int index,
     required bool autoplay,
     required PlayerPlaybackState playbackContext,
+    required int requestId,
+    required bool forceReloadCurrent,
     String? forcedQualityName,
   }) async {
-    final requestId = _beginTrackSwitchRequest();
     TrackPlaybackResolution? result;
     await _execute(() async {
       _guardTrackSwitchRequest(requestId);
@@ -957,6 +961,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         autoplay: autoplay,
         restoreProgress: false,
         playbackContext: playbackContext,
+        forceReloadCurrent: forceReloadCurrent,
       );
       _guardTrackSwitchRequest(requestId);
       result = resolution;
@@ -979,6 +984,8 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     final sessionTransitionId = autoplay
         ? _beginPlaybackSessionTransition()
         : null;
+    final requestId = _beginTrackSwitchRequest();
+    final previousState = state;
     if (!autoplay) {
       _endPlaybackSession();
     }
@@ -991,6 +998,10 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       );
       await _interruptPlaybackForTrackSwitch();
       final currentTrack = queue[targetIndex];
+      final forceReloadCurrent =
+          state.currentTrack != null &&
+          _queueManager.trackKey(state.currentTrack!) ==
+              _queueManager.trackKey(currentTrack);
       final availableQualities = _qualityManager.resolveAvailableQualities(
         currentTrack,
       );
@@ -1001,12 +1012,29 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         availableQualities: availableQualities,
         selectedQualityName: selectedQualityName,
       );
+      if (autoplay) {
+        // 播放器正式索引仍指向已加载歌曲；展示索引先指向用户刚点击的目标。
+        // 音源加载失败时会按 requestId 回滚，避免把未成功的歌曲当成当前歌曲。
+        state = playbackContext.copyWith(
+          currentIndex: state.currentIndex,
+          isPlaying: state.isPlaying,
+          isLoading: state.isLoading,
+          isPlaybackSessionActive: state.isPlaybackSessionActive,
+          position: state.position,
+          duration: state.duration,
+          bufferedPosition: state.bufferedPosition,
+          requestedTrackIndex: targetIndex,
+          requestedTransitionId: requestId,
+        );
+      }
       _streamManager.markFreshPositionPending();
       final resolution = await _reloadQueueAt(
         queue: queue,
         index: targetIndex,
         autoplay: autoplay,
         playbackContext: playbackContext,
+        requestId: requestId,
+        forceReloadCurrent: forceReloadCurrent,
       );
       if (resolution == null) {
         return;
@@ -1032,6 +1060,22 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       unawaited(_syncAutoLyricHighlightColor());
       await _queueManager.persistQueueState(this);
     } catch (_) {
+      if (autoplay &&
+          requestId == _trackSwitchRequestId &&
+          state.requestedTransitionId == requestId) {
+        final liveState = state;
+        state = previousState.copyWith(
+          isPlaying: liveState.isPlaying,
+          isLoading: liveState.isLoading,
+          isPlaybackSessionActive: liveState.isPlaybackSessionActive,
+          position: liveState.position,
+          duration: liveState.duration,
+          bufferedPosition: liveState.bufferedPosition,
+          errorMessage: liveState.errorMessage,
+          clearRequestedTrackIndex: true,
+          clearRequestedTransitionId: true,
+        );
+      }
       if (sessionTransitionId != null) {
         _failPlaybackSessionTransition(sessionTransitionId);
       }
@@ -1234,6 +1278,19 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         ? event['transitionId'] as int
         : null;
     final manualSkipTargetActive = event['manualSkipTargetActive'] == true;
+    final pendingTrack = state.requestedTrack;
+    if (pendingTrack != null && !manualSkipTargetActive) {
+      final pendingTrackKey = _queueManager.trackKey(pendingTrack);
+      final incomingTrackKey = currentTrack == null
+          ? null
+          : _queueManager.trackKey(currentTrack);
+      // 旧音源的预加载可能晚到；不能用旧 queueState 覆盖最新点击目标。
+      if (queue.isNotEmpty &&
+          incomingTrackKey != null &&
+          incomingTrackKey != pendingTrackKey) {
+        return;
+      }
+    }
     if (queue.isEmpty) {
       _endPlaybackSession();
     }
@@ -1432,6 +1489,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     required int currentIndex,
     required bool autoplay,
     required bool restoreProgress,
+    bool forceReloadCurrent = true,
     PlayerPlaybackState? playbackContext,
   }) async {
     final context = playbackContext ?? state;
@@ -1439,7 +1497,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     await _audioPlayer.setQueue(
       queue.map(_toAudioTrack).toList(growable: false),
       initialIndex: currentIndex,
-      forceReloadCurrent: true,
+      forceReloadCurrent: forceReloadCurrent,
       isRadioMode: context.isRadioMode,
       currentRadioId: context.currentRadioId,
       currentRadioPlatform: context.currentRadioPlatform,
