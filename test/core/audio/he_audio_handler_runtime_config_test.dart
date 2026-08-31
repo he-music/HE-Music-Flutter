@@ -65,6 +65,61 @@ void main() {
     },
   );
 
+  test('本地歌曲切换回来后 queueState 仍保留音质信息', () async {
+    final queueEvents = <Map<String, dynamic>>[];
+    final handler = HeAudioHandler(
+      fetchLyricsOverride:
+          ({
+            required String trackId,
+            String? platform,
+            String? localPath,
+          }) async => const LyricDocument.empty(),
+      setAudioSourceOverride: (source, player) async => null,
+      playOverride: (player) async {},
+    );
+    addTearDown(handler.disposeHandler);
+    final subscription = handler.customEvent.listen((event) {
+      if (event is Map<String, dynamic> && event['type'] == 'queueState') {
+        queueEvents.add(event);
+      }
+    });
+    addTearDown(subscription.cancel);
+
+    const tracks = <AudioTrack>[
+      AudioTrack(
+        id: 'local-1',
+        title: '本地歌曲 1',
+        url: '',
+        path: '/music/one.mp3',
+        platform: 'local',
+        format: 'MP3',
+        bitrate: 320,
+        sampleRate: 44100,
+      ),
+      AudioTrack(
+        id: 'local-2',
+        title: '本地歌曲 2',
+        url: '',
+        path: '/music/two.flac',
+        platform: 'local',
+        format: 'FLAC',
+        bitrate: 999,
+        sampleRate: 96000,
+      ),
+    ];
+
+    await handler.setQueueData(tracks, initialIndex: 0);
+    await handler.playIndex(1);
+    await handler.playIndex(0);
+
+    final lastQueue = queueEvents.last;
+    final serializedTracks = lastQueue['tracks'] as List<dynamic>;
+    final restoredFirst = serializedTracks.first as Map<String, dynamic>;
+    expect(restoredFirst['format'], 'MP3');
+    expect(restoredFirst['bitrate'], 320);
+    expect(restoredFirst['sampleRate'], 44100);
+  });
+
   test('切歌时 song url 401 应刷新 token 并重放原请求', () async {
     HttpOverrides.global = null;
     final server = await _AudioRefreshTestServer.start();

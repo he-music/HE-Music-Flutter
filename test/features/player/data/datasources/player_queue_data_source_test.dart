@@ -181,6 +181,9 @@ void main() {
         mvId: 'mv-1',
         artworkUrl: 'https://a.com/cover.jpg',
         platform: 'qq',
+        format: 'FLAC',
+        bitrate: 999,
+        sampleRate: 96000,
       );
 
       await ds.saveQueue(
@@ -202,6 +205,9 @@ void main() {
       expect(restored.mvId, 'mv-1');
       expect(restored.artworkUrl, 'https://a.com/cover.jpg');
       expect(restored.platform, 'qq');
+      expect(restored.format, 'FLAC');
+      expect(restored.bitrate, 999);
+      expect(restored.sampleRate, 96000);
     });
 
     test('损坏的 JSON 应返回 null 而非抛异常', () async {

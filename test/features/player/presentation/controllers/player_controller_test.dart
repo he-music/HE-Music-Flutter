@@ -810,6 +810,38 @@ void main() {
       expect(state.displayTrack?.id, 'song-1');
     });
 
+    test('切歌后的 queueState 应保留本地歌曲音质信息', () async {
+      final harness = await _createTargetPreviewHarness();
+      harness.audioPlayer.emitCustomEvent(
+        _queueStateEvent(
+          transitionId: 60,
+          currentIndex: 0,
+          manualSkipTargetActive: false,
+          tracks: <Map<String, dynamic>>[
+            _trackEventMap(
+              const PlayerTrack(
+                id: 'local-song',
+                title: '本地歌曲',
+                platform: 'local',
+                format: 'MP3',
+                bitrate: 320,
+                sampleRate: 44100,
+              ),
+            ),
+          ],
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final track = harness.container
+          .read(playerControllerProvider)
+          .currentTrack;
+      expect(track?.platform, 'local');
+      expect(track?.format, 'MP3');
+      expect(track?.bitrate, 320);
+      expect(track?.sampleRate, 44100);
+    });
+
     test('活跃 queueState 保留 pending，正式提交原子更新并清理', () async {
       final harness = await _createTargetPreviewHarness();
       harness.audioPlayer.emitCustomEvent(
@@ -1494,6 +1526,9 @@ Map<String, dynamic> _trackEventMap(PlayerTrack track) {
     'album': track.album,
     'artworkUrl': track.artworkUrl,
     'platform': track.platform,
+    'format': track.format,
+    'bitrate': track.bitrate,
+    'sampleRate': track.sampleRate,
     'links': const <Map<String, dynamic>>[],
   };
 }

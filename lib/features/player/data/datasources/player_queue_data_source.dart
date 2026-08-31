@@ -115,6 +115,9 @@ class PlayerQueueDataSource {
       'mv_id': track.mvId,
       'artwork_url': track.artworkUrl,
       'platform': track.platform,
+      'format': track.format,
+      'bitrate': track.bitrate,
+      'sample_rate': track.sampleRate,
       'links': track.links.map(_linkToMap).toList(growable: false),
     };
   }
@@ -177,6 +180,9 @@ class PlayerQueueDataSource {
       mvId: _nullableString(raw['mv_id']),
       artworkUrl: _nullableString(raw['artwork_url']),
       platform: _nullableString(raw['platform']),
+      format: _nullableString(raw['format']),
+      bitrate: _toInt(raw['bitrate']),
+      sampleRate: _toInt(raw['sample_rate']),
     );
   }
 

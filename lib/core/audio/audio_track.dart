@@ -12,6 +12,9 @@ class AudioTrack {
     this.album,
     this.artworkUrl,
     this.platform,
+    this.format,
+    this.bitrate,
+    this.sampleRate,
   });
 
   final String id;
@@ -24,4 +27,7 @@ class AudioTrack {
   final String? album;
   final String? artworkUrl;
   final String? platform;
+  final String? format;
+  final int? bitrate;
+  final int? sampleRate;
 }

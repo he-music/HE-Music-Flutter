@@ -1578,6 +1578,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         album: track.album,
         artworkUrl: track.artworkUrl,
         platform: track.platform,
+        format: track.format,
+        bitrate: track.bitrate,
+        sampleRate: track.sampleRate,
       );
     }
     if (!shouldRefreshRemotePlaybackUrl(track)) {
@@ -1602,6 +1605,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           album: track.album,
           artworkUrl: track.artworkUrl,
           platform: track.platform,
+          format: track.format,
+          bitrate: track.bitrate,
+          sampleRate: track.sampleRate,
         );
       }
       return track;
@@ -1645,6 +1651,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       album: track.album,
       artworkUrl: track.artworkUrl,
       platform: track.platform,
+      format: track.format,
+      bitrate: track.bitrate,
+      sampleRate: track.sampleRate,
     );
   }
 
@@ -2904,6 +2913,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       'album': track.album,
       'artworkUrl': track.artworkUrl,
       'platform': track.platform,
+      'format': track.format,
+      'bitrate': track.bitrate,
+      'sampleRate': track.sampleRate,
       'links': track.links.map(_serializeLink).toList(growable: false),
     };
   }

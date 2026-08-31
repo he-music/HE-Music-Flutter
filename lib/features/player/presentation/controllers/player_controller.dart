@@ -1183,6 +1183,9 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       path: track.path,
       artworkUrl: track.artworkUrl,
       platform: track.platform,
+      format: track.format,
+      bitrate: track.bitrate,
+      sampleRate: track.sampleRate,
     );
   }
 
@@ -1642,6 +1645,9 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       album: _nullableStringFromEvent(raw['album']),
       artworkUrl: _nullableStringFromEvent(raw['artworkUrl']),
       platform: _nullableStringFromEvent(raw['platform']),
+      format: _nullableStringFromEvent(raw['format']),
+      bitrate: raw['bitrate'] as int?,
+      sampleRate: raw['sampleRate'] as int?,
     );
   }
 
