@@ -139,6 +139,31 @@ void main() {
     expect(image.gaplessPlayback, isTrue);
   });
 
+  testWidgets(
+    'mini player uses unique cover keys during rapid track reversal',
+    (tester) async {
+      late _TestPendingTrackMiniPlayerController controller;
+      await tester.pumpWidget(
+        _buildMiniPlayerTestApp(
+          controllerFactory: () {
+            controller = _TestPendingTrackMiniPlayerController();
+            return controller;
+          },
+        ),
+      );
+      await tester.pump();
+
+      controller.requestTrack(1);
+      await tester.pump();
+      controller.commitTrack(1);
+      await tester.pump();
+      controller.commitTrack(0);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('mini player previews each target during repeated next swipes', (
     tester,
   ) async {
@@ -440,6 +465,14 @@ class _TestPendingTrackMiniPlayerController extends PlayerController {
     state = state.copyWith(
       requestedTrackIndex: index,
       requestedTransitionId: 1,
+    );
+  }
+
+  void commitTrack(int index) {
+    state = state.copyWith(
+      currentIndex: index,
+      clearRequestedTrackIndex: true,
+      clearRequestedTransitionId: true,
     );
   }
 }

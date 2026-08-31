@@ -34,6 +34,22 @@ class MiniPlayerBar extends ConsumerStatefulWidget {
 
 class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
   final _selectionProjector = _MiniPlayerSelectionProjector();
+  Object? _lastCoverIdentity;
+  var _coverKeyGeneration = 0;
+
+  Object _coverKeyForTrack(_MiniPlayerTrack track) {
+    final identity = (
+      track.platform,
+      track.id,
+      track.artworkUrl,
+      track.artworkBytes,
+    );
+    if (_lastCoverIdentity != identity) {
+      _lastCoverIdentity = identity;
+      _coverKeyGeneration++;
+    }
+    return (_coverKeyGeneration, identity);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +111,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                         switchInCurve: Curves.easeOut,
                         switchOutCurve: Curves.easeIn,
                         child: _CoverImage(
-                          key: ValueKey<Object>(_coverKey(track)),
+                          key: ValueKey<Object>(_coverKeyForTrack(track)),
                           url: track.artworkUrl,
                           bytes: track.artworkBytes,
                         ),
@@ -550,11 +566,6 @@ _MiniPlayerTrack _miniPlayerTrackOf(PlayerTrack track) {
     artworkUrl: track.artworkUrl,
     artworkBytes: track.artworkBytes,
   );
-}
-
-// 歌曲或封面来源变化时保留旧封面，让 AnimatedSwitcher 完成交叉淡化。
-Object _coverKey(_MiniPlayerTrack track) {
-  return (track.platform, track.id, track.artworkUrl, track.artworkBytes);
 }
 
 class _MiniRadioModeIcon extends StatelessWidget {
