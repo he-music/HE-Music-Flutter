@@ -327,6 +327,37 @@ void main() {
     );
   });
 
+  testWidgets('local tracks use the cover without requesting artist photos', (
+    tester,
+  ) async {
+    final cache = _TestArtistPhotoCache(
+      (_) => throw StateError('local tracks must not request artist photos'),
+    );
+    final container = _createContainer(cache);
+    addTearDown(container.dispose);
+    final localTrack = ValueNotifier<PlayerTrack>(
+      const PlayerTrack(
+        id: 'local-track',
+        title: 'Local track',
+        artist: 'Local artist',
+        platform: 'local',
+      ),
+    );
+    addTearDown(localTrack.dispose);
+
+    await tester.pumpWidget(
+      _buildTrackDynamicArtistBackdrop(container, localTrack),
+    );
+    await tester.pump();
+
+    expect(
+      _artistPhotoStateFinder(ArtistPhotoVisualState.coverFallback),
+      findsOne,
+    );
+    expect(cache.requestedDirections, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('empty artist photo result displays the full-screen cover', (
     tester,
   ) async {

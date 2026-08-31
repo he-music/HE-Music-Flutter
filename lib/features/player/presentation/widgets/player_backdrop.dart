@@ -188,7 +188,7 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   /// 构建与 provider 一致的缓存 key，用于查找缓存。
   String? _resolveCacheKey(PlayerTrack track) {
     final platform = (track.platform ?? '').trim();
-    if (platform.isEmpty) return null;
+    if (platform.isEmpty || platform == 'local') return null;
     final ids = track.artists
         .map((a) => a.id.trim())
         .where((id) => id.isNotEmpty)
