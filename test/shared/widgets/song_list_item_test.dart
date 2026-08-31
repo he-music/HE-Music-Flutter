@@ -55,6 +55,23 @@ void main() {
       );
     });
 
+    testWidgets('歌曲按压墨水应绘制在本地透明 Material 上', (tester) async {
+      await tester.pumpWidget(
+        _wrap(SongListItem(data: basicData, onTap: () {})),
+      );
+
+      final localMaterial = find.descendant(
+        of: find.byType(SongListItem),
+        matching: find.byType(Material),
+      );
+
+      expect(localMaterial, findsOneWidget);
+      expect(
+        tester.widget<Material>(localMaterial).type,
+        MaterialType.transparency,
+      );
+    });
+
     testWidgets('isCurrent 为 true 时标题应使用 primary 颜色', (tester) async {
       final data = SongListItemData(
         title: 'Current',

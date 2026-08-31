@@ -298,13 +298,17 @@ class SongListItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         decoration: BoxDecoration(color: backgroundColor),
-        child: footer == null
-            ? songRow
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[songRow, footer!],
-              ),
+        // 墨水必须绘制在选中背景和皮肤表面之上，否则按压反馈会被背景层遮挡。
+        child: Material(
+          type: MaterialType.transparency,
+          child: footer == null
+              ? songRow
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[songRow, footer!],
+                ),
+        ),
       ),
     );
   }
