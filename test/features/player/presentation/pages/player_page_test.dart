@@ -755,6 +755,28 @@ void main() {
     expect(find.text('HQ'), findsWidgets);
   });
 
+  testWidgets('local player shows read-only audio quality', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _LocalTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    await _scrollPlayerMoreSheetTo(tester, 'Quality');
+
+    expect(find.text('Quality'), findsOneWidget);
+    expect(find.text('MP3 · 320 kbps'), findsWidgets);
+
+    await tester.tap(find.text('Quality'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose Quality'), findsNothing);
+  });
+
   testWidgets('player more sheet shows detail entry for online track', (
     tester,
   ) async {
@@ -2507,6 +2529,9 @@ class _LocalTrackPlayerController extends PlayerController {
         artist: '本地歌手',
         album: '本地专辑',
         platform: 'local',
+        format: 'MP3',
+        bitrate: 320,
+        sampleRate: 44100,
       ),
     ]);
   }

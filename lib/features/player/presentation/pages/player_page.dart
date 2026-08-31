@@ -857,7 +857,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 PlayerSheetActionTile(
                   icon: Icons.high_quality_rounded,
                   title: AppI18n.t(config, 'player.action.quality'),
-                  subtitle: currentSelectedQualityOption?.name,
+                  subtitle: canOnline
+                      ? currentSelectedQualityOption?.name
+                      : track?.audioQualityLabel,
                   enabled: canOnline && currentAvailableQualities.isNotEmpty,
                   onTap: canOnline && currentAvailableQualities.isNotEmpty
                       ? () async {

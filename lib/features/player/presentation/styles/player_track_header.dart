@@ -121,6 +121,7 @@ class PlayerTrackHeader extends ConsumerWidget {
           )
         : false;
     final quality = _findQualityByName(qualities, qualityName);
+    final qualityLabel = quality?.name ?? track?.audioQualityLabel;
     if (layout == PlayerTrackHeaderLayout.cassetteLabel) {
       final palette = scenePalette ?? CassettePlayerPalette.fallback;
       return LayoutBuilder(
@@ -217,12 +218,12 @@ class PlayerTrackHeader extends ConsumerWidget {
                     ),
                     if (showCassetteMetadataBadges) const SizedBox(width: 5),
                     if (showCassetteMetadataBadges &&
-                        quality != null &&
+                        qualityLabel != null &&
                         !presentation.isTrackTransitioning) ...<Widget>[
                       _PlayerMetadataBadge(
                         key: const ValueKey<String>('player-quality-badge'),
-                        label: quality.name,
-                        onTap: onOpenQuality,
+                        label: qualityLabel,
+                        onTap: quality == null ? null : onOpenQuality,
                         compact: true,
                       ),
                       const SizedBox(width: 4),
@@ -319,12 +320,12 @@ class PlayerTrackHeader extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (quality != null &&
+                if (qualityLabel != null &&
                     !presentation.isTrackTransitioning) ...<Widget>[
                   _PlayerMetadataBadge(
                     key: const ValueKey<String>('player-quality-badge'),
-                    label: quality.name,
-                    onTap: onOpenQuality,
+                    label: qualityLabel,
+                    onTap: quality == null ? null : onOpenQuality,
                   ),
                   const SizedBox(width: 6),
                 ],
@@ -619,7 +620,7 @@ class _PlayerMetadataBadge extends StatelessWidget {
   });
 
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool compact;
 
   @override

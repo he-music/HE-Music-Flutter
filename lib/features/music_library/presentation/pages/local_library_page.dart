@@ -182,6 +182,9 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
       url: '',
       artworkUrl: artworkUrl,
       artworkBytes: song.artworkBytes,
+      format: song.formatLabel.isEmpty ? null : song.formatLabel,
+      bitrate: song.bitrate,
+      sampleRate: song.sampleRate,
       platform: 'local',
     );
   }

@@ -18,6 +18,9 @@ class PlayerTrack {
     this.artworkUrl,
     this.artworkBytes,
     this.platform,
+    this.format,
+    this.bitrate,
+    this.sampleRate,
   });
 
   final String id;
@@ -34,6 +37,17 @@ class PlayerTrack {
   final String? artworkUrl;
   final Uint8List? artworkBytes;
   final String? platform;
+  final String? format;
+  final int? bitrate;
+  final int? sampleRate;
+
+  String? get audioQualityLabel {
+    final parts = <String>[
+      if ((format ?? '').trim().isNotEmpty) format!.trim(),
+      if (bitrate != null && bitrate! > 0) '$bitrate kbps',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
 
   PlayerTrack copyWith({
     String? id,
@@ -50,6 +64,9 @@ class PlayerTrack {
     String? artworkUrl,
     Uint8List? artworkBytes,
     String? platform,
+    String? format,
+    int? bitrate,
+    int? sampleRate,
   }) {
     return PlayerTrack(
       id: id ?? this.id,
@@ -66,6 +83,9 @@ class PlayerTrack {
       artworkUrl: artworkUrl ?? this.artworkUrl,
       artworkBytes: artworkBytes ?? this.artworkBytes,
       platform: platform ?? this.platform,
+      format: format ?? this.format,
+      bitrate: bitrate ?? this.bitrate,
+      sampleRate: sampleRate ?? this.sampleRate,
     );
   }
 }

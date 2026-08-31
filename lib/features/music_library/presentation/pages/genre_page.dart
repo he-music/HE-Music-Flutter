@@ -113,6 +113,9 @@ class GenrePage extends ConsumerWidget {
       url: '',
       artworkUrl: artworkFile?.path,
       artworkBytes: song.artworkBytes,
+      format: song.formatLabel.isEmpty ? null : song.formatLabel,
+      bitrate: song.bitrate,
+      sampleRate: song.sampleRate,
       platform: 'local',
     );
     await ref.read(playerControllerProvider.notifier).insertNextAndPlay(track);
