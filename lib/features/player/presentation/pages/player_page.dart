@@ -19,6 +19,7 @@ import '../../../../app/theme/player/app_player_style_registry.dart';
 import '../../../../app/theme/player/styles/cassette_player_palette.dart';
 import '../../../../app/theme/player/styles/classic_player_palette.dart';
 import '../../../../core/device/screen_wake_lock.dart';
+import '../../../../core/audio/audio_sleep_timer.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
@@ -41,7 +42,9 @@ import '../controllers/realtime_spectrum_controller.dart';
 import '../helpers/player_artwork_helper.dart';
 import '../layout/player_layout_spec.dart';
 import '../layout/player_responsive_layout.dart';
+import '../providers/player_audio_provider.dart';
 import '../providers/player_providers.dart';
+import '../providers/player_sleep_timer_provider.dart';
 import '../styles/player_style_stage.dart';
 import '../styles/player_track_header.dart';
 import '../widgets/player_backdrop.dart';
@@ -51,6 +54,7 @@ import '../widgets/player_lyric_page.dart';
 import '../widgets/player_more_sheet_widgets.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/player_queue_sheet.dart';
+import '../widgets/player_sleep_timer_sheet.dart';
 import '../widgets/player_style_selection_sheet.dart';
 
 class PlayerPage extends ConsumerStatefulWidget {
@@ -715,6 +719,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 track.title.trim().isNotEmpty &&
                 searchPlatformId != null;
             final config = ref.read(appConfigProvider);
+            final sleepTimerPort = ref.watch(sleepTimerAudioPortProvider);
+            final sleepTimer = ref.watch(sleepTimerStateProvider).value;
+            var sleepTimerNow = DateTime.now();
+            if (sleepTimer != null &&
+                sleepTimer.isActive &&
+                !sleepTimer.waitingForTrackEnd) {
+              sleepTimerNow =
+                  ref.watch(sleepTimerNowProvider).value ?? sleepTimerNow;
+            }
             final platforms =
                 ref.read(onlinePlatformsProvider).value ??
                 const <OnlinePlatform>[];
@@ -786,6 +799,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                     Navigator.of(sheetContext).pop();
                     _openVolumeSheet(rootContext, controller, volume);
                   },
+                ),
+                PlayerSheetActionTile(
+                  icon: Icons.bedtime_rounded,
+                  title: AppI18n.t(config, 'player.sleep_timer.title'),
+                  subtitle: formatSleepTimerSummary(
+                    config,
+                    sleepTimer ?? SleepTimerState.inactive,
+                    sleepTimerNow,
+                  ),
+                  enabled: sleepTimerPort != null,
+                  onTap: sleepTimerPort == null
+                      ? null
+                      : () {
+                          Navigator.of(sheetContext).pop();
+                          _openSleepTimerSheet(rootContext);
+                        },
                 ),
                 PlayerSheetActionTile(
                   icon: Icons.palette_outlined,
@@ -1057,6 +1086,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => const PlayerStyleSelectionSheet(),
+    );
+  }
+
+  void _openSleepTimerSheet(BuildContext context) {
+    showPlayerStyledBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => const PlayerSleepTimerSheet(),
     );
   }
 

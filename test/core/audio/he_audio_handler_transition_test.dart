@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:audio_service/audio_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/core/audio/audio_sleep_timer.dart';
 import 'package:he_music_flutter/core/audio/audio_track.dart';
 import 'package:he_music_flutter/core/audio/he_audio_handler.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
@@ -61,6 +62,95 @@ void main() {
 
     expect(handler.mediaItem.value?.id, 'song-1');
     expect(handler.playbackState.value.queueIndex, 1);
+  });
+
+  test('定时到点直接暂停播放并清理状态', () async {
+    var pauseCount = 0;
+    final states = <SleepTimerState>[];
+    final handler = _buildLocalHandler(
+      setAudioSource: (source, player) async => null,
+      pause: (player) async {
+        pauseCount += 1;
+      },
+    );
+    addTearDown(handler.disposeHandler);
+    await handler.setQueueData(_localQueue(2));
+    final subscription = _recordSleepTimerStates(handler, states);
+    addTearDown(subscription.cancel);
+
+    await handler.customAction(AudioSleepTimerActions.set, <String, dynamic>{
+      AudioSleepTimerFields.durationMs: 60000,
+      AudioSleepTimerFields.stopAfterCurrent: false,
+    });
+    await Future<void>.delayed(Duration.zero);
+
+    expect(states.last.isActive, isTrue);
+    await handler.expireSleepTimerForTesting();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(pauseCount, 1);
+    expect(handler.currentSleepTimerState.isActive, isFalse);
+    expect(states.last, SleepTimerState.inactive);
+    expect(handler.playbackState.value.queueIndex, 0);
+  });
+
+  test('定时到点后可等待当前歌曲播完再暂停', () async {
+    var pauseCount = 0;
+    final loadedIds = <String>[];
+    final handler = _buildLocalHandler(
+      setAudioSource: (source, player) async {
+        loadedIds.add(_sourceId(source));
+        return null;
+      },
+      pause: (player) async {
+        pauseCount += 1;
+      },
+    );
+    addTearDown(handler.disposeHandler);
+    await handler.setQueueData(_localQueue(3));
+
+    await handler.customAction(AudioSleepTimerActions.set, <String, dynamic>{
+      AudioSleepTimerFields.durationMs: 60000,
+      AudioSleepTimerFields.stopAfterCurrent: true,
+    });
+    await handler.expireSleepTimerForTesting();
+
+    expect(pauseCount, 0);
+    expect(handler.currentSleepTimerState.waitingForTrackEnd, isTrue);
+
+    await handler.handlePlaybackCompletedForTesting();
+    await handler.handlePlaybackCompletedForTesting();
+
+    expect(pauseCount, 1);
+    expect(handler.currentSleepTimerState.isActive, isFalse);
+    expect(handler.playbackState.value.queueIndex, 0);
+    expect(loadedIds, <String>['song-0']);
+  });
+
+  test('定时等待本首结束后手动切歌会清理等待标记', () async {
+    var pauseCount = 0;
+    final handler = _buildLocalHandler(
+      setAudioSource: (source, player) async => null,
+      pause: (player) async {
+        pauseCount += 1;
+      },
+    );
+    addTearDown(handler.disposeHandler);
+    await handler.setQueueData(_localQueue(3));
+
+    await handler.customAction(AudioSleepTimerActions.set, <String, dynamic>{
+      AudioSleepTimerFields.durationMs: 60000,
+      AudioSleepTimerFields.stopAfterCurrent: true,
+    });
+    await handler.expireSleepTimerForTesting();
+
+    expect(handler.currentSleepTimerState.waitingForTrackEnd, isTrue);
+
+    await handler.playIndex(1);
+
+    expect(handler.currentSleepTimerState.isActive, isFalse);
+    expect(handler.playbackState.value.queueIndex, 1);
+    expect(pauseCount, 0);
   });
 
   test('手动下一曲取消正在准备的自动切歌并越过自动目标', () async {
@@ -646,10 +736,12 @@ void main() {
 HeAudioHandler _buildLocalHandler({
   required HeAudioHandlerSetAudioSource setAudioSource,
   HeAudioHandlerPlay? play,
+  HeAudioHandlerPause? pause,
 }) {
   return HeAudioHandler(
     setAudioSourceOverride: setAudioSource,
     playOverride: play ?? (player) async {},
+    pauseOverride: pause,
     disposeOverride: (player) async {},
   );
 }
@@ -690,6 +782,18 @@ StreamSubscription<dynamic> _recordManualSkipTargets(
   return handler.customEvent.listen((event) {
     if (event is Map && event['type'] == 'manualSkipTarget') {
       events.add(event);
+    }
+  });
+}
+
+StreamSubscription<dynamic> _recordSleepTimerStates(
+  HeAudioHandler handler,
+  List<SleepTimerState> states,
+) {
+  return handler.customEvent.listen((event) {
+    final state = SleepTimerState.fromCustomEvent(event);
+    if (state != null) {
+      states.add(state);
     }
   });
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
 import 'package:he_music_flutter/core/audio/audio_spectrum_frame.dart';
 import 'package:he_music_flutter/core/audio/audio_spectrum_port.dart';
+import 'package:he_music_flutter/core/audio/audio_sleep_timer.dart';
 import 'package:he_music_flutter/core/device/screen_wake_lock.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/favorite_song_status_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
@@ -589,6 +591,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add to Playlist'), findsNothing);
+  });
+
+  testWidgets('custom sleep timer picker loops hour and minute columns', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    await _scrollPlayerMoreSheetTo(tester, 'Sleep Timer');
+    await tester.tap(find.text('Sleep Timer'));
+    await tester.pumpAndSettle();
+
+    await _scrollSleepTimerSheetTo(tester, 'Custom');
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+
+    final pickers = tester
+        .widgetList<CupertinoPicker>(find.byType(CupertinoPicker))
+        .toList();
+    expect(pickers, hasLength(2));
+    expect(pickers[0].childDelegate, isA<ListWheelChildLoopingListDelegate>());
+    expect(pickers[1].childDelegate, isA<ListWheelChildLoopingListDelegate>());
   });
 
   testWidgets('player style selection uses previews and preserves playback', (
@@ -1668,6 +1700,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Landscape Mode'), findsOneWidget);
+    await _scrollPlayerMoreSheetTo(tester, 'Landscape Mode');
     await tester.tap(find.text('Landscape Mode'));
     await tester.pumpAndSettle();
     expect(orientationRequests.last, <String>[
@@ -1701,6 +1734,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
+    await _scrollPlayerMoreSheetTo(tester, 'Landscape Mode');
     await tester.tap(find.text('Landscape Mode'));
     await tester.pumpAndSettle();
     expect(orientationRequests.last, <String>[
@@ -2211,6 +2245,9 @@ Widget _buildPlayerTestApp({
       audioSpectrumPortProvider.overrideWithValue(
         spectrumPort ?? const _NoopSpectrumPort(),
       ),
+      sleepTimerAudioPortProvider.overrideWithValue(
+        const _NoopSleepTimerAudioPort(),
+      ),
       if (spectrumController != null)
         realtimeSpectrumControllerProvider.overrideWith(
           () => spectrumController,
@@ -2239,6 +2276,18 @@ Future<void> _scrollPlayerMoreSheetTo(WidgetTester tester, String label) async {
     120,
     scrollable: find.descendant(
       of: find.byKey(const ValueKey<String>('player-more-sheet-list')),
+      matching: find.byType(Scrollable),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _scrollSleepTimerSheetTo(WidgetTester tester, String label) async {
+  await tester.scrollUntilVisible(
+    find.text(label),
+    120,
+    scrollable: find.descendant(
+      of: find.byKey(const ValueKey<String>('player-sleep-timer-sheet-list')),
       matching: find.byType(Scrollable),
     ),
   );
@@ -2378,6 +2427,26 @@ class _NoopSpectrumPort implements AudioSpectrumPort {
 
   @override
   Future<void> stopSpectrumCapture() async {}
+}
+
+class _NoopSleepTimerAudioPort implements SleepTimerAudioPort {
+  const _NoopSleepTimerAudioPort();
+
+  @override
+  SleepTimerState get currentSleepTimerState => SleepTimerState.inactive;
+
+  @override
+  Stream<SleepTimerState> get sleepTimerStateStream =>
+      const Stream<SleepTimerState>.empty();
+
+  @override
+  Future<void> setSleepTimer(
+    Duration duration, {
+    required bool stopAfterCurrent,
+  }) async {}
+
+  @override
+  Future<void> cancelSleepTimer() async {}
 }
 
 class _RecordingScreenWakeLockPort implements ScreenWakeLockPort {

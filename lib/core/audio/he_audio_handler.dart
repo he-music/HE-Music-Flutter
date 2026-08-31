@@ -31,6 +31,7 @@ import '../device/device_info_provider.dart';
 import '../network/auth_token_interceptor.dart';
 import '../network/network_status_port.dart';
 import '../network/token_refresh_interceptor.dart';
+import 'audio_sleep_timer.dart';
 import 'audio_player_port.dart';
 import 'audio_player_factory.dart';
 import 'audio_spectrum_frame.dart';
@@ -313,10 +314,16 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   int _transitionId = 0;
   Timer? _manualSkipDebounceTimer;
   Timer? _manualSkipMaxBatchTimer;
+  Timer? _sleepTimer;
   List<int>? _desiredShuffleOrder;
   int? _desiredShuffleCursor;
   int _desiredDirection = 1;
   bool _manualSkipTargetActive = false;
+  DateTime? _sleepTimerDeadline;
+  bool _sleepTimerStopAfterCurrent = false;
+  bool _sleepTimerWaitingForTrackEnd = false;
+  String? _sleepTimerTrackKey;
+  int? _sleepTimerSourceGeneration;
   Duration? _duration;
   bool _shuffleEnabled = false;
   bool _singleLoopEnabled = false;
@@ -476,6 +483,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       radioPageIndex: _normalizePageIndex(currentRadioPageIndex),
     );
     if (stagedTracks.isEmpty) {
+      final hadSleepTimer = _clearSleepTimerState();
       _guardTransition(transitionId);
       _tracks = const <AudioTrack>[];
       _committedIndex = 0;
@@ -489,6 +497,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _broadcastQueueState();
       _broadcastMediaItem();
       _broadcastPlaybackState();
+      if (hadSleepTimer) {
+        _broadcastSleepTimerState();
+      }
       return;
     }
     final nextCurrent = stagedTracks[targetIndex];
@@ -646,9 +657,143 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Stream<AudioSpectrumFrame> get spectrumFrameStream =>
       _spectrumFrameController.stream;
 
+  SleepTimerState get currentSleepTimerState => SleepTimerState(
+    deadline: _sleepTimerDeadline,
+    stopAfterCurrent: _sleepTimerStopAfterCurrent,
+    waitingForTrackEnd: _sleepTimerWaitingForTrackEnd,
+  );
+
   Future<void> startSpectrumCapture() => _setSpectrumCaptureTarget(true);
 
   Future<void> stopSpectrumCapture() => _setSpectrumCaptureTarget(false);
+
+  Future<void> setSleepTimer(
+    Duration duration, {
+    required bool stopAfterCurrent,
+  }) async {
+    if (duration <= Duration.zero) {
+      await cancelSleepTimer();
+      return;
+    }
+    _sleepTimer?.cancel();
+    _sleepTimerDeadline = _now().add(duration);
+    _sleepTimerStopAfterCurrent = stopAfterCurrent;
+    _sleepTimerWaitingForTrackEnd = false;
+    _sleepTimerTrackKey = null;
+    _sleepTimerSourceGeneration = null;
+    _sleepTimer = Timer(duration, () {
+      unawaited(_handleSleepTimerExpired());
+    });
+    _broadcastSleepTimerState();
+  }
+
+  Future<void> cancelSleepTimer() async {
+    _clearSleepTimerState();
+    _broadcastSleepTimerState();
+  }
+
+  @override
+  Future<dynamic> customAction(
+    String name, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    switch (name) {
+      case AudioSleepTimerActions.set:
+        final durationMs = extras?[AudioSleepTimerFields.durationMs];
+        if (durationMs is! int) {
+          return currentSleepTimerState.toCustomEvent();
+        }
+        await setSleepTimer(
+          Duration(milliseconds: durationMs),
+          stopAfterCurrent:
+              extras?[AudioSleepTimerFields.stopAfterCurrent] == true,
+        );
+        return currentSleepTimerState.toCustomEvent();
+      case AudioSleepTimerActions.cancel:
+        await cancelSleepTimer();
+        return currentSleepTimerState.toCustomEvent();
+      default:
+        return super.customAction(name, extras);
+    }
+  }
+
+  @visibleForTesting
+  Future<void> expireSleepTimerForTesting() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    return _handleSleepTimerExpired();
+  }
+
+  Future<void> _handleSleepTimerExpired() async {
+    if (_sleepTimerDeadline == null) {
+      return;
+    }
+    _sleepTimer = null;
+    if (_sleepTimerStopAfterCurrent) {
+      final current = _safeTrack(_committedIndex);
+      final generation = _armedSourceGeneration ?? _sourceGeneration;
+      if (current != null && generation > 0) {
+        _sleepTimerWaitingForTrackEnd = true;
+        _sleepTimerTrackKey = _trackCacheKey(current);
+        _sleepTimerSourceGeneration = generation;
+        _broadcastSleepTimerState();
+        return;
+      }
+    }
+    await _pausePlaybackForSleepTimer();
+  }
+
+  Future<void> _pausePlaybackForSleepTimer() async {
+    final transitionId = _beginTransition(clearExpiredSleepTimer: false);
+    _playIntent = false;
+    try {
+      await _pausePlayer();
+    } catch (error) {
+      _logSleepTimerFailure('sleep.timer.pause.failed', error);
+    } finally {
+      _clearSleepTimerState();
+      _broadcastPlaybackState();
+      _broadcastSleepTimerState();
+      _logTransition('sleep.timer.stopped', transitionId);
+    }
+  }
+
+  bool _shouldStopAfterCurrentForSleepTimer(int generation) {
+    if (!_sleepTimerStopAfterCurrent || !_sleepTimerWaitingForTrackEnd) {
+      return false;
+    }
+    if (generation != _sleepTimerSourceGeneration) {
+      return false;
+    }
+    final current = _safeTrack(_committedIndex);
+    return current != null && _sleepTimerTrackKey == _trackCacheKey(current);
+  }
+
+  bool _clearSleepTimerState() {
+    final hadState =
+        _sleepTimer != null ||
+        _sleepTimerDeadline != null ||
+        _sleepTimerStopAfterCurrent ||
+        _sleepTimerWaitingForTrackEnd ||
+        _sleepTimerTrackKey != null ||
+        _sleepTimerSourceGeneration != null;
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepTimerDeadline = null;
+    _sleepTimerStopAfterCurrent = false;
+    _sleepTimerWaitingForTrackEnd = false;
+    _sleepTimerTrackKey = null;
+    _sleepTimerSourceGeneration = null;
+    return hadState;
+  }
+
+  void _clearExpiredSleepTimerAfterTransition() {
+    if (!_sleepTimerWaitingForTrackEnd) {
+      return;
+    }
+    _clearSleepTimerState();
+    _broadcastSleepTimerState();
+  }
 
   Future<void> _setSpectrumCaptureTarget(bool target) {
     if (target && _spectrumDisposed) {
@@ -813,20 +958,23 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   @override
   Future<void> pause() async {
     _playIntent = false;
-    final override = _pauseOverride;
-    if (override == null) {
-      await _player.pause();
-    } else {
-      await override(_player);
+    await _pausePlayer();
+    if (_sleepTimerWaitingForTrackEnd) {
+      _clearSleepTimerState();
+      _broadcastSleepTimerState();
     }
   }
 
   @override
   Future<void> stop() async {
     _playIntent = false;
+    final hadSleepTimer = _clearSleepTimerState();
     _beginTransition();
     await _player.stop();
     _broadcastPlaybackState();
+    if (hadSleepTimer) {
+      _broadcastSleepTimerState();
+    }
   }
 
   @override
@@ -1043,6 +1191,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   Future<void> disposeHandler() async {
     _beginTransition();
+    _clearSleepTimerState();
     _appLifecycleListener.dispose();
     await _networkStatusSubscription.cancel();
     _spectrumDisposed = true;
@@ -1213,6 +1362,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   int _beginTransition({
     bool cancelManualIntent = true,
     bool preservePending = false,
+    bool clearExpiredSleepTimer = true,
   }) {
     _transitionId += 1;
     _pendingPlaybackRecovery = null;
@@ -1224,6 +1374,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
     if (cancelManualIntent) {
       _cancelManualIntent(clearDesired: true);
+    }
+    if (clearExpiredSleepTimer) {
+      _clearExpiredSleepTimerAfterTransition();
     }
     return _transitionId;
   }
@@ -1844,7 +1997,17 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         : override(position, _player);
   }
 
+  Future<void> _pausePlayer() {
+    final override = _pauseOverride;
+    return override == null ? _player.pause() : override(_player);
+  }
+
   Future<void> _handlePlaybackCompleted(int generation) async {
+    if (_shouldStopAfterCurrentForSleepTimer(generation)) {
+      _handledCompletionGeneration = generation;
+      await _pausePlaybackForSleepTimer();
+      return;
+    }
     if (_tracks.isEmpty ||
         _singleLoopEnabled ||
         _pendingIndex != null ||
@@ -2056,6 +2219,16 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     developer.log(message, name: 'HeAudioHandler');
   }
 
+  void _logSleepTimerFailure(String event, Object error) {
+    final message = '$event failure=${error.runtimeType}';
+    final override = _logOverride;
+    if (override != null) {
+      override(message);
+      return;
+    }
+    developer.log(message, name: 'HeAudioHandler');
+  }
+
   MediaItem _toMediaItem(AudioTrack track) {
     final artwork = track.artworkUrl?.trim() ?? '';
     return MediaItem(
@@ -2110,6 +2283,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       'currentRadioPlatform': _currentRadioPlatform,
       'currentRadioPageIndex': _currentRadioPageIndex,
     });
+  }
+
+  void _broadcastSleepTimerState() {
+    customEvent.add(currentSleepTimerState.toCustomEvent());
   }
 
   void _broadcastPlaybackState() {

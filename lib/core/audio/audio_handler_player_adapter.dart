@@ -1,12 +1,14 @@
 import '../../app/config/app_config_state.dart';
 import '../../features/online/domain/entities/online_platform.dart';
 import 'audio_player_port.dart';
+import 'audio_sleep_timer.dart';
 import 'audio_spectrum_frame.dart';
 import 'audio_spectrum_port.dart';
 import 'audio_track.dart';
 import 'he_audio_handler.dart';
 
-class AudioHandlerPlayerAdapter implements AudioPlayerPort, AudioSpectrumPort {
+class AudioHandlerPlayerAdapter
+    implements AudioPlayerPort, AudioSpectrumPort, SleepTimerAudioPort {
   AudioHandlerPlayerAdapter(this._handler);
 
   final HeAudioHandler _handler;
@@ -75,10 +77,36 @@ class AudioHandlerPlayerAdapter implements AudioPlayerPort, AudioSpectrumPort {
       _handler.spectrumFrameStream;
 
   @override
+  SleepTimerState get currentSleepTimerState => _handler.currentSleepTimerState;
+
+  @override
+  Stream<SleepTimerState> get sleepTimerStateStream => _handler.customEvent
+      .map(SleepTimerState.fromCustomEvent)
+      .where((state) => state != null)
+      .cast<SleepTimerState>()
+      .distinct();
+
+  @override
   Future<void> startSpectrumCapture() => _handler.startSpectrumCapture();
 
   @override
   Future<void> stopSpectrumCapture() => _handler.stopSpectrumCapture();
+
+  @override
+  Future<void> setSleepTimer(
+    Duration duration, {
+    required bool stopAfterCurrent,
+  }) async {
+    await _handler.customAction(AudioSleepTimerActions.set, <String, dynamic>{
+      AudioSleepTimerFields.durationMs: duration.inMilliseconds,
+      AudioSleepTimerFields.stopAfterCurrent: stopAfterCurrent,
+    });
+  }
+
+  @override
+  Future<void> cancelSleepTimer() async {
+    await _handler.customAction(AudioSleepTimerActions.cancel);
+  }
 
   Future<void> retryCurrentPlayback() => _handler.retryCurrentPlayback();
 
