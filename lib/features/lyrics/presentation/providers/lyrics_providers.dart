@@ -21,6 +21,7 @@ class CurrentLyricStoreState {
 class CurrentLyricStoreController
     extends AsyncNotifier<CurrentLyricStoreState> {
   StreamSubscription<dynamic>? _customEventSubscription;
+  int _refreshGeneration = 0;
 
   @override
   Future<CurrentLyricStoreState> build() async {
@@ -33,6 +34,7 @@ class CurrentLyricStoreController
       unawaited(_refresh(audioPlayer));
     });
     ref.onDispose(() {
+      _refreshGeneration++;
       _customEventSubscription?.cancel();
       _customEventSubscription = null;
     });
@@ -40,7 +42,23 @@ class CurrentLyricStoreController
   }
 
   Future<void> _refresh(AudioPlayerPort audioPlayer) async {
-    state = await AsyncValue.guard(() => _loadState(audioPlayer));
+    final generation = ++_refreshGeneration;
+    if (ref.mounted) {
+      // Clear the previous track before the asynchronous snapshot arrives.
+      state = const AsyncLoading<CurrentLyricStoreState>();
+    }
+    try {
+      final nextState = await _loadState(audioPlayer);
+      if (!ref.mounted || generation != _refreshGeneration) {
+        return;
+      }
+      state = AsyncData<CurrentLyricStoreState>(nextState);
+    } on Object catch (error, stackTrace) {
+      if (!ref.mounted || generation != _refreshGeneration) {
+        return;
+      }
+      state = AsyncError<CurrentLyricStoreState>(error, stackTrace);
+    }
   }
 
   Future<CurrentLyricStoreState> _loadState(AudioPlayerPort audioPlayer) async {

@@ -76,6 +76,66 @@ void main() {
     expect(state.document.requireValue.lines.single.text, '后台切歌后的歌词');
     expect(audioPlayer.getCurrentLyricStateCallCount, 2);
   });
+  test(
+    'currentLyricStoreProvider ignores an older snapshot after a newer track',
+    () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      audioPlayer.currentLyricState = const CurrentLyricStateSnapshot(
+        request: LyricRequest(trackId: 'track-a', platform: 'qq'),
+        document: LyricDocument(
+          lines: <LyricLine>[LyricLine(start: Duration.zero, text: '旧曲歌词')],
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [audioPlayerPortProvider.overrideWithValue(audioPlayer)],
+      );
+      addTearDown(container.dispose);
+      await container.read(currentLyricStoreProvider.future);
+
+      final older = Completer<CurrentLyricStateSnapshot>();
+      final newer = Completer<CurrentLyricStateSnapshot>();
+      audioPlayer.pendingSnapshots.addAll(
+        <Completer<CurrentLyricStateSnapshot>>[older, newer],
+      );
+
+      audioPlayer.emitCustomEvent(<String, dynamic>{'type': 'lyricState'});
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(currentLyricDocumentProvider),
+        isA<AsyncLoading<LyricDocument>>(),
+      );
+      audioPlayer.emitCustomEvent(<String, dynamic>{'type': 'lyricState'});
+      await Future<void>.delayed(Duration.zero);
+      expect(audioPlayer.getCurrentLyricStateCallCount, 3);
+
+      newer.complete(
+        const CurrentLyricStateSnapshot(
+          request: LyricRequest(trackId: 'track-c', platform: 'qq'),
+          document: LyricDocument(
+            lines: <LyricLine>[LyricLine(start: Duration.zero, text: '新曲歌词')],
+          ),
+        ),
+      );
+      final latestState = await container.read(
+        currentLyricStoreProvider.future,
+      );
+      expect(latestState.request?.trackId, 'track-c');
+      expect(latestState.document.requireValue.lines.single.text, '新曲歌词');
+
+      older.complete(
+        const CurrentLyricStateSnapshot(
+          request: LyricRequest(trackId: 'track-b', platform: 'qq'),
+          document: LyricDocument(
+            lines: <LyricLine>[LyricLine(start: Duration.zero, text: '过期歌词')],
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      final finalState = container.read(currentLyricStoreProvider).requireValue;
+      expect(finalState.request?.trackId, 'track-c');
+      expect(finalState.document.requireValue.lines.single.text, '新曲歌词');
+    },
+  );
 }
 
 class _FakeAudioPlayerPort implements AudioPlayerPort {
@@ -85,6 +145,8 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
       const CurrentLyricStateSnapshot();
   int getCurrentLyricStateCallCount = 0;
 
+  final List<Completer<CurrentLyricStateSnapshot>> pendingSnapshots =
+      <Completer<CurrentLyricStateSnapshot>>[];
   @override
   Stream<bool> get playingStream => const Stream<bool>.empty();
 
@@ -110,9 +172,12 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   Stream<dynamic> get customEventStream => _customEventController.stream;
 
   @override
-  Future<CurrentLyricStateSnapshot> getCurrentLyricState() async {
+  Future<CurrentLyricStateSnapshot> getCurrentLyricState() {
     getCurrentLyricStateCallCount += 1;
-    return currentLyricState;
+    if (pendingSnapshots.isNotEmpty) {
+      return pendingSnapshots.removeAt(0).future;
+    }
+    return Future<CurrentLyricStateSnapshot>.value(currentLyricState);
   }
 
   @override

@@ -449,6 +449,33 @@ void main() {
       );
     });
 
+    testWidgets(
+      'request identity replacement clears manual anchor and transition data',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildRailApp(
+            document: _lineOnlyDocument,
+            documentIdentity: 'qq::track-a::',
+          ),
+        );
+        await tester.pump();
+        _sendScroll(tester, 70);
+        await tester.pump();
+        expect(_anchorIndex(tester), 2);
+
+        await tester.pumpWidget(
+          _buildRailApp(
+            document: _lineOnlyDocument,
+            documentIdentity: 'qq::track-b::',
+          ),
+        );
+        await tester.pump();
+
+        expect(_anchorIndex(tester), 1);
+        expect(_painter(tester).previousData, isNull);
+      },
+    );
+
     testWidgets('palette fallback and dispose with pending timer stay safe', (
       tester,
     ) async {
@@ -473,6 +500,7 @@ Widget _buildRailApp({
   Size size = const Size(430, 620),
   Duration initialPosition = const Duration(milliseconds: 2500),
   bool enableWordByWordLyric = true,
+  String? documentIdentity,
   PlayerScenePalette palette = _palette,
   ValueChanged<Duration>? onSeek,
   VoidCallback? onOuterBuild,
@@ -500,6 +528,7 @@ Widget _buildRailApp({
                 return MonetLyricRail(
                   key: const ValueKey<String>('test-monet-rail'),
                   document: document,
+                  documentIdentity: documentIdentity,
                   fontPreset: AppLyricFontPreset.medium,
                   enableWordByWordLyric: enableWordByWordLyric,
                   palette: palette,

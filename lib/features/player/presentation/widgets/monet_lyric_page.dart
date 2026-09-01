@@ -61,6 +61,7 @@ class _MonetLyricDataHost extends ConsumerWidget {
       ),
     );
     final documentAsync = ref.watch(currentLyricDocumentProvider);
+    final request = ref.watch(currentLyricRequestProvider);
     return documentAsync.when(
       data: (document) => document.isEmpty
           ? _MonetLyricFallback(
@@ -70,6 +71,7 @@ class _MonetLyricDataHost extends ConsumerWidget {
             )
           : MonetLyricRail(
               document: document,
+              documentIdentity: request?.cacheKey,
               fontPreset: config.fontPreset,
               enableWordByWordLyric: config.enableWordByWordLyric,
               palette: palette,

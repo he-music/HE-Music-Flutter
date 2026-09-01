@@ -18,6 +18,7 @@ class MonetLyricRail extends ConsumerStatefulWidget {
     required this.enableWordByWordLyric,
     required this.palette,
     required this.onSeek,
+    this.documentIdentity,
     this.debugOnStructureBuild,
     this.debugOnPaint,
     super.key,
@@ -29,6 +30,8 @@ class MonetLyricRail extends ConsumerStatefulWidget {
   final PlayerScenePalette palette;
   final ValueChanged<Duration>? onSeek;
 
+  /// Stable track/request identity, even when two tracks share identical lyrics.
+  final String? documentIdentity;
   @visibleForTesting
   final VoidCallback? debugOnStructureBuild;
 
@@ -89,7 +92,8 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
   void didUpdateWidget(covariant MonetLyricRail oldWidget) {
     super.didUpdateWidget(oldWidget);
     final nextEngine = MonetLyricLayoutEngine(widget.document);
-    if (nextEngine.documentSignature != _engine.documentSignature) {
+    if (oldWidget.documentIdentity != widget.documentIdentity ||
+        nextEngine.documentSignature != _engine.documentSignature) {
       _manualResetTimer?.cancel();
       _manualResetTimer = null;
       _manualAnchorIndex = null;
@@ -299,6 +303,7 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
   MonetLyricRenderData _resolveRenderData(MonetLyricLayoutOptions options) {
     final signature = <Object?>[
       _engine.documentSignature,
+      widget.documentIdentity,
       _structurePosition.activeIndex,
       _structurePosition.recentIndex,
       _structurePosition.upcomingIndex,
