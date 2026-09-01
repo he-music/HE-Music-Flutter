@@ -20,6 +20,7 @@ class MonetLyricPaintLine {
     required this.positioned,
     required this.mainPainter,
     required this.accentPainter,
+    required this.glowPainter,
     required this.translationPainter,
     required this.tokens,
   });
@@ -27,6 +28,7 @@ class MonetLyricPaintLine {
   final MonetPositionedLyricLine positioned;
   final TextPainter mainPainter;
   final TextPainter? accentPainter;
+  final TextPainter? glowPainter;
   final TextPainter? translationPainter;
   final List<MonetTokenPaintData> tokens;
 }
@@ -93,12 +95,22 @@ MonetLyricRenderData buildMonetLyricRenderData({
                 text: entry.line.text,
                 style: baseStyle.copyWith(
                   color: palette.accent,
-                  shadows: <Shadow>[
-                    Shadow(
-                      color: palette.edge.withValues(alpha: 0.5),
-                      blurRadius: 8,
-                    ),
-                  ],
+                  shadows: const <Shadow>[],
+                ),
+                options: options,
+                maxWidth: contentWidth,
+              )
+            : null;
+        final glowPainter = hasTimedTokens
+            ? _layoutPainter(
+                text: entry.line.text,
+                style: baseStyle.copyWith(
+                  color: Color.lerp(
+                    palette.accent,
+                    palette.edge,
+                    0.35,
+                  )!.withValues(alpha: 0.38),
+                  shadows: const <Shadow>[],
                 ),
                 options: options,
                 maxWidth: contentWidth,
@@ -148,6 +160,7 @@ MonetLyricRenderData buildMonetLyricRenderData({
           positioned: positioned,
           mainPainter: mainPainter,
           accentPainter: accentPainter,
+          glowPainter: glowPainter,
           translationPainter: translationPainter,
           tokens: List<MonetTokenPaintData>.unmodifiable(tokenPaintData),
         );
@@ -325,6 +338,7 @@ class MonetLyricPainter extends CustomPainter {
     final accentPainter = line.accentPainter;
     if (accentPainter != null) {
       final revealedClips = <Rect>[];
+      final glowClips = <Rect>[];
       for (final tokenData in line.tokens) {
         if (tokenData.boxes.isEmpty || !tokenData.token.hasTiming) {
           continue;
@@ -333,16 +347,20 @@ class MonetLyricPainter extends CustomPainter {
           timelinePosition: timelinePosition,
           token: tokenData.token,
         );
-        revealedClips.addAll(
-          resolveMonetTokenClipRects(
-            boxes: tokenData.boxes,
-            progress: progress,
-            textDirection: data.textDirection,
-          ),
+        final clips = resolveMonetTokenClipRects(
+          boxes: tokenData.boxes,
+          progress: progress,
+          textDirection: data.textDirection,
         );
+        revealedClips.addAll(clips);
+        if (progress > 0 && progress < 1) {
+          glowClips.addAll(clips);
+        }
+      }
+      if (glowClips.isNotEmpty && line.glowPainter != null) {
+        _paintTokenGlow(canvas, line.glowPainter!, glowClips, mainOrigin);
       }
       if (revealedClips.isNotEmpty) {
-        _paintTokenGlow(canvas, accentPainter, revealedClips, mainOrigin);
         final clipPath = Path();
         for (final clip in revealedClips) {
           clipPath.addRect(clip.shift(mainOrigin));
@@ -387,7 +405,7 @@ class MonetLyricPainter extends CustomPainter {
     }
     canvas.saveLayer(
       glowBounds,
-      Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 4.5, sigmaY: 4.5),
+      Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 2.8, sigmaY: 2.8),
     );
     canvas.clipPath(clipPath);
     accentPainter.paint(canvas, origin);

@@ -57,6 +57,7 @@ void main() {
       final painter = _painter(tester);
       final active = _activePaintLine(painter.data);
       expect(active.accentPainter, isNotNull);
+      expect(active.glowPainter, isNotNull);
       expect(active.tokens, hasLength(4));
       expect(active.tokens.every((token) => token.boxes.isNotEmpty), isTrue);
       expect(active.tokens.map((token) => token.token.text).join(), '你 好，你');
