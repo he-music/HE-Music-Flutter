@@ -443,15 +443,15 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
             _structurePosition.upcomingIndex ??
             _structurePosition.recentIndex ??
             0)
-        .clamp(0, widget.document.lines.length - 1);
+        .clamp(0, _engine.lineCount - 1);
   }
 
   void _moveManualAnchor(int steps) {
-    if (widget.document.lines.isEmpty) {
+    if (_engine.lineCount == 0) {
       return;
     }
     final current = _manualAnchorIndex ?? _automaticAnchorIndex();
-    final next = (current + steps).clamp(0, widget.document.lines.length - 1);
+    final next = (current + steps).clamp(0, _engine.lineCount - 1);
     if (next != current) {
       _beginStructureChange(() {
         _manualAnchorIndex = next;
@@ -505,7 +505,9 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
 
   void _seekLine(MonetLyricPaintLine line) {
     final onSeek = widget.onSeek;
-    if (onSeek == null || line.positioned.hitRect.isEmpty) {
+    if (onSeek == null ||
+        line.positioned.hitRect.isEmpty ||
+        line.positioned.entry.isInterlude) {
       return;
     }
     _manualResetTimer?.cancel();

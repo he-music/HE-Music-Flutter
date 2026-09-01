@@ -28,8 +28,8 @@
 - `assets/player_styles/cassette/preview.png`: `a6e70410982a2009885d7ae94388d69566efb9ea8194b3fc752f95c8ff254456`.
 - `assets/player_styles/artist_photo/preview.png`: `bf838e1efb3b5de55d8b4918ae83492951d7078d4facc4a7b32240a8f6aab88a`.
 - `assets/player_styles/radial_spectrum/preview.png`: `656c5118f609fed42e11451d32a758633970f7efdce8a986e2a7d8c8556de8d7`.
-- `assets/player_styles/monet_lyrics/preview.png`: `07b66a88fa6a67fce9bc361678e3bfcaeec34f4f01fa91feb600df44eb61a5aa`.
-- `test/features/player/presentation/goldens/player_styles/desktop_monet_lyrics.png`: `e698c7ee2e3c0cda032e418f28b9100d6291e1a40c00b4686550ea1533c09e7d`.
+- `assets/player_styles/monet_lyrics/preview.png`: `b23c064d38aefa133d912ce9bae802200d2b35066ec5841b9346584268ec307a`.
+- `test/features/player/presentation/goldens/player_styles/desktop_monet_lyrics.png`: `e0aa1057e7b13cf132a10b42b45bdd3fd09f50379bd7aa265f38280b8073bf3d`.
 - Technical inspection: all seven previews render readable fixed Chinese text, metadata badges, playback time and controls without blank regions or overflow. Monet uses a deterministic five-line `LyricDocument` at `1:24`; the mobile preview opens the full lyric page and the desktop golden renders the same bounded rail beside the classic stage. Its active CJK line, word-timed accent sweep, translation, nearby context lines, transparent host, and cover-derived `PlayerScenePalette` are covered.
 - Replacement inspection: regenerated on 2026-07-27; only the vinyl mobile preview and desktop golden changed, while the other four style previews and both artist-photo fallback goldens remained byte-identical.
 - Radial-spectrum inspection: generated on 2026-07-30; the new mobile preview and desktop golden were added without changing the existing five mobile previews or existing desktop/fallback goldens.

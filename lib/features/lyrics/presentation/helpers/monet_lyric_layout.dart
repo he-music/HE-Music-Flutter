@@ -33,6 +33,7 @@ class MonetVisibleLyricLine {
     required this.offset,
     required this.status,
     required this.key,
+    this.isInterlude = false,
   });
 
   final LyricLine line;
@@ -40,19 +41,102 @@ class MonetVisibleLyricLine {
   final int offset;
   final MonetLyricLineStatus status;
   final String key;
+  final bool isInterlude;
 }
+
+const _monetInterludeText = '......';
+const _monetInterludeGap = Duration(seconds: 3);
+
+List<LyricLine> _buildMonetRenderableLines(List<LyricLine> sourceLines) {
+  if (sourceLines.isEmpty) {
+    return const <LyricLine>[];
+  }
+
+  final renderLines = <LyricLine>[];
+  final first = sourceLines.first;
+  if (first.start > _monetInterludeGap) {
+    renderLines.add(
+      _createMonetInterlude(const Duration(milliseconds: 500), first.start),
+    );
+  }
+
+  for (var index = 0; index < sourceLines.length; index++) {
+    final current = sourceLines[index];
+    final next = index + 1 < sourceLines.length ? sourceLines[index + 1] : null;
+    if (next == null || current.end == null) {
+      renderLines.add(current);
+      continue;
+    }
+
+    final gap = next.start - current.end!;
+    if (gap > Duration.zero && gap <= _monetInterludeGap) {
+      renderLines.add(_copyMonetLineWithEnd(current, next.start));
+      continue;
+    }
+
+    renderLines.add(current);
+    if (gap > _monetInterludeGap) {
+      renderLines.add(_createMonetInterlude(current.end!, next.start));
+    }
+  }
+
+  return List<LyricLine>.unmodifiable(renderLines);
+}
+
+LyricLine _copyMonetLineWithEnd(LyricLine line, Duration end) {
+  return LyricLine(
+    start: line.start,
+    end: end,
+    text: line.text,
+    tokens: line.tokens,
+    translation: line.translation,
+    romanization: line.romanization,
+  );
+}
+
+LyricLine _createMonetInterlude(Duration start, Duration end) {
+  final durationMicros = math.max(end.inMicroseconds - start.inMicroseconds, 1);
+  final tokens = List<LyricToken>.generate(6, (index) {
+    final tokenStart = Duration(
+      microseconds: start.inMicroseconds + durationMicros * index ~/ 6,
+    );
+    final tokenEnd = Duration(
+      microseconds: start.inMicroseconds + durationMicros * (index + 1) ~/ 6,
+    );
+    return LyricToken(
+      text: '.',
+      startOffset: tokenStart - start,
+      duration: tokenEnd - tokenStart,
+    );
+  }, growable: false);
+  return LyricLine(
+    start: start,
+    end: end,
+    text: _monetInterludeText,
+    tokens: tokens,
+  );
+}
+
+bool _isMonetInterlude(LyricLine line) =>
+    line.text == _monetInterludeText &&
+    line.tokens.length == 6 &&
+    line.tokens.every((token) => token.text == '.');
 
 /// Owns document-level derived data so a renderer does not rescan every line on
 /// each playback tick.
 class MonetLyricLayoutEngine {
   MonetLyricLayoutEngine(this.document)
-    : documentSignature = _buildDocumentSignature(document);
+    : documentSignature = _buildDocumentSignature(document),
+      _renderLines = _buildMonetRenderableLines(document.lines);
 
   final LyricDocument document;
   final String documentSignature;
+  final List<LyricLine> _renderLines;
+
+  int get lineCount => _renderLines.length;
 
   MonetLyricPosition resolvePosition(Duration playbackPosition) {
-    final lines = document.lines;
+    final lines = _renderLines;
     final timelinePosition =
         playbackPosition + Duration(milliseconds: document.offset);
     if (lines.isEmpty) {
@@ -99,7 +183,7 @@ class MonetLyricLayoutEngine {
     int after = 2,
     int? manualAnchorIndex,
   }) {
-    final lines = document.lines;
+    final lines = _renderLines;
     if (lines.isEmpty) {
       return const <MonetVisibleLyricLine>[];
     }
@@ -127,6 +211,7 @@ class MonetLyricLayoutEngine {
         offset: index - anchorIndex,
         status: _resolveLineStatus(index, position),
         key: _lineKey(index, line),
+        isInterlude: _isMonetInterlude(line),
       );
     }, growable: false);
   }
@@ -168,23 +253,24 @@ List<MonetDisplayToken> buildMonetDisplayTokens(LyricLine line) {
     final endOffset = cursor + token.text.length;
     final tokenEndOffset = token.endOffset;
     final lineDuration = line.end! - line.start;
+    // Providers may emit zero-duration separators or instantaneous glyphs.
     final timingIsValid =
         token.startOffset >= Duration.zero &&
-        token.duration > Duration.zero &&
+        token.duration >= Duration.zero &&
         token.startOffset >= previousEnd &&
-        tokenEndOffset > token.startOffset &&
         tokenEndOffset <= lineDuration;
     if (!timingIsValid) {
       return <MonetDisplayToken>[_fallbackDisplayToken(line)];
     }
+    final hasTiming = token.duration > Duration.zero;
 
     displayTokens.add(
       MonetDisplayToken(
         text: token.text,
         startOffset: cursor,
         endOffset: endOffset,
-        start: line.start + token.startOffset,
-        end: line.start + tokenEndOffset,
+        start: hasTiming ? line.start + token.startOffset : null,
+        end: hasTiming ? line.start + tokenEndOffset : null,
         key: '${line.start.inMicroseconds}:$index:$cursor:$endOffset',
       ),
     );

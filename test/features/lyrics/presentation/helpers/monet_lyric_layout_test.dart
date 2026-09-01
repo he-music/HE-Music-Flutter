@@ -30,7 +30,7 @@ void main() {
       ]);
     });
 
-    test('leaves no active line in an explicit inter-line gap', () {
+    test('holds an active line through a short gap for a direct handoff', () {
       final engine = MonetLyricLayoutEngine(_timedDocument());
 
       final position = engine.resolvePosition(
@@ -38,13 +38,66 @@ void main() {
       );
       final window = engine.buildVisibleWindow(position: position);
 
-      expect(position.activeIndex, isNull);
-      expect(position.recentIndex, 0);
+      expect(position.activeIndex, 0);
+      expect(position.recentIndex, isNull);
       expect(position.upcomingIndex, 1);
-      expect(window.singleWhere((entry) => entry.offset == 0).index, 1);
-      expect(window[0].status, MonetLyricLineStatus.passed);
+      expect(window.singleWhere((entry) => entry.offset == 0).index, 0);
+      expect(window[0].status, MonetLyricLineStatus.active);
       expect(window[1].status, MonetLyricLineStatus.waiting);
     });
+
+    test(
+      'inserts a timed six-dot interlude for gaps longer than three seconds',
+      () {
+        const document = LyricDocument(
+          lines: <LyricLine>[
+            LyricLine(
+              start: Duration(seconds: 1),
+              end: Duration(seconds: 2),
+              text: 'before gap',
+            ),
+            LyricLine(
+              start: Duration(seconds: 8),
+              end: Duration(seconds: 9),
+              text: 'after gap',
+            ),
+          ],
+        );
+        final engine = MonetLyricLayoutEngine(document);
+
+        final position = engine.resolvePosition(const Duration(seconds: 4));
+        final active = engine
+            .buildVisibleWindow(position: position)
+            .singleWhere(
+              (entry) => entry.status == MonetLyricLineStatus.active,
+            );
+        final tokens = buildMonetDisplayTokens(active.line);
+
+        expect(engine.lineCount, 3);
+        expect(position.activeIndex, 1);
+        expect(active.isInterlude, isTrue);
+        expect(active.line.text, '......');
+        expect(tokens, hasLength(6));
+        expect(
+          tokens.every((token) => token.text == '.' && token.hasTiming),
+          isTrue,
+        );
+        expect(
+          resolveMonetTokenProgress(
+            timelinePosition: const Duration(seconds: 4),
+            token: tokens.first,
+          ),
+          1,
+        );
+        expect(
+          resolveMonetTokenProgress(
+            timelinePosition: const Duration(seconds: 4),
+            token: tokens[2],
+          ),
+          inInclusiveRange(0.0, 1.0),
+        );
+      },
+    );
 
     test('keeps the final line active when it has no end', () {
       final engine = MonetLyricLayoutEngine(_timedDocument());
@@ -295,19 +348,108 @@ void main() {
       expect(token.hasTiming, isFalse);
     });
 
+    test('keeps word timing when the source has zero-duration separators', () {
+      const line = LyricLine(
+        start: Duration.zero,
+        end: Duration(milliseconds: 3472),
+        text: '想要放 放不掉 泪在飘',
+        tokens: <LyricToken>[
+          LyricToken(
+            text: '想',
+            startOffset: Duration.zero,
+            duration: Duration(milliseconds: 206),
+          ),
+          LyricToken(
+            text: '要',
+            startOffset: Duration(milliseconds: 206),
+            duration: Duration(milliseconds: 273),
+          ),
+          LyricToken(
+            text: '放',
+            startOffset: Duration(milliseconds: 479),
+            duration: Duration(milliseconds: 448),
+          ),
+          LyricToken(
+            text: ' ',
+            startOffset: Duration(milliseconds: 927),
+            duration: Duration.zero,
+          ),
+          LyricToken(
+            text: '放',
+            startOffset: Duration(milliseconds: 927),
+            duration: Duration(milliseconds: 224),
+          ),
+          LyricToken(
+            text: '不',
+            startOffset: Duration(milliseconds: 1151),
+            duration: Duration(milliseconds: 256),
+          ),
+          LyricToken(
+            text: '掉',
+            startOffset: Duration(milliseconds: 1407),
+            duration: Duration(milliseconds: 497),
+          ),
+          LyricToken(
+            text: ' ',
+            startOffset: Duration(milliseconds: 1904),
+            duration: Duration.zero,
+          ),
+          LyricToken(
+            text: '泪',
+            startOffset: Duration(milliseconds: 1904),
+            duration: Duration(milliseconds: 254),
+          ),
+          LyricToken(
+            text: '在',
+            startOffset: Duration(milliseconds: 2158),
+            duration: Duration(milliseconds: 467),
+          ),
+          LyricToken(
+            text: '飘',
+            startOffset: Duration(milliseconds: 2625),
+            duration: Duration(milliseconds: 847),
+          ),
+        ],
+      );
+
+      final tokens = buildMonetDisplayTokens(line);
+
+      expect(tokens, hasLength(11));
+      expect(tokens.map((token) => token.text).join(), line.text);
+      expect(tokens.where((token) => token.hasTiming), hasLength(9));
+      expect(tokens[3].hasTiming, isFalse);
+      expect(tokens[4].start, const Duration(milliseconds: 927));
+    });
+
+    test('keeps timed neighbors around a zero-duration glyph', () {
+      const line = LyricLine(
+        start: Duration.zero,
+        end: Duration(milliseconds: 200),
+        text: '看看',
+        tokens: <LyricToken>[
+          LyricToken(
+            text: '看',
+            startOffset: Duration.zero,
+            duration: Duration.zero,
+          ),
+          LyricToken(
+            text: '看',
+            startOffset: Duration.zero,
+            duration: Duration(milliseconds: 200),
+          ),
+        ],
+      );
+
+      final tokens = buildMonetDisplayTokens(line);
+
+      expect(tokens, hasLength(2));
+      expect(tokens.first.hasTiming, isFalse);
+      expect(tokens.last.hasTiming, isTrue);
+      expect(tokens.last.start, Duration.zero);
+    });
+
     test('falls back safely for invalid token timing', () {
       const invalidLines = <LyricLine>[
-        LyricLine(
-          start: Duration.zero,
-          text: 'zero',
-          tokens: <LyricToken>[
-            LyricToken(
-              text: 'zero',
-              startOffset: Duration.zero,
-              duration: Duration.zero,
-            ),
-          ],
-        ),
         LyricLine(
           start: Duration.zero,
           text: 'negative',

@@ -243,6 +243,37 @@ void main() {
       expect(_activePaintLine(_painter(tester).data).positioned.entry.index, 2);
       await tester.pump(const Duration(milliseconds: 400));
     });
+
+    testWidgets('renders six timed interlude dots and does not seek them', (
+      tester,
+    ) async {
+      final seeks = <Duration>[];
+      await tester.pumpWidget(
+        _buildRailApp(
+          document: _longGapDocument,
+          initialPosition: const Duration(seconds: 4),
+          onSeek: seeks.add,
+        ),
+      );
+      await tester.pump();
+
+      final active = _activePaintLine(_painter(tester).data);
+      expect(active.positioned.entry.isInterlude, isTrue);
+      expect((active.mainPainter.text as TextSpan).text, '......');
+      expect(active.tokens, hasLength(6));
+
+      await tester.tapAt(tester.getCenter(find.byType(MonetLyricRail)));
+      expect(seeks, isEmpty);
+
+      _container(
+        tester,
+      ).read(_testPositionProvider.notifier).update(const Duration(seconds: 8));
+      await tester.pump();
+      expect(
+        _activePaintLine(_painter(tester).data).positioned.entry.isInterlude,
+        isFalse,
+      );
+    });
   });
 
   group('Monet responsive layout', () {
@@ -711,6 +742,21 @@ const _timedDocument = LyricDocument(
       start: Duration(seconds: 6),
       end: Duration(seconds: 8),
       text: 'fourth line',
+    ),
+  ],
+);
+
+const _longGapDocument = LyricDocument(
+  lines: <LyricLine>[
+    LyricLine(
+      start: Duration(seconds: 1),
+      end: Duration(seconds: 2),
+      text: 'before gap',
+    ),
+    LyricLine(
+      start: Duration(seconds: 8),
+      end: Duration(seconds: 9),
+      text: 'after gap',
     ),
   ],
 );
