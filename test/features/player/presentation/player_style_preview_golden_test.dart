@@ -13,6 +13,9 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart
 import 'package:he_music_flutter/core/audio/audio_player_port.dart';
 import 'package:he_music_flutter/core/audio/audio_spectrum_frame.dart';
 import 'package:he_music_flutter/core/audio/audio_track.dart';
+import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
+import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
@@ -33,6 +36,51 @@ const _previewFontFallback = <String>[_previewCjkFontFamily];
 
 late Uint8List _artworkBytes;
 late Uint8List _artistPhotoBytes;
+
+const _monetPreviewPosition = Duration(minutes: 1, seconds: 24);
+
+const _monetPreviewDocument = LyricDocument(
+  lines: <LyricLine>[
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 8),
+      end: Duration(minutes: 1, seconds: 14),
+      text: '城市回声',
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 14),
+      end: Duration(minutes: 1, seconds: 20),
+      text: '玻璃天台',
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 20),
+      end: Duration(minutes: 1, seconds: 29),
+      text: '低频大厅',
+      translation: 'Low Frequency Hall',
+      tokens: <LyricToken>[
+        LyricToken(
+          text: '低频',
+          startOffset: Duration.zero,
+          duration: Duration(seconds: 2),
+        ),
+        LyricToken(
+          text: '大厅',
+          startOffset: Duration(seconds: 2),
+          duration: Duration(seconds: 4),
+        ),
+      ],
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 29),
+      end: Duration(minutes: 1, seconds: 35),
+      text: '信号房间',
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 35),
+      end: Duration(minutes: 1, seconds: 42),
+      text: '现在想听什么',
+    ),
+  ],
+);
 
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
@@ -55,6 +103,13 @@ void main() {
       await tester.pumpWidget(_buildPreviewApp(style.metadata.id));
       await tester.pumpAndSettle();
       await _pumpUntilImagesDecoded(tester);
+      if (style.metadata.id == AppPlayerStyleRegistry.monetLyricsId) {
+        final pager = tester.widget<PageView>(
+          find.byKey(const ValueKey<String>('player-mobile-pager')),
+        );
+        pager.controller!.jumpToPage(1);
+        await tester.pumpAndSettle();
+      }
 
       await expectLater(
         find.byKey(_previewKey),
@@ -208,6 +263,12 @@ Widget _buildPreviewApp(
       playerControllerProvider.overrideWith(
         () => _PreviewPlayerController(includeArtwork: includeArtwork),
       ),
+      if (styleId == AppPlayerStyleRegistry.monetLyricsId)
+        currentLyricDocumentProvider.overrideWithValue(
+          const AsyncData<LyricDocument>(_monetPreviewDocument),
+        ),
+      if (styleId == AppPlayerStyleRegistry.monetLyricsId)
+        lyricPositionProvider.overrideWithValue(_monetPreviewPosition),
       audioPlayerPortProvider.overrideWithValue(
         const _PreviewAudioPlayerPort(),
       ),

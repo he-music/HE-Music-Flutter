@@ -18,6 +18,12 @@ import 'package:he_music_flutter/core/audio/audio_spectrum_frame.dart';
 import 'package:he_music_flutter/core/audio/audio_spectrum_port.dart';
 import 'package:he_music_flutter/core/audio/audio_sleep_timer.dart';
 import 'package:he_music_flutter/core/device/screen_wake_lock.dart';
+import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
+import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/helpers/monet_lyric_layout.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_painter.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_rail.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/favorite_song_status_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -38,6 +44,56 @@ import 'package:he_music_flutter/features/player/presentation/widgets/monet_lyri
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+
+final _playerTestLyricPositionProvider =
+    NotifierProvider<_PlayerTestLyricPositionController, Duration>(
+      _PlayerTestLyricPositionController.new,
+    );
+
+const _monetFixturePosition = Duration(minutes: 1, seconds: 24);
+
+const _monetFixtureDocument = LyricDocument(
+  lines: <LyricLine>[
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 8),
+      end: Duration(minutes: 1, seconds: 14),
+      text: '城市回声',
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 14),
+      end: Duration(minutes: 1, seconds: 20),
+      text: '玻璃天台',
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 20),
+      end: Duration(minutes: 1, seconds: 29),
+      text: '低频大厅',
+      translation: 'Low Frequency Hall',
+      tokens: <LyricToken>[
+        LyricToken(
+          text: '低频',
+          startOffset: Duration.zero,
+          duration: Duration(seconds: 2),
+        ),
+        LyricToken(
+          text: '大厅',
+          startOffset: Duration(seconds: 2),
+          duration: Duration(seconds: 4),
+        ),
+      ],
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 29),
+      end: Duration(minutes: 1, seconds: 35),
+      text: '信号房间',
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 35),
+      end: Duration(minutes: 1, seconds: 42),
+      text: '现在想听什么',
+    ),
+  ],
+);
 
 void main() {
   test(
@@ -975,6 +1031,7 @@ void main() {
     await tester.pumpWidget(
       _buildPlayerTestApp(
         controllerFactory: _OnlineTrackPlayerController.new,
+        lyricDocument: _monetFixtureDocument,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
           playerStyleId: AppPlayerStyleRegistry.monetLyricsId,
@@ -1008,10 +1065,73 @@ void main() {
       tester.widget<MonetLyricPage>(find.byType(MonetLyricPage)).palette,
       isNotNull,
     );
+    expect(find.byType(MonetLyricRail), findsOneWidget);
+    final initialPainter =
+        tester
+                .widget<CustomPaint>(
+                  find.byKey(const ValueKey<String>('monet-lyric-painter')),
+                )
+                .painter!
+            as MonetLyricPainter;
+    final initialRenderData = initialPainter.data;
+    final activeLine = initialRenderData.lines.singleWhere(
+      (line) => line.positioned.entry.status == MonetLyricLineStatus.active,
+    );
+    expect(activeLine.positioned.entry.line.text, '低频大厅');
+    expect(activeLine.translationPainter, isNotNull);
+    expect(activeLine.accentPainter, isNotNull);
+    final playerPageWidget = tester.widget<PlayerPage>(find.byType(PlayerPage));
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(PlayerPage)),
     );
+    container
+        .read(_playerTestLyricPositionProvider.notifier)
+        .update(const Duration(minutes: 1, seconds: 25));
+    await tester.pump();
+    final sameLinePainter =
+        tester
+                .widget<CustomPaint>(
+                  find.byKey(const ValueKey<String>('monet-lyric-painter')),
+                )
+                .painter!
+            as MonetLyricPainter;
+    expect(sameLinePainter.data, same(initialRenderData));
+    expect(
+      tester.widget<PlayerPage>(find.byType(PlayerPage)),
+      same(playerPageWidget),
+    );
+
+    container
+        .read(_playerTestLyricPositionProvider.notifier)
+        .update(const Duration(minutes: 1, seconds: 30));
+    await tester.pump();
+    final crossedPainter =
+        tester
+                .widget<CustomPaint>(
+                  find.byKey(const ValueKey<String>('monet-lyric-painter')),
+                )
+                .painter!
+            as MonetLyricPainter;
+    expect(crossedPainter.data, isNot(same(initialRenderData)));
+    expect(
+      crossedPainter.data.lines
+          .singleWhere(
+            (line) =>
+                line.positioned.entry.status == MonetLyricLineStatus.active,
+          )
+          .positioned
+          .entry
+          .line
+          .text,
+      '信号房间',
+    );
+    expect(
+      tester.widget<PlayerPage>(find.byType(PlayerPage)),
+      same(playerPageWidget),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
     container
         .read(appConfigProvider.notifier)
         .setPlayerStyleId(AppPlayerStyleRegistry.vinylId);
@@ -2306,6 +2426,7 @@ Widget _buildPlayerTestApp({
   required PlayerController Function() controllerFactory,
   BigInt? featureSupportFlag,
   AppConfigState? config,
+  LyricDocument? lyricDocument,
   ScreenWakeLockPort? screenWakeLockPort,
   AudioSpectrumPort? spectrumPort,
   RealtimeSpectrumController? spectrumController,
@@ -2318,6 +2439,14 @@ Widget _buildPlayerTestApp({
         ),
       ),
       playerControllerProvider.overrideWith(controllerFactory),
+      if (lyricDocument != null)
+        currentLyricDocumentProvider.overrideWithValue(
+          AsyncData<LyricDocument>(lyricDocument),
+        ),
+      if (lyricDocument != null)
+        lyricPositionProvider.overrideWith(
+          (ref) => ref.watch(_playerTestLyricPositionProvider),
+        ),
       if (screenWakeLockPort != null)
         screenWakeLockPortProvider.overrideWithValue(screenWakeLockPort),
       audioSpectrumPortProvider.overrideWithValue(
@@ -2399,6 +2528,15 @@ class _TestAppConfigController extends AppConfigController {
     state = state.copyWith(
       playerStyleId: AppPlayerStyleRegistry.instance.normalizeId(styleId),
     );
+  }
+}
+
+class _PlayerTestLyricPositionController extends Notifier<Duration> {
+  @override
+  Duration build() => _monetFixturePosition;
+
+  void update(Duration position) {
+    state = position;
   }
 }
 
