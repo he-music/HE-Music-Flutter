@@ -1144,7 +1144,7 @@ void main() {
     expect(find.byType(PlayerLyricPage), findsOneWidget);
   });
 
-  testWidgets('Partita style uses cloud steps with the classic scene', (
+  testWidgets('Partita style uses active-line chunks with the classic scene', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 1200));
@@ -1186,33 +1186,31 @@ void main() {
     final host = tester.widget<DecoratedBox>(
       find.byKey(const ValueKey<String>('partita-lyric-page')),
     );
-    expect((host.decoration as BoxDecoration).color, isNull);
+    expect((host.decoration as BoxDecoration).color, isNotNull);
     expect(
       tester.widget<PartitaLyricPage>(find.byType(PartitaLyricPage)).palette,
       isNotNull,
     );
 
-    final initialPainter =
-        tester
-                .widget<CustomPaint>(
-                  find.byKey(const ValueKey<String>('partita-lyric-painter')),
-                )
-                .painter!
-            as PartitaLyricPainter;
+    final initialPainter = _partitaPainter(tester);
     final initialData = initialPainter.data;
-    final active = initialData.lines.singleWhere(
-      (line) => line.positioned.entry.status == MonetLyricLineStatus.active,
-    );
-    expect(active.positioned.entry.line.text, '低频大厅');
-    expect(active.accentPainter, isNotNull);
-    expect(active.auxiliaryPainter, isNotNull);
+    final layout = initialData.layout!;
+    expect(layout.sourceLine.text, '低频大厅');
+    expect(layout.columns, hasLength(1));
+    expect(layout.chunks.length, greaterThan(1));
     expect(
-      initialData.lines
-          .where((line) => line.positioned.cloudOffset != 0)
-          .map((line) => line.positioned.cloudOffset.sign)
-          .toSet(),
-      containsAll(<double>{-1, 1}),
+      layout.chunks
+          .expand((chunk) => chunk.units)
+          .map((unit) => unit.text)
+          .join(),
+      layout.sourceLine.text,
     );
+    expect(
+      layout.chunks.map((chunk) => chunk.guide.side.name).toSet(),
+      containsAll(<String>{'left', 'right'}),
+    );
+    expect(initialData.fineTimingEnabled, isTrue);
+    expect(initialData.auxiliaryPainter, isNotNull);
 
     final playerPageWidget = tester.widget<PlayerPage>(find.byType(PlayerPage));
     final initialPlayerPageBuilds = playerPageBuilds;
@@ -1223,13 +1221,7 @@ void main() {
         .read(_playerTestLyricPositionProvider.notifier)
         .update(const Duration(minutes: 1, seconds: 25));
     await tester.pump();
-    final sameLinePainter =
-        tester
-                .widget<CustomPaint>(
-                  find.byKey(const ValueKey<String>('partita-lyric-painter')),
-                )
-                .painter!
-            as PartitaLyricPainter;
+    final sameLinePainter = _partitaPainter(tester);
     expect(sameLinePainter.data, same(initialData));
     expect(
       tester.widget<PlayerPage>(find.byType(PlayerPage)),
@@ -1246,7 +1238,7 @@ void main() {
       same(playerPageWidget),
     );
     expect(playerPageBuilds, initialPlayerPageBuilds);
-    await tester.pump(const Duration(milliseconds: 850));
+    await tester.pump(const Duration(milliseconds: 1750));
     expect(_partitaPainter(tester).breathing.value, greaterThan(0));
 
     playerController.setPlaybackActivity(isPlaying: true, isLoading: true);

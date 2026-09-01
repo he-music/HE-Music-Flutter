@@ -10,7 +10,6 @@ import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
-import 'package:he_music_flutter/features/lyrics/presentation/helpers/monet_lyric_layout.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_lyric_painter.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_lyric_rail.dart';
@@ -33,30 +32,106 @@ const _palette = PlayerScenePalette(
 );
 
 void main() {
-  group('Partita painter', () {
-    testWidgets('projects timed repeated CJK tokens without text search', (
+  group('Partita painter state', () {
+    test('resolves bounded waiting active and passed intervals', () {
+      const start = Duration(seconds: 2);
+      const end = Duration(seconds: 3);
+      const lookahead = Duration(milliseconds: 150);
+
+      expect(
+        resolvePartitaTimingState(
+          timelinePosition: const Duration(milliseconds: 1849),
+          start: start,
+          end: end,
+          lookahead: lookahead,
+        ),
+        PartitaTimingState.waiting,
+      );
+      expect(
+        resolvePartitaTimingState(
+          timelinePosition: const Duration(milliseconds: 1850),
+          start: start,
+          end: end,
+          lookahead: lookahead,
+        ),
+        PartitaTimingState.active,
+      );
+      expect(
+        resolvePartitaTimingState(
+          timelinePosition: const Duration(milliseconds: 3001),
+          start: start,
+          end: end,
+          lookahead: lookahead,
+        ),
+        PartitaTimingState.passed,
+      );
+      expect(
+        resolvePartitaEntryProgress(
+          timelinePosition: const Duration(milliseconds: 1925),
+          start: start,
+          lookahead: lookahead,
+        ),
+        closeTo(0.5, 0.001),
+      );
+      expect(
+        resolvePartitaPassedProgress(
+          timelinePosition: const Duration(milliseconds: 3250),
+          end: end,
+        ),
+        closeTo(0.5, 0.001),
+      );
+      expect(
+        resolvePartitaPassedProgress(
+          timelinePosition: const Duration(seconds: 8),
+          end: end,
+        ),
+        1,
+      );
+    });
+
+    testWidgets('renders one source line as timed chunks and words', (
       tester,
     ) async {
       await tester.pumpWidget(_buildRailApp(document: _timedDocument));
       await tester.pump();
 
-      final active = _activeLine(_painter(tester).data);
-      expect(active.accentPainter, isNotNull);
-      expect(active.glowPainter, isNotNull);
-      expect(active.tokens.map((token) => token.token.text).join(), '你 好，你');
-      expect(active.tokens.every((token) => token.boxes.isNotEmpty), isTrue);
-      expect(active.positioned.measurement.auxiliaryText, 'translated active');
+      final data = _painter(tester).data;
+      final layout = data.layout!;
+      expect(layout.sourceLineIndex, 1);
+      expect(layout.sourceLine.text, '你 好，你');
+      expect(layout.columns, hasLength(1));
+      expect(layout.chunks, hasLength(3));
+      expect(
+        layout.chunks
+            .expand((chunk) => chunk.units)
+            .map((unit) => unit.text)
+            .join(),
+        layout.sourceLine.text,
+      );
+      expect(data.fineTimingEnabled, isTrue);
+      expect(
+        data.chunks
+            .expand((chunk) => chunk.words)
+            .expand((word) => word.layout.word.sourceTokenIndexes),
+        <int>[0, 1, 2, 3],
+      );
+      expect(data.auxiliaryPainter?.text?.toPlainText(), 'translated active');
+      expect(layout.chunks.map((chunk) => chunk.guide.side.name), <String>[
+        'left',
+        'right',
+        'left',
+      ]);
     });
 
     testWidgets(
-      'invalid timing falls back to a clear line-level active style',
+      'invalid timing keeps chunks but uses line-level active state',
       (tester) async {
         const document = LyricDocument(
           lines: <LyricLine>[
             LyricLine(
               start: Duration.zero,
-              end: Duration(seconds: 1),
-              text: 'repeat repeat',
+              end: Duration(seconds: 2),
+              text: 'repeat repeat again',
               tokens: <LyricToken>[
                 LyricToken(
                   text: 'repeat',
@@ -64,9 +139,24 @@ void main() {
                   duration: Duration(milliseconds: 700),
                 ),
                 LyricToken(
+                  text: ' ',
+                  startOffset: Duration(milliseconds: 700),
+                  duration: Duration.zero,
+                ),
+                LyricToken(
                   text: 'repeat',
-                  startOffset: Duration(milliseconds: 500),
-                  duration: Duration(milliseconds: 700),
+                  startOffset: Duration(milliseconds: 700),
+                  duration: Duration(milliseconds: 500),
+                ),
+                LyricToken(
+                  text: ' ',
+                  startOffset: Duration(milliseconds: 1200),
+                  duration: Duration(milliseconds: 50),
+                ),
+                LyricToken(
+                  text: 'again',
+                  startOffset: Duration(milliseconds: 1250),
+                  duration: Duration(milliseconds: 500),
                 ),
               ],
             ),
@@ -77,55 +167,71 @@ void main() {
         );
         await tester.pump();
 
-        final active = _activeLine(_painter(tester).data);
-        expect(active.accentPainter, isNull);
-        expect(active.tokens, isEmpty);
+        final data = _painter(tester).data;
+        expect(data.layout?.units, hasLength(3));
+        expect(data.layout?.chunks.length, greaterThan(1));
+        expect(data.layout?.hasFineTiming, isFalse);
+        expect(data.fineTimingEnabled, isFalse);
         expect(
-          (active.mainPainter.text as TextSpan).style?.color,
-          _palette.foreground.withValues(alpha: 0.98),
+          data.layout!.displayWords.every((word) => !word.isTimed),
+          isTrue,
         );
       },
     );
-
-    test('guide L segments remain outside text and inside rail bounds', () {
-      const textRect = Rect.fromLTWH(55, 40, 90, 48);
-      const bounds = Rect.fromLTWH(0, 0, 200, 140);
-      final segments = resolvePartitaGuideSegments(
-        textRect: textRect,
-        bounds: bounds,
-        progress: 1,
+    testWidgets('reserves scaled two-line auxiliary text below chunks', (
+      tester,
+    ) async {
+      const document = LyricDocument(
+        lines: <LyricLine>[
+          LyricLine(
+            start: Duration.zero,
+            end: Duration(seconds: 4),
+            text: 'main words stay above',
+            translation:
+                'a deliberately long translated subtitle that wraps onto two lines',
+          ),
+        ],
       );
+      await tester.pumpWidget(
+        _buildRailApp(
+          document: document,
+          size: const Size(260, 240),
+          textScaler: const TextScaler.linear(2),
+          initialPosition: const Duration(seconds: 1),
+        ),
+      );
+      await tester.pump();
 
-      expect(segments, hasLength(4));
-      for (final segment in segments) {
-        expect(bounds.contains(segment.start), isTrue);
-        expect(bounds.contains(segment.end), isTrue);
-        expect(textRect.contains(segment.start), isFalse);
-        expect(textRect.contains(segment.end), isFalse);
-      }
-      expect(segments[1].end.dx, lessThan(textRect.left));
-      expect(segments[3].end.dx, greaterThan(textRect.right));
+      final data = _painter(tester).data;
+      expect(data.auxiliaryPainter?.maxLines, 2);
+      expect(
+        data.layout!.visualBounds.bottom,
+        lessThanOrEqualTo(data.auxiliaryOffset!.dy),
+      );
     });
   });
 
   group('Partita repaint isolation', () {
-    testWidgets('same-line ticks repaint without rebuilding outer structure', (
+    testWidgets('same-line ticks repaint without rebuilding or text layout', (
       tester,
     ) async {
       var outerBuilds = 0;
       var structureBuilds = 0;
+      var textLayouts = 0;
       var paints = 0;
       await tester.pumpWidget(
         _buildRailApp(
           document: _timedDocument,
           onOuterBuild: () => outerBuilds += 1,
           onStructureBuild: () => structureBuilds += 1,
+          onTextLayout: () => textLayouts += 1,
           onPaint: () => paints += 1,
         ),
       );
       await tester.pump();
       final initialOuter = outerBuilds;
       final initialStructure = structureBuilds;
+      final initialTextLayouts = textLayouts;
       final initialPaints = paints;
       final data = _painter(tester).data;
 
@@ -136,11 +242,42 @@ void main() {
 
       expect(outerBuilds, initialOuter);
       expect(structureBuilds, initialStructure);
+      expect(textLayouts, initialTextLayouts);
       expect(paints, greaterThan(initialPaints));
       expect(_painter(tester).data, same(data));
     });
 
-    testWidgets('crossing a line rebuilds only Partita render data', (
+    testWidgets('playback crossing lines keeps a manual composition stable', (
+      tester,
+    ) async {
+      var structureBuilds = 0;
+      var textLayouts = 0;
+      await tester.pumpWidget(
+        _buildRailApp(
+          document: _timedDocument,
+          onStructureBuild: () => structureBuilds += 1,
+          onTextLayout: () => textLayouts += 1,
+        ),
+      );
+      await tester.pump();
+      _sendScroll(tester, 70);
+      await tester.pump();
+      final manualData = _painter(tester).data;
+      final manualStructureBuilds = structureBuilds;
+      final manualTextLayouts = textLayouts;
+
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 4300));
+      await tester.pump();
+
+      expect(_selectedIndex(tester), 2);
+      expect(_painter(tester).data, same(manualData));
+      expect(structureBuilds, manualStructureBuilds);
+      expect(textLayouts, manualTextLayouts);
+    });
+
+    testWidgets('crossing a line replaces only the Partita composition', (
       tester,
     ) async {
       var outerBuilds = 0;
@@ -161,13 +298,14 @@ void main() {
 
       expect(outerBuilds, initialOuter);
       expect(_painter(tester).data, isNot(same(initialData)));
-      expect(_activeLine(_painter(tester).data).positioned.entry.index, 2);
-      await tester.pump(const Duration(milliseconds: 400));
+      expect(_painter(tester).data.layout?.sourceLineIndex, 2);
+      expect(_painter(tester).previousData, same(initialData));
+      await tester.pump(const Duration(milliseconds: 320));
     });
   });
 
   group('Partita interaction and lifecycle', () {
-    testWidgets('tap seeks with document offset and disabled seek is inert', (
+    testWidgets('tap seeks the selected chunk with document offset', (
       tester,
     ) async {
       final seeks = <Duration>[];
@@ -179,10 +317,9 @@ void main() {
         ),
       );
       await tester.pump();
-      final active = _activeLine(_painter(tester).data);
+      final chunk = _painter(tester).data.chunks.first.layout;
       await tester.tapAt(
-        tester.getTopLeft(find.byType(PartitaLyricRail)) +
-            active.positioned.hitRect.center,
+        tester.getTopLeft(find.byType(PartitaLyricRail)) + chunk.hitRect.center,
       );
       await tester.pump();
       expect(seeks, <Duration>[const Duration(milliseconds: 1500)]);
@@ -191,79 +328,98 @@ void main() {
         _buildRailApp(document: _offsetDocument, onSeek: null),
       );
       await tester.pump();
-      final disabled = _activeLine(_painter(tester).data);
+      final disabledChunk = _painter(tester).data.chunks.first.layout;
       await tester.tapAt(
         tester.getTopLeft(find.byType(PartitaLyricRail)) +
-            disabled.positioned.hitRect.center,
+            disabledChunk.hitRect.center,
       );
       expect(seeks, hasLength(1));
     });
 
-    testWidgets('wheel pauses follow, idle resets, and any seek clears it', (
-      tester,
-    ) async {
-      final seekSignal = ValueNotifier<int>(0);
-      addTearDown(seekSignal.dispose);
-      await tester.pumpWidget(
-        _buildRailApp(document: _timedDocument, seekListenable: seekSignal),
-      );
-      await tester.pump();
-      expect(_anchorIndex(tester), 1);
-
-      _sendScroll(tester, 70);
-      await tester.pump();
-      expect(_anchorIndex(tester), 2);
-
-      await tester.pump(const Duration(milliseconds: 1801));
-      expect(_anchorIndex(tester), 1);
-      await tester.pump(const Duration(milliseconds: 400));
-
-      _sendScroll(tester, 70);
-      await tester.pump();
-      expect(_anchorIndex(tester), 2);
-      _container(tester)
-          .read(_testPositionProvider.notifier)
-          .update(const Duration(milliseconds: 3000));
-      seekSignal.value += 1;
-      await tester.pump();
-      expect(_anchorIndex(tester), 1);
-      await tester.pump(const Duration(milliseconds: 400));
-    });
-
     testWidgets(
-      'document identity resets manual state and stale transition data',
+      'wheel browses one-line compositions and reset follows playback',
       (tester) async {
+        final seekSignal = ValueNotifier<int>(0);
+        addTearDown(seekSignal.dispose);
         await tester.pumpWidget(
-          _buildRailApp(
-            document: _timedDocument,
-            documentIdentity: 'qq::track-a',
-          ),
+          _buildRailApp(document: _timedDocument, seekListenable: seekSignal),
         );
         await tester.pump();
+        expect(_selectedIndex(tester), 1);
+
         _sendScroll(tester, 70);
         await tester.pump();
-        expect(_anchorIndex(tester), 2);
+        expect(_selectedIndex(tester), 2);
+        expect(_painter(tester).data.forceLineActive, isTrue);
 
-        await tester.pumpWidget(
-          _buildRailApp(
-            document: _timedDocument,
-            documentIdentity: 'qq::track-b',
+        expect(
+          resolvePartitaPaintEntry(
+            forceActive: true,
+            state: PartitaTimingState.active,
+            timelinePosition: const Duration(milliseconds: 2500),
+            start: const Duration(seconds: 4),
+            lookahead: const Duration(milliseconds: 150),
           ),
+          1,
         );
-        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 1801));
+        expect(_selectedIndex(tester), 1);
+        await tester.pump(const Duration(milliseconds: 320));
 
-        expect(_anchorIndex(tester), 1);
-        expect(_painter(tester).previousData, isNull);
+        _sendScroll(tester, 70);
+        await tester.pump();
+        expect(_selectedIndex(tester), 2);
+        seekSignal.value += 1;
+        await tester.pump();
+        expect(_selectedIndex(tester), 1);
+        await tester.pump(const Duration(milliseconds: 320));
       },
     );
 
-    testWidgets('breathing remains low-frequency and stops when disabled', (
+    testWidgets('exposes one seek semantic node for the selected line', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _buildRailApp(document: _timedDocument, onSeek: (_) {}),
+      );
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('你 好，你\ntranslated active'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('document identity clears manual and outgoing data', (
       tester,
     ) async {
       await tester.pumpWidget(
+        _buildRailApp(
+          document: _timedDocument,
+          documentIdentity: 'qq::track-a',
+        ),
+      );
+      await tester.pump();
+      _sendScroll(tester, 70);
+      await tester.pump();
+      expect(_selectedIndex(tester), 2);
+
+      await tester.pumpWidget(
+        _buildRailApp(
+          document: _timedDocument,
+          documentIdentity: 'qq::track-b',
+        ),
+      );
+      await tester.pump();
+
+      expect(_selectedIndex(tester), 1);
+      expect(_painter(tester).previousData, isNull);
+    });
+
+    testWidgets('breathing is bounded and stops when disabled', (tester) async {
+      await tester.pumpWidget(
         _buildRailApp(document: _timedDocument, breathingEnabled: true),
       );
-      await tester.pump(const Duration(milliseconds: 850));
+      await tester.pump(const Duration(milliseconds: 1750));
       expect(_painter(tester).breathing.value, closeTo(0.25, 0.03));
 
       await tester.pumpWidget(
@@ -273,7 +429,7 @@ void main() {
       expect(_painter(tester).breathing.value, 0);
     });
 
-    testWidgets('drag never becomes a seek and pending resources dispose', (
+    testWidgets('drag never seeks and pending resources dispose', (
       tester,
     ) async {
       final seeks = <Duration>[];
@@ -292,7 +448,7 @@ void main() {
   });
 
   group('Partita host', () {
-    testWidgets('loading empty error and palette fallback are isolated', (
+    testWidgets('loading empty error and palette fallback share the canvas', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -330,6 +486,10 @@ void main() {
         ),
       );
       await tester.pump();
+      final host = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey<String>('partita-lyric-page')),
+      );
+      expect((host.decoration as BoxDecoration).color, isNotNull);
       expect(find.byType(PartitaLyricRail), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -339,6 +499,7 @@ void main() {
 Widget _buildRailApp({
   required LyricDocument document,
   Size size = const Size(430, 620),
+  TextScaler? textScaler,
   Duration initialPosition = const Duration(milliseconds: 2500),
   ValueChanged<Duration>? onSeek,
   String? documentIdentity,
@@ -346,6 +507,7 @@ Widget _buildRailApp({
   Listenable? seekListenable,
   VoidCallback? onOuterBuild,
   VoidCallback? onStructureBuild,
+  VoidCallback? onTextLayout,
   VoidCallback? onPaint,
 }) {
   return ProviderScope(
@@ -366,7 +528,7 @@ Widget _buildRailApp({
             child: Builder(
               builder: (context) {
                 onOuterBuild?.call();
-                return PartitaLyricRail(
+                final rail = PartitaLyricRail(
                   key: const ValueKey<String>('test-partita-rail'),
                   document: document,
                   documentIdentity: documentIdentity,
@@ -377,7 +539,13 @@ Widget _buildRailApp({
                   breathingEnabled: breathingEnabled,
                   seekListenable: seekListenable,
                   debugOnStructureBuild: onStructureBuild,
+                  debugOnTextLayout: onTextLayout,
                   debugOnPaint: onPaint,
+                );
+                if (textScaler == null) return rail;
+                return MediaQuery(
+                  data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                  child: rail,
                 );
               },
             ),
@@ -429,18 +597,8 @@ PartitaLyricPainter _painter(WidgetTester tester) {
       as PartitaLyricPainter;
 }
 
-PartitaLyricPaintLine _activeLine(PartitaLyricRenderData data) {
-  return data.lines.singleWhere(
-    (line) => line.positioned.entry.status == MonetLyricLineStatus.active,
-  );
-}
-
-int _anchorIndex(WidgetTester tester) {
-  return _painter(tester).data.lines
-      .singleWhere((line) => line.positioned.entry.offset == 0)
-      .positioned
-      .entry
-      .index;
+int _selectedIndex(WidgetTester tester) {
+  return _painter(tester).data.layout!.sourceLineIndex;
 }
 
 void _sendScroll(WidgetTester tester, double deltaY) {

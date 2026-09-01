@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/config/app_lyric_font_preset.dart';
 import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../domain/entities/lyric_document.dart';
-import '../helpers/monet_lyric_layout.dart';
 import '../helpers/partita_lyric_layout.dart';
 import '../providers/lyrics_providers.dart';
 import 'partita_lyric_painter.dart';
@@ -23,6 +23,7 @@ class PartitaLyricRail extends ConsumerStatefulWidget {
     this.breathingEnabled = true,
     this.seekListenable,
     this.debugOnStructureBuild,
+    this.debugOnTextLayout,
     this.debugOnPaint,
     super.key,
   });
@@ -39,6 +40,8 @@ class PartitaLyricRail extends ConsumerStatefulWidget {
   @visibleForTesting
   final VoidCallback? debugOnStructureBuild;
   @visibleForTesting
+  final VoidCallback? debugOnTextLayout;
+  @visibleForTesting
   final VoidCallback? debugOnPaint;
 
   @override
@@ -48,24 +51,26 @@ class PartitaLyricRail extends ConsumerStatefulWidget {
 class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     with TickerProviderStateMixin {
   static const _manualResetDelay = Duration(milliseconds: 1800);
-  static const _transitionDuration = Duration(milliseconds: 380);
-  static const _breathingDuration = Duration(milliseconds: 3400);
+  static const _transitionDuration = Duration(milliseconds: 300);
+  static const _breathingDuration = Duration(milliseconds: 7000);
   static const _wheelStep = 64.0;
   static const _dragStep = 48.0;
+  static const _preheatMinimumLead = Duration(milliseconds: 180);
+  static const _preheatMaximumLead = Duration(milliseconds: 1200);
 
   late PartitaLyricLayoutEngine _engine;
-  late MonetLyricPosition _structurePosition;
+  late PartitaLyricPosition _structurePosition;
   late final ValueNotifier<Duration> _positionNotifier;
   late final AnimationController _transitionController;
   late final AnimationController _breathingController;
   late final ProviderSubscription<Duration> _positionSubscription;
-  final PartitaLyricMeasurementCache _measurementCache =
-      PartitaLyricMeasurementCache();
+  final PartitaLyricLayoutCache _layoutCache = PartitaLyricLayoutCache();
 
   Timer? _manualResetTimer;
   PartitaLyricRenderData? _renderData;
   PartitaLyricRenderData? _previousRenderData;
-  String? _renderSignature;
+  PartitaLyricLayoutOptions? _lastLayoutOptions;
+  int? _renderSignature;
   int? _manualAnchorIndex;
   double _wheelAccumulator = 0;
   int _wheelDirection = 0;
@@ -122,27 +127,28 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       _manualResetTimer = null;
       _manualAnchorIndex = null;
       _resetInputAccumulators();
-      _measurementCache.clear();
+      _layoutCache.clear();
       _engine = nextEngine;
       _structurePosition = _engine.resolvePosition(_positionNotifier.value);
-      _previousRenderData = null;
-      _renderData = null;
-      _renderSignature = null;
-      _transitionController
-        ..stop()
-        ..value = 1;
+      _lastLayoutOptions = null;
+      _resetRenderData();
     } else if (oldWidget.fontPreset != widget.fontPreset ||
         oldWidget.enableWordByWordLyric != widget.enableWordByWordLyric ||
         oldWidget.palette != widget.palette) {
-      _measurementCache.clear();
-      _previousRenderData = null;
-      _renderData = null;
-      _renderSignature = null;
-      _transitionController
-        ..stop()
-        ..value = 1;
+      _layoutCache.clear();
+      _lastLayoutOptions = null;
+      _resetRenderData();
     }
     _syncBreathing();
+  }
+
+  void _resetRenderData() {
+    _previousRenderData = null;
+    _renderData = null;
+    _renderSignature = null;
+    _transitionController
+      ..stop()
+      ..value = 1;
   }
 
   @override
@@ -160,8 +166,28 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     if (!mounted) return;
     _positionNotifier.value = position;
     final next = _engine.resolvePosition(position);
+    _preheatUpcoming(next);
     if (_hasSameStructurePosition(_structurePosition, next)) return;
+    if (_manualAnchorIndex != null) {
+      _structurePosition = next;
+      return;
+    }
     _beginStructureChange(() => _structurePosition = next);
+  }
+
+  void _preheatUpcoming(PartitaLyricPosition position) {
+    final options = _lastLayoutOptions;
+    final upcomingIndex = position.upcomingIndex;
+    if (options == null || upcomingIndex == null) return;
+    final upcoming = _engine.lineAt(upcomingIndex);
+    if (upcoming == null) return;
+    final lead = upcoming.start - position.timelinePosition;
+    if (lead < _preheatMinimumLead || lead > _preheatMaximumLead) return;
+    _engine.layoutLine(
+      sourceLineIndex: upcomingIndex,
+      options: options,
+      cache: _layoutCache,
+    );
   }
 
   void _handleSeek() {
@@ -173,8 +199,8 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
   }
 
   bool _hasSameStructurePosition(
-    MonetLyricPosition first,
-    MonetLyricPosition second,
+    PartitaLyricPosition first,
+    PartitaLyricPosition second,
   ) {
     return first.activeIndex == second.activeIndex &&
         first.recentIndex == second.recentIndex &&
@@ -188,6 +214,13 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       _renderData = null;
       _renderSignature = null;
       update();
+      final selectedIndex = _selectedSourceLineIndex;
+      final selectedLine = selectedIndex == null
+          ? null
+          : _engine.lineAt(selectedIndex);
+      _transitionController.duration = selectedLine == null
+          ? _transitionDuration
+          : resolvePartitaLineTransitionDuration(selectedLine);
       if (animate && _previousRenderData != null && _animationsAllowed) {
         _transitionController
           ..stop()
@@ -230,48 +263,70 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     }
   }
 
+  int? get _selectedSourceLineIndex =>
+      _manualAnchorIndex ?? _structurePosition.activeIndex;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = _resolveRailSize(context, constraints);
         if (size.isEmpty) return const SizedBox.shrink();
+        final selectedLine = _selectedSourceLineIndex == null
+            ? null
+            : _engine.lineAt(_selectedSourceLineIndex!);
+        final hasAuxiliary =
+            selectedLine != null &&
+            (selectedLine.translation.trim().isNotEmpty ||
+                selectedLine.romanization.trim().isNotEmpty);
         final textScaleFactor = _resolveTextScaleFactor(context);
         final fontSpec = _resolveFontSpec(size, widget.fontPreset);
         final lyricTextStyle =
             Theme.of(context).textTheme.bodyLarge ??
             DefaultTextStyle.of(context).style;
+        final reservedAuxiliaryHeight = hasAuxiliary
+            ? math.min(
+                fontSpec.auxiliary * 1.3 * textScaleFactor * 2 + 28,
+                math.max(size.height - 1, 0),
+              )
+            : 0.0;
+        final mainStageSize = Size(
+          size.width,
+          math.max(size.height - reservedAuxiliaryHeight, 1),
+        );
         final options = PartitaLyricLayoutOptions(
-          railSize: size,
-          activeTextStyle: lyricTextStyle.copyWith(
+          stageSize: mainStageSize,
+          textStyle: lyricTextStyle.copyWith(
             fontSize: fontSpec.active,
             fontWeight: FontWeight.w700,
-            height: 1.14,
-            letterSpacing: 0,
-          ),
-          inactiveTextStyle: lyricTextStyle.copyWith(
-            fontSize: fontSpec.inactive,
-            fontWeight: FontWeight.w500,
-            height: 1.2,
-            letterSpacing: 0,
-          ),
-          auxiliaryTextStyle: lyricTextStyle.copyWith(
-            fontSize: fontSpec.auxiliary,
-            fontWeight: FontWeight.w500,
-            height: 1.28,
+            height: 1.22,
             letterSpacing: 0,
           ),
           textDirection: Directionality.of(context),
+          locale: Localizations.maybeLocaleOf(context),
           textScaleFactor: textScaleFactor,
-          horizontalPadding: fontSpec.horizontalPadding,
-          verticalPadding: fontSpec.verticalPadding,
-          auxiliaryGap: fontSpec.auxiliaryGap,
-          activeGap: fontSpec.activeGap,
-          inactiveGap: fontSpec.inactiveGap,
-          guideReserve: fontSpec.guideReserve,
-          inactiveMaxLines: fontSpec.inactiveMaxLines,
+          horizontalInset: fontSpec.horizontalInset,
+          verticalInset: fontSpec.verticalInset,
+          wordGap: fontSpec.wordGap,
+          chunkMarginBottom: fontSpec.chunkMarginBottom,
+          staggerMin: fontSpec.staggerMin,
+          staggerMax: fontSpec.staggerMax,
+          guideLength: fontSpec.guideLength,
+          guideOverhang: fontSpec.guideOverhang,
         );
-        final renderData = _resolveRenderData(options);
+        _lastLayoutOptions = options;
+        _preheatUpcoming(_structurePosition);
+        final auxiliaryStyle = lyricTextStyle.copyWith(
+          fontSize: fontSpec.auxiliary,
+          fontWeight: FontWeight.w500,
+          height: 1.3,
+          letterSpacing: 0,
+        );
+        final renderData = _resolveRenderData(
+          size: size,
+          options: options,
+          auxiliaryStyle: auxiliaryStyle,
+        );
         return RepaintBoundary(
           key: const ValueKey<String>('partita-lyric-repaint-boundary'),
           child: ClipRect(
@@ -300,19 +355,18 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
                         onPaint: widget.debugOnPaint,
                       ),
                     ),
-                    for (final line in renderData.lines)
-                      if (!line.positioned.hitRect.isEmpty)
-                        Positioned.fromRect(
-                          rect: line.positioned.hitRect,
-                          child: Semantics(
-                            label: _semanticLabel(line),
-                            button: widget.onSeek != null,
-                            onTap: widget.onSeek == null
-                                ? null
-                                : () => _seekLine(line),
-                            child: const SizedBox.expand(),
-                          ),
+                    if (renderData.layout != null)
+                      Positioned.fill(
+                        child: Semantics(
+                          container: true,
+                          label: _semanticLabel(renderData),
+                          button: widget.onSeek != null,
+                          onTap: widget.onSeek == null
+                              ? null
+                              : _seekSelectedLine,
+                          child: const SizedBox.expand(),
                         ),
+                      ),
                   ],
                 ),
               ),
@@ -340,45 +394,48 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     return (scaler.scale(16) / 16).clamp(0.8, 1.6);
   }
 
-  PartitaLyricRenderData _resolveRenderData(PartitaLyricLayoutOptions options) {
-    final signature = <Object?>[
+  PartitaLyricRenderData _resolveRenderData({
+    required Size size,
+    required PartitaLyricLayoutOptions options,
+    required TextStyle auxiliaryStyle,
+  }) {
+    final selectedIndex = _selectedSourceLineIndex;
+    final signature = Object.hashAll(<Object?>[
       _engine.documentSignature,
       widget.documentIdentity,
-      _structurePosition.activeIndex,
-      _structurePosition.recentIndex,
-      _structurePosition.upcomingIndex,
+      selectedIndex,
       _manualAnchorIndex,
-      options.railSize,
-      options.activeTextStyle.fontSize,
-      options.inactiveTextStyle.fontSize,
-      options.auxiliaryTextStyle.fontSize,
+      options.stageSize,
+      options.textStyle,
+      auxiliaryStyle,
       options.textScaleFactor,
       options.textDirection,
+      options.locale,
       widget.fontPreset,
       widget.enableWordByWordLyric,
       widget.palette,
-    ].join('|');
+      size,
+    ]);
     final cached = _renderData;
     if (cached != null && signature == _renderSignature) return cached;
 
-    final entries = _engine.buildVisibleWindow(
-      position: _structurePosition,
-      before: 4,
-      after: 4,
-      manualAnchorIndex: _manualAnchorIndex,
-    );
-    final positioned = layoutPartitaLyricWindow(
-      engine: _engine,
-      entries: entries,
-      options: options,
-      cache: _measurementCache,
-    );
+    final layout = selectedIndex == null
+        ? null
+        : _engine.layoutLine(
+            sourceLineIndex: selectedIndex,
+            options: options,
+            cache: _layoutCache,
+          );
     final next = buildPartitaLyricRenderData(
-      positionedLines: positioned,
+      size: size,
+      layout: layout,
       options: options,
+      auxiliaryTextStyle: auxiliaryStyle,
       palette: widget.palette,
       enableWordByWordLyric: widget.enableWordByWordLyric,
+      forceLineActive: _manualAnchorIndex != null,
       timelineOffset: Duration(milliseconds: widget.document.offset),
+      debugOnTextLayout: widget.debugOnTextLayout,
     );
     _renderData = next;
     _renderSignature = signature;
@@ -386,11 +443,13 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     return next;
   }
 
-  String _semanticLabel(PartitaLyricPaintLine line) {
-    final auxiliary = line.positioned.measurement.auxiliaryText;
+  String _semanticLabel(PartitaLyricRenderData data) {
+    final layout = data.layout;
+    if (layout == null) return '';
+    final auxiliary = layout.auxiliaryText;
     return auxiliary == null
-        ? line.positioned.entry.line.text
-        : '${line.positioned.entry.line.text}\n$auxiliary';
+        ? layout.sourceLine.text
+        : '${layout.sourceLine.text}\n$auxiliary';
   }
 
   void _handlePointerSignal(PointerSignalEvent event) {
@@ -455,9 +514,10 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
 
   void _enterManualMode() {
     if (_manualAnchorIndex == null) {
-      _beginStructureChange(() {
-        _manualAnchorIndex = _automaticAnchorIndex();
-      }, animate: false);
+      _beginStructureChange(
+        () => _manualAnchorIndex = _automaticAnchorIndex(),
+        animate: false,
+      );
     }
     _restartManualResetTimer();
   }
@@ -506,22 +566,18 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     }
     final data = _renderData;
     if (data == null) return;
-    for (final line in data.lines.reversed) {
-      if (!line.positioned.hitRect.isEmpty &&
-          line.positioned.hitRect.contains(details.localPosition)) {
-        _seekLine(line);
+    for (final chunk in data.chunks.reversed) {
+      if (chunk.layout.hitRect.contains(details.localPosition)) {
+        _seekSelectedLine();
         return;
       }
     }
   }
 
-  void _seekLine(PartitaLyricPaintLine line) {
+  void _seekSelectedLine() {
     final onSeek = widget.onSeek;
-    if (onSeek == null ||
-        line.positioned.hitRect.isEmpty ||
-        line.positioned.entry.isInterlude) {
-      return;
-    }
+    final layout = _renderData?.layout;
+    if (onSeek == null || layout == null) return;
     _manualResetTimer?.cancel();
     _manualResetTimer = null;
     _resetInputAccumulators();
@@ -529,7 +585,7 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       _beginStructureChange(() => _manualAnchorIndex = null);
     }
     final requested =
-        line.positioned.entry.line.start -
+        layout.sourceLine.start -
         Duration(milliseconds: widget.document.offset);
     onSeek(requested.isNegative ? Duration.zero : requested);
   }
@@ -539,47 +595,42 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
 class _PartitaRailFontSpec {
   const _PartitaRailFontSpec({
     required this.active,
-    required this.inactive,
     required this.auxiliary,
-    required this.inactiveMaxLines,
-    required this.horizontalPadding,
-    required this.verticalPadding,
-    required this.auxiliaryGap,
-    required this.activeGap,
-    required this.inactiveGap,
-    required this.guideReserve,
+    required this.horizontalInset,
+    required this.verticalInset,
+    required this.wordGap,
+    required this.chunkMarginBottom,
+    required this.staggerMin,
+    required this.staggerMax,
+    required this.guideLength,
+    required this.guideOverhang,
   });
 
   final double active;
-  final double inactive;
   final double auxiliary;
-  final int inactiveMaxLines;
-  final double horizontalPadding;
-  final double verticalPadding;
-  final double auxiliaryGap;
-  final double activeGap;
-  final double inactiveGap;
-  final double guideReserve;
+  final double horizontalInset;
+  final double verticalInset;
+  final double wordGap;
+  final double chunkMarginBottom;
+  final double staggerMin;
+  final double staggerMax;
+  final double guideLength;
+  final double guideOverhang;
 }
 
 _PartitaRailFontSpec _resolveFontSpec(Size size, AppLyricFontPreset preset) {
   final compact = size.width < 340 || size.height < 280;
-  final wide = size.width >= 720 && size.height >= 400;
+  final wide = size.width >= 620 && size.height >= 400;
   final active = switch ((preset, compact, wide)) {
-    (AppLyricFontPreset.small, true, _) => 23.0,
-    (AppLyricFontPreset.small, false, true) => 34.0,
-    (AppLyricFontPreset.small, false, false) => 29.0,
-    (AppLyricFontPreset.medium, true, _) => 27.0,
-    (AppLyricFontPreset.medium, false, true) => 40.0,
-    (AppLyricFontPreset.medium, false, false) => 34.0,
-    (AppLyricFontPreset.large, true, _) => 31.0,
-    (AppLyricFontPreset.large, false, true) => 46.0,
-    (AppLyricFontPreset.large, false, false) => 40.0,
-  };
-  final inactive = switch (preset) {
-    AppLyricFontPreset.small => compact ? 17.0 : (wide ? 25.0 : 20.0),
-    AppLyricFontPreset.medium => compact ? 20.0 : (wide ? 29.0 : 23.0),
-    AppLyricFontPreset.large => compact ? 22.0 : (wide ? 33.0 : 27.0),
+    (AppLyricFontPreset.small, true, _) => 30.0,
+    (AppLyricFontPreset.small, false, true) => 44.0,
+    (AppLyricFontPreset.small, false, false) => 36.0,
+    (AppLyricFontPreset.medium, true, _) => 34.0,
+    (AppLyricFontPreset.medium, false, true) => 50.0,
+    (AppLyricFontPreset.medium, false, false) => 42.0,
+    (AppLyricFontPreset.large, true, _) => 38.0,
+    (AppLyricFontPreset.large, false, true) => 58.0,
+    (AppLyricFontPreset.large, false, false) => 48.0,
   };
   final auxiliary = switch (preset) {
     AppLyricFontPreset.small => compact ? 11.0 : (wide ? 14.0 : 12.0),
@@ -588,14 +639,14 @@ _PartitaRailFontSpec _resolveFontSpec(Size size, AppLyricFontPreset preset) {
   };
   return _PartitaRailFontSpec(
     active: active,
-    inactive: inactive,
     auxiliary: auxiliary,
-    inactiveMaxLines: compact ? 1 : 2,
-    horizontalPadding: compact ? 8 : 14,
-    verticalPadding: compact ? 5 : 8,
-    auxiliaryGap: compact ? 4 : 6,
-    activeGap: compact ? 11 : 18,
-    inactiveGap: compact ? 8 : 12,
-    guideReserve: compact ? 22 : 30,
+    horizontalInset: compact ? 20 : (wide ? 38 : 28),
+    verticalInset: compact ? 16 : 28,
+    wordGap: compact ? 7 : 12,
+    chunkMarginBottom: compact ? 7 : 10,
+    staggerMin: compact ? 14 : 20,
+    staggerMax: compact ? 52 : (wide ? 100 : 72),
+    guideLength: compact ? 24 : 32,
+    guideOverhang: compact ? 12 : 18,
   );
 }

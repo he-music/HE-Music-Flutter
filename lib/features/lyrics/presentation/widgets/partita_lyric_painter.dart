@@ -5,235 +5,262 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/player/app_player_scene_palette.dart';
-import '../helpers/monet_lyric_layout.dart';
 import '../helpers/partita_lyric_layout.dart';
-import 'monet_lyric_painter.dart' show resolveMonetTokenClipRects;
+
+enum PartitaTimingState { waiting, active, passed }
 
 @immutable
-class PartitaTokenPaintData {
-  const PartitaTokenPaintData({required this.token, required this.boxes});
+class PartitaWordPaintData {
+  const PartitaWordPaintData({
+    required this.layout,
+    required this.bodyPainter,
+    required this.activePainter,
+    required this.glowPainter,
+  });
 
-  final MonetDisplayToken token;
-  final List<Rect> boxes;
+  final PartitaWordLayout layout;
+  final TextPainter bodyPainter;
+  final TextPainter activePainter;
+  final TextPainter glowPainter;
 }
 
 @immutable
-class PartitaLyricPaintLine {
-  const PartitaLyricPaintLine({
-    required this.positioned,
-    required this.mainPainter,
-    required this.accentPainter,
-    required this.glowPainter,
-    required this.auxiliaryPainter,
-    required this.tokens,
-  });
+class PartitaChunkPaintData {
+  const PartitaChunkPaintData({required this.layout, required this.words});
 
-  final PartitaPositionedLyricLine positioned;
-  final TextPainter mainPainter;
-  final TextPainter? accentPainter;
-  final TextPainter? glowPainter;
-  final TextPainter? auxiliaryPainter;
-  final List<PartitaTokenPaintData> tokens;
+  final PartitaChunkLayout layout;
+  final List<PartitaWordPaintData> words;
 }
 
 @immutable
 class PartitaLyricRenderData {
   const PartitaLyricRenderData({
     required this.size,
-    required this.lines,
+    required this.layout,
+    required this.chunks,
+    required this.auxiliaryPainter,
+    required this.auxiliaryOffset,
     required this.timelineOffset,
     required this.textDirection,
     required this.palette,
+    required this.fineTimingEnabled,
+    required this.forceLineActive,
   });
 
   final Size size;
-  final List<PartitaLyricPaintLine> lines;
+  final PartitaLineLayout? layout;
+  final List<PartitaChunkPaintData> chunks;
+  final TextPainter? auxiliaryPainter;
+  final Offset? auxiliaryOffset;
   final Duration timelineOffset;
   final TextDirection textDirection;
   final PlayerScenePalette palette;
+  final bool fineTimingEnabled;
+  final bool forceLineActive;
 }
 
 PartitaLyricRenderData buildPartitaLyricRenderData({
-  required List<PartitaPositionedLyricLine> positionedLines,
+  required Size size,
+  required PartitaLineLayout? layout,
   required PartitaLyricLayoutOptions options,
+  required TextStyle auxiliaryTextStyle,
   required PlayerScenePalette palette,
   required bool enableWordByWordLyric,
+  required bool forceLineActive,
   required Duration timelineOffset,
+  VoidCallback? debugOnTextLayout,
 }) {
-  final lines = positionedLines
-      .map((positioned) {
-        final entry = positioned.entry;
-        final isActive = entry.status == MonetLyricLineStatus.active;
-        final distance = entry.offset.abs().clamp(1, 4);
-        final opacity = isActive
-            ? 1.0
-            : entry.status == MonetLyricLineStatus.waiting
-            ? (0.66 - (distance - 1) * 0.10).clamp(0.34, 0.66)
-            : (0.50 - (distance - 1) * 0.07).clamp(0.29, 0.50);
-        final style =
-            (isActive ? options.activeTextStyle : options.inactiveTextStyle)
-                .copyWith(
-                  color: isActive
-                      ? palette.foreground.withValues(alpha: 0.98)
-                      : palette.secondaryForeground.withValues(alpha: opacity),
-                );
-        final displayTokens = isActive && enableWordByWordLyric
-            ? buildPartitaDisplayTokens(entry.line)
-            : const <MonetDisplayToken>[];
-        final hasTimedTokens = displayTokens.any((token) => token.hasTiming);
-        final mainPainter = _layoutPainter(
-          text: entry.line.text,
-          style: hasTimedTokens
-              ? style.copyWith(
-                  color: palette.foreground.withValues(alpha: 0.46),
-                )
-              : style,
-          options: options,
-          maxWidth: positioned.measurement.layoutWidth,
-          maxLines: isActive ? null : options.inactiveMaxLines.clamp(1, 1000),
-          ellipsis: isActive ? null : '\u2026',
-        );
-        final accentPainter = hasTimedTokens
-            ? _layoutPainter(
-                text: entry.line.text,
-                style: style.copyWith(color: palette.accent, shadows: const []),
-                options: options,
-                maxWidth: positioned.measurement.layoutWidth,
-              )
-            : null;
-        final glowPainter = hasTimedTokens
-            ? _layoutPainter(
-                text: entry.line.text,
-                style: style.copyWith(
+  if (layout == null) {
+    return PartitaLyricRenderData(
+      size: size,
+      layout: null,
+      chunks: const <PartitaChunkPaintData>[],
+      auxiliaryPainter: null,
+      auxiliaryOffset: null,
+      timelineOffset: timelineOffset,
+      textDirection: options.textDirection,
+      palette: palette,
+      fineTimingEnabled: false,
+      forceLineActive: forceLineActive,
+    );
+  }
+
+  final densityScale = layout.totalGraphemes > 40 ? 0.8 : 1.0;
+  final textStyle = options.textStyle.copyWith(
+    fontSize: (options.textStyle.fontSize ?? 48) * densityScale,
+  );
+  TextPainter layoutPainter(String text, TextStyle style) {
+    debugOnTextLayout?.call();
+    return TextPainter(
+      text: TextSpan(text: text, style: style),
+      locale: options.locale,
+      textDirection: options.textDirection,
+      textScaler: TextScaler.linear(options.textScaleFactor),
+      maxLines: 1,
+    )..layout();
+  }
+
+  final chunks = layout.chunks
+      .map((chunk) {
+        final words = chunk.words
+            .map((word) {
+              final bodyPainter = layoutPainter(
+                word.word.text,
+                textStyle.copyWith(
+                  color: palette.foreground.withValues(alpha: 0.82),
+                  shadows: const <Shadow>[],
+                ),
+              );
+              final activePainter = layoutPainter(
+                word.word.text,
+                textStyle.copyWith(
+                  color: palette.accent,
+                  shadows: const <Shadow>[],
+                ),
+              );
+              final glowPainter = layoutPainter(
+                word.word.text,
+                textStyle.copyWith(
                   color: Color.lerp(
                     palette.accent,
                     palette.edge,
-                    0.45,
-                  )!.withValues(alpha: 0.34),
-                  shadows: const [],
+                    0.38,
+                  )!.withValues(alpha: 0.56),
+                  shadows: const <Shadow>[],
                 ),
-                options: options,
-                maxWidth: positioned.measurement.layoutWidth,
-              )
-            : null;
-        final tokens = accentPainter == null
-            ? const <PartitaTokenPaintData>[]
-            : displayTokens
-                  .map((token) {
-                    if (!token.hasTiming ||
-                        token.endOffset <= token.startOffset) {
-                      return PartitaTokenPaintData(
-                        token: token,
-                        boxes: const <Rect>[],
-                      );
-                    }
-                    final boxes = mainPainter
-                        .getBoxesForSelection(
-                          TextSelection(
-                            baseOffset: token.startOffset,
-                            extentOffset: token.endOffset,
-                          ),
-                          boxHeightStyle: ui.BoxHeightStyle.tight,
-                          boxWidthStyle: ui.BoxWidthStyle.tight,
-                        )
-                        .map((box) => box.toRect())
-                        .where((box) => box.width > 0 && box.height > 0)
-                        .toList(growable: false);
-                    return PartitaTokenPaintData(
-                      token: token,
-                      boxes: List<Rect>.unmodifiable(boxes),
-                    );
-                  })
-                  .toList(growable: false);
-        final auxiliaryText = positioned.measurement.auxiliaryText;
-        final auxiliaryPainter = auxiliaryText == null
-            ? null
-            : _layoutPainter(
-                text: auxiliaryText,
-                style: options.auxiliaryTextStyle.copyWith(
-                  color: palette.secondaryForeground.withValues(alpha: 0.82),
-                ),
-                options: options,
-                maxWidth: positioned.measurement.layoutWidth,
               );
-        return PartitaLyricPaintLine(
-          positioned: positioned,
-          mainPainter: mainPainter,
-          accentPainter: accentPainter,
-          glowPainter: glowPainter,
-          auxiliaryPainter: auxiliaryPainter,
-          tokens: List<PartitaTokenPaintData>.unmodifiable(tokens),
+              return PartitaWordPaintData(
+                layout: word,
+                bodyPainter: bodyPainter,
+                activePainter: activePainter,
+                glowPainter: glowPainter,
+              );
+            })
+            .toList(growable: false);
+        return PartitaChunkPaintData(
+          layout: chunk,
+          words: List<PartitaWordPaintData>.unmodifiable(words),
         );
       })
       .toList(growable: false);
 
+  final auxiliaryText = layout.auxiliaryText;
+  TextPainter? auxiliaryPainter;
+  Offset? auxiliaryOffset;
+  if (auxiliaryText != null) {
+    debugOnTextLayout?.call();
+    auxiliaryPainter = TextPainter(
+      text: TextSpan(
+        text: auxiliaryText,
+        style: auxiliaryTextStyle.copyWith(
+          color: palette.secondaryForeground.withValues(alpha: 0.72),
+        ),
+      ),
+      textDirection: options.textDirection,
+      locale: options.locale,
+      textAlign: TextAlign.center,
+      textScaler: TextScaler.linear(options.textScaleFactor),
+      maxLines: 2,
+      ellipsis: '\u2026',
+    )..layout(maxWidth: math.max(size.width * 0.76, 1));
+    auxiliaryOffset = Offset(
+      (size.width - auxiliaryPainter.width) / 2,
+      math.max(size.height - auxiliaryPainter.height - 20, 0),
+    );
+  }
+
   return PartitaLyricRenderData(
-    size: options.railSize,
-    lines: List<PartitaLyricPaintLine>.unmodifiable(lines),
+    size: size,
+    layout: layout,
+    chunks: List<PartitaChunkPaintData>.unmodifiable(chunks),
+    auxiliaryPainter: auxiliaryPainter,
+    auxiliaryOffset: auxiliaryOffset,
     timelineOffset: timelineOffset,
     textDirection: options.textDirection,
     palette: palette,
+    fineTimingEnabled: enableWordByWordLyric && layout.hasFineTiming,
+    forceLineActive: forceLineActive,
   );
-}
-
-TextPainter _layoutPainter({
-  required String text,
-  required TextStyle style,
-  required PartitaLyricLayoutOptions options,
-  required double maxWidth,
-  int? maxLines,
-  String? ellipsis,
-}) {
-  return TextPainter(
-    text: TextSpan(text: text, style: style),
-    textDirection: options.textDirection,
-    textAlign: TextAlign.left,
-    textScaler: TextScaler.linear(options.textScaleFactor),
-    maxLines: maxLines,
-    ellipsis: ellipsis,
-  )..layout(maxWidth: maxWidth);
-}
-
-@immutable
-class PartitaGuideSegment {
-  const PartitaGuideSegment(this.start, this.end);
-
-  final Offset start;
-  final Offset end;
 }
 
 @visibleForTesting
-List<PartitaGuideSegment> resolvePartitaGuideSegments({
-  required Rect textRect,
-  required Rect bounds,
-  required double progress,
+PartitaTimingState resolvePartitaTimingState({
+  required Duration timelinePosition,
+  required Duration? start,
+  required Duration? end,
+  required Duration lookahead,
+  bool forceActive = false,
 }) {
-  if (textRect.isEmpty || bounds.isEmpty || progress <= 0) {
-    return const <PartitaGuideSegment>[];
+  if (forceActive || start == null || end == null || end <= start) {
+    return PartitaTimingState.active;
   }
-  final resolvedProgress = progress.clamp(0.0, 1.0);
-  const gap = 9.0;
-  final arm = math.min(16.0, math.max(textRect.width * 0.12, 9.0));
-  final vertical = math.min(30.0, math.max(textRect.height * 0.48, 16.0));
-  final centerY = textRect.center.dy;
-  final leftX = (textRect.left - gap).clamp(bounds.left, bounds.right);
-  final rightX = (textRect.right + gap).clamp(bounds.left, bounds.right);
-  final top = (centerY - vertical / 2).clamp(bounds.top, bounds.bottom);
-  final bottom = (centerY + vertical / 2).clamp(bounds.top, bounds.bottom);
-  final leftEnd = (leftX - arm * resolvedProgress).clamp(
-    bounds.left,
-    bounds.right,
+  if (timelinePosition < start - lookahead) {
+    return PartitaTimingState.waiting;
+  }
+  if (timelinePosition <= end) return PartitaTimingState.active;
+  return PartitaTimingState.passed;
+}
+
+@visibleForTesting
+Duration resolvePartitaLookahead(PartitaLineLayout? layout) {
+  final line = layout?.sourceLine;
+  final end = line?.end;
+  if (line == null || end == null || end <= line.start) {
+    return const Duration(milliseconds: 150);
+  }
+  final duration = end - line.start;
+  if (duration < const Duration(milliseconds: 100)) {
+    return const Duration(milliseconds: 30);
+  }
+  if (duration < const Duration(milliseconds: 180)) {
+    return const Duration(milliseconds: 80);
+  }
+  return const Duration(milliseconds: 150);
+}
+
+@visibleForTesting
+double resolvePartitaEntryProgress({
+  required Duration timelinePosition,
+  required Duration? start,
+  required Duration lookahead,
+}) {
+  if (start == null || lookahead <= Duration.zero) return 1;
+  final entryStart = start - lookahead;
+  if (timelinePosition <= entryStart) return 0;
+  if (timelinePosition >= start) return 1;
+  return ((timelinePosition - entryStart).inMicroseconds /
+          lookahead.inMicroseconds)
+      .clamp(0.0, 1.0);
+}
+
+@visibleForTesting
+double resolvePartitaPaintEntry({
+  required bool forceActive,
+  required PartitaTimingState state,
+  required Duration timelinePosition,
+  required Duration? start,
+  required Duration lookahead,
+}) {
+  if (forceActive) return 1;
+  if (state == PartitaTimingState.waiting) return 0;
+  return resolvePartitaEntryProgress(
+    timelinePosition: timelinePosition,
+    start: start,
+    lookahead: lookahead,
   );
-  final rightEnd = (rightX + arm * resolvedProgress).clamp(
-    bounds.left,
-    bounds.right,
-  );
-  return <PartitaGuideSegment>[
-    PartitaGuideSegment(Offset(leftX, centerY), Offset(leftX, bottom)),
-    PartitaGuideSegment(Offset(leftX, bottom), Offset(leftEnd, bottom)),
-    PartitaGuideSegment(Offset(rightX, centerY), Offset(rightX, top)),
-    PartitaGuideSegment(Offset(rightX, top), Offset(rightEnd, top)),
-  ];
+}
+
+@visibleForTesting
+double resolvePartitaPassedProgress({
+  required Duration timelinePosition,
+  required Duration? end,
+  Duration settleDuration = const Duration(milliseconds: 500),
+}) {
+  if (end == null || timelinePosition <= end) return 0;
+  if (settleDuration <= Duration.zero) return 1;
+  return ((timelinePosition - end).inMicroseconds /
+          settleDuration.inMicroseconds)
+      .clamp(0.0, 1.0);
 }
 
 class PartitaLyricPainter extends CustomPainter {
@@ -264,187 +291,338 @@ class PartitaLyricPainter extends CustomPainter {
     onPaint?.call();
     canvas.save();
     canvas.clipRect(Offset.zero & size);
-    final timelinePosition = position.value + data.timelineOffset;
     final transitionValue = Curves.easeOutCubic.transform(transition.value);
-    for (final line in data.lines) {
-      _paintLine(
+    final previous = previousData;
+    if (previous != null && transitionValue < 1) {
+      _paintRenderData(
         canvas,
-        line,
-        _previousLineFor(line),
-        timelinePosition,
-        transitionValue,
-        Offset.zero & size,
+        previous,
+        opacity: 1 - transitionValue,
+        lineScale: 1 + transitionValue * 0.08,
+        ambientEnabled: false,
       );
     }
+    _paintRenderData(
+      canvas,
+      data,
+      opacity: transitionValue,
+      lineScale: 0.9 + transitionValue * 0.1,
+      ambientEnabled: true,
+    );
     canvas.restore();
   }
 
-  PartitaLyricPaintLine? _previousLineFor(PartitaLyricPaintLine line) {
-    final previous = previousData;
-    if (previous == null) return null;
-    for (final candidate in previous.lines) {
-      if (candidate.positioned.entry.key == line.positioned.entry.key) {
-        return candidate;
-      }
-    }
-    return null;
-  }
-
-  void _paintLine(
+  void _paintRenderData(
     Canvas canvas,
-    PartitaLyricPaintLine line,
-    PartitaLyricPaintLine? previousLine,
-    Duration timelinePosition,
-    double transitionValue,
-    Rect bounds,
-  ) {
-    final positioned = line.positioned;
-    final previousRect = previousLine?.positioned.rect;
-    final fallbackShift = Offset(
-      positioned.entry.offset.isEven ? -18 : 18,
-      positioned.entry.offset >= 0 ? 18 : -18,
+    PartitaLyricRenderData renderData, {
+    required double opacity,
+    required double lineScale,
+    required bool ambientEnabled,
+  }) {
+    final layout = renderData.layout;
+    if (layout == null || opacity <= 0) return;
+    final timelinePosition = position.value + renderData.timelineOffset;
+    final lookahead = resolvePartitaLookahead(layout);
+    final ambientPhase = ambientEnabled
+        ? math.sin(breathing.value * math.pi * 2)
+        : 0.0;
+    final ambientShift = Offset(0, ambientPhase * 5.5);
+    final ambientScale = 1 + ambientPhase * 0.005;
+    final center = Offset(
+      renderData.size.width / 2,
+      renderData.size.height / 2,
     );
-    final startRect = previousRect ?? positioned.rect.shift(fallbackShift);
-    final paintedLeft = ui.lerpDouble(
-      startRect.left,
-      positioned.rect.left,
-      transitionValue,
-    )!;
-    final paintedTop = ui.lerpDouble(
-      startRect.top,
-      positioned.rect.top,
-      transitionValue,
-    )!;
-    final shift = Offset(
-      paintedLeft - positioned.rect.left,
-      paintedTop - positioned.rect.top,
-    );
-    final isActive = positioned.entry.status == MonetLyricLineStatus.active;
-    final breath = isActive ? math.sin(breathing.value * math.pi * 2) : 0.0;
-    final breathScale = 1 + breath * 0.006;
-    final breathShift = Offset(0, breath * 1.4);
-    final currentFontSize = _fontSize(line.mainPainter);
-    final previousFontSize = previousLine == null
-        ? currentFontSize
-        : _fontSize(previousLine.mainPainter);
-    final transitionScale = ui.lerpDouble(
-      previousFontSize / math.max(currentFontSize, 1),
-      1,
-      transitionValue,
-    )!;
-    final transformScale = transitionScale * breathScale;
-    final paintedRect = positioned.rect.shift(shift + breathShift);
 
     canvas.save();
-    canvas.translate(paintedRect.center.dx, paintedRect.center.dy);
-    canvas.scale(transformScale, transformScale);
-    canvas.translate(-paintedRect.center.dx, -paintedRect.center.dy);
-
-    if (isActive) {
-      _paintGuides(canvas, paintedRect, bounds, transitionValue);
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(lineScale * ambientScale);
+    canvas.translate(
+      -center.dx + ambientShift.dx,
+      -center.dy + ambientShift.dy,
+    );
+    if (opacity < 0.999) {
+      canvas.saveLayer(
+        Offset.zero & renderData.size,
+        Paint()..color = Colors.white.withValues(alpha: opacity),
+      );
     }
-    final mainOrigin =
-        positioned.rect.topLeft +
-        positioned.measurement.mainTextOffset +
-        shift +
-        breathShift;
-    line.mainPainter.paint(canvas, mainOrigin);
-    _paintTimedAccent(canvas, line, timelinePosition, mainOrigin);
 
-    final auxiliaryOffset = positioned.measurement.auxiliaryOffset;
-    if (line.auxiliaryPainter != null && auxiliaryOffset != null) {
-      line.auxiliaryPainter!.paint(
+    for (final chunk in renderData.chunks) {
+      _paintChunk(canvas, renderData, chunk, timelinePosition, lookahead);
+    }
+
+    final auxiliaryPainter = renderData.auxiliaryPainter;
+    final auxiliaryOffset = renderData.auxiliaryOffset;
+    if (auxiliaryPainter != null && auxiliaryOffset != null) {
+      auxiliaryPainter.paint(canvas, auxiliaryOffset + ambientShift * 0.35);
+    }
+    if (opacity < 0.999) canvas.restore();
+    canvas.restore();
+  }
+
+  void _paintChunk(
+    Canvas canvas,
+    PartitaLyricRenderData renderData,
+    PartitaChunkPaintData chunk,
+    Duration timelinePosition,
+    Duration lookahead,
+  ) {
+    final layout = chunk.layout;
+    final forceActive =
+        renderData.forceLineActive || !renderData.fineTimingEnabled;
+    final lastWord = chunk.words.isEmpty ? null : chunk.words.last.layout.word;
+    final activeEnd = lastWord == null
+        ? layout.end
+        : resolvePartitaWordActiveEnd(
+            line: renderData.layout!.sourceLine,
+            start: lastWord.start,
+            end: lastWord.end,
+          );
+    final state = resolvePartitaTimingState(
+      timelinePosition: timelinePosition,
+      start: layout.start,
+      end: activeEnd,
+      lookahead: lookahead,
+      forceActive: forceActive,
+    );
+    final entry = resolvePartitaPaintEntry(
+      forceActive: forceActive,
+      state: state,
+      timelinePosition: timelinePosition,
+      start: layout.start,
+      lookahead: lookahead,
+    );
+    final passed = forceActive
+        ? 0.0
+        : resolvePartitaPassedProgress(
+            timelinePosition: timelinePosition,
+            end: activeEnd,
+          );
+    final guideDirection = layout.guide.side == PartitaGuideSide.left
+        ? -1.0
+        : 1.0;
+    final waitingShift = Offset(guideDirection * 40 * (1 - entry), 0);
+    final stateScale = ui.lerpDouble(0.85, 1, entry)!;
+    final stateRotation = layout.transform.passedRotation * passed;
+    final center = layout.visualBounds.center;
+
+    canvas.save();
+    canvas.translate(center.dx + waitingShift.dx, center.dy + waitingShift.dy);
+    canvas.rotate(stateRotation);
+    canvas.scale(stateScale);
+    canvas.translate(-center.dx, -center.dy);
+    _paintGuide(canvas, renderData, layout, state, entry);
+    for (final word in chunk.words) {
+      _paintWord(
         canvas,
-        positioned.rect.topLeft + auxiliaryOffset + shift + breathShift,
+        renderData,
+        word,
+        timelinePosition,
+        lookahead,
+        forceActive,
       );
     }
     canvas.restore();
   }
 
-  void _paintGuides(
+  void _paintGuide(
     Canvas canvas,
-    Rect textRect,
-    Rect bounds,
-    double progress,
+    PartitaLyricRenderData renderData,
+    PartitaChunkLayout chunk,
+    PartitaTimingState state,
+    double entry,
   ) {
-    final segments = resolvePartitaGuideSegments(
-      textRect: textRect,
-      bounds: bounds,
-      progress: progress,
-    );
+    if (entry <= 0) return;
+    final color = switch (state) {
+      PartitaTimingState.waiting => Colors.white.withValues(
+        alpha: 0.14 * entry,
+      ),
+      PartitaTimingState.active => renderData.palette.accent.withValues(
+        alpha: 0.72 * entry,
+      ),
+      PartitaTimingState.passed => Colors.white.withValues(alpha: 0.22),
+    };
     final paint = Paint()
-      ..color = Color.lerp(
-        data.palette.edge,
-        data.palette.accent,
-        0.35,
-      )!.withValues(alpha: 0.72 * progress)
-      ..strokeWidth = 1.35
+      ..color = color
+      ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    for (final segment in segments) {
+    if (state == PartitaTimingState.active) {
+      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.8);
+    }
+    for (final segment in chunk.guide.segments) {
       canvas.drawLine(segment.start, segment.end, paint);
     }
   }
 
-  void _paintTimedAccent(
+  void _paintWord(
     Canvas canvas,
-    PartitaLyricPaintLine line,
+    PartitaLyricRenderData renderData,
+    PartitaWordPaintData word,
     Duration timelinePosition,
-    Offset origin,
+    Duration lookahead,
+    bool forceActive,
   ) {
-    final accentPainter = line.accentPainter;
-    if (accentPainter == null) return;
-    final revealed = <Rect>[];
-    final current = <Rect>[];
-    for (final tokenData in line.tokens) {
-      if (tokenData.boxes.isEmpty || !tokenData.token.hasTiming) continue;
-      final progress = resolveMonetTokenProgress(
-        timelinePosition: timelinePosition,
-        token: tokenData.token,
-      );
-      final clips = resolveMonetTokenClipRects(
-        boxes: tokenData.boxes,
-        progress: progress,
-        textDirection: data.textDirection,
-      );
-      revealed.addAll(clips);
-      if (progress > 0 && progress < 1) current.addAll(clips);
-    }
-    if (current.isNotEmpty && line.glowPainter != null) {
-      final shifted = current.map((clip) => clip.shift(origin)).toList();
-      final glowBounds = shifted
-          .skip(1)
-          .fold<Rect>(
-            shifted.first,
-            (value, clip) => value.expandToInclude(clip),
-          )
-          .inflate(7);
-      final path = Path();
-      for (final clip in shifted) {
-        path.addRect(clip);
-      }
+    final displayWord = word.layout.word;
+    final activeEnd = resolvePartitaWordActiveEnd(
+      line: renderData.layout!.sourceLine,
+      start: displayWord.start,
+      end: displayWord.end,
+    );
+    final state = resolvePartitaTimingState(
+      timelinePosition: timelinePosition,
+      start: displayWord.start,
+      end: activeEnd,
+      lookahead: lookahead,
+      forceActive: forceActive,
+    );
+    final entry = resolvePartitaPaintEntry(
+      forceActive: forceActive,
+      state: state,
+      timelinePosition: timelinePosition,
+      start: displayWord.start,
+      lookahead: lookahead,
+    );
+    if (entry <= 0) return;
+    final passed = forceActive
+        ? 0.0
+        : resolvePartitaPassedProgress(
+            timelinePosition: timelinePosition,
+            end: activeEnd,
+          );
+    final relativeScale = forceActive
+        ? 1.05
+        : switch (state) {
+            PartitaTimingState.waiting => ui.lerpDouble(
+              0.5,
+              partitaActiveWordScale,
+              entry,
+            )!,
+            PartitaTimingState.active => partitaActiveWordScale,
+            PartitaTimingState.passed => ui.lerpDouble(
+              partitaActiveWordScale,
+              1,
+              passed,
+            )!,
+          };
+    final entryOffset = forceActive
+        ? Offset.zero
+        : Offset(
+                math.sin(word.layout.transform.offset.dy) * 100,
+                math.cos(word.layout.transform.offset.dx) * 50,
+              ) *
+              (1 - entry);
+    final entryRotation = forceActive
+        ? 0.0
+        : (20 * math.pi / 180) * (1 - entry);
+    final relativeRotation =
+        entryRotation +
+        (state == PartitaTimingState.passed
+            ? word.layout.transform.passedRotation * passed
+            : 0);
+    final painter = forceActive
+        ? word.activePainter
+        : state == PartitaTimingState.active
+        ? word.activePainter
+        : word.bodyPainter;
+    final wordOpacity = state == PartitaTimingState.passed ? 0.82 : entry;
+    final bounds = word.layout.geometry.bounds.shift(entryOffset).inflate(18);
+
+    if (wordOpacity < 0.999) {
       canvas.saveLayer(
-        glowBounds,
-        Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 2.4, sigmaY: 2.4),
+        bounds,
+        Paint()..color = Colors.white.withValues(alpha: wordOpacity),
       );
-      canvas.clipPath(path);
-      line.glowPainter!.paint(canvas, origin);
-      canvas.restore();
     }
-    if (revealed.isEmpty) return;
-    final path = Path();
-    for (final clip in revealed) {
-      path.addRect(clip.shift(origin));
+    _paintTextPainter(
+      canvas,
+      painter,
+      word.layout,
+      relativeOffset: entryOffset,
+      relativeScale: relativeScale,
+      relativeRotation: relativeRotation,
+    );
+    if (!forceActive && state == PartitaTimingState.active) {
+      _paintCurrentGrapheme(
+        canvas,
+        word,
+        timelinePosition,
+        relativeScale,
+        entryOffset,
+        relativeRotation,
+      );
     }
+    if (wordOpacity < 0.999) canvas.restore();
+  }
+
+  void _paintCurrentGrapheme(
+    Canvas canvas,
+    PartitaWordPaintData word,
+    Duration timelinePosition,
+    double relativeScale,
+    Offset relativeOffset,
+    double relativeRotation,
+  ) {
+    PartitaGraphemeGeometry? current;
+    for (final grapheme in word.layout.geometry.graphemes) {
+      final start = grapheme.slice.start;
+      final end = grapheme.slice.end;
+      if (start != null &&
+          end != null &&
+          timelinePosition >= start &&
+          timelinePosition <= end) {
+        current = grapheme;
+        break;
+      }
+    }
+    if (current == null) return;
+
+    final geometry = word.layout.geometry;
+    final textOrigin = Offset(
+      -geometry.textSize.width / 2,
+      -geometry.textSize.height / 2,
+    );
+    final localClip = current.localBounds
+        .shift(textOrigin)
+        .inflate(1.5 / (geometry.paintScale * relativeScale));
     canvas.save();
-    canvas.clipPath(path);
-    accentPainter.paint(canvas, origin);
+    canvas.translate(
+      geometry.center.dx + relativeOffset.dx,
+      geometry.center.dy + relativeOffset.dy,
+    );
+    canvas.rotate(geometry.paintRotation + relativeRotation);
+    canvas.scale(geometry.paintScale * relativeScale);
+    canvas.saveLayer(
+      localClip.inflate(10),
+      Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 2.6, sigmaY: 2.6),
+    );
+    canvas.clipRect(localClip);
+    word.glowPainter.paint(canvas, textOrigin);
+    canvas.restore();
     canvas.restore();
   }
 
-  double _fontSize(TextPainter painter) {
-    final text = painter.text;
-    return text is TextSpan ? text.style?.fontSize ?? 1 : 1;
+  void _paintTextPainter(
+    Canvas canvas,
+    TextPainter painter,
+    PartitaWordLayout word, {
+    required Offset relativeOffset,
+    required double relativeScale,
+    double relativeRotation = 0,
+  }) {
+    final geometry = word.geometry;
+    canvas.save();
+    canvas.translate(
+      geometry.center.dx + relativeOffset.dx,
+      geometry.center.dy + relativeOffset.dy,
+    );
+    canvas.rotate(geometry.paintRotation + relativeRotation);
+    canvas.scale(geometry.paintScale * relativeScale);
+    painter.paint(
+      canvas,
+      Offset(-geometry.textSize.width / 2, -geometry.textSize.height / 2),
+    );
+    canvas.restore();
   }
 
   @override

@@ -8,7 +8,7 @@ import '../../../lyrics/presentation/providers/lyrics_providers.dart';
 import '../../../lyrics/presentation/widgets/partita_lyric_rail.dart';
 import '../providers/player_providers.dart';
 
-/// Transparent player host for the Folia Partita cloud-step lyric renderer.
+/// Player host for the Folia Partita active-line visualizer.
 class PartitaLyricPage extends ConsumerWidget {
   const PartitaLyricPage({
     required this.emptyText,
@@ -38,9 +38,14 @@ class PartitaLyricPage extends ConsumerWidget {
             (state) => state.isPlaying && !state.isLoading,
           ),
         );
+    final canvasColor = Color.lerp(
+      effectivePalette.surfaceDeep,
+      Colors.black,
+      0.72,
+    )!.withValues(alpha: 0.94);
     return DecoratedBox(
       key: const ValueKey<String>('partita-lyric-page'),
-      decoration: const BoxDecoration(),
+      decoration: BoxDecoration(color: canvasColor),
       child: _PartitaLyricDataHost(
         emptyText: emptyText,
         onSeek: onSeek,

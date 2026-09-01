@@ -84,6 +84,96 @@ const _monetPreviewDocument = LyricDocument(
   ],
 );
 
+const _partitaPreviewPosition = Duration(minutes: 1, seconds: 28);
+
+const _partitaPreviewDocument = LyricDocument(
+  lines: <LyricLine>[
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 12),
+      end: Duration(minutes: 1, seconds: 20),
+      text: '城市回声仍在呼吸',
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 20),
+      end: Duration(minutes: 1, seconds: 32),
+      text: '低频 neon 大厅 cross the midnight skyline',
+      translation: '城市回声',
+      tokens: <LyricToken>[
+        LyricToken(
+          text: '低频',
+          startOffset: Duration.zero,
+          duration: Duration(milliseconds: 900),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 900),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: 'neon',
+          startOffset: Duration(seconds: 1),
+          duration: Duration(milliseconds: 1300),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 2300),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: '大厅',
+          startOffset: Duration(milliseconds: 2400),
+          duration: Duration(milliseconds: 1500),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 3900),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: 'cross',
+          startOffset: Duration(seconds: 4),
+          duration: Duration(milliseconds: 1400),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 5400),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: 'the',
+          startOffset: Duration(milliseconds: 5500),
+          duration: Duration(milliseconds: 900),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 6400),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: 'midnight',
+          startOffset: Duration(milliseconds: 6500),
+          duration: Duration(milliseconds: 1800),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 8300),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: 'skyline',
+          startOffset: Duration(milliseconds: 8400),
+          duration: Duration(milliseconds: 1700),
+        ),
+      ],
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 32),
+      end: Duration(minutes: 1, seconds: 39),
+      text: '下一束光正在靠近',
+    ),
+  ],
+);
+
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
   testWidgets('player style previews match the real player scene', (
@@ -286,14 +376,18 @@ Widget _buildPreviewApp(
       playerControllerProvider.overrideWith(
         () => _PreviewPlayerController(includeArtwork: includeArtwork),
       ),
-      if (styleId == AppPlayerStyleRegistry.monetLyricsId ||
-          styleId == AppPlayerStyleRegistry.partitaLyricsId)
+      if (styleId == AppPlayerStyleRegistry.monetLyricsId)
         currentLyricDocumentProvider.overrideWithValue(
           const AsyncData<LyricDocument>(_monetPreviewDocument),
         ),
-      if (styleId == AppPlayerStyleRegistry.monetLyricsId ||
-          styleId == AppPlayerStyleRegistry.partitaLyricsId)
+      if (styleId == AppPlayerStyleRegistry.monetLyricsId)
         lyricPositionProvider.overrideWithValue(_monetPreviewPosition),
+      if (styleId == AppPlayerStyleRegistry.partitaLyricsId)
+        currentLyricDocumentProvider.overrideWithValue(
+          const AsyncData<LyricDocument>(_partitaPreviewDocument),
+        ),
+      if (styleId == AppPlayerStyleRegistry.partitaLyricsId)
+        lyricPositionProvider.overrideWithValue(_partitaPreviewPosition),
       audioPlayerPortProvider.overrideWithValue(
         const _PreviewAudioPlayerPort(),
       ),
