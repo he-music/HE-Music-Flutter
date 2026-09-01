@@ -132,7 +132,7 @@ void main() {
     expect(permission.requestCount, 0);
     debugDefaultTargetPlatformOverride = null;
   });
-  testWidgets('Monet 歌词样式显示预览并可选择', (tester) async {
+  testWidgets('Monet 保持可见且 Partita 预览可选择', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final harness = await _pumpSheet(
@@ -149,13 +149,22 @@ void main() {
       find.byKey(const ValueKey<String>('player-style-option-monet_lyrics')),
       findsOneWidget,
     );
+    expect(find.text('Partita Cloud Steps'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('player-style-preview-partita_lyrics')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-style-option-partita_lyrics')),
+      findsOneWidget,
+    );
 
     await tester.tap(
-      find.byKey(const ValueKey<String>('player-style-option-monet_lyrics')),
+      find.byKey(const ValueKey<String>('player-style-option-partita_lyrics')),
     );
     await tester.pumpAndSettle();
 
-    expect(harness.config.state.playerStyleId, 'monet_lyrics');
+    expect(harness.config.state.playerStyleId, 'partita_lyrics');
     debugDefaultTargetPlatformOverride = null;
   });
 }

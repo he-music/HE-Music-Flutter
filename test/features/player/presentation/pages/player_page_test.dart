@@ -24,6 +24,8 @@ import 'package:he_music_flutter/features/lyrics/presentation/helpers/monet_lyri
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_painter.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_rail.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_lyric_painter.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_lyric_rail.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/favorite_song_status_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -41,6 +43,7 @@ import 'package:he_music_flutter/features/player/presentation/styles/player_styl
 import 'package:he_music_flutter/features/player/presentation/widgets/player_backdrop.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/monet_lyric_page.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/partita_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
@@ -1138,6 +1141,128 @@ void main() {
     await tester.pump();
 
     expect(find.byType(MonetLyricPage), findsNothing);
+    expect(find.byType(PlayerLyricPage), findsOneWidget);
+  });
+
+  testWidgets('Partita style uses cloud steps with the classic scene', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    var playerPageBuilds = 0;
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        lyricDocument: _monetFixtureDocument,
+        onPlayerPageBuild: () => playerPageBuilds += 1,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.partitaLyricsId,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('classic-player-stage')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-compact-lyric-tap')),
+      findsOneWidget,
+    );
+    final pager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('player-mobile-pager')),
+    );
+    pager.controller!.jumpToPage(1);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PartitaLyricPage), findsOneWidget);
+    expect(find.byType(PartitaLyricRail), findsOneWidget);
+    expect(find.byType(MonetLyricPage), findsNothing);
+    expect(find.byType(PlayerLyricPage), findsNothing);
+    final host = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('partita-lyric-page')),
+    );
+    expect((host.decoration as BoxDecoration).color, isNull);
+    expect(
+      tester.widget<PartitaLyricPage>(find.byType(PartitaLyricPage)).palette,
+      isNotNull,
+    );
+
+    final initialPainter =
+        tester
+                .widget<CustomPaint>(
+                  find.byKey(const ValueKey<String>('partita-lyric-painter')),
+                )
+                .painter!
+            as PartitaLyricPainter;
+    final initialData = initialPainter.data;
+    final active = initialData.lines.singleWhere(
+      (line) => line.positioned.entry.status == MonetLyricLineStatus.active,
+    );
+    expect(active.positioned.entry.line.text, '低频大厅');
+    expect(active.accentPainter, isNotNull);
+    expect(active.auxiliaryPainter, isNotNull);
+    expect(
+      initialData.lines
+          .where((line) => line.positioned.cloudOffset != 0)
+          .map((line) => line.positioned.cloudOffset.sign)
+          .toSet(),
+      containsAll(<double>{-1, 1}),
+    );
+
+    final playerPageWidget = tester.widget<PlayerPage>(find.byType(PlayerPage));
+    final initialPlayerPageBuilds = playerPageBuilds;
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(PlayerPage)),
+    );
+    container
+        .read(_playerTestLyricPositionProvider.notifier)
+        .update(const Duration(minutes: 1, seconds: 25));
+    await tester.pump();
+    final sameLinePainter =
+        tester
+                .widget<CustomPaint>(
+                  find.byKey(const ValueKey<String>('partita-lyric-painter')),
+                )
+                .painter!
+            as PartitaLyricPainter;
+    expect(sameLinePainter.data, same(initialData));
+    expect(
+      tester.widget<PlayerPage>(find.byType(PlayerPage)),
+      same(playerPageWidget),
+    );
+    expect(playerPageBuilds, initialPlayerPageBuilds);
+    final playerController =
+        container.read(playerControllerProvider.notifier)
+            as _OnlineTrackPlayerController;
+    playerController.setPlaybackActivity(isPlaying: true, isLoading: false);
+    await tester.pump();
+    expect(
+      tester.widget<PlayerPage>(find.byType(PlayerPage)),
+      same(playerPageWidget),
+    );
+    expect(playerPageBuilds, initialPlayerPageBuilds);
+    await tester.pump(const Duration(milliseconds: 850));
+    expect(_partitaPainter(tester).breathing.value, greaterThan(0));
+
+    playerController.setPlaybackActivity(isPlaying: true, isLoading: true);
+    await tester.pump();
+    expect(
+      tester.widget<PlayerPage>(find.byType(PlayerPage)),
+      same(playerPageWidget),
+    );
+    expect(playerPageBuilds, initialPlayerPageBuilds);
+    expect(_partitaPainter(tester).breathing.value, 0);
+
+    container
+        .read(appConfigProvider.notifier)
+        .setPlayerStyleId(AppPlayerStyleRegistry.classicId);
+    await tester.pump();
+    expect(find.byType(PartitaLyricPage), findsNothing);
     expect(find.byType(PlayerLyricPage), findsOneWidget);
   });
 
@@ -2422,6 +2547,15 @@ InkResponse _inkResponse(WidgetTester tester, IconData icon) {
   );
 }
 
+PartitaLyricPainter _partitaPainter(WidgetTester tester) {
+  return tester
+          .widget<CustomPaint>(
+            find.byKey(const ValueKey<String>('partita-lyric-painter')),
+          )
+          .painter!
+      as PartitaLyricPainter;
+}
+
 Widget _buildPlayerTestApp({
   required PlayerController Function() controllerFactory,
   BigInt? featureSupportFlag,
@@ -2430,6 +2564,7 @@ Widget _buildPlayerTestApp({
   ScreenWakeLockPort? screenWakeLockPort,
   AudioSpectrumPort? spectrumPort,
   RealtimeSpectrumController? spectrumController,
+  VoidCallback? onPlayerPageBuild,
 }) {
   return ProviderScope(
     overrides: [
@@ -2472,7 +2607,9 @@ Widget _buildPlayerTestApp({
     ],
     child: MaterialApp(
       navigatorObservers: <NavigatorObserver>[appPageRouteObserver],
-      home: const AppPlayerStyleBoundary(child: PlayerPage()),
+      home: AppPlayerStyleBoundary(
+        child: PlayerPage(debugOnBuild: onPlayerPageBuild),
+      ),
     ),
   );
 }
@@ -2542,6 +2679,10 @@ class _PlayerTestLyricPositionController extends Notifier<Duration> {
 
 class _OnlineTrackPlayerController extends PlayerController {
   PlayerPlaybackState get snapshot => state;
+
+  void setPlaybackActivity({required bool isPlaying, required bool isLoading}) {
+    state = state.copyWith(isPlaying: isPlaying, isLoading: isLoading);
+  }
 
   @override
   PlayerPlaybackState build() {

@@ -11,17 +11,22 @@ void main() {
       registry.styles.map((style) => style.metadata.id).toSet(),
       AppPlayerStyleRegistry.builtInIds,
     );
-    expect(registry.styles, hasLength(7));
+    expect(registry.styles, hasLength(8));
     expect(registry.styles.every((style) => style.isValid), isTrue);
     expect(
       registry.resolve(AppPlayerStyleRegistry.monetLyricsId).lyricsKind,
       AppPlayerLyricsKind.monet,
     );
     expect(
+      registry.resolve(AppPlayerStyleRegistry.partitaLyricsId).lyricsKind,
+      AppPlayerLyricsKind.partita,
+    );
+    expect(
       registry.styles
           .where(
             (style) =>
-                style.metadata.id != AppPlayerStyleRegistry.monetLyricsId,
+                style.metadata.id != AppPlayerStyleRegistry.monetLyricsId &&
+                style.metadata.id != AppPlayerStyleRegistry.partitaLyricsId,
           )
           .every((style) => style.lyricsKind == AppPlayerLyricsKind.legacy),
       isTrue,
@@ -54,29 +59,24 @@ void main() {
     );
   });
 
-  test(
-    'classic vinyl cassette and radial spectrum share backdrop base colors',
-    () {
-      final registry = AppPlayerStyleRegistry.builtIn();
-      final classicColors = registry
-          .resolve(AppPlayerStyleRegistry.classicId)
-          .colors;
+  test('classic-backed styles share backdrop base colors', () {
+    final registry = AppPlayerStyleRegistry.builtIn();
+    final classicColors = registry
+        .resolve(AppPlayerStyleRegistry.classicId)
+        .colors;
 
-      for (final id in <String>{
-        AppPlayerStyleRegistry.vinylId,
-        AppPlayerStyleRegistry.cassetteId,
-        AppPlayerStyleRegistry.radialSpectrumId,
-      }) {
-        final colors = registry.resolve(id).colors;
-        expect(
-          colors.backgroundStart,
-          classicColors.backgroundStart,
-          reason: id,
-        );
-        expect(colors.backgroundEnd, classicColors.backgroundEnd, reason: id);
-      }
-    },
-  );
+    for (final id in <String>{
+      AppPlayerStyleRegistry.vinylId,
+      AppPlayerStyleRegistry.cassetteId,
+      AppPlayerStyleRegistry.radialSpectrumId,
+      AppPlayerStyleRegistry.monetLyricsId,
+      AppPlayerStyleRegistry.partitaLyricsId,
+    }) {
+      final colors = registry.resolve(id).colors;
+      expect(colors.backgroundStart, classicColors.backgroundStart, reason: id);
+      expect(colors.backgroundEnd, classicColors.backgroundEnd, reason: id);
+    }
+  });
 
   test('registry rejects duplicate ids', () {
     expect(

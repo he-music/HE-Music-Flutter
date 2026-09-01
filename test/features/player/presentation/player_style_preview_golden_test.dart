@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:crypto/crypto.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/core/audio/audio_player_port.dart';
 import 'package:he_music_flutter/core/audio/audio_spectrum_frame.dart';
@@ -103,7 +105,7 @@ void main() {
       await tester.pumpWidget(_buildPreviewApp(style.metadata.id));
       await tester.pumpAndSettle();
       await _pumpUntilImagesDecoded(tester);
-      if (style.metadata.id == AppPlayerStyleRegistry.monetLyricsId) {
+      if (style.lyricsKind != AppPlayerLyricsKind.legacy) {
         final pager = tester.widget<PageView>(
           find.byKey(const ValueKey<String>('player-mobile-pager')),
         );
@@ -216,8 +218,8 @@ void main() {
 
       expect(_pngSize(bytes), (360, 640), reason: path);
       expect(pubspec, contains('    - $path'));
-      expect(provenance, contains(path));
-      expect(provenance, contains(hash));
+      expect(provenance, contains('- `$path`: `$hash`.'));
+      expect(await _pngHasVisualVariation(bytes), isTrue, reason: path);
     }
 
     expect(provenance, contains('make player-style-previews'));
@@ -245,6 +247,27 @@ void main() {
   return (header.getUint32(16), header.getUint32(20));
 }
 
+Future<bool> _pngHasVisualVariation(Uint8List bytes) async {
+  final codec = await ui.instantiateImageCodec(bytes);
+  try {
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    try {
+      final pixels = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (pixels == null || pixels.lengthInBytes < 8) return false;
+      final firstPixel = pixels.getUint32(0);
+      for (var offset = 4; offset < pixels.lengthInBytes; offset += 4) {
+        if (pixels.getUint32(offset) != firstPixel) return true;
+      }
+      return false;
+    } finally {
+      image.dispose();
+    }
+  } finally {
+    codec.dispose();
+  }
+}
+
 Widget _buildPreviewApp(
   String styleId, {
   _PreviewArtistPhotoMode artistPhotoMode = _PreviewArtistPhotoMode.photo,
@@ -263,11 +286,13 @@ Widget _buildPreviewApp(
       playerControllerProvider.overrideWith(
         () => _PreviewPlayerController(includeArtwork: includeArtwork),
       ),
-      if (styleId == AppPlayerStyleRegistry.monetLyricsId)
+      if (styleId == AppPlayerStyleRegistry.monetLyricsId ||
+          styleId == AppPlayerStyleRegistry.partitaLyricsId)
         currentLyricDocumentProvider.overrideWithValue(
           const AsyncData<LyricDocument>(_monetPreviewDocument),
         ),
-      if (styleId == AppPlayerStyleRegistry.monetLyricsId)
+      if (styleId == AppPlayerStyleRegistry.monetLyricsId ||
+          styleId == AppPlayerStyleRegistry.partitaLyricsId)
         lyricPositionProvider.overrideWithValue(_monetPreviewPosition),
       audioPlayerPortProvider.overrideWithValue(
         const _PreviewAudioPlayerPort(),

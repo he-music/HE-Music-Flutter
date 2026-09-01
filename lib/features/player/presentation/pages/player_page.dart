@@ -47,11 +47,12 @@ import '../providers/player_providers.dart';
 import '../providers/player_sleep_timer_provider.dart';
 import '../styles/player_style_stage.dart';
 import '../styles/player_track_header.dart';
+import '../widgets/monet_lyric_page.dart';
+import '../widgets/partita_lyric_page.dart';
 import '../widgets/player_backdrop.dart';
 import '../widgets/player_compact_lyric_section.dart';
 import '../widgets/player_control_bar.dart';
 import '../widgets/player_lyric_page.dart';
-import '../widgets/monet_lyric_page.dart';
 import '../widgets/player_more_sheet_widgets.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/player_queue_sheet.dart';
@@ -59,9 +60,15 @@ import '../widgets/player_sleep_timer_sheet.dart';
 import '../widgets/player_style_selection_sheet.dart';
 
 class PlayerPage extends ConsumerStatefulWidget {
-  const PlayerPage({super.key, this.artistPhotoImageProviderBuilder});
+  const PlayerPage({
+    super.key,
+    this.artistPhotoImageProviderBuilder,
+    this.debugOnBuild,
+  });
 
   final ArtistPhotoImageProviderBuilder? artistPhotoImageProviderBuilder;
+  @visibleForTesting
+  final VoidCallback? debugOnBuild;
 
   @override
   ConsumerState<PlayerPage> createState() => _PlayerPageState();
@@ -80,6 +87,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   static const _pageCount = 2;
   late final PageController _pageController = PageController();
   final GlobalKey _lyricPageKey = GlobalKey(debugLabel: 'player-lyric-page');
+  final ValueNotifier<int> _seekRevision = ValueNotifier<int>(0);
   int _currentPage = 0;
   int? _mobilePageToRestore;
   PlayerLayoutMode? _lastLayoutMode;
@@ -157,6 +165,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       unawaited(_restoreDefaultSystemUi(force: true));
     }
     _pageController.dispose();
+    _seekRevision.dispose();
     super.dispose();
   }
 
@@ -256,6 +265,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   @override
   Widget build(BuildContext context) {
+    widget.debugOnBuild?.call();
     final config = ref.watch(
       appConfigProvider.select(
         (state) =>
@@ -270,6 +280,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _classicBackdropColors,
     );
     final controller = ref.read(playerControllerProvider.notifier);
+    Future<void> seek(Duration position) {
+      _seekRevision.value += 1;
+      return controller.seek(position);
+    }
+
     final presentation = ref.watch(
       playerControllerProvider.select(
         (state) => (
@@ -324,22 +339,31 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           config.localeCode,
           'player.lyrics.empty',
         ),
-        onSeek: presentation.isTrackTransitioning ? null : controller.seek,
+        onSeek: presentation.isTrackTransitioning ? null : seek,
         artworkUrl: presentation.currentTrack?.artworkUrl,
         artworkBytes: presentation.currentTrack?.artworkBytes,
         center: false,
       );
-      if (playerStyle.lyricsKind != AppPlayerLyricsKind.monet) {
-        return lyricPage;
-      }
-      return MonetLyricPage(
-        emptyText: AppI18n.tByLocaleCode(
-          config.localeCode,
-          'player.lyrics.empty',
+      return switch (playerStyle.lyricsKind) {
+        AppPlayerLyricsKind.legacy => lyricPage,
+        AppPlayerLyricsKind.monet => MonetLyricPage(
+          emptyText: AppI18n.tByLocaleCode(
+            config.localeCode,
+            'player.lyrics.empty',
+          ),
+          onSeek: presentation.isTrackTransitioning ? null : seek,
+          palette: scenePalette,
         ),
-        onSeek: presentation.isTrackTransitioning ? null : controller.seek,
-        palette: scenePalette,
-      );
+        AppPlayerLyricsKind.partita => PartitaLyricPage(
+          emptyText: AppI18n.tByLocaleCode(
+            config.localeCode,
+            'player.lyrics.empty',
+          ),
+          onSeek: presentation.isTrackTransitioning ? null : seek,
+          palette: scenePalette,
+          seekListenable: _seekRevision,
+        ),
+      };
     }
 
     return PopScope(
@@ -404,6 +428,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                             'player.noTrack',
                           ),
                           controller: controller,
+                          onSeek: seek,
                           layoutSpec: spec,
                           stageKind: playerStyle.stageKind,
                           stageMaxWidth: playerStyle.geometry.stageMaxWidth,
@@ -428,6 +453,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                             'player.noTrack',
                           ),
                           controller: controller,
+                          onSeek: seek,
                           layoutSpec: spec,
                           stageKind: playerStyle.stageKind,
                           stageMaxWidth: playerStyle.geometry.stageMaxWidth,
@@ -1681,6 +1707,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
   const _PlayerMobileLandscapeLayout({
     required this.noTrackText,
     required this.controller,
+    required this.onSeek,
     required this.layoutSpec,
     required this.stageKind,
     required this.stageMaxWidth,
@@ -1696,6 +1723,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
 
   final String noTrackText;
   final PlayerController controller;
+  final Future<void> Function(Duration) onSeek;
   final PlayerLayoutSpec layoutSpec;
   final AppPlayerStageKind stageKind;
   final double stageMaxWidth;
@@ -1799,7 +1827,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
                   children: <Widget>[
                     Expanded(
                       flex: 2,
-                      child: _PlayerProgressSection(onSeek: controller.seek),
+                      child: _PlayerProgressSection(onSeek: onSeek),
                     ),
                     const SizedBox(width: 24),
                     Expanded(flex: 3, child: controls),
@@ -1834,7 +1862,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
                   ),
                 ),
               ),
-              _PlayerProgressSection(onSeek: controller.seek),
+              _PlayerProgressSection(onSeek: onSeek),
             ],
           ),
         ),
@@ -1863,6 +1891,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
   const _PlayerMetaControlPage({
     required this.noTrackText,
     required this.controller,
+    required this.onSeek,
     required this.layoutSpec,
     required this.stageKind,
     required this.stageMaxWidth,
@@ -1877,6 +1906,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
 
   final String noTrackText;
   final PlayerController controller;
+  final Future<void> Function(Duration) onSeek;
   final PlayerLayoutSpec layoutSpec;
   final AppPlayerStageKind stageKind;
   final double stageMaxWidth;
@@ -1906,7 +1936,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
     final utilityBar = _PlayerUtilityBar(onOpenMore: onOpenMore);
     final controls = <Widget>[
       utilityBar,
-      _PlayerProgressSection(onSeek: controller.seek),
+      _PlayerProgressSection(onSeek: onSeek),
       SizedBox(height: gap),
       _PlayerControlSection(
         controller: controller,

@@ -193,7 +193,6 @@ TextPainter _layoutPainter({
   )..layout(maxWidth: maxWidth);
 }
 
-@visibleForTesting
 List<Rect> resolveMonetTokenClipRects({
   required List<Rect> boxes,
   required double progress,

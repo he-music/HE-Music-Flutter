@@ -35,7 +35,7 @@ void main() {
         githubDownloadAccelerationEnabled: true,
         githubDownloadProxyAutoUpdateEnabled: false,
         githubDownloadProxyId: 'proxy-1',
-        playerStyleId: AppPlayerStyleRegistry.monetLyricsId,
+        playerStyleId: AppPlayerStyleRegistry.partitaLyricsId,
         lyricHighlightMode: AppLyricHighlightMode.custom,
         lyricHighlightPreset: AppLyricHighlightColor.sky,
         lyricHighlightCustomColor: 0xFF123456,
@@ -64,7 +64,7 @@ void main() {
     expect(state.githubDownloadAccelerationEnabled, isTrue);
     expect(state.githubDownloadProxyAutoUpdateEnabled, isFalse);
     expect(state.githubDownloadProxyId, 'proxy-1');
-    expect(state.playerStyleId, AppPlayerStyleRegistry.monetLyricsId);
+    expect(state.playerStyleId, AppPlayerStyleRegistry.partitaLyricsId);
     expect(state.lyricHighlightMode, AppLyricHighlightMode.custom);
     expect(state.lyricHighlightPreset, AppLyricHighlightColor.sky);
     expect(state.lyricHighlightCustomColor, 0xFF123456);

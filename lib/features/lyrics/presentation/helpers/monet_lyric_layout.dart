@@ -30,6 +30,7 @@ class MonetVisibleLyricLine {
   const MonetVisibleLyricLine({
     required this.line,
     required this.index,
+    required this.sourceIndex,
     required this.offset,
     required this.status,
     required this.key,
@@ -38,6 +39,10 @@ class MonetVisibleLyricLine {
 
   final LyricLine line;
   final int index;
+
+  /// Index in the source document. Synthetic interludes inherit the preceding
+  /// source index, while a leading interlude uses zero.
+  final int sourceIndex;
   final int offset;
   final MonetLyricLineStatus status;
   final String key;
@@ -47,16 +52,28 @@ class MonetVisibleLyricLine {
 const _monetInterludeText = '......';
 const _monetInterludeGap = Duration(seconds: 3);
 
-List<LyricLine> _buildMonetRenderableLines(List<LyricLine> sourceLines) {
+class _MonetRenderableLine {
+  const _MonetRenderableLine(this.line, this.sourceIndex);
+
+  final LyricLine line;
+  final int sourceIndex;
+}
+
+List<_MonetRenderableLine> _buildMonetRenderableLines(
+  List<LyricLine> sourceLines,
+) {
   if (sourceLines.isEmpty) {
-    return const <LyricLine>[];
+    return const <_MonetRenderableLine>[];
   }
 
-  final renderLines = <LyricLine>[];
+  final renderLines = <_MonetRenderableLine>[];
   final first = sourceLines.first;
   if (first.start > _monetInterludeGap) {
     renderLines.add(
-      _createMonetInterlude(const Duration(milliseconds: 500), first.start),
+      _MonetRenderableLine(
+        _createMonetInterlude(const Duration(milliseconds: 500), first.start),
+        0,
+      ),
     );
   }
 
@@ -64,23 +81,30 @@ List<LyricLine> _buildMonetRenderableLines(List<LyricLine> sourceLines) {
     final current = sourceLines[index];
     final next = index + 1 < sourceLines.length ? sourceLines[index + 1] : null;
     if (next == null || current.end == null) {
-      renderLines.add(current);
+      renderLines.add(_MonetRenderableLine(current, index));
       continue;
     }
 
     final gap = next.start - current.end!;
     if (gap > Duration.zero && gap <= _monetInterludeGap) {
-      renderLines.add(_copyMonetLineWithEnd(current, next.start));
+      renderLines.add(
+        _MonetRenderableLine(_copyMonetLineWithEnd(current, next.start), index),
+      );
       continue;
     }
 
-    renderLines.add(current);
+    renderLines.add(_MonetRenderableLine(current, index));
     if (gap > _monetInterludeGap) {
-      renderLines.add(_createMonetInterlude(current.end!, next.start));
+      renderLines.add(
+        _MonetRenderableLine(
+          _createMonetInterlude(current.end!, next.start),
+          index,
+        ),
+      );
     }
   }
 
-  return List<LyricLine>.unmodifiable(renderLines);
+  return List<_MonetRenderableLine>.unmodifiable(renderLines);
 }
 
 LyricLine _copyMonetLineWithEnd(LyricLine line, Duration end) {
@@ -131,7 +155,7 @@ class MonetLyricLayoutEngine {
 
   final LyricDocument document;
   final String documentSignature;
-  final List<LyricLine> _renderLines;
+  final List<_MonetRenderableLine> _renderLines;
 
   int get lineCount => _renderLines.length;
 
@@ -160,7 +184,7 @@ class MonetLyricLayoutEngine {
       );
     }
 
-    final candidate = lines[candidateIndex];
+    final candidate = lines[candidateIndex].line;
     final isBeforeExplicitEnd =
         candidate.end == null || timelinePosition.compareTo(candidate.end!) < 0;
     final activeIndex = isBeforeExplicitEnd ? candidateIndex : null;
@@ -204,10 +228,12 @@ class MonetLyricLayoutEngine {
       entryIndex,
     ) {
       final index = startIndex + entryIndex;
-      final line = lines[index];
+      final renderLine = lines[index];
+      final line = renderLine.line;
       return MonetVisibleLyricLine(
         line: line,
         index: index,
+        sourceIndex: renderLine.sourceIndex,
         offset: index - anchorIndex,
         status: _resolveLineStatus(index, position),
         key: _lineKey(index, line),
@@ -522,12 +548,12 @@ List<MonetPositionedLyricLine> layoutMonetLyricWindow({
   }, growable: false);
 }
 
-int _lastStartedLineIndex(List<LyricLine> lines, Duration position) {
+int _lastStartedLineIndex(List<_MonetRenderableLine> lines, Duration position) {
   var low = 0;
   var high = lines.length;
   while (low < high) {
     final middle = low + ((high - low) >> 1);
-    if (lines[middle].start.compareTo(position) <= 0) {
+    if (lines[middle].line.start.compareTo(position) <= 0) {
       low = middle + 1;
     } else {
       high = middle;
