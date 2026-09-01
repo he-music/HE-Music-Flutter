@@ -44,7 +44,7 @@ void main() {
     expect(find.text('自建'), findsOneWidget);
     expect(find.text('收藏'), findsOneWidget);
     expect(find.text('当前没有歌单内容'), findsOneWidget);
-    expect(find.byTooltip('创建歌单'), findsOneWidget);
+    expect(find.byTooltip('新建歌单'), findsOneWidget);
   });
 
   testWidgets('my collection entry does not show favorite song count', (
@@ -96,7 +96,7 @@ void main() {
     expect(find.text('Created'), findsOneWidget);
     expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('No playlists yet'), findsOneWidget);
-    expect(find.byTooltip('Create Playlist'), findsOneWidget);
+    expect(find.byTooltip('New Playlist'), findsOneWidget);
   });
 
   testWidgets('my page keeps mobile single-column layout on wide width', (
@@ -176,7 +176,7 @@ void main() {
     await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
     await tester.pump();
 
-    await tester.tap(find.byTooltip('创建歌单'));
+    await tester.tap(find.byTooltip('新建歌单'));
     await tester.pumpAndSettle();
     final textField = tester.widget<TextField>(find.byType(TextField));
     expect(textField.autofocus, isTrue);
@@ -198,7 +198,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byTooltip('创建歌单'));
+    await tester.tap(find.byTooltip('新建歌单'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '旅行');
     await tester.tap(find.widgetWithText(FilledButton, '创建'));
