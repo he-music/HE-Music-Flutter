@@ -20,7 +20,6 @@ class MonetLyricPaintLine {
     required this.positioned,
     required this.mainPainter,
     required this.accentPainter,
-    required this.tokenEdgePaint,
     required this.translationPainter,
     required this.tokens,
   });
@@ -28,7 +27,6 @@ class MonetLyricPaintLine {
   final MonetPositionedLyricLine positioned;
   final TextPainter mainPainter;
   final TextPainter? accentPainter;
-  final Paint? tokenEdgePaint;
   final TextPainter? translationPainter;
   final List<MonetTokenPaintData> tokens;
 }
@@ -150,14 +148,6 @@ MonetLyricRenderData buildMonetLyricRenderData({
           positioned: positioned,
           mainPainter: mainPainter,
           accentPainter: accentPainter,
-          tokenEdgePaint: accentPainter == null
-              ? null
-              : (Paint()
-                  ..color = palette.edge.withValues(alpha: 0.88)
-                  ..maskFilter = const ui.MaskFilter.blur(
-                    ui.BlurStyle.normal,
-                    5,
-                  )),
           translationPainter: translationPainter,
           tokens: List<MonetTokenPaintData>.unmodifiable(tokenPaintData),
         );
@@ -220,6 +210,34 @@ List<Rect> resolveMonetTokenClipRects({
   return List<Rect>.unmodifiable(clips);
 }
 
+@visibleForTesting
+double resolveMonetLineTransitionScale({
+  required double currentFontSize,
+  required double? previousFontSize,
+  required double transitionValue,
+}) {
+  final current = currentFontSize.isFinite && currentFontSize > 0
+      ? currentFontSize
+      : 1.0;
+  final previous =
+      previousFontSize != null &&
+          previousFontSize.isFinite &&
+          previousFontSize > 0
+      ? previousFontSize
+      : current;
+  final progress = transitionValue.isFinite
+      ? transitionValue.clamp(0.0, 1.0)
+      : 1.0;
+  return ui.lerpDouble(previous / current, 1.0, progress)!;
+}
+
+double _fontSize(TextPainter painter) {
+  final span = painter.text;
+  return span is TextSpan && span.style?.fontSize != null
+      ? span.style!.fontSize!
+      : 1.0;
+}
+
 class MonetLyricPainter extends CustomPainter {
   MonetLyricPainter({
     required this.data,
@@ -243,25 +261,27 @@ class MonetLyricPainter extends CustomPainter {
     final timelinePosition = position.value + data.timelineOffset;
     final animationValue = Curves.easeOutCubic.transform(transition.value);
     for (final line in data.lines) {
+      final previousLine = _previousLineFor(line);
       _paintLine(
         canvas,
         line,
         timelinePosition,
         animationValue,
-        _previousTopFor(line),
+        previousLine?.positioned.rect.top,
+        previousLine,
       );
     }
     canvas.restore();
   }
 
-  double? _previousTopFor(MonetLyricPaintLine line) {
+  MonetLyricPaintLine? _previousLineFor(MonetLyricPaintLine line) {
     final previous = previousData;
     if (previous == null) {
       return null;
     }
     for (final candidate in previous.lines) {
       if (candidate.positioned.entry.key == line.positioned.entry.key) {
-        return candidate.positioned.rect.top;
+        return candidate;
       }
     }
     return null;
@@ -273,6 +293,7 @@ class MonetLyricPainter extends CustomPainter {
     Duration timelinePosition,
     double transitionValue,
     double? previousTop,
+    MonetLyricPaintLine? previousLine,
   ) {
     final positioned = line.positioned;
     final currentTop = positioned.rect.top;
@@ -285,9 +306,25 @@ class MonetLyricPainter extends CustomPainter {
         positioned.measurement.mainTextOffset +
         Offset(0, shift);
 
+    final currentFontSize = _fontSize(line.mainPainter);
+    final previousFontSize = previousLine == null
+        ? null
+        : _fontSize(previousLine.mainPainter);
+    final lineScale = resolveMonetLineTransitionScale(
+      currentFontSize: currentFontSize,
+      previousFontSize: previousFontSize,
+      transitionValue: transitionValue,
+    );
+    // Keep the left edge fixed so Monet text grows toward the right.
+    final transformOrigin = mainOrigin;
+    canvas.save();
+    canvas.translate(transformOrigin.dx, transformOrigin.dy);
+    canvas.scale(lineScale, lineScale);
+    canvas.translate(-transformOrigin.dx, -transformOrigin.dy);
     line.mainPainter.paint(canvas, mainOrigin);
     final accentPainter = line.accentPainter;
     if (accentPainter != null) {
+      final revealedClips = <Rect>[];
       for (final tokenData in line.tokens) {
         if (tokenData.boxes.isEmpty || !tokenData.token.hasTiming) {
           continue;
@@ -296,36 +333,24 @@ class MonetLyricPainter extends CustomPainter {
           timelinePosition: timelinePosition,
           token: tokenData.token,
         );
-        final clips = resolveMonetTokenClipRects(
-          boxes: tokenData.boxes,
-          progress: progress,
-          textDirection: data.textDirection,
+        revealedClips.addAll(
+          resolveMonetTokenClipRects(
+            boxes: tokenData.boxes,
+            progress: progress,
+            textDirection: data.textDirection,
+          ),
         );
-        for (final clip in clips) {
-          canvas.save();
-          canvas.clipRect(clip.shift(mainOrigin));
-          accentPainter.paint(canvas, mainOrigin);
-          canvas.restore();
+      }
+      if (revealedClips.isNotEmpty) {
+        _paintTokenGlow(canvas, accentPainter, revealedClips, mainOrigin);
+        final clipPath = Path();
+        for (final clip in revealedClips) {
+          clipPath.addRect(clip.shift(mainOrigin));
         }
-        final edgePaint = line.tokenEdgePaint;
-        if (edgePaint != null &&
-            progress > 0 &&
-            progress < 1 &&
-            clips.isNotEmpty) {
-          final leadingClip = clips.last.shift(mainOrigin);
-          final leadingX = data.textDirection == TextDirection.rtl
-              ? leadingClip.left
-              : leadingClip.right;
-          final edgeRect = Rect.fromCenter(
-            center: Offset(leadingX, leadingClip.center.dy),
-            width: 2.4,
-            height: leadingClip.height * 0.82,
-          );
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(edgeRect, const Radius.circular(2)),
-            edgePaint,
-          );
-        }
+        canvas.save();
+        canvas.clipPath(clipPath);
+        accentPainter.paint(canvas, mainOrigin);
+        canvas.restore();
       }
     }
 
@@ -337,6 +362,36 @@ class MonetLyricPainter extends CustomPainter {
         positioned.rect.topLeft + translationOffset + Offset(0, shift),
       );
     }
+    canvas.restore();
+  }
+
+  // Blur an isolated revealed glyph mask so the glow can extend beyond the clip.
+  void _paintTokenGlow(
+    Canvas canvas,
+    TextPainter accentPainter,
+    List<Rect> clips,
+    Offset origin,
+  ) {
+    final shiftedClips = clips
+        .map((clip) => clip.shift(origin))
+        .toList(growable: false);
+    final glowBounds = shiftedClips
+        .skip(1)
+        .fold<Rect>(shiftedClips.first, (bounds, clip) {
+          return bounds.expandToInclude(clip);
+        })
+        .inflate(8);
+    final clipPath = Path();
+    for (final clip in shiftedClips) {
+      clipPath.addRect(clip);
+    }
+    canvas.saveLayer(
+      glowBounds,
+      Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 4.5, sigmaY: 4.5),
+    );
+    canvas.clipPath(clipPath);
+    accentPainter.paint(canvas, origin);
+    canvas.restore();
   }
 
   @override

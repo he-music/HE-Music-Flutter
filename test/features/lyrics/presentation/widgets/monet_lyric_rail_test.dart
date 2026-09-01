@@ -156,6 +156,32 @@ void main() {
         ]);
       },
     );
+    test('interpolates line scale across an active state change', () {
+      expect(
+        resolveMonetLineTransitionScale(
+          currentFontSize: 40,
+          previousFontSize: 20,
+          transitionValue: 0,
+        ),
+        closeTo(0.5, 0.0001),
+      );
+      expect(
+        resolveMonetLineTransitionScale(
+          currentFontSize: 40,
+          previousFontSize: 20,
+          transitionValue: 0.5,
+        ),
+        closeTo(0.75, 0.0001),
+      );
+      expect(
+        resolveMonetLineTransitionScale(
+          currentFontSize: 40,
+          previousFontSize: 20,
+          transitionValue: 1,
+        ),
+        1,
+      );
+    });
   });
 
   group('Monet repaint isolation', () {
