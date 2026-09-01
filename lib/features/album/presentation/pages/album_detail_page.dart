@@ -11,6 +11,7 @@ import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
+import '../../../../shared/utils/publish_date_formatter.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
@@ -281,28 +282,7 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
     return items;
   }
 
-  String _formatPublishDate(String raw) {
-    final normalized = raw.trim();
-    if (normalized.isEmpty) {
-      return '';
-    }
-    final timestamp = int.tryParse(normalized);
-    DateTime? date;
-    if (timestamp != null) {
-      final milliseconds = timestamp > 100000000000
-          ? timestamp
-          : timestamp * 1000;
-      date = DateTime.fromMillisecondsSinceEpoch(milliseconds);
-    } else {
-      date = DateTime.tryParse(normalized);
-    }
-    if (date == null) {
-      return normalized;
-    }
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
-  }
+  String _formatPublishDate(String raw) => formatPublishDateOrEmpty(raw);
 
   Future<void> _previewCover(String title, String coverUrl) {
     return showDetailCoverPreview(

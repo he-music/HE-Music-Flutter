@@ -18,6 +18,7 @@ import '../../../../shared/helpers/platform_label_helper.dart';
 import '../../../../shared/helpers/song_artist_navigation_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
+import '../../../../shared/utils/publish_date_formatter.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
@@ -313,28 +314,7 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
     }
   }
 
-  String _formatPublishDate(String raw) {
-    final normalized = raw.trim();
-    if (normalized.isEmpty) {
-      return '';
-    }
-    final timestamp = int.tryParse(normalized);
-    DateTime? date;
-    if (timestamp != null) {
-      final milliseconds = timestamp > 100000000000
-          ? timestamp
-          : timestamp * 1000;
-      date = DateTime.fromMillisecondsSinceEpoch(milliseconds);
-    } else {
-      date = DateTime.tryParse(normalized);
-    }
-    if (date == null) {
-      return normalized;
-    }
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
-  }
+  String _formatPublishDate(String raw) => formatPublishDateOrEmpty(raw);
 
   /// 歌曲列表区域，使用 SliverList.builder 懒加载
   List<Widget> _buildSongSectionSlivers({

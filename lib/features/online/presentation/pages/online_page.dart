@@ -133,9 +133,9 @@ class _OnlinePageState extends ConsumerState<OnlinePage> {
     return _runAction(ref.read(onlineControllerProvider.notifier).fetchProfile);
   }
 
-  Future<void> _createPlaylist() {
-    return _runAction(() {
-      return ref
+  Future<void> _createPlaylist() async {
+    await _runAction(() async {
+      await ref
           .read(onlineControllerProvider.notifier)
           .createPlaylist(_playlistNameController.text);
     });

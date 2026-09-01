@@ -231,6 +231,53 @@ class DetailSongActionHandler {
     }
   }
 
+  Future<SelectedUserPlaylist?> _createPlaylistForSelection(
+    BuildContext context,
+  ) async {
+    final config = ref.read(appConfigProvider);
+    var playlistName = '';
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppI18n.t(config, 'my.playlist.create.title')),
+        content: TextField(
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            hintText: AppI18n.t(config, 'my.playlist.create.hint'),
+          ),
+          onChanged: (value) => playlistName = value,
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(AppI18n.t(config, 'common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(playlistName.trim()),
+            child: Text(AppI18n.t(config, 'my.playlist.create.submit')),
+          ),
+        ],
+      ),
+    );
+    final normalized = (name ?? '').trim();
+    if (normalized.isEmpty || !context.mounted) {
+      return null;
+    }
+    try {
+      final id = await ref
+          .read(onlineControllerProvider.notifier)
+          .createPlaylist(normalized);
+      ref.invalidate(myCreatedPlaylistsProvider);
+      return SelectedUserPlaylist(id: id, isDefault: false);
+    } catch (error) {
+      _showErrorMessage(NetworkErrorMessage.resolve(error) ?? '$error');
+      return null;
+    }
+  }
+
   Future<bool> addSelectedSongsToPlaylist(
     BuildContext context, {
     required List<SongInfo> songs,
@@ -245,6 +292,7 @@ class DetailSongActionHandler {
     final playlist = await showSelectUserPlaylistSheet(
       context,
       excludedPlaylistId: excludedPlaylistId,
+      onCreatePlaylist: () => _createPlaylistForSelection(context),
     );
     if (playlist == null || !context.mounted) {
       return false;

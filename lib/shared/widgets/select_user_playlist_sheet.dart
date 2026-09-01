@@ -19,9 +19,13 @@ class SelectedUserPlaylist {
 Future<SelectedUserPlaylist?> showSelectUserPlaylistSheet(
   BuildContext context, {
   String? excludedPlaylistId,
+  Future<SelectedUserPlaylist?> Function()? onCreatePlaylist,
 }) {
   Widget buildSheet(BuildContext sheetContext) {
-    return SelectUserPlaylistSheet(excludedPlaylistId: excludedPlaylistId);
+    return SelectUserPlaylistSheet(
+      excludedPlaylistId: excludedPlaylistId,
+      onCreatePlaylist: onCreatePlaylist,
+    );
   }
 
   // 播放器主体固定深色，选择弹层需要改用跟随系统亮度的播放器弹层主题。
@@ -42,10 +46,14 @@ Future<SelectedUserPlaylist?> showSelectUserPlaylistSheet(
 }
 
 class SelectUserPlaylistSheet extends ConsumerWidget {
-  const SelectUserPlaylistSheet({this.excludedPlaylistId, super.key});
+  const SelectUserPlaylistSheet({
+    this.excludedPlaylistId,
+    this.onCreatePlaylist,
+    super.key,
+  });
 
   final String? excludedPlaylistId;
-
+  final Future<SelectedUserPlaylist?> Function()? onCreatePlaylist;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final localeCode = Localizations.localeOf(context).languageCode;
@@ -62,6 +70,7 @@ class SelectUserPlaylistSheet extends ConsumerWidget {
               items: items,
               excludedPlaylistId: excludedPlaylistId,
               localeCode: localeCode,
+              onCreatePlaylist: onCreatePlaylist,
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stackTrace) => _SheetHint(
@@ -84,18 +93,20 @@ class _PlaylistListView extends StatelessWidget {
     required this.items,
     required this.excludedPlaylistId,
     required this.localeCode,
+    this.onCreatePlaylist,
   });
 
   final List<MyFavoriteItem> items;
   final String? excludedPlaylistId;
   final String localeCode;
+  final Future<SelectedUserPlaylist?> Function()? onCreatePlaylist;
 
   @override
   Widget build(BuildContext context) {
     final visibleItems = items
         .where((item) => item.id.trim() != (excludedPlaylistId ?? '').trim())
         .toList(growable: false);
-    if (visibleItems.isEmpty) {
+    if (visibleItems.isEmpty && onCreatePlaylist == null) {
       return _SheetHint(
         title: AppI18n.tByLocaleCode(localeCode, 'detail.batch.playlist_empty'),
       );
@@ -116,10 +127,28 @@ class _PlaylistListView extends StatelessWidget {
         Flexible(
           child: ListView.separated(
             shrinkWrap: true,
-            itemCount: visibleItems.length,
+            itemCount: visibleItems.length + (onCreatePlaylist == null ? 0 : 1),
             separatorBuilder: (context, index) => const SizedBox(height: 6),
             itemBuilder: (context, index) {
-              final item = visibleItems[index];
+              if (onCreatePlaylist != null && index == 0) {
+                return ListTile(
+                  leading: const Icon(Icons.add_rounded),
+                  title: Text(
+                    AppI18n.tByLocaleCode(
+                      localeCode,
+                      'my.playlist.create.title',
+                    ),
+                  ),
+                  onTap: () async {
+                    final created = await onCreatePlaylist!();
+                    if (created != null && context.mounted) {
+                      Navigator.of(context).pop(created);
+                    }
+                  },
+                );
+              }
+              final item =
+                  visibleItems[index - (onCreatePlaylist == null ? 0 : 1)];
               return SearchPlaylistListItem(
                 title: item.title,
                 subtitle: item.subtitle,

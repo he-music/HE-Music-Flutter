@@ -16,6 +16,7 @@ import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
+import '../../../../shared/utils/publish_date_formatter.dart';
 import '../../../../shared/utils/cover_resolver.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
@@ -1437,28 +1438,7 @@ class _ArtistAlbumItem extends StatelessWidget {
     return names.join(' / ');
   }
 
-  String _formatPublishDate(String raw) {
-    final normalized = raw.trim();
-    if (normalized.isEmpty) {
-      return '';
-    }
-    final timestamp = int.tryParse(normalized);
-    DateTime? date;
-    if (timestamp != null) {
-      final milliseconds = timestamp > 100000000000
-          ? timestamp
-          : timestamp * 1000;
-      date = DateTime.fromMillisecondsSinceEpoch(milliseconds);
-    } else {
-      date = DateTime.tryParse(normalized);
-    }
-    if (date == null) {
-      return normalized;
-    }
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
-  }
+  String _formatPublishDate(String raw) => formatPublishDateOrEmpty(raw);
 }
 
 class _ArtistVideoItem extends StatelessWidget {

@@ -162,6 +162,7 @@ class _QueuePanelSelection {
   const _QueuePanelSelection({
     required this.queue,
     required this.currentIndex,
+    required this.requestId,
     required this.source,
     required this.previousSnapshot,
   });
@@ -169,7 +170,8 @@ class _QueuePanelSelection {
   factory _QueuePanelSelection.fromState(PlayerPlaybackState state) {
     return _QueuePanelSelection(
       queue: state.queue,
-      currentIndex: state.currentIndex,
+      currentIndex: state.requestedTrackIndex ?? state.currentIndex,
+      requestId: state.requestedTransitionId,
       source: state.queueSource,
       previousSnapshot: state.previousQueueSnapshot,
     );
@@ -177,6 +179,7 @@ class _QueuePanelSelection {
 
   final List<PlayerTrack> queue;
   final int currentIndex;
+  final int? requestId;
   final PlayerQueueSource? source;
   final PlayerQueueSnapshot? previousSnapshot;
 
@@ -185,6 +188,7 @@ class _QueuePanelSelection {
     return other is _QueuePanelSelection &&
         _sameQueuePresentation(queue, other.queue) &&
         currentIndex == other.currentIndex &&
+        requestId == other.requestId &&
         source == other.source &&
         _sameSnapshotPresentation(previousSnapshot, other.previousSnapshot);
   }
@@ -193,6 +197,7 @@ class _QueuePanelSelection {
   int get hashCode => Object.hash(
     _queuePresentationHash(queue),
     currentIndex,
+    requestId,
     source,
     _snapshotPresentationHash(previousSnapshot),
   );

@@ -172,12 +172,17 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     );
   }
 
-  Future<void> createPlaylist(String name) async {
+  Future<String> createPlaylist(String name) async {
     _validateNotEmpty(name, 'Playlist name is required.');
-    await _runAction(() async {
+    return _runAction<String>(() async {
       final client = ref.read(onlineApiClientProvider);
-      await client.createPlaylist(name);
+      final response = await client.createPlaylist(name);
+      final id = '${response['id'] ?? ''}'.trim();
+      if (id.isEmpty) {
+        throw const FormatException('Created playlist response is missing id.');
+      }
       state = state.copyWith(message: 'Playlist created.', clearError: true);
+      return id;
     });
   }
 
@@ -346,10 +351,10 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     });
   }
 
-  Future<void> _runAction(Future<void> Function() action) async {
+  Future<T> _runAction<T>(Future<T> Function() action) async {
     state = state.copyWith(loading: true, clearMessage: true, clearError: true);
     try {
-      await action();
+      return await action();
     } catch (error) {
       state = state.copyWith(error: error.toString());
       rethrow;
