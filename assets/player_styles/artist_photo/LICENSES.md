@@ -6,7 +6,7 @@
 - Renderer: Flutter widget golden test using the real `PlayerPage`, shared responsive layout, style backdrop and style stage components.
 - Logical output size: `360x640` for each preview.
 - Fixed data: project logo artwork, Chinese track metadata, fixed playback position, fixed quality, paused hardware animation frame, and fixed test fonts.
-- Output files: `assets/player_styles/classic/preview.png`, `assets/player_styles/fluid/preview.png`, `assets/player_styles/vinyl/preview.png`, `assets/player_styles/cassette/preview.png`, `assets/player_styles/artist_photo/preview.png`, and `assets/player_styles/radial_spectrum/preview.png`.
+- Output files: `assets/player_styles/classic/preview.png`, `assets/player_styles/fluid/preview.png`, `assets/player_styles/vinyl/preview.png`, `assets/player_styles/cassette/preview.png`, `assets/player_styles/artist_photo/preview.png`, `assets/player_styles/radial_spectrum/preview.png`, and `assets/player_styles/monet_lyrics/preview.png`.
 - License: project UI render; approved project assets and Flutter-rendered application UI may be distributed with HE Music.
 
 ## Artist photo source
@@ -28,7 +28,9 @@
 - `assets/player_styles/cassette/preview.png`: `a6e70410982a2009885d7ae94388d69566efb9ea8194b3fc752f95c8ff254456`.
 - `assets/player_styles/artist_photo/preview.png`: `bf838e1efb3b5de55d8b4918ae83492951d7078d4facc4a7b32240a8f6aab88a`.
 - `assets/player_styles/radial_spectrum/preview.png`: `656c5118f609fed42e11451d32a758633970f7efdce8a986e2a7d8c8556de8d7`.
-- Technical inspection: all six previews render readable fixed Chinese text, metadata badges, playback time and controls without blank regions or overflow; classic, fluid, vinyl, cassette, artist-photo and radial-spectrum subjects are visually distinct. The radial-spectrum preview uses 64 deterministic, non-mirrored bands around a static circular cover.
+- `assets/player_styles/monet_lyrics/preview.png`: `dde20670d88ad36437e06cf329145ee0703556098c5b240cec2a95badceb5c20`.
+- `test/features/player/presentation/goldens/player_styles/desktop_monet_lyrics.png`: `408beadd91852ecbac5a08b617763287d1089da9150e8246daa0e69094ab2111`.
+- Technical inspection: all seven previews render readable fixed Chinese text, metadata badges, playback time and controls without blank regions or overflow; classic, fluid, vinyl, cassette, artist-photo, radial-spectrum and Monet lyric host subjects are covered. The Monet lyric host stays transparent, uses the current `PlayerScenePalette` only for placeholder content, and leaves the classic cover-derived backdrop visible.
 - Replacement inspection: regenerated on 2026-07-27; only the vinyl mobile preview and desktop golden changed, while the other four style previews and both artist-photo fallback goldens remained byte-identical.
 - Radial-spectrum inspection: generated on 2026-07-30; the new mobile preview and desktop golden were added without changing the existing five mobile previews or existing desktop/fallback goldens.
 - Shared-backdrop inspection: regenerated on 2026-07-30 after vinyl, cassette, and radial spectrum adopted the classic artwork-derived gradient. Only those three mobile previews and desktop goldens changed; classic, fluid, artist-photo, and both artist-photo fallback scenes remained byte-identical.
@@ -36,4 +38,4 @@
 - Cassette palette integration inspection: regenerated on 2026-08-10; the shared artwork palette now colors the cassette shell, label, progress, utilities, and playback controls. Track metadata moved into the cassette label in every layout. Portrait and desktop retain interactive metadata badges; mobile landscape shows only the larger cover, title, and non-interactive artist. Only the cassette mobile preview and desktop golden changed.
 - Classic immersion inspection: regenerated on 2026-08-11; the classic scene now uses a layered album sleeve and propagates the artwork-derived palette through metadata, lyric preview, progress, utilities, and playback controls. Only the classic mobile preview and desktop golden changed.
 - Shared control color reset inspection: regenerated on 2026-08-11; progress and time labels, page indicators, previous/next, play mode, and queue controls returned to their fixed white colors. The primary play/pause control retains scene styling, and the cassette stage's internal palette remains unchanged. Only the classic and cassette mobile previews and desktop goldens changed; the other four styles remained byte-identical.
-- Review status: automated golden and technical inspection completed for all six styles. Final product visual approval was completed for fluid, vinyl, and artist-photo on 2026-07-27; the redesigned classic, cassette, and radial-spectrum real-device visual reviews remain pending.
+- Review status: automated golden and technical inspection completed for all seven styles. Final product visual approval was completed for fluid, vinyl, and artist-photo on 2026-07-27; the redesigned classic, cassette, radial-spectrum, and Monet lyric host real-device visual reviews remain pending.

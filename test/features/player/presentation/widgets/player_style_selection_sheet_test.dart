@@ -132,6 +132,32 @@ void main() {
     expect(permission.requestCount, 0);
     debugDefaultTargetPlatformOverride = null;
   });
+  testWidgets('Monet 歌词样式显示预览并可选择', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final harness = await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
+    );
+
+    expect(find.text('Monet Lyrics'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('player-style-preview-monet_lyrics')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-style-option-monet_lyrics')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('player-style-option-monet_lyrics')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(harness.config.state.playerStyleId, 'monet_lyrics');
+    debugDefaultTargetPlatformOverride = null;
+  });
 }
 
 Finder get _radialOption =>

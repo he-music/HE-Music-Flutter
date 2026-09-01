@@ -10,6 +10,8 @@ enum AppPlayerStageKind {
   radialSpectrum,
 }
 
+enum AppPlayerLyricsKind { legacy, monet }
+
 @immutable
 class AppPlayerStyleMetadata {
   const AppPlayerStyleMetadata({
@@ -119,6 +121,7 @@ class AppPlayerStylePackage {
     required this.colors,
     required this.geometry,
     required this.systemOverlayStyle,
+    this.lyricsKind = AppPlayerLyricsKind.legacy,
     this.usesRealtimeSpectrum = false,
   });
 
@@ -127,6 +130,7 @@ class AppPlayerStylePackage {
   final AppPlayerStyleColors colors;
   final AppPlayerStyleGeometry geometry;
   final SystemUiOverlayStyle systemOverlayStyle;
+  final AppPlayerLyricsKind lyricsKind;
   final bool usesRealtimeSpectrum;
 
   bool get isValid => metadata.isValid && geometry.isValid;

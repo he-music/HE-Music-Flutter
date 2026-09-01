@@ -529,6 +529,7 @@ abstract final class AppI18n {
       'player.style.cassette': '磁带',
       'player.style.artist_photo': '歌手写真',
       'player.style.radial_spectrum': '环形频谱',
+      'player.style.monet_lyrics': 'Monet 歌词',
       'player.spectrum.permission.title': '允许显示实时频谱',
       'player.spectrum.permission.message':
           'Android 要求授予麦克风权限才能分析当前播放器的音频。HE Music 不会录音，也不会保存或上传音频数据。',
@@ -1380,6 +1381,7 @@ abstract final class AppI18n {
       'player.style.cassette': 'Cassette',
       'player.style.artist_photo': 'Artist Photo',
       'player.style.radial_spectrum': 'Radial Spectrum',
+      'player.style.monet_lyrics': 'Monet Lyrics',
       'player.spectrum.permission.title': 'Allow Real-time Spectrum',
       'player.spectrum.permission.message':
           'Android requires microphone permission to analyze audio from the current player. HE Music does not record, save, or upload audio data.',

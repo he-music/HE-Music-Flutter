@@ -34,6 +34,7 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/features/player/presentation/styles/player_style_stage.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_backdrop.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_lyric_page.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/monet_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
@@ -963,6 +964,61 @@ void main() {
       (pageIndicators.last.decoration as BoxDecoration).color,
       Colors.white.withValues(alpha: 0.32),
     );
+  });
+
+  testWidgets('Monet style uses its lyric host and keeps classic stage', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.monetLyricsId,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('classic-player-stage')),
+      findsOneWidget,
+    );
+
+    final pager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('player-mobile-pager')),
+    );
+    pager.controller!.jumpToPage(1);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MonetLyricPage), findsOneWidget);
+    expect(find.byType(PlayerLyricPage), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('monet-lyric-page')),
+      findsOneWidget,
+    );
+    final monetHost = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('monet-lyric-page')),
+    );
+    expect((monetHost.decoration as BoxDecoration).color, isNull);
+    expect(
+      tester.widget<MonetLyricPage>(find.byType(MonetLyricPage)).palette,
+      isNotNull,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(PlayerPage)),
+    );
+    container
+        .read(appConfigProvider.notifier)
+        .setPlayerStyleId(AppPlayerStyleRegistry.vinylId);
+    await tester.pump();
+
+    expect(find.byType(MonetLyricPage), findsNothing);
+    expect(find.byType(PlayerLyricPage), findsOneWidget);
   });
 
   testWidgets('favorite heart stays red across all player styles', (

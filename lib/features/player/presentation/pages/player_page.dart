@@ -51,6 +51,7 @@ import '../widgets/player_backdrop.dart';
 import '../widgets/player_compact_lyric_section.dart';
 import '../widgets/player_control_bar.dart';
 import '../widgets/player_lyric_page.dart';
+import '../widgets/monet_lyric_page.dart';
 import '../widgets/player_more_sheet_widgets.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/player_queue_sheet.dart';
@@ -316,17 +317,31 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         (currentLayoutMode == PlayerLayoutMode.mobileLandscape ||
             _orientationPreference ==
                 _PlayerOrientationPreference.manualLandscape);
-    Widget buildLyricPage() => PlayerLyricPage(
-      key: _lyricPageKey,
-      emptyText: AppI18n.tByLocaleCode(
-        config.localeCode,
-        'player.lyrics.empty',
-      ),
-      onSeek: presentation.isTrackTransitioning ? null : controller.seek,
-      artworkUrl: presentation.currentTrack?.artworkUrl,
-      artworkBytes: presentation.currentTrack?.artworkBytes,
-      center: false,
-    );
+    Widget buildLyricPage() {
+      final lyricPage = PlayerLyricPage(
+        key: _lyricPageKey,
+        emptyText: AppI18n.tByLocaleCode(
+          config.localeCode,
+          'player.lyrics.empty',
+        ),
+        onSeek: presentation.isTrackTransitioning ? null : controller.seek,
+        artworkUrl: presentation.currentTrack?.artworkUrl,
+        artworkBytes: presentation.currentTrack?.artworkBytes,
+        center: false,
+      );
+      if (playerStyle.lyricsKind != AppPlayerLyricsKind.monet) {
+        return lyricPage;
+      }
+      return MonetLyricPage(
+        emptyText: AppI18n.tByLocaleCode(
+          config.localeCode,
+          'player.lyrics.empty',
+        ),
+        onSeek: presentation.isTrackTransitioning ? null : controller.seek,
+        palette: scenePalette,
+      );
+    }
+
     return PopScope(
       canPop: !shouldRestorePortraitOnPop,
       onPopInvokedWithResult: (didPop, result) {
