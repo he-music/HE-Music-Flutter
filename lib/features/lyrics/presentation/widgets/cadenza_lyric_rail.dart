@@ -49,18 +49,24 @@ class CadenzaLyricRail extends ConsumerStatefulWidget {
 }
 
 class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _manualResetDelay = Duration(milliseconds: 1800);
   static const _defaultTransitionDuration = Duration(milliseconds: 300);
   static const _wheelStep = 64.0;
   static const _dragStep = 48.0;
   static const _preheatMinimumLead = Duration(milliseconds: 180);
   static const _preheatMaximumLead = Duration(milliseconds: 1200);
+  static const _positionSmoothingDuration = Duration(milliseconds: 33);
+  static const _positionSmoothingMaxDelta = Duration(milliseconds: 100);
 
   late CadenzaLyricLayoutEngine _engine;
   late CadenzaLyricPosition _structurePosition;
   late final ValueNotifier<Duration> _positionNotifier;
   late final AnimationController _transitionController;
+  late final AnimationController _positionSmoothingController;
+  late Duration _latestSourcePosition;
+  late Duration _positionSmoothingStart;
+  late Duration _positionSmoothingTarget;
   late final ProviderSubscription<Duration> _positionSubscription;
   final CadenzaLyricLayoutCache _layoutCache = CadenzaLyricLayoutCache();
 
@@ -77,18 +83,27 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
   bool _transitionScheduled = false;
   bool _animationsAllowed = true;
 
+  bool _snapNextSourcePosition = false;
   @override
   void initState() {
     super.initState();
     _engine = CadenzaLyricLayoutEngine.fromDocument(widget.document);
     final initialPosition = ref.read(lyricPositionProvider);
     _positionNotifier = ValueNotifier<Duration>(initialPosition);
+    _latestSourcePosition = initialPosition;
+    _positionSmoothingStart = initialPosition;
+    _positionSmoothingTarget = initialPosition;
     _structurePosition = _engine.resolvePosition(initialPosition);
     _transitionController = AnimationController(
       vsync: this,
       duration: _defaultTransitionDuration,
       value: 1,
     );
+    _positionSmoothingController = AnimationController(
+      vsync: this,
+      duration: _positionSmoothingDuration,
+      value: 1,
+    )..addListener(_updateSmoothedPosition);
     _positionSubscription = ref.listenManual<Duration>(
       lyricPositionProvider,
       (previous, next) => _handlePosition(next),
@@ -100,9 +115,17 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _animationsAllowed =
+    final animationsAllowed =
         !MediaQuery.disableAnimationsOf(context) &&
         TickerMode.valuesOf(context).enabled;
+    if (_animationsAllowed && !animationsAllowed) {
+      _snapPosition(_latestSourcePosition);
+      _previousRenderData = null;
+      _transitionController
+        ..stop()
+        ..value = 1;
+    }
+    _animationsAllowed = animationsAllowed;
   }
 
   @override
@@ -121,7 +144,8 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
       _resetInputAccumulators();
       _layoutCache.clear();
       _engine = nextEngine;
-      _structurePosition = _engine.resolvePosition(_positionNotifier.value);
+      _snapPosition(_latestSourcePosition);
+      _structurePosition = _engine.resolvePosition(_latestSourcePosition);
       _lastLayoutOptions = null;
       _resetRenderData();
     } else if (oldWidget.fontPreset != widget.fontPreset ||
@@ -150,6 +174,7 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
     _manualResetTimer?.cancel();
     widget.seekListenable?.removeListener(_handleSeek);
     _positionSubscription.close();
+    _positionSmoothingController.dispose();
     _positionNotifier.dispose();
     _transitionController.dispose();
     super.dispose();
@@ -157,15 +182,59 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
 
   void _handlePosition(Duration position) {
     if (!mounted) return;
-    _positionNotifier.value = position;
     final next = _engine.resolvePosition(position);
+    final sameStructure = _hasSameStructurePosition(_structurePosition, next);
+    if (sameStructure) {
+      _smoothPosition(position);
+    } else {
+      _snapPosition(position);
+      _snapNextSourcePosition = false;
+    }
     _preheatUpcoming(next);
-    if (_hasSameStructurePosition(_structurePosition, next)) return;
+    if (sameStructure) return;
     if (_manualAnchorIndex != null) {
       _structurePosition = next;
       return;
     }
     _beginStructureChange(() => _structurePosition = next);
+  }
+
+  void _smoothPosition(Duration position) {
+    if (_snapNextSourcePosition) {
+      _snapNextSourcePosition = false;
+      _snapPosition(position);
+      return;
+    }
+    final sourceDelta = position - _latestSourcePosition;
+    if (!_animationsAllowed ||
+        sourceDelta <= Duration.zero ||
+        sourceDelta > _positionSmoothingMaxDelta) {
+      _snapPosition(position);
+      return;
+    }
+    _latestSourcePosition = position;
+    _positionSmoothingStart = _positionNotifier.value;
+    _positionSmoothingTarget = position;
+    _positionSmoothingController.forward(from: 0);
+  }
+
+  void _updateSmoothedPosition() {
+    final startMicros = _positionSmoothingStart.inMicroseconds;
+    final targetMicros = _positionSmoothingTarget.inMicroseconds;
+    final valueMicros =
+        startMicros +
+        ((targetMicros - startMicros) * _positionSmoothingController.value)
+            .round();
+    _positionNotifier.value = Duration(microseconds: valueMicros);
+  }
+
+  void _snapPosition(Duration position) {
+    _latestSourcePosition = position;
+    _positionSmoothingController.stop();
+    _positionSmoothingStart = position;
+    _positionSmoothingTarget = position;
+    _positionSmoothingController.value = 1;
+    _positionNotifier.value = position;
   }
 
   void _preheatUpcoming(CadenzaLyricPosition position) {
@@ -185,6 +254,8 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
 
   void _handleSeek() {
     if (!mounted) return;
+    _snapPosition(_latestSourcePosition);
+    _snapNextSourcePosition = true;
     _manualResetTimer?.cancel();
     _manualResetTimer = null;
     _resetInputAccumulators();

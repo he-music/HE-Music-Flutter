@@ -191,6 +191,82 @@ double resolveCadenzaPassedProgress({
       .clamp(0.0, 1.0);
 }
 
+Duration _cadenzaScaleUpDuration(CadenzaRevealProfile revealProfile) {
+  return revealProfile == CadenzaRevealProfile.fast
+      ? const Duration(milliseconds: 70)
+      : const Duration(milliseconds: 180);
+}
+
+Duration _cadenzaScaleDownDuration(CadenzaRevealProfile revealProfile) {
+  return revealProfile == CadenzaRevealProfile.fast
+      ? const Duration(milliseconds: 90)
+      : const Duration(milliseconds: 220);
+}
+
+Duration _cadenzaColorFadeDelay(CadenzaRevealProfile revealProfile) {
+  return revealProfile == CadenzaRevealProfile.fast
+      ? const Duration(milliseconds: 45)
+      : const Duration(milliseconds: 140);
+}
+
+Duration _cadenzaColorFadeDuration(CadenzaRevealProfile revealProfile) {
+  return revealProfile == CadenzaRevealProfile.fast
+      ? const Duration(milliseconds: 75)
+      : const Duration(milliseconds: 660);
+}
+
+@visibleForTesting
+double resolveCadenzaFragmentScale({
+  required Duration timelinePosition,
+  required Duration? start,
+  required Duration? end,
+  required Duration lookahead,
+  required CadenzaRevealProfile revealProfile,
+  bool forceActive = false,
+}) {
+  if (forceActive) return 1.04;
+  if (revealProfile == CadenzaRevealProfile.instant) return 1;
+  if (start == null || end == null || end <= start) {
+    return cadenzaActiveWordScale;
+  }
+  if (timelinePosition < start) {
+    final entry = resolveCadenzaEntryProgress(
+      timelinePosition: timelinePosition,
+      start: start,
+      lookahead: lookahead,
+    );
+    return ui.lerpDouble(0.5, 1, Curves.easeOutCubic.transform(entry))!;
+  }
+  if (timelinePosition <= end) {
+    final configuredGrowDuration = _cadenzaScaleUpDuration(revealProfile);
+    final wordDuration = end - start;
+    final growDuration = wordDuration < configuredGrowDuration
+        ? wordDuration
+        : configuredGrowDuration;
+    final grow = growDuration <= Duration.zero
+        ? 1.0
+        : ((timelinePosition - start).inMicroseconds /
+                  growDuration.inMicroseconds)
+              .clamp(0.0, 1.0);
+    return ui.lerpDouble(
+      1,
+      cadenzaActiveWordScale,
+      Curves.easeOutCubic.transform(grow),
+    )!;
+  }
+  final settleDuration = _cadenzaScaleDownDuration(revealProfile);
+  final settle = settleDuration <= Duration.zero
+      ? 1.0
+      : ((timelinePosition - end).inMicroseconds /
+                settleDuration.inMicroseconds)
+            .clamp(0.0, 1.0);
+  return ui.lerpDouble(
+    cadenzaActiveWordScale,
+    1,
+    Curves.easeOutCubic.transform(settle),
+  )!;
+}
+
 @visibleForTesting
 double resolveCadenzaLineOpacity({
   required CadenzaLineLayout layout,
@@ -244,29 +320,51 @@ double resolveCadenzaActiveMix({
             (end - start).inMicroseconds)
         .clamp(0.0, 1.0);
   }
-  final fadeDuration = revealProfile == CadenzaRevealProfile.fast
-      ? const Duration(milliseconds: 120)
-      : const Duration(milliseconds: 800);
+  final fadeStart = end + _cadenzaColorFadeDelay(revealProfile);
+  if (timelinePosition <= fadeStart) return 1;
+  final fadeDuration = _cadenzaColorFadeDuration(revealProfile);
   return (1 -
-          (timelinePosition - end).inMicroseconds / fadeDuration.inMicroseconds)
+          (timelinePosition - fadeStart).inMicroseconds /
+              fadeDuration.inMicroseconds)
       .clamp(0.0, 1.0);
 }
 
 double resolveCadenzaGraphemeActiveMix({
   required Duration timelinePosition,
   required CadenzaGraphemeSlice grapheme,
+  required Duration? wordStart,
+  required Duration? wordEnd,
   required CadenzaRevealProfile revealProfile,
   required Duration? lineRenderEnd,
   bool forceActive = false,
 }) {
-  return resolveCadenzaActiveMix(
-    timelinePosition: timelinePosition,
-    start: grapheme.start,
-    end: grapheme.end,
-    revealProfile: revealProfile,
-    lineRenderEnd: lineRenderEnd,
-    forceActive: forceActive,
-  );
+  if (forceActive) return 1;
+  if (revealProfile == CadenzaRevealProfile.instant) {
+    if (wordStart == null || timelinePosition < wordStart) return 0;
+    final renderEnd = lineRenderEnd ?? wordEnd ?? wordStart;
+    return timelinePosition <= renderEnd ? 1 : 0;
+  }
+  final start = grapheme.start;
+  final end = grapheme.end;
+  if (start == null ||
+      end == null ||
+      end <= start ||
+      timelinePosition < start) {
+    return 0;
+  }
+  if (timelinePosition <= end) {
+    return ((timelinePosition - start).inMicroseconds /
+            (end - start).inMicroseconds)
+        .clamp(0.0, 1.0);
+  }
+  final activeEnd = wordEnd != null && wordEnd > end ? wordEnd : end;
+  final fadeStart = activeEnd + _cadenzaColorFadeDelay(revealProfile);
+  if (timelinePosition <= fadeStart) return 1;
+  final fadeDuration = _cadenzaColorFadeDuration(revealProfile);
+  return (1 -
+          (timelinePosition - fadeStart).inMicroseconds /
+              fadeDuration.inMicroseconds)
+      .clamp(0.0, 1.0);
 }
 
 Offset resolveCadenzaFragmentOffset({
@@ -285,6 +383,7 @@ class CadenzaLyricPainter extends CustomPainter {
     required this.position,
     required this.transition,
     this.onPaint,
+    this.onAccentTextPaint,
   }) : super(repaint: Listenable.merge(<Listenable>[position, transition]));
 
   final CadenzaLyricRenderData data;
@@ -292,6 +391,8 @@ class CadenzaLyricPainter extends CustomPainter {
   final ValueListenable<Duration> position;
   final Animation<double> transition;
   final VoidCallback? onPaint;
+  @visibleForTesting
+  final VoidCallback? onAccentTextPaint;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -396,15 +497,17 @@ class CadenzaLyricPainter extends CustomPainter {
             end: activeEnd,
           );
     final easedEntry = Curves.easeOutCubic.transform(entry);
-    final relativeScale = forceActive
-        ? 1.04
-        : passed > 0
-        ? ui.lerpDouble(
-            cadenzaActiveWordScale,
-            1,
-            Curves.easeOutCubic.transform(passed),
-          )!
-        : ui.lerpDouble(0.5, cadenzaActiveWordScale, easedEntry)!;
+    final revealProfile = resolveCadenzaRevealProfile(
+      renderData.layout!.sourceLine,
+    );
+    final relativeScale = resolveCadenzaFragmentScale(
+      timelinePosition: timelinePosition,
+      start: layout.word.start,
+      end: layout.word.end,
+      lookahead: lookahead,
+      revealProfile: revealProfile,
+      forceActive: forceActive,
+    );
     final relativeOffset = resolveCadenzaFragmentOffset(
       entryProgress: entry,
       passedProgress: passed,
@@ -415,9 +518,6 @@ class CadenzaLyricPainter extends CustomPainter {
         : _degreesToRadians(20) * (1 - easedEntry) +
               layout.passedRotation * passed;
     final fragmentOpacity = state == CadenzaTimingState.passed ? 0.82 : entry;
-    final revealProfile = resolveCadenzaRevealProfile(
-      renderData.layout!.sourceLine,
-    );
     final lineRenderEnd = resolveCadenzaLineRenderEnd(
       renderData.layout!.sourceLine,
     );
@@ -438,6 +538,7 @@ class CadenzaLyricPainter extends CustomPainter {
       relativeRotation: relativeRotation,
     );
     if (forceActive) {
+      onAccentTextPaint?.call();
       _paintTextPainter(
         canvas,
         fragment.activePainter,
@@ -485,27 +586,52 @@ class CadenzaLyricPainter extends CustomPainter {
       -fragment.textSize.width / 2,
       -fragment.textSize.height / 2,
     );
+    final maskBounds = textOffset & fragment.textSize;
+    var hasVisibleAccent = false;
+    var allAccentOpaque = true;
     for (final grapheme in fragment.graphemes) {
       final activeMix = resolveCadenzaGraphemeActiveMix(
         timelinePosition: timelinePosition,
         grapheme: grapheme.slice,
+        wordStart: fragment.word.start,
+        wordEnd: fragment.word.end,
+        revealProfile: revealProfile,
+        lineRenderEnd: lineRenderEnd,
+      );
+      hasVisibleAccent = hasVisibleAccent || activeMix > 0;
+      allAccentOpaque = allAccentOpaque && activeMix >= 0.999;
+    }
+    if (!hasVisibleAccent) {
+      canvas.restore();
+      return;
+    }
+    if (allAccentOpaque) {
+      onAccentTextPaint?.call();
+      painter.paint(canvas, textOffset);
+      canvas.restore();
+      return;
+    }
+
+    canvas.saveLayer(maskBounds, Paint());
+    onAccentTextPaint?.call();
+    painter.paint(canvas, textOffset);
+    canvas.saveLayer(maskBounds, Paint()..blendMode = BlendMode.dstIn);
+    final maskPaint = Paint();
+    for (final grapheme in fragment.graphemes) {
+      final activeMix = resolveCadenzaGraphemeActiveMix(
+        timelinePosition: timelinePosition,
+        grapheme: grapheme.slice,
+        wordStart: fragment.word.start,
+        wordEnd: fragment.word.end,
         revealProfile: revealProfile,
         lineRenderEnd: lineRenderEnd,
       );
       if (activeMix <= 0 || grapheme.localBounds.isEmpty) continue;
-      final clipBounds = grapheme.localBounds.shift(textOffset);
-      canvas.save();
-      canvas.clipRect(clipBounds);
-      if (activeMix < 0.999) {
-        canvas.saveLayer(
-          clipBounds,
-          Paint()..color = Colors.white.withValues(alpha: activeMix),
-        );
-      }
-      painter.paint(canvas, textOffset);
-      if (activeMix < 0.999) canvas.restore();
-      canvas.restore();
+      maskPaint.color = Colors.white.withValues(alpha: activeMix);
+      canvas.drawRect(grapheme.localBounds.shift(textOffset), maskPaint);
     }
+    canvas.restore();
+    canvas.restore();
     canvas.restore();
   }
 

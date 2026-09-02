@@ -117,7 +117,7 @@ void main() {
       );
       expect(mix(end, CadenzaRevealProfile.normal), 1);
       expect(
-        mix(const Duration(milliseconds: 3400), CadenzaRevealProfile.normal),
+        mix(const Duration(milliseconds: 3470), CadenzaRevealProfile.normal),
         0.5,
       );
       expect(
@@ -125,7 +125,7 @@ void main() {
         0,
       );
       expect(
-        mix(const Duration(milliseconds: 3060), CadenzaRevealProfile.fast),
+        mix(const Duration(microseconds: 3082500), CadenzaRevealProfile.fast),
         0.5,
       );
       expect(mix(start, CadenzaRevealProfile.instant), 1);
@@ -141,6 +141,66 @@ void main() {
           revealProfile: CadenzaRevealProfile.normal,
           lineRenderEnd: end,
           forceActive: true,
+        ),
+        1,
+      );
+    });
+
+    test('fragment grows while active before settling ahead of color fade', () {
+      const start = Duration(seconds: 2);
+      const end = Duration(seconds: 3);
+      const lookahead = Duration(milliseconds: 180);
+
+      double scale(Duration position) {
+        return resolveCadenzaFragmentScale(
+          timelinePosition: position,
+          start: start,
+          end: end,
+          lookahead: lookahead,
+          revealProfile: CadenzaRevealProfile.normal,
+        );
+      }
+
+      expect(scale(start - lookahead), 0.5);
+      expect(scale(start), 1);
+      expect(scale(const Duration(milliseconds: 2090)), greaterThan(1));
+      expect(scale(const Duration(milliseconds: 2180)), cadenzaActiveWordScale);
+      final shortAtEnd = resolveCadenzaFragmentScale(
+        timelinePosition: const Duration(milliseconds: 2050),
+        start: start,
+        end: const Duration(milliseconds: 2050),
+        lookahead: lookahead,
+        revealProfile: CadenzaRevealProfile.normal,
+      );
+      final shortAfterEnd = resolveCadenzaFragmentScale(
+        timelinePosition: const Duration(microseconds: 2050001),
+        start: start,
+        end: const Duration(milliseconds: 2050),
+        lookahead: lookahead,
+        revealProfile: CadenzaRevealProfile.normal,
+      );
+      expect(shortAtEnd, cadenzaActiveWordScale);
+      expect(shortAfterEnd, lessThanOrEqualTo(shortAtEnd));
+      expect(scale(end), cadenzaActiveWordScale);
+      expect(scale(const Duration(milliseconds: 3140)), greaterThan(1));
+      expect(scale(const Duration(milliseconds: 3220)), 1);
+      expect(
+        resolveCadenzaFragmentScale(
+          timelinePosition: start,
+          start: start,
+          end: end,
+          lookahead: Duration.zero,
+          revealProfile: CadenzaRevealProfile.instant,
+        ),
+        1,
+      );
+      expect(
+        resolveCadenzaActiveMix(
+          timelinePosition: const Duration(milliseconds: 3140),
+          start: start,
+          end: end,
+          revealProfile: CadenzaRevealProfile.normal,
+          lineRenderEnd: const Duration(milliseconds: 3800),
         ),
         1,
       );
@@ -168,6 +228,8 @@ void main() {
         return resolveCadenzaGraphemeActiveMix(
           timelinePosition: position,
           grapheme: grapheme,
+          wordStart: fragment.word.start,
+          wordEnd: fragment.word.end,
           revealProfile: CadenzaRevealProfile.normal,
           lineRenderEnd: line.end,
         );
@@ -176,7 +238,20 @@ void main() {
       expect(mix(first, const Duration(milliseconds: 2250)), 0.5);
       expect(mix(second, const Duration(milliseconds: 2250)), 0);
       expect(mix(second, const Duration(milliseconds: 2750)), 0.5);
-      expect(mix(first, const Duration(milliseconds: 3500)), 0);
+      expect(mix(first, const Duration(milliseconds: 3500)), 1);
+      expect(mix(first, const Duration(milliseconds: 4470)), 0.5);
+      expect(mix(first, const Duration(milliseconds: 4800)), 0);
+      expect(
+        resolveCadenzaGraphemeActiveMix(
+          timelinePosition: line.start,
+          grapheme: second,
+          wordStart: fragment.word.start,
+          wordEnd: fragment.word.end,
+          revealProfile: CadenzaRevealProfile.instant,
+          lineRenderEnd: line.end,
+        ),
+        1,
+      );
     });
 
     test('entry progress never translates a fragment', () {
@@ -371,6 +446,104 @@ void main() {
       expect(_painter(tester).data, same(initialData));
     });
 
+    testWidgets(
+      'adjacent ticks interpolate at a wall-clock cadence across playback speeds',
+      (tester) async {
+        var outerBuilds = 0;
+        var structureBuilds = 0;
+        var textLayouts = 0;
+        await tester.pumpWidget(
+          _buildRailApp(
+            document: _timedDocument,
+            onOuterBuild: () => outerBuilds += 1,
+            onStructureBuild: () => structureBuilds += 1,
+            onTextLayout: () => textLayouts += 1,
+          ),
+        );
+        await tester.pump();
+        final initialOuter = outerBuilds;
+        final initialStructure = structureBuilds;
+        final initialLayouts = textLayouts;
+
+        for (final mediaDelta in <Duration>[
+          const Duration(milliseconds: 16),
+          const Duration(milliseconds: 33),
+          const Duration(milliseconds: 66),
+        ]) {
+          final start = _painter(tester).position.value;
+          final target = start + mediaDelta;
+          _container(
+            tester,
+          ).read(_testPositionProvider.notifier).update(target);
+          await tester.pump();
+          expect(_painter(tester).position.value, start);
+
+          await tester.pump(const Duration(milliseconds: 16));
+          final midpoint = _painter(tester).position.value;
+          expect(midpoint, greaterThan(start));
+          expect(midpoint, lessThan(target));
+
+          await tester.pump(const Duration(milliseconds: 17));
+          expect(_painter(tester).position.value, target);
+        }
+        expect(outerBuilds, initialOuter);
+        expect(structureBuilds, initialStructure);
+        expect(textLayouts, initialLayouts);
+      },
+    );
+
+    testWidgets('disabled animations snap adjacent playback ticks', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        TickerMode(
+          enabled: false,
+          child: _buildRailApp(document: _timedDocument),
+        ),
+      );
+      await tester.pump();
+
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 2533));
+      await tester.pump();
+
+      expect(
+        _painter(tester).position.value,
+        const Duration(milliseconds: 2533),
+      );
+    });
+
+    testWidgets('disabling animations completes an in-flight line transition', (
+      tester,
+    ) async {
+      final tickerEnabled = ValueNotifier<bool>(true);
+      addTearDown(tickerEnabled.dispose);
+      await tester.pumpWidget(
+        ValueListenableBuilder<bool>(
+          valueListenable: tickerEnabled,
+          child: _buildRailApp(document: _timedDocument),
+          builder: (context, enabled, child) {
+            return TickerMode(enabled: enabled, child: child!);
+          },
+        ),
+      );
+      await tester.pump();
+
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 4300));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(_painter(tester).previousData, isNotNull);
+
+      tickerEnabled.value = false;
+      await tester.pump();
+
+      expect(_painter(tester).previousData, isNull);
+      expect(_painter(tester).transition.value, 1);
+    });
+
     testWidgets('settled text has no ambient animation repaint', (
       tester,
     ) async {
@@ -420,15 +593,36 @@ void main() {
           timelineOffset: Duration.zero,
         );
 
+        var accentPaints = 0;
         final first = await _paintCoverage(
           data,
           const Duration(milliseconds: 2530),
+          onAccentTextPaint: () => accentPaints += 1,
         );
         final second = await _paintCoverage(
           data,
           const Duration(milliseconds: 2580),
+          onAccentTextPaint: () => accentPaints += 1,
         );
 
+        expect(accentPaints, 2);
+        final bodyOnly = await _paintRgba(
+          data,
+          const Duration(milliseconds: 2000),
+        );
+        final halfFirstGrapheme = await _paintRgba(
+          data,
+          const Duration(microseconds: 2166667),
+        );
+        final fullFirstGrapheme = await _paintRgba(
+          data,
+          const Duration(microseconds: 2333333),
+        );
+        expect(_rgbDistance(bodyOnly, halfFirstGrapheme), greaterThan(0));
+        expect(
+          _rgbDistance(halfFirstGrapheme, fullFirstGrapheme),
+          greaterThan(0),
+        );
         expect(second, orderedEquals(first));
       },
     );
@@ -459,6 +653,7 @@ void main() {
 
       final painter = _painter(tester);
       expect(outerBuilds, initialOuter);
+      expect(painter.position.value, const Duration(milliseconds: 4300));
       expect(structureBuilds, initialStructure + 1);
       expect(textLayouts, greaterThan(initialTextLayouts));
       expect(painter.data, isNot(same(initialData)));
@@ -622,12 +817,33 @@ void main() {
       await tester.pump();
       expect(_selectedIndex(tester), 2);
 
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 2533));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        _painter(tester).position.value,
+        isNot(const Duration(milliseconds: 2533)),
+      );
       seekSignal.value += 1;
       await tester.pump();
 
       expect(_selectedIndex(tester), 1);
       expect(_painter(tester).data.forceLineActive, isFalse);
       expect(_painter(tester).previousData, isNull);
+      expect(
+        _painter(tester).position.value,
+        const Duration(milliseconds: 2533),
+      );
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 2543));
+      await tester.pump();
+      expect(
+        _painter(tester).position.value,
+        const Duration(milliseconds: 2543),
+      );
     });
 
     testWidgets('identity and content replacement discard old layouts', (
@@ -642,6 +858,11 @@ void main() {
       final manualLayout = _painter(tester).data.layout;
       expect(manualLayout?.sourceLine.text, 'after line');
 
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 2533));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
       await tester.pumpWidget(
         _buildRailApp(document: _timedDocument, documentIdentity: 'track-b'),
       );
@@ -651,6 +872,10 @@ void main() {
       expect(identityData.layout, isNot(same(manualLayout)));
       expect(identityData.forceLineActive, isFalse);
       expect(_painter(tester).previousData, isNull);
+      expect(
+        _painter(tester).position.value,
+        const Duration(milliseconds: 2533),
+      );
 
       final identityLayout = identityData.layout;
       await tester.pumpWidget(
@@ -679,6 +904,10 @@ void main() {
       await tester.pump();
       expect(_selectedIndex(tester), 2);
 
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 2533));
+      await tester.pump();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 2));
       expect(tester.takeException(), isNull);
@@ -774,8 +1003,26 @@ void main() {
 
 Future<List<int>> _paintCoverage(
   CadenzaLyricRenderData data,
-  Duration position,
-) async {
+  Duration position, {
+  VoidCallback? onAccentTextPaint,
+}) async {
+  final rgba = await _paintRgba(
+    data,
+    position,
+    onAccentTextPaint: onAccentTextPaint,
+  );
+  final coveredPixels = <int>[];
+  for (var offset = 3, pixel = 0; offset < rgba.length; offset += 4, pixel++) {
+    if (rgba[offset] > 0) coveredPixels.add(pixel);
+  }
+  return coveredPixels;
+}
+
+Future<List<int>> _paintRgba(
+  CadenzaLyricRenderData data,
+  Duration position, {
+  VoidCallback? onAccentTextPaint,
+}) async {
   final recorder = PictureRecorder();
   final canvas = Canvas(recorder);
   final positionListenable = ValueNotifier<Duration>(position);
@@ -784,6 +1031,7 @@ Future<List<int>> _paintCoverage(
     previousData: null,
     position: positionListenable,
     transition: const AlwaysStoppedAnimation<double>(1),
+    onAccentTextPaint: onAccentTextPaint,
   );
   painter.paint(canvas, data.size);
   final picture = recorder.endRecording();
@@ -795,15 +1043,17 @@ Future<List<int>> _paintCoverage(
   image.dispose();
   picture.dispose();
   positionListenable.dispose();
-  final rgba = bytes!.buffer.asUint8List(
-    bytes.offsetInBytes,
-    bytes.lengthInBytes,
-  );
-  final coveredPixels = <int>[];
-  for (var offset = 3, pixel = 0; offset < rgba.length; offset += 4, pixel++) {
-    if (rgba[offset] > 0) coveredPixels.add(pixel);
+  return bytes!.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
+}
+
+int _rgbDistance(List<int> first, List<int> second) {
+  var distance = 0;
+  for (var offset = 0; offset < first.length; offset += 4) {
+    distance += (first[offset] - second[offset]).abs();
+    distance += (first[offset + 1] - second[offset + 1]).abs();
+    distance += (first[offset + 2] - second[offset + 2]).abs();
   }
-  return coveredPixels;
+  return distance;
 }
 
 Widget _buildRailApp({
