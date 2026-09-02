@@ -10,7 +10,7 @@ enum AppPlayerStageKind {
   radialSpectrum,
 }
 
-enum AppPlayerLyricsKind { legacy, monet, partita }
+enum AppPlayerLyricsKind { legacy, monet, partita, cadenza }
 
 @immutable
 class AppPlayerStyleMetadata {

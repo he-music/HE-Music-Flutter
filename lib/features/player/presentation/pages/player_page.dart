@@ -48,6 +48,7 @@ import '../providers/player_sleep_timer_provider.dart';
 import '../styles/player_style_stage.dart';
 import '../styles/player_track_header.dart';
 import '../widgets/monet_lyric_page.dart';
+import '../widgets/cadenza_lyric_page.dart';
 import '../widgets/partita_lyric_page.dart';
 import '../widgets/player_backdrop.dart';
 import '../widgets/player_compact_lyric_section.dart';
@@ -360,6 +361,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           palette: scenePalette,
         ),
         AppPlayerLyricsKind.partita => PartitaLyricPage(
+          emptyText: AppI18n.tByLocaleCode(
+            config.localeCode,
+            'player.lyrics.empty',
+          ),
+          onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
+          palette: scenePalette,
+          seekListenable: _seekRevision,
+        ),
+        AppPlayerLyricsKind.cadenza => CadenzaLyricPage(
           emptyText: AppI18n.tByLocaleCode(
             config.localeCode,
             'player.lyrics.empty',

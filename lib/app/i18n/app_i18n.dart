@@ -531,6 +531,8 @@ abstract final class AppI18n {
       'player.style.radial_spectrum': '环形频谱',
       'player.style.monet_lyrics': 'Monet 歌词',
       'player.style.partita_lyrics': 'Partita 云阶',
+      'player.style.cadenza_lyrics': 'Cadenza 心象',
+      'player.style.cadenza_lyrics.description': '按词与片段排布当前歌词，像思绪在画面中浮现',
       'player.spectrum.permission.title': '允许显示实时频谱',
       'player.spectrum.permission.message':
           'Android 要求授予麦克风权限才能分析当前播放器的音频。HE Music 不会录音，也不会保存或上传音频数据。',
@@ -1384,6 +1386,9 @@ abstract final class AppI18n {
       'player.style.radial_spectrum': 'Radial Spectrum',
       'player.style.monet_lyrics': 'Monet Lyrics',
       'player.style.partita_lyrics': 'Partita Cloud Steps',
+      'player.style.cadenza_lyrics': 'Cadenza Mindscape',
+      'player.style.cadenza_lyrics.description':
+          'Measured words and fragments arrange the current line like thoughts surfacing',
       'player.spectrum.permission.title': 'Allow Real-time Spectrum',
       'player.spectrum.permission.message':
           'Android requires microphone permission to analyze audio from the current player. HE Music does not record, save, or upload audio data.',
@@ -1690,6 +1695,18 @@ abstract final class AppI18n {
       'parse.view_detail': 'View Detail',
     },
   };
+
+  static String get cadenzaLyricsNameZh =>
+      tByLocaleCode('zh', 'player.style.cadenza_lyrics');
+
+  static String get cadenzaLyricsDescriptionZh =>
+      tByLocaleCode('zh', 'player.style.cadenza_lyrics.description');
+
+  static String get cadenzaLyricsNameEn =>
+      tByLocaleCode('en', 'player.style.cadenza_lyrics');
+
+  static String get cadenzaLyricsDescriptionEn =>
+      tByLocaleCode('en', 'player.style.cadenza_lyrics.description');
 
   static String t(AppConfigState config, String key) {
     return tByLocaleCode(_resolveLocaleCode(config.localeCode), key);

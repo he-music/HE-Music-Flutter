@@ -9,7 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto/crypto.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
+import 'package:he_music_flutter/app/theme/player/styles/classic_player_palette.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/core/audio/audio_player_port.dart';
@@ -173,6 +176,69 @@ const _partitaPreviewDocument = LyricDocument(
     ),
   ],
 );
+const _cadenzaPreviewPosition = Duration(
+  minutes: 1,
+  seconds: 24,
+  milliseconds: 650,
+);
+
+const _cadenzaPreviewDocument = LyricDocument(
+  lines: <LyricLine>[
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 12),
+      end: Duration(minutes: 1, seconds: 19),
+      text: '上一段回声沉入夜色',
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 20),
+      end: Duration(minutes: 1, seconds: 32),
+      text: '低频 signal 大厅 neon',
+      translation: 'Cadenza mindscape across the midnight signal',
+      tokens: <LyricToken>[
+        LyricToken(
+          text: '低频',
+          startOffset: Duration.zero,
+          duration: Duration(milliseconds: 900),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 900),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: 'signal',
+          startOffset: Duration(seconds: 1),
+          duration: Duration(milliseconds: 1400),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 2400),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: '大厅',
+          startOffset: Duration(milliseconds: 2500),
+          duration: Duration(milliseconds: 1200),
+        ),
+        LyricToken(
+          text: ' ',
+          startOffset: Duration(milliseconds: 3700),
+          duration: Duration(milliseconds: 100),
+        ),
+        LyricToken(
+          text: 'neon',
+          startOffset: Duration(milliseconds: 3800),
+          duration: Duration(milliseconds: 1500),
+        ),
+      ],
+    ),
+    LyricLine(
+      start: Duration(minutes: 1, seconds: 32),
+      end: Duration(minutes: 1, seconds: 40),
+      text: '下一束光仍在靠近',
+    ),
+  ],
+);
 
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
@@ -195,6 +261,7 @@ void main() {
       await tester.pumpWidget(_buildPreviewApp(style.metadata.id));
       await tester.pumpAndSettle();
       await _pumpUntilImagesDecoded(tester);
+      await _pumpUntilScenePaletteSettled(tester, style);
       if (style.lyricsKind != AppPlayerLyricsKind.legacy) {
         final pager = tester.widget<PageView>(
           find.byKey(const ValueKey<String>('player-mobile-pager')),
@@ -235,6 +302,7 @@ void main() {
       await tester.pumpWidget(_buildPreviewApp(style.metadata.id));
       await tester.pumpAndSettle();
       await _pumpUntilImagesDecoded(tester);
+      await _pumpUntilScenePaletteSettled(tester, style);
 
       await expectLater(
         find.byKey(_previewKey),
@@ -388,6 +456,12 @@ Widget _buildPreviewApp(
         ),
       if (styleId == AppPlayerStyleRegistry.partitaLyricsId)
         lyricPositionProvider.overrideWithValue(_partitaPreviewPosition),
+      if (styleId == AppPlayerStyleRegistry.cadenzaLyricsId)
+        currentLyricDocumentProvider.overrideWithValue(
+          const AsyncData<LyricDocument>(_cadenzaPreviewDocument),
+        ),
+      if (styleId == AppPlayerStyleRegistry.cadenzaLyricsId)
+        lyricPositionProvider.overrideWithValue(_cadenzaPreviewPosition),
       audioPlayerPortProvider.overrideWithValue(
         const _PreviewAudioPlayerPort(),
       ),
@@ -487,6 +561,34 @@ Future<void> _pumpUntilImagesDecoded(WidgetTester tester) async {
   throw TestFailure('播放器样式预览图片在 6 秒内未完成解码');
 }
 
+Future<void> _pumpUntilScenePaletteSettled(
+  WidgetTester tester,
+  AppPlayerStylePackage style,
+) async {
+  if (style.lyricsKind == AppPlayerLyricsKind.legacy) return;
+  const attempts = 120;
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    final target = find.byKey(
+      const ValueKey<String>('player-main-fixed-layout'),
+    );
+    if (target.evaluate().isNotEmpty) {
+      final palette = Theme.of(
+        tester.element(target.first),
+      ).extension<PlayerScenePalette>();
+      if (palette != null &&
+          palette.accent != classicPlayerScenePaletteFallback.accent) {
+        await tester.pumpAndSettle();
+        return;
+      }
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  throw TestFailure('播放器样式预览场景颜色在 6 秒内未完成解析');
+}
+
 class _PreviewAppConfigController extends AppConfigController {
   _PreviewAppConfigController(this.styleId);
 
@@ -494,9 +596,13 @@ class _PreviewAppConfigController extends AppConfigController {
 
   @override
   AppConfigState build() {
+    final style = AppPlayerStyleRegistry.builtIn().resolve(styleId);
     return AppConfigState.initial.copyWith(
       localeCode: 'zh',
       playerStyleId: styleId,
+      lyricHighlightMode: style.lyricsKind == AppPlayerLyricsKind.legacy
+          ? AppConfigState.initial.lyricHighlightMode
+          : AppLyricHighlightMode.auto,
     );
   }
 }

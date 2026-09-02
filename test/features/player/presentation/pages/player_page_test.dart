@@ -20,8 +20,11 @@ import 'package:he_music_flutter/core/audio/audio_sleep_timer.dart';
 import 'package:he_music_flutter/core/device/screen_wake_lock.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/helpers/cadenza_lyric_layout.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/helpers/monet_lyric_layout.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/cadenza_lyric_painter.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/cadenza_lyric_rail.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_painter.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_rail.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_lyric_painter.dart';
@@ -41,6 +44,7 @@ import 'package:he_music_flutter/features/player/presentation/providers/artist_p
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/styles/player_style_stage.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_backdrop.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/cadenza_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/monet_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/partita_lyric_page.dart';
@@ -1256,6 +1260,105 @@ void main() {
     await tester.pump();
     expect(find.byType(PartitaLyricPage), findsNothing);
     expect(find.byType(PlayerLyricPage), findsOneWidget);
+  });
+
+  testWidgets('Cadenza style uses one measured mindscape with classic scene', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    var playerPageBuilds = 0;
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        lyricDocument: _monetFixtureDocument,
+        onPlayerPageBuild: () => playerPageBuilds += 1,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStyleId: AppPlayerStyleRegistry.cadenzaLyricsId,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('classic-player-stage')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-compact-lyric-tap')),
+      findsOneWidget,
+    );
+    final pager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('player-mobile-pager')),
+    );
+    pager.controller!.jumpToPage(1);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CadenzaLyricPage), findsOneWidget);
+    expect(find.byType(CadenzaLyricRail), findsOneWidget);
+    expect(find.byType(PartitaLyricPage), findsNothing);
+    expect(find.byType(MonetLyricPage), findsNothing);
+    expect(find.byType(PlayerLyricPage), findsNothing);
+    expect(
+      tester.widget<CadenzaLyricPage>(find.byType(CadenzaLyricPage)).palette,
+      isNotNull,
+    );
+
+    final initialPainter = _cadenzaPainter(tester);
+    final initialData = initialPainter.data;
+    final layout = initialData.layout!;
+    expect(layout.sourceLine.text, '低频大厅');
+    expect(layout.fragments, hasLength(greaterThan(1)));
+    expect(layout.heroWordIndex, isNotNull);
+    expect(
+      layout.fragments.where(
+        (fragment) => fragment.wordIndex == layout.heroWordIndex,
+      ),
+      everyElement(
+        isA<CadenzaWordFragment>()
+            .having(
+              (fragment) => fragment.isSplitAcrossLines,
+              'isSplitAcrossLines',
+              isFalse,
+            )
+            .having(
+              (fragment) => fragment.isPrimaryFragment,
+              'isPrimaryFragment',
+              isTrue,
+            ),
+      ),
+    );
+
+    final playerPageWidget = tester.widget<PlayerPage>(find.byType(PlayerPage));
+    final initialPlayerPageBuilds = playerPageBuilds;
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(PlayerPage)),
+    );
+    container
+        .read(_playerTestLyricPositionProvider.notifier)
+        .update(const Duration(minutes: 1, seconds: 25));
+    await tester.pump();
+
+    expect(_cadenzaPainter(tester).data, same(initialData));
+    expect(
+      tester.widget<PlayerPage>(find.byType(PlayerPage)),
+      same(playerPageWidget),
+    );
+    expect(playerPageBuilds, initialPlayerPageBuilds);
+
+    container
+        .read(_playerTestLyricPositionProvider.notifier)
+        .update(const Duration(minutes: 1, seconds: 30));
+    await tester.pump();
+    expect(_cadenzaPainter(tester).data.layout!.sourceLine.text, '信号房间');
+    expect(
+      tester.widget<PlayerPage>(find.byType(PlayerPage)),
+      same(playerPageWidget),
+    );
+    expect(playerPageBuilds, initialPlayerPageBuilds);
   });
 
   testWidgets('favorite heart stays red across all player styles', (
@@ -2546,6 +2649,15 @@ PartitaLyricPainter _partitaPainter(WidgetTester tester) {
           )
           .painter!
       as PartitaLyricPainter;
+}
+
+CadenzaLyricPainter _cadenzaPainter(WidgetTester tester) {
+  return tester
+          .widget<CustomPaint>(
+            find.byKey(const ValueKey<String>('cadenza-lyric-painter')),
+          )
+          .painter!
+      as CadenzaLyricPainter;
 }
 
 Widget _buildPlayerTestApp({

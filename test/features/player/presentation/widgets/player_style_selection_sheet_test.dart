@@ -132,7 +132,7 @@ void main() {
     expect(permission.requestCount, 0);
     debugDefaultTargetPlatformOverride = null;
   });
-  testWidgets('Monet 保持可见且 Partita 预览可选择', (tester) async {
+  testWidgets('Monet、Partita 与 Cadenza 保持可见且 Cadenza 可选择', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final harness = await _pumpSheet(
@@ -140,34 +140,46 @@ void main() {
       _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
     );
 
+    expect(_styleOptions, findsNWidgets(9));
+    for (final id in AppPlayerStyleRegistry.builtInIds) {
+      expect(
+        find.byKey(ValueKey<String>('player-style-option-$id')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey<String>('player-style-preview-$id')),
+        findsOneWidget,
+      );
+    }
     expect(find.text('Monet Lyrics'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('player-style-preview-monet_lyrics')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('player-style-option-monet_lyrics')),
-      findsOneWidget,
-    );
     expect(find.text('Partita Cloud Steps'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('player-style-preview-partita_lyrics')),
-      findsOneWidget,
+    expect(find.text('Cadenza Mindscape'), findsOneWidget);
+
+    final cadenzaPreview = tester.widget<Image>(
+      find.byKey(const ValueKey<String>('player-style-preview-cadenza_lyrics')),
     );
     expect(
-      find.byKey(const ValueKey<String>('player-style-option-partita_lyrics')),
-      findsOneWidget,
+      (cadenzaPreview.image as AssetImage).assetName,
+      'assets/player_styles/cadenza_lyrics/preview.png',
     );
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('player-style-option-partita_lyrics')),
-    );
+    await tester.ensureVisible(_cadenzaOption);
+    await tester.tap(_cadenzaOption);
     await tester.pumpAndSettle();
 
-    expect(harness.config.state.playerStyleId, 'partita_lyrics');
+    expect(harness.config.state.playerStyleId, 'cadenza_lyrics');
     debugDefaultTargetPlatformOverride = null;
   });
 }
+
+Finder get _styleOptions => find.byWidgetPredicate((widget) {
+  final key = widget.key;
+  return key is ValueKey<String> &&
+      key.value.startsWith('player-style-option-');
+});
+
+Finder get _cadenzaOption =>
+    find.byKey(const ValueKey<String>('player-style-option-cadenza_lyrics'));
 
 Finder get _radialOption =>
     find.byKey(const ValueKey<String>('player-style-option-radial_spectrum'));
