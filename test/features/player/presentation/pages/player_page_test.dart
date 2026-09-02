@@ -1183,10 +1183,10 @@ void main() {
     expect(find.byType(PartitaLyricRail), findsOneWidget);
     expect(find.byType(MonetLyricPage), findsNothing);
     expect(find.byType(PlayerLyricPage), findsNothing);
-    final host = tester.widget<DecoratedBox>(
+    final host = tester.widget(
       find.byKey(const ValueKey<String>('partita-lyric-page')),
     );
-    expect((host.decoration as BoxDecoration).color, isNotNull);
+    expect(host, isNot(isA<DecoratedBox>()));
     expect(
       tester.widget<PartitaLyricPage>(find.byType(PartitaLyricPage)).palette,
       isNotNull,

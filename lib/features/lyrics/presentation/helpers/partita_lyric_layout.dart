@@ -7,6 +7,11 @@ import '../../domain/entities/lyric_line.dart';
 
 const double partitaActiveWordScale = 1.32;
 
+const String _partitaInterludeText = '......';
+const Duration _partitaInterludeGap = Duration(seconds: 3);
+const Duration _partitaLeadingInset = Duration(milliseconds: 500);
+const Duration _partitaGapInset = Duration(milliseconds: 50);
+
 enum PartitaTimingClass { normal, short, micro }
 
 PartitaTimingClass resolvePartitaTimingClass(LyricLine line) {
@@ -134,12 +139,11 @@ class PartitaLyricPosition {
   final int? upcomingIndex;
 }
 
-/// Resolves Partita directly from [LyricDocument.lines].
-///
-/// Unlike Monet, Partita has no render window and never inserts interludes.
+/// Resolves Partita from source lines plus Folia-compatible timed interludes.
 class PartitaLyricLayoutEngine {
   PartitaLyricLayoutEngine(this.document)
-    : documentSignature = _buildDocumentSignature(document);
+    : documentSignature = _buildDocumentSignature(document),
+      _renderLines = _buildPartitaRenderableLines(document.lines);
 
   factory PartitaLyricLayoutEngine.fromDocument(LyricDocument document) {
     return PartitaLyricLayoutEngine(document);
@@ -147,16 +151,22 @@ class PartitaLyricLayoutEngine {
 
   final LyricDocument document;
   final String documentSignature;
+  final List<_PartitaRenderableLine> _renderLines;
 
-  int get lineCount => document.lines.length;
+  int get lineCount => _renderLines.length;
 
   LyricLine? lineAt(int index) {
-    if (index < 0 || index >= document.lines.length) return null;
-    return document.lines[index];
+    if (index < 0 || index >= _renderLines.length) return null;
+    return _renderLines[index].line;
+  }
+
+  bool isInterludeAt(int index) {
+    if (index < 0 || index >= _renderLines.length) return false;
+    return _renderLines[index].isInterlude;
   }
 
   PartitaLyricPosition resolvePosition(Duration playbackPosition) {
-    final lines = document.lines;
+    final lines = _renderLines;
     final timelinePosition =
         playbackPosition + Duration(milliseconds: document.offset);
     if (lines.isEmpty) {
@@ -182,7 +192,7 @@ class PartitaLyricLayoutEngine {
 
     int? activeIndex;
     for (var index = lastStartedIndex; index >= 0; index--) {
-      final renderEnd = resolvePartitaLineRenderEnd(lines[index]);
+      final renderEnd = resolvePartitaLineRenderEnd(lines[index].line);
       if (renderEnd == null || timelinePosition <= renderEnd) {
         activeIndex = index;
         break;
@@ -210,8 +220,12 @@ class PartitaLyricLayoutEngine {
     required PartitaLyricLayoutOptions options,
     PartitaLyricLayoutCache? cache,
   }) {
-    final line = lineAt(sourceLineIndex);
-    if (line == null) return null;
+    if (sourceLineIndex < 0 || sourceLineIndex >= _renderLines.length) {
+      return null;
+    }
+    final renderLine = _renderLines[sourceLineIndex];
+    final line = renderLine.line;
+    final sourceIndex = renderLine.sourceIndex ?? -1;
     final cacheKey = buildPartitaLineLayoutCacheKey(
       documentSignature: documentSignature,
       sourceLineIndex: sourceLineIndex,
@@ -222,18 +236,103 @@ class PartitaLyricLayoutEngine {
           cacheKey,
           () => layoutPartitaLine(
             line: line,
-            sourceLineIndex: sourceLineIndex,
+            sourceLineIndex: sourceIndex,
             options: options,
             cacheKey: cacheKey,
           ),
         ) ??
         layoutPartitaLine(
           line: line,
-          sourceLineIndex: sourceLineIndex,
+          sourceLineIndex: sourceIndex,
           options: options,
           cacheKey: cacheKey,
         );
   }
+}
+
+class _PartitaRenderableLine {
+  const _PartitaRenderableLine({
+    required this.line,
+    required this.sourceIndex,
+    required this.isInterlude,
+  });
+
+  final LyricLine line;
+  final int? sourceIndex;
+  final bool isInterlude;
+}
+
+List<_PartitaRenderableLine> _buildPartitaRenderableLines(
+  List<LyricLine> sourceLines,
+) {
+  if (sourceLines.isEmpty) return const <_PartitaRenderableLine>[];
+
+  final renderLines = <_PartitaRenderableLine>[];
+  final first = sourceLines.first;
+  if (first.start > _partitaInterludeGap) {
+    renderLines.add(
+      _PartitaRenderableLine(
+        line: _createPartitaInterlude(
+          _partitaLeadingInset,
+          first.start - _partitaLeadingInset,
+        ),
+        sourceIndex: null,
+        isInterlude: true,
+      ),
+    );
+  }
+
+  for (var index = 0; index < sourceLines.length; index++) {
+    final current = sourceLines[index];
+    renderLines.add(
+      _PartitaRenderableLine(
+        line: current,
+        sourceIndex: index,
+        isInterlude: false,
+      ),
+    );
+
+    final next = index + 1 < sourceLines.length ? sourceLines[index + 1] : null;
+    final currentEnd = current.end;
+    if (next == null || currentEnd == null) continue;
+    if (next.start - currentEnd <= _partitaInterludeGap) continue;
+
+    renderLines.add(
+      _PartitaRenderableLine(
+        line: _createPartitaInterlude(
+          currentEnd + _partitaGapInset,
+          next.start - _partitaGapInset,
+        ),
+        sourceIndex: null,
+        isInterlude: true,
+      ),
+    );
+  }
+
+  return List<_PartitaRenderableLine>.unmodifiable(renderLines);
+}
+
+LyricLine _createPartitaInterlude(Duration start, Duration end) {
+  final durationMicros = math.max(end.inMicroseconds - start.inMicroseconds, 1);
+  final tokens = List<LyricToken>.generate(6, (index) {
+    final tokenStart = Duration(
+      microseconds: start.inMicroseconds + durationMicros * index ~/ 6,
+    );
+    final tokenEnd = Duration(
+      microseconds: start.inMicroseconds + durationMicros * (index + 1) ~/ 6,
+    );
+    return LyricToken(
+      text: '.',
+      startOffset: tokenStart - start,
+      duration: tokenEnd - tokenStart,
+    );
+  }, growable: false);
+  return LyricLine(
+    start: start,
+    end: end,
+    text: _partitaInterludeText,
+    tokens: tokens,
+  );
 }
 
 @immutable
@@ -308,11 +407,7 @@ class PartitaDisplayWord {
   final Duration? end;
   final List<PartitaGraphemeSlice> graphemes;
 
-  bool get isTimed =>
-      start != null &&
-      end != null &&
-      end! > start! &&
-      graphemes.every((grapheme) => grapheme.isTimed);
+  bool get isTimed => start != null && end != null && end! > start!;
 }
 
 @immutable
@@ -561,7 +656,7 @@ class PartitaLyricLayoutCache {
   void clear() => _values.clear();
 }
 
-/// Strict all-or-nothing gate for token-level timing.
+/// Validates token ordering while allowing zero-duration separators or glyphs.
 bool hasValidPartitaTokenTiming(LyricLine line) {
   final lineEnd = line.end;
   if (line.tokens.isEmpty || lineEnd == null || lineEnd <= line.start) {
@@ -575,7 +670,7 @@ bool hasValidPartitaTokenTiming(LyricLine line) {
   var previousEnd = Duration.zero;
   for (final token in line.tokens) {
     if (token.startOffset < Duration.zero ||
-        token.duration <= Duration.zero ||
+        token.duration < Duration.zero ||
         token.startOffset < previousEnd ||
         token.endOffset > lineDuration) {
       return false;
@@ -1458,12 +1553,15 @@ _DraftChunk _measureDraftChunk({
   );
 }
 
-int _lastStartedLineIndex(List<LyricLine> lines, Duration position) {
+int _lastStartedLineIndex(
+  List<_PartitaRenderableLine> lines,
+  Duration position,
+) {
   var low = 0;
   var high = lines.length;
   while (low < high) {
     final middle = low + ((high - low) >> 1);
-    if (lines[middle].start <= position) {
+    if (lines[middle].line.start <= position) {
       low = middle + 1;
     } else {
       high = middle;

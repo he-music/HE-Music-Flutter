@@ -327,6 +327,10 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
           options: options,
           auxiliaryStyle: auxiliaryStyle,
         );
+        final selectedRenderIndex = _selectedSourceLineIndex;
+        final selectedIsInterlude =
+            selectedRenderIndex != null &&
+            _engine.isInterludeAt(selectedRenderIndex);
         return RepaintBoundary(
           key: const ValueKey<String>('partita-lyric-repaint-boundary'),
           child: ClipRect(
@@ -335,7 +339,9 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
               onPointerSignal: _handlePointerSignal,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTapUp: widget.onSeek == null ? null : _handleTapUp,
+                onTapUp: widget.onSeek == null || selectedIsInterlude
+                    ? null
+                    : _handleTapUp,
                 onVerticalDragStart: _handleVerticalDragStart,
                 onVerticalDragUpdate: _handleVerticalDragUpdate,
                 onVerticalDragEnd: _handleVerticalDragEnd,
@@ -355,7 +361,7 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
                         onPaint: widget.debugOnPaint,
                       ),
                     ),
-                    if (renderData.layout != null)
+                    if (renderData.layout != null && !selectedIsInterlude)
                       Positioned.fill(
                         child: Semantics(
                           container: true,
@@ -578,6 +584,8 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     final onSeek = widget.onSeek;
     final layout = _renderData?.layout;
     if (onSeek == null || layout == null) return;
+    final selectedIndex = _selectedSourceLineIndex;
+    if (selectedIndex == null || _engine.isInterludeAt(selectedIndex)) return;
     _manualResetTimer?.cancel();
     _manualResetTimer = null;
     _resetInputAccumulators();

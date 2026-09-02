@@ -38,21 +38,13 @@ class PartitaLyricPage extends ConsumerWidget {
             (state) => state.isPlaying && !state.isLoading,
           ),
         );
-    final canvasColor = Color.lerp(
-      effectivePalette.surfaceDeep,
-      Colors.black,
-      0.72,
-    )!.withValues(alpha: 0.94);
-    return DecoratedBox(
+    return _PartitaLyricDataHost(
       key: const ValueKey<String>('partita-lyric-page'),
-      decoration: BoxDecoration(color: canvasColor),
-      child: _PartitaLyricDataHost(
-        emptyText: emptyText,
-        onSeek: onSeek,
-        palette: effectivePalette,
-        breathingEnabled: effectiveBreathingEnabled,
-        seekListenable: seekListenable,
-      ),
+      emptyText: emptyText,
+      onSeek: onSeek,
+      palette: effectivePalette,
+      breathingEnabled: effectiveBreathingEnabled,
+      seekListenable: seekListenable,
     );
   }
 }
@@ -64,6 +56,7 @@ class _PartitaLyricDataHost extends ConsumerWidget {
     required this.palette,
     required this.breathingEnabled,
     required this.seekListenable,
+    super.key,
   });
 
   final String emptyText;

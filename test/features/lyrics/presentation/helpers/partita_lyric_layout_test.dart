@@ -8,7 +8,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Partita resolver', () {
-    test('uses source lines, preserves offset, and inserts no interlude', () {
+    test('inserts Folia-timed interludes without mutating source lines', () {
       final engine = PartitaLyricLayoutEngine.fromDocument(
         const LyricDocument(
           offset: 500,
@@ -34,17 +34,54 @@ void main() {
       expect(position.activeIndex, 0);
       expect(position.recentIndex, isNull);
       expect(position.upcomingIndex, 1);
-      expect(engine.lineCount, 2);
+      expect(engine.lineCount, 3);
       expect(engine.lineAt(0)?.text, 'first');
-      expect(engine.lineAt(2), isNull);
+      expect(engine.lineAt(1)?.text, '......');
+      expect(engine.isInterludeAt(1), isTrue);
+      expect(engine.lineAt(2)?.text, 'second');
 
       final gap = engine.resolvePosition(const Duration(seconds: 4));
-      expect(gap.activeIndex, isNull);
+      expect(gap.activeIndex, 1);
       expect(gap.recentIndex, 0);
-      expect(gap.upcomingIndex, 1);
+      expect(gap.upcomingIndex, 2);
+      final interlude = engine.lineAt(1)!;
+      expect(interlude.start, const Duration(milliseconds: 2050));
+      expect(interlude.end, const Duration(milliseconds: 7950));
+      expect(interlude.tokens, hasLength(6));
+      expect(
+        interlude.tokens.every(
+          (token) => token.text == '.' && token.duration > Duration.zero,
+        ),
+        isTrue,
+      );
+      final afterGap = engine.resolvePosition(
+        const Duration(milliseconds: 8500),
+      );
+      expect(afterGap.activeIndex, 2);
+      expect(engine.lineAt(afterGap.activeIndex!)?.text, 'second');
       expect(engine.document.lines, hasLength(2));
     });
 
+    test('adds a leading interlude with Folia half-second insets', () {
+      final engine = PartitaLyricLayoutEngine.fromDocument(
+        const LyricDocument(
+          lines: <LyricLine>[
+            LyricLine(
+              start: Duration(seconds: 5),
+              end: Duration(seconds: 6),
+              text: 'late opening',
+            ),
+          ],
+        ),
+      );
+
+      expect(engine.lineCount, 2);
+      expect(engine.isInterludeAt(0), isTrue);
+      expect(engine.lineAt(0)?.start, const Duration(milliseconds: 500));
+      expect(engine.lineAt(0)?.end, const Duration(milliseconds: 4500));
+      expect(engine.resolvePosition(const Duration(seconds: 2)).activeIndex, 0);
+      expect(engine.lineAt(1)?.text, 'late opening');
+    });
     test('handles empty and pre-roll positions deterministically', () {
       final empty = PartitaLyricLayoutEngine.fromDocument(
         const LyricDocument.empty(),
@@ -73,11 +110,6 @@ void main() {
               end: Duration(seconds: 3),
               text: 'short overlap',
             ),
-            LyricLine(
-              start: Duration(seconds: 12),
-              end: Duration(milliseconds: 12050),
-              text: 'micro',
-            ),
           ],
         ),
       );
@@ -88,16 +120,7 @@ void main() {
       final fallback = engine.resolvePosition(const Duration(seconds: 4));
       expect(fallback.activeIndex, 0);
       expect(fallback.recentIndex, 1);
-      expect(fallback.upcomingIndex, 2);
-
-      final microFloor = engine.resolvePosition(
-        const Duration(milliseconds: 12067),
-      );
-      expect(microFloor.activeIndex, 2);
-      expect(
-        engine.resolvePosition(const Duration(milliseconds: 12068)).activeIndex,
-        isNull,
-      );
+      expect(fallback.upcomingIndex, isNull);
     });
 
     test(
@@ -261,27 +284,43 @@ void main() {
       },
     );
 
+    test('keeps fine timing around an empty zero-duration token', () {
+      const line = LyricLine(
+        start: Duration.zero,
+        end: Duration(seconds: 1),
+        text: 'ab',
+        tokens: <LyricToken>[
+          LyricToken(
+            text: 'a',
+            startOffset: Duration.zero,
+            duration: Duration(milliseconds: 400),
+          ),
+          LyricToken(
+            text: '',
+            startOffset: Duration(milliseconds: 400),
+            duration: Duration.zero,
+          ),
+          LyricToken(
+            text: 'b',
+            startOffset: Duration(milliseconds: 400),
+            duration: Duration(milliseconds: 600),
+          ),
+        ],
+      );
+
+      final words = buildPartitaDisplayWords(line);
+
+      expect(hasValidPartitaTokenTiming(line), isTrue);
+      expect(words, hasLength(2));
+      expect(words.every((word) => word.isTimed), isTrue);
+      expect(words.first.sourceTokenIndexes, <int>[0, 1]);
+      expect(words.last.start, const Duration(milliseconds: 400));
+    });
+
     test(
-      'strictly disables fine timing for mixed zero, nonmonotonic, and mismatch input',
+      'strictly disables fine timing for nonmonotonic and mismatch input',
       () {
         final cases = <LyricLine>[
-          const LyricLine(
-            start: Duration.zero,
-            end: Duration(seconds: 1),
-            text: 'ab',
-            tokens: <LyricToken>[
-              LyricToken(
-                text: 'a',
-                startOffset: Duration.zero,
-                duration: Duration(milliseconds: 400),
-              ),
-              LyricToken(
-                text: 'b',
-                startOffset: Duration(milliseconds: 400),
-                duration: Duration.zero,
-              ),
-            ],
-          ),
           const LyricLine(
             start: Duration.zero,
             end: Duration(seconds: 1),

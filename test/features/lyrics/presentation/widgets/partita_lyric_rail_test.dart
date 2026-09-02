@@ -123,61 +123,106 @@ void main() {
       ]);
     });
 
-    testWidgets(
-      'invalid timing keeps chunks but uses line-level active state',
-      (tester) async {
-        const document = LyricDocument(
-          lines: <LyricLine>[
-            LyricLine(
-              start: Duration.zero,
-              end: Duration(seconds: 2),
-              text: 'repeat repeat again',
-              tokens: <LyricToken>[
-                LyricToken(
-                  text: 'repeat',
-                  startOffset: Duration.zero,
-                  duration: Duration(milliseconds: 700),
-                ),
-                LyricToken(
-                  text: ' ',
-                  startOffset: Duration(milliseconds: 700),
-                  duration: Duration.zero,
-                ),
-                LyricToken(
-                  text: 'repeat',
-                  startOffset: Duration(milliseconds: 700),
-                  duration: Duration(milliseconds: 500),
-                ),
-                LyricToken(
-                  text: ' ',
-                  startOffset: Duration(milliseconds: 1200),
-                  duration: Duration(milliseconds: 50),
-                ),
-                LyricToken(
-                  text: 'again',
-                  startOffset: Duration(milliseconds: 1250),
-                  duration: Duration(milliseconds: 500),
-                ),
-              ],
-            ),
-          ],
-        );
-        await tester.pumpWidget(
-          _buildRailApp(document: document, initialPosition: Duration.zero),
-        );
-        await tester.pump();
+    testWidgets('zero-duration separators keep timed neighboring words', (
+      tester,
+    ) async {
+      const document = LyricDocument(
+        lines: <LyricLine>[
+          LyricLine(
+            start: Duration.zero,
+            end: Duration(seconds: 2),
+            text: 'repeat repeat again',
+            tokens: <LyricToken>[
+              LyricToken(
+                text: 'repeat',
+                startOffset: Duration.zero,
+                duration: Duration(milliseconds: 700),
+              ),
+              LyricToken(
+                text: ' ',
+                startOffset: Duration(milliseconds: 700),
+                duration: Duration.zero,
+              ),
+              LyricToken(
+                text: 'repeat',
+                startOffset: Duration(milliseconds: 700),
+                duration: Duration(milliseconds: 500),
+              ),
+              LyricToken(
+                text: ' ',
+                startOffset: Duration(milliseconds: 1200),
+                duration: Duration(milliseconds: 50),
+              ),
+              LyricToken(
+                text: 'again',
+                startOffset: Duration(milliseconds: 1250),
+                duration: Duration(milliseconds: 500),
+              ),
+            ],
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        _buildRailApp(document: document, initialPosition: Duration.zero),
+      );
+      await tester.pump();
 
-        final data = _painter(tester).data;
-        expect(data.layout?.units, hasLength(3));
-        expect(data.layout?.chunks.length, greaterThan(1));
-        expect(data.layout?.hasFineTiming, isFalse);
-        expect(data.fineTimingEnabled, isFalse);
-        expect(
-          data.layout!.displayWords.every((word) => !word.isTimed),
-          isTrue,
-        );
-      },
-    );
+      final data = _painter(tester).data;
+      expect(data.layout?.units, hasLength(3));
+      expect(data.layout?.chunks.length, greaterThan(1));
+      expect(data.layout?.hasFineTiming, isTrue);
+      expect(data.fineTimingEnabled, isTrue);
+      expect(data.layout!.displayWords.every((word) => word.isTimed), isTrue);
+      expect(
+        data.layout!.displayWords
+            .expand((word) => word.graphemes)
+            .where((grapheme) => grapheme.grapheme == ' ')
+            .map((grapheme) => grapheme.isTimed),
+        <bool>[false, true],
+      );
+    });
+    testWidgets('renders six timed interlude dots and does not seek them', (
+      tester,
+    ) async {
+      const document = LyricDocument(
+        lines: <LyricLine>[
+          LyricLine(
+            start: Duration.zero,
+            end: Duration(seconds: 1),
+            text: 'before the gap',
+          ),
+          LyricLine(
+            start: Duration(seconds: 10),
+            end: Duration(seconds: 12),
+            text: 'after the gap',
+          ),
+        ],
+      );
+      final seeks = <Duration>[];
+      await tester.pumpWidget(
+        _buildRailApp(
+          document: document,
+          initialPosition: const Duration(seconds: 5),
+          onSeek: seeks.add,
+        ),
+      );
+      await tester.pump();
+
+      final interlude = _painter(tester).data;
+      expect(interlude.layout?.sourceLineIndex, -1);
+      expect(interlude.layout?.sourceLine.text, '......');
+      expect(interlude.layout?.displayWords, hasLength(6));
+      expect(
+        interlude.layout!.displayWords.every((word) => word.isTimed),
+        isTrue,
+      );
+      final chunk = interlude.chunks.first.layout;
+      await tester.tapAt(
+        tester.getTopLeft(find.byType(PartitaLyricRail)) + chunk.hitRect.center,
+      );
+      expect(seeks, isEmpty);
+    });
+
     testWidgets('reserves scaled two-line auxiliary text below chunks', (
       tester,
     ) async {
@@ -486,10 +531,10 @@ void main() {
         ),
       );
       await tester.pump();
-      final host = tester.widget<DecoratedBox>(
+      final host = tester.widget(
         find.byKey(const ValueKey<String>('partita-lyric-page')),
       );
-      expect((host.decoration as BoxDecoration).color, isNotNull);
+      expect(host, isNot(isA<DecoratedBox>()));
       expect(find.byType(PartitaLyricRail), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
