@@ -3,7 +3,7 @@
 This directory contains the runtime sources from the official `just_audio`
 repository at commit `fcba2a37d63bd1bf0a933621d60f8e870310aa67`.
 
-HE Music carries five visualizer fixes on top of that commit:
+HE Music carries six fixes on top of that commit:
 
 1. `stopVisualizer()` awaits the platform stop request so application-level
    start/stop convergence remains serialized.
@@ -22,6 +22,9 @@ HE Music carries five visualizer fixes on top of that commit:
    each main-thread event owns copies of the waveform, FFT, and sampling rate.
    Tap replacement or player disposal therefore cannot leave realtime or
    queued callbacks reading released storage.
+6. Position extrapolation pauses while a seek request is pending, keeping lyric
+   word progress fixed at the optimistic seek target until the platform response
+   establishes a new playback timestamp.
 
 The platform interface and web packages remain pinned to the same upstream
 commit. Rebase these patches and rerun the Android, iOS, and macOS spectrum

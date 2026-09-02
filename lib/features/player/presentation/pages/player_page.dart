@@ -285,6 +285,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       return controller.seek(position);
     }
 
+    Future<void> seekFromLyric(Duration position) {
+      _seekRevision.value += 1;
+      return controller.seekFromLyric(position);
+    }
+
     final presentation = ref.watch(
       playerControllerProvider.select(
         (state) => (
@@ -339,7 +344,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           config.localeCode,
           'player.lyrics.empty',
         ),
-        onSeek: presentation.isTrackTransitioning ? null : seek,
+        onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
         artworkUrl: presentation.currentTrack?.artworkUrl,
         artworkBytes: presentation.currentTrack?.artworkBytes,
         center: false,
@@ -351,7 +356,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             config.localeCode,
             'player.lyrics.empty',
           ),
-          onSeek: presentation.isTrackTransitioning ? null : seek,
+          onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
           palette: scenePalette,
         ),
         AppPlayerLyricsKind.partita => PartitaLyricPage(
@@ -359,7 +364,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             config.localeCode,
             'player.lyrics.empty',
           ),
-          onSeek: presentation.isTrackTransitioning ? null : seek,
+          onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
           palette: scenePalette,
           seekListenable: _seekRevision,
         ),

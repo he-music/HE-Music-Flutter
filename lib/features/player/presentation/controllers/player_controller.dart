@@ -783,6 +783,13 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     await _execute(() => _audioPlayer.seek(position));
   }
 
+  Future<void> seekFromLyric(Duration position) async {
+    await seek(position);
+    if (!state.isPlaying) {
+      await togglePlayPause();
+    }
+  }
+
   Future<void> setVolume(double volume) async {
     await _ensureInitialized();
     state = state.copyWith(volume: volume, clearError: true);

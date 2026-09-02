@@ -4,12 +4,10 @@ import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
-import '../../../../app/config/app_config_state.dart';
 import '../../../../app/config/app_lyric_font_preset.dart';
-import '../../../../app/config/app_lyric_highlight_color.dart';
-import '../../../../app/config/app_lyric_highlight_mode.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_line.dart' as domain;
+import '../helpers/lyric_highlight_color_helper.dart';
 import '../providers/lyrics_providers.dart';
 
 @visibleForTesting
@@ -82,17 +80,6 @@ fl.LyricStyle buildLyricStyle({
     activeHighlightColor: activeHighlightColor,
     activeHighlightGradient: null,
   );
-}
-
-Color resolveLyricHighlightColor(AppConfigState config, {Color? autoColor}) {
-  return switch (config.lyricHighlightMode) {
-    AppLyricHighlightMode.auto => autoColor ?? AppLyricHighlightColor.sky.color,
-    AppLyricHighlightMode.custom =>
-      config.lyricHighlightCustomColor == null
-          ? AppLyricHighlightColor.sky.color
-          : Color(config.lyricHighlightCustomColor!),
-    AppLyricHighlightMode.preset => config.lyricHighlightPreset.color,
-  };
 }
 
 class LyricPanel extends ConsumerStatefulWidget {

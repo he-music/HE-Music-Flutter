@@ -18,6 +18,7 @@ class MonetLyricRail extends ConsumerStatefulWidget {
     required this.enableWordByWordLyric,
     required this.palette,
     required this.onSeek,
+    this.highlightColor,
     this.documentIdentity,
     this.debugOnStructureBuild,
     this.debugOnPaint,
@@ -29,6 +30,7 @@ class MonetLyricRail extends ConsumerStatefulWidget {
   final bool enableWordByWordLyric;
   final PlayerScenePalette palette;
   final ValueChanged<Duration>? onSeek;
+  final Color? highlightColor;
 
   /// Stable track/request identity, even when two tracks share identical lyrics.
   final String? documentIdentity;
@@ -111,7 +113,8 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
     }
     if (oldWidget.fontPreset != widget.fontPreset ||
         oldWidget.enableWordByWordLyric != widget.enableWordByWordLyric ||
-        oldWidget.palette != widget.palette) {
+        oldWidget.palette != widget.palette ||
+        oldWidget.highlightColor != widget.highlightColor) {
       _previousRenderData = null;
       _renderData = null;
       _renderSignature = null;
@@ -301,6 +304,9 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
   }
 
   MonetLyricRenderData _resolveRenderData(MonetLyricLayoutOptions options) {
+    final palette = widget.highlightColor == null
+        ? widget.palette
+        : widget.palette.copyWith(accent: widget.highlightColor);
     final signature = <Object?>[
       _engine.documentSignature,
       widget.documentIdentity,
@@ -317,7 +323,7 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
       options.textDirection,
       widget.fontPreset,
       widget.enableWordByWordLyric,
-      widget.palette,
+      palette,
     ].join('|');
     final cached = _renderData;
     if (cached != null && signature == _renderSignature) {
@@ -339,7 +345,7 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
     final next = buildMonetLyricRenderData(
       positionedLines: positioned,
       options: options,
-      palette: widget.palette,
+      palette: palette,
       enableWordByWordLyric: widget.enableWordByWordLyric,
       timelineOffset: Duration(milliseconds: widget.document.offset),
     );

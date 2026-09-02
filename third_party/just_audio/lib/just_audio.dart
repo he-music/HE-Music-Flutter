@@ -691,7 +691,7 @@ class AudioPlayer {
   Duration get position => _getPositionFor(playbackEvent);
 
   Duration _getPositionFor(PlaybackEvent playbackEvent) {
-    if (playing && processingState == ProcessingState.ready) {
+    if (!_seeking && playing && processingState == ProcessingState.ready) {
       final result = playbackEvent.updatePosition +
           (DateTime.now().difference(playbackEvent.updateTime)) * speed;
       return playbackEvent.duration == null || result <= playbackEvent.duration!

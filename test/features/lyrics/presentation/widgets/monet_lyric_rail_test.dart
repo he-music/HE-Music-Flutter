@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
+import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
+import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
@@ -448,6 +450,38 @@ void main() {
   });
 
   group('Monet host lifecycle', () {
+    testWidgets('honors preset custom and auto highlight colors', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildPageApp(const AsyncData<LyricDocument>(_timedDocument)),
+      );
+      await tester.pump();
+
+      MonetLyricRail rail() =>
+          tester.widget<MonetLyricRail>(find.byType(MonetLyricRail));
+      final container = _container(tester);
+      expect(rail().highlightColor, AppLyricHighlightColor.sky.color);
+
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricHighlightMode(AppLyricHighlightMode.auto);
+      await tester.pump();
+      expect(rail().highlightColor, _palette.accent);
+
+      const customColor = Color(0xff123456);
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricHighlightCustomColor(customColor.toARGB32());
+      await tester.pump();
+      expect(rail().highlightColor, customColor);
+      final active = _activePaintLine(_painter(tester).data);
+      expect(
+        (active.accentPainter?.text as TextSpan?)?.style?.color,
+        customColor,
+      );
+    });
+
     testWidgets('loading empty and error states never retain old lyrics', (
       tester,
     ) async {

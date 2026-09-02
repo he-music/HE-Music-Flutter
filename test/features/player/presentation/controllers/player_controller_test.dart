@@ -470,6 +470,39 @@ void main() {
   });
 
   group('有效播放会话', () {
+    test('歌词跳转恢复播放，普通跳转保持暂停', () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.replaceQueue(
+        _buildQueue(),
+        startIndex: 0,
+        autoplay: false,
+      );
+
+      await controller.seek(const Duration(seconds: 4));
+      expect(audioPlayer.playCallCount, 0);
+
+      await controller.seekFromLyric(const Duration(seconds: 8));
+      expect(audioPlayer.seekPositions, <Duration>[
+        const Duration(seconds: 4),
+        const Duration(seconds: 8),
+      ]);
+      expect(audioPlayer.playCallCount, 1);
+
+      audioPlayer.emitPlaying(true);
+      await Future<void>.delayed(Duration.zero);
+      await controller.seekFromLyric(const Duration(seconds: 12));
+      expect(audioPlayer.playCallCount, 1);
+    });
+
     test('playing 流建立会话，loading 保持会话，明确暂停结束会话', () async {
       final audioPlayer = _FakeAudioPlayerPort();
       final container = ProviderContainer(

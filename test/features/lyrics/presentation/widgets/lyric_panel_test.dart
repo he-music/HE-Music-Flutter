@@ -10,6 +10,7 @@ import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/helpers/lyric_highlight_color_helper.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/lyric_panel.dart';
 

@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
+import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
+import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
@@ -493,6 +495,34 @@ void main() {
   });
 
   group('Partita host', () {
+    testWidgets('honors preset custom and auto highlight colors', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildPageApp(const AsyncData<LyricDocument>(_timedDocument)),
+      );
+      await tester.pump();
+
+      PartitaLyricRail rail() =>
+          tester.widget<PartitaLyricRail>(find.byType(PartitaLyricRail));
+      final container = _container(tester);
+      expect(rail().highlightColor, AppLyricHighlightColor.sky.color);
+
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricHighlightMode(AppLyricHighlightMode.auto);
+      await tester.pump();
+      expect(rail().highlightColor, _palette.accent);
+
+      const customColor = Color(0xff123456);
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricHighlightCustomColor(customColor.toARGB32());
+      await tester.pump();
+      expect(rail().highlightColor, customColor);
+      expect(_painter(tester).data.palette.accent, customColor);
+    });
+
     testWidgets('loading empty error and palette fallback share the canvas', (
       tester,
     ) async {

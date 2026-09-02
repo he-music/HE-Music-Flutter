@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/config/app_lyric_highlight_mode.dart';
+import '../../../lyrics/presentation/helpers/lyric_highlight_color_helper.dart';
 import '../../../lyrics/presentation/widgets/lyric_panel.dart';
 import '../helpers/player_lyric_highlight_color_helper.dart';
 

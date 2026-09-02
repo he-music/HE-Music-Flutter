@@ -19,6 +19,7 @@ class PartitaLyricRail extends ConsumerStatefulWidget {
     required this.enableWordByWordLyric,
     required this.palette,
     required this.onSeek,
+    this.highlightColor,
     this.documentIdentity,
     this.breathingEnabled = true,
     this.seekListenable,
@@ -33,6 +34,7 @@ class PartitaLyricRail extends ConsumerStatefulWidget {
   final bool enableWordByWordLyric;
   final PlayerScenePalette palette;
   final ValueChanged<Duration>? onSeek;
+  final Color? highlightColor;
   final String? documentIdentity;
   final bool breathingEnabled;
   final Listenable? seekListenable;
@@ -134,7 +136,8 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       _resetRenderData();
     } else if (oldWidget.fontPreset != widget.fontPreset ||
         oldWidget.enableWordByWordLyric != widget.enableWordByWordLyric ||
-        oldWidget.palette != widget.palette) {
+        oldWidget.palette != widget.palette ||
+        oldWidget.highlightColor != widget.highlightColor) {
       _layoutCache.clear();
       _lastLayoutOptions = null;
       _resetRenderData();
@@ -406,6 +409,9 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     required TextStyle auxiliaryStyle,
   }) {
     final selectedIndex = _selectedSourceLineIndex;
+    final palette = widget.highlightColor == null
+        ? widget.palette
+        : widget.palette.copyWith(accent: widget.highlightColor);
     final signature = Object.hashAll(<Object?>[
       _engine.documentSignature,
       widget.documentIdentity,
@@ -419,7 +425,7 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       options.locale,
       widget.fontPreset,
       widget.enableWordByWordLyric,
-      widget.palette,
+      palette,
       size,
     ]);
     final cached = _renderData;
@@ -437,7 +443,7 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       layout: layout,
       options: options,
       auxiliaryTextStyle: auxiliaryStyle,
-      palette: widget.palette,
+      palette: palette,
       enableWordByWordLyric: widget.enableWordByWordLyric,
       forceLineActive: _manualAnchorIndex != null,
       timelineOffset: Duration(milliseconds: widget.document.offset),
