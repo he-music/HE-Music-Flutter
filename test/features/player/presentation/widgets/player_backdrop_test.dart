@@ -229,9 +229,7 @@ void main() {
     final backdrop = find.byKey(const ValueKey<String>(backdropKey));
     expect(backdrop, findsOneWidget);
     final decoratedBox = tester.widget<DecoratedBox>(
-      find
-          .descendant(of: backdrop, matching: find.byType(DecoratedBox))
-          .first,
+      find.descendant(of: backdrop, matching: find.byType(DecoratedBox)).first,
     );
     final decoration = decoratedBox.decoration as BoxDecoration;
     expect((decoration.gradient as LinearGradient).colors, isNotEmpty);
@@ -293,6 +291,7 @@ void main() {
         photoBuilder: (_) => _validImageProvider(),
       ),
     );
+    await tester.pump();
 
     expect(_artistPhotoStateFinder(ArtistPhotoVisualState.loading), findsOne);
     expect(
@@ -308,8 +307,7 @@ void main() {
     expect(coverImage.image, same(cover));
 
     request.complete(const <String>['photo-a']);
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(_artistPhotoStateFinder(ArtistPhotoVisualState.photo), findsOne);
     expect(
@@ -486,7 +484,7 @@ void main() {
     );
 
     landscapeRequest.complete(const <String>['landscape-photo']);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(
       find.byKey(
         const ValueKey<String>('artist-photo-image-photo-landscape-photo'),
@@ -530,7 +528,7 @@ void main() {
     );
 
     requests['Artist C']!.complete(const <String>['photo-c']);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-c')),
       findsOne,
@@ -559,6 +557,7 @@ void main() {
         photoBuilder: (_) => _validImageProvider(),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(
       find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-b')),
@@ -567,15 +566,177 @@ void main() {
     expect(cache.requestedDirections, isEmpty);
 
     await tester.pump(const Duration(seconds: 12));
+    await tester.pumpAndSettle();
 
     expect(
-      container.read(artistPhotoCacheProvider).currentIndices[cacheKey],
+      container.read(artistPhotoCacheProvider).currentIndices[cacheKey] ?? 0,
       0,
     );
-    await tester.pump(const Duration(milliseconds: 800));
     expect(
       find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-a')),
       findsOne,
+    );
+  });
+
+  testWidgets('artist photo keeps current image until next image is ready', (
+    tester,
+  ) async {
+    const cacheKey = 'qq||Artist|true';
+    final firstPhoto = _validImageProvider();
+    final nextPhoto = _validImageProvider();
+    final nextPhotoReady = Completer<bool>();
+    final cache = _TestArtistPhotoCache(
+      (_) => throw StateError('cache hit must not request photos'),
+      initialCache: const <String, List<String>>{
+        cacheKey: <String>['photo-a', 'photo-b'],
+      },
+    );
+    final container = _createContainer(cache);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _buildArtistBackdrop(
+        container,
+        cover: _validImageProvider(),
+        photoBuilder: (url) => url == 'photo-a' ? firstPhoto : nextPhoto,
+        photoReadyChecker: (url, _) =>
+            url == 'photo-a' ? Future<bool>.value(true) : nextPhotoReady.future,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-a')),
+      findsOne,
+    );
+    await tester.pump(const Duration(seconds: 12));
+
+    expect(
+      container.read(artistPhotoCacheProvider).currentIndices[cacheKey] ?? 0,
+      0,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-a')),
+      findsOne,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-b')),
+      findsNothing,
+    );
+
+    nextPhotoReady.complete(true);
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(artistPhotoCacheProvider).currentIndices[cacheKey],
+      1,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-b')),
+      findsOne,
+    );
+  });
+
+  testWidgets('track change keeps old image until delayed cover is ready', (
+    tester,
+  ) async {
+    final requests = <String, Completer<List<String>>>{
+      'Artist A': Completer<List<String>>(),
+      'Artist B': Completer<List<String>>(),
+      'Artist C': Completer<List<String>>(),
+    };
+    final cache = _NamedArtistPhotoCache(requests);
+    final container = _createContainer(cache);
+    final track = ValueNotifier<PlayerTrack>(_artistTrackA);
+    final firstCover = _validImageProvider();
+    final nextCover = _validImageProvider();
+    final lateCover = _validImageProvider();
+    final cover = ValueNotifier<ImageProvider<Object>?>(firstCover);
+    final nextCoverReady = Completer<bool>();
+    final lateCoverReady = Completer<bool>();
+    addTearDown(container.dispose);
+    addTearDown(track.dispose);
+    addTearDown(cover.dispose);
+
+    await tester.pumpWidget(
+      _buildTrackAndCoverDynamicArtistBackdrop(
+        container,
+        track,
+        cover,
+        coverReadyChecker: (imageProvider) {
+          if (identical(imageProvider, nextCover)) {
+            return nextCoverReady.future;
+          }
+          if (identical(imageProvider, lateCover)) {
+            return lateCoverReady.future;
+          }
+          return Future<bool>.value(true);
+        },
+      ),
+    );
+    requests['Artist A']!.complete(const <String>['photo-a']);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-a')),
+      findsOne,
+    );
+
+    cover.value = null;
+    await tester.pump();
+    track.value = _artistTrackB;
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-a')),
+      findsOne,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-cover')),
+      findsNothing,
+    );
+
+    cover.value = nextCover;
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-a')),
+      findsOne,
+    );
+
+    nextCoverReady.complete(true);
+    await tester.pumpAndSettle();
+
+    final coverImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('artist-photo-image-cover')),
+        matching: find.byType(Image),
+      ),
+    );
+    expect(coverImage.image, same(nextCover));
+
+    requests['Artist B']!.complete(const <String>['photo-b']);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-b')),
+      findsOne,
+    );
+
+    cover.value = lateCover;
+    await tester.pump();
+    track.value = _artistTrackC;
+    await tester.pump();
+    requests['Artist C']!.complete(const <String>['photo-c']);
+    await tester.pumpAndSettle();
+
+    lateCoverReady.complete(true);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-photo-photo-c')),
+      findsOne,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('artist-photo-image-cover')),
+      findsNothing,
     );
   });
 }
@@ -594,6 +755,8 @@ Widget _buildArtistBackdrop(
   ProviderContainer container, {
   required ImageProvider<Object>? cover,
   required ArtistPhotoImageProviderBuilder photoBuilder,
+  ArtistPhotoImageReadyChecker photoReadyChecker = _photoIsReady,
+  ArtistPhotoCoverImageReadyChecker coverReadyChecker = _coverIsReady,
 }) {
   return UncontrolledProviderScope(
     container: container,
@@ -605,6 +768,8 @@ Widget _buildArtistBackdrop(
           track: _track,
           isPortrait: true,
           artistPhotoImageProviderBuilder: photoBuilder,
+          artistPhotoImageReadyChecker: photoReadyChecker,
+          artistPhotoCoverImageReadyChecker: coverReadyChecker,
         ),
       ),
     ),
@@ -628,6 +793,8 @@ Widget _buildDynamicArtistBackdrop(
               track: _track,
               isPortrait: value,
               artistPhotoImageProviderBuilder: (_) => _validImageProvider(),
+              artistPhotoImageReadyChecker: _photoIsReady,
+              artistPhotoCoverImageReadyChecker: _coverIsReady,
             );
           },
         ),
@@ -653,6 +820,42 @@ Widget _buildTrackDynamicArtistBackdrop(
               track: value,
               isPortrait: true,
               artistPhotoImageProviderBuilder: (_) => _validImageProvider(),
+              artistPhotoImageReadyChecker: _photoIsReady,
+              artistPhotoCoverImageReadyChecker: _coverIsReady,
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildTrackAndCoverDynamicArtistBackdrop(
+  ProviderContainer container,
+  ValueNotifier<PlayerTrack> track,
+  ValueNotifier<ImageProvider<Object>?> cover, {
+  required ArtistPhotoCoverImageReadyChecker coverReadyChecker,
+}) {
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp(
+      home: Scaffold(
+        body: ValueListenableBuilder<PlayerTrack>(
+          valueListenable: track,
+          builder: (context, trackValue, child) {
+            return ValueListenableBuilder<ImageProvider<Object>?>(
+              valueListenable: cover,
+              builder: (context, coverValue, child) {
+                return PlayerBackdrop(
+                  backdropKind: AppPlayerBackdropKind.artistPhoto,
+                  imageProvider: coverValue,
+                  track: trackValue,
+                  isPortrait: true,
+                  artistPhotoImageProviderBuilder: (_) => _validImageProvider(),
+                  artistPhotoImageReadyChecker: _photoIsReady,
+                  artistPhotoCoverImageReadyChecker: coverReadyChecker,
+                );
+              },
             );
           },
         ),
@@ -672,6 +875,17 @@ ImageProvider<Object> _validImageProvider() {
 
 ImageProvider<Object> _invalidImageProvider() {
   return MemoryImage(Uint8List.fromList(const <int>[0, 1, 2, 3]));
+}
+
+Future<bool> _photoIsReady(
+  String _,
+  ImageProvider<Object> imageProvider,
+) async {
+  return true;
+}
+
+Future<bool> _coverIsReady(ImageProvider<Object> imageProvider) async {
+  return true;
 }
 
 const PlayerTrack _track = PlayerTrack(

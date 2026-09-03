@@ -12,6 +12,10 @@ import '../styles/fluid_player_backdrop.dart';
 
 typedef ArtistPhotoImageProviderBuilder =
     ImageProvider<Object> Function(String url);
+typedef ArtistPhotoImageReadyChecker =
+    Future<bool> Function(String url, ImageProvider<Object> imageProvider);
+typedef ArtistPhotoCoverImageReadyChecker =
+    Future<bool> Function(ImageProvider<Object> imageProvider);
 
 enum ArtistPhotoVisualState { loading, photo, coverFallback, neutralGradient }
 
@@ -27,6 +31,8 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
     this.track,
     this.isPortrait = false,
     this.artistPhotoImageProviderBuilder,
+    this.artistPhotoImageReadyChecker,
+    this.artistPhotoCoverImageReadyChecker,
     this.onClassicPaletteChanged,
   });
 
@@ -39,6 +45,12 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
 
   /// 测试可注入固定图片，运行时默认使用网络缓存图片。
   final ArtistPhotoImageProviderBuilder? artistPhotoImageProviderBuilder;
+
+  /// 测试可注入写真首帧完成时机，运行时默认等待真实图片流。
+  final ArtistPhotoImageReadyChecker? artistPhotoImageReadyChecker;
+
+  /// 测试可注入封面首帧完成时机，运行时默认等待真实图片流。
+  final ArtistPhotoCoverImageReadyChecker? artistPhotoCoverImageReadyChecker;
 
   /// 复用背景已解析的封面色，避免前景组件再次解码封面。
   final ValueChanged<List<Color>>? onClassicPaletteChanged;
@@ -57,6 +69,15 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   String? _cacheKey;
   Timer? _cycleTimer;
   int _requestGeneration = 0;
+  int _displayedGeneration = -1;
+  ImageProvider<Object>? _displayedCoverImageProvider;
+  ImageProvider<Object>? _targetCoverImageProvider;
+
+  /// null 表示封面仍在解码，true/false 表示首帧成功或失败。
+  bool? _targetCoverReady;
+  bool _targetPhotoResolutionComplete = true;
+  final Map<String, ImageProvider<Object>> _photoImageProviders =
+      <String, ImageProvider<Object>>{};
 
   @override
   void initState() {
@@ -85,40 +106,58 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
       _lastRequestKey = null;
       _cacheKey = null;
       _photoUrls = const <String>[];
+      _photoImageProviders.clear();
+      _displayedCoverImageProvider = null;
+      _targetCoverImageProvider = null;
+      _targetCoverReady = false;
+      _targetPhotoResolutionComplete = true;
+      _displayedGeneration = -1;
       _artistPhotoState = ArtistPhotoVisualState.neutralGradient;
       _cycleTimer?.cancel();
       return;
     }
     final requestKey = _buildRequestKey(widget.track!, widget.isPortrait);
-    if (requestKey == _lastRequestKey) return;
+    if (requestKey == _lastRequestKey) {
+      if (widget.imageProvider != _targetCoverImageProvider) {
+        _prepareTargetCover(
+          widget.imageProvider,
+          generation: _requestGeneration,
+          requestKey: requestKey,
+        );
+      }
+      return;
+    }
 
     _lastRequestKey = requestKey;
     final generation = ++_requestGeneration;
     _cycleTimer?.cancel();
-    _cacheKey = null;
-    _photoUrls = const <String>[];
+    _targetPhotoResolutionComplete = false;
+    _prepareTargetCover(
+      widget.imageProvider,
+      generation: generation,
+      requestKey: requestKey,
+    );
 
-    // 方向隔离缓存命中时直接恢复，否则请求完成前先显示当前封面。
+    // 新歌可绘制资源就绪前保留当前背景，避免切歌时露出底层渐变。
     final cacheKey = _resolveCacheKey(widget.track!);
     if (cacheKey == null) {
-      _artistPhotoState = _coverFallbackState;
+      _showCoverFallback(generation);
       return;
     }
-    if (_restoreFromCache(cacheKey)) return;
+    if (_restoreFromCache(
+      cacheKey,
+      generation: generation,
+      requestKey: requestKey,
+    )) {
+      return;
+    }
 
-    _artistPhotoState = ArtistPhotoVisualState.loading;
     _fetchArtistPhoto(
       widget.track!,
       cacheKey: cacheKey,
       generation: generation,
       requestKey: requestKey,
     );
-  }
-
-  ArtistPhotoVisualState get _coverFallbackState {
-    return widget.imageProvider == null
-        ? ArtistPhotoVisualState.neutralGradient
-        : ArtistPhotoVisualState.coverFallback;
   }
 
   bool _isCurrentRequest(int generation, String requestKey) {
@@ -130,11 +169,19 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   void _showCoverFallback(int generation) {
     if (!mounted || generation != _requestGeneration) return;
     _cycleTimer?.cancel();
-    setState(() {
-      _cacheKey = null;
-      _photoUrls = const <String>[];
-      _artistPhotoState = _coverFallbackState;
-    });
+    _targetPhotoResolutionComplete = true;
+    if (_targetCoverReady == true && _targetCoverImageProvider != null) {
+      _showTargetCover(generation, ArtistPhotoVisualState.coverFallback);
+      return;
+    }
+    if (_targetCoverReady == false) {
+      setState(() {
+        _cacheKey = null;
+        _photoUrls = const <String>[];
+        _artistPhotoState = ArtistPhotoVisualState.neutralGradient;
+        _displayedGeneration = generation;
+      });
+    }
   }
 
   void _handlePhotoDecodeFailure(int generation, String failedUrl) {
@@ -160,28 +207,33 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
             _artistPhotoState != ArtistPhotoVisualState.coverFallback)) {
       return;
     }
+    _targetCoverReady = false;
     setState(() {
       _artistPhotoState = ArtistPhotoVisualState.neutralGradient;
     });
   }
 
   /// 尝试从 provider 缓存恢复写真列表和索引，成功返回 true。
-  bool _restoreFromCache(String cacheKey) {
+  bool _restoreFromCache(
+    String cacheKey, {
+    required int generation,
+    required String requestKey,
+  }) {
     final notifier = ref.read(artistPhotoCacheProvider.notifier);
     final urls = notifier.cachedPhotos(cacheKey);
     if (urls == null) return false;
     if (urls.isEmpty) {
-      _artistPhotoState = _coverFallbackState;
+      _showCoverFallback(generation);
       return true;
     }
-    _photoUrls = urls;
-    _cacheKey = cacheKey;
-    _artistPhotoState = ArtistPhotoVisualState.photo;
-    // 确保索引在有效范围内。
-    if (notifier.currentIndex(cacheKey) >= urls.length) {
-      notifier.updateIndex(cacheKey, 0);
-    }
-    _startCycle();
+    unawaited(
+      _showArtistPhotosWhenReady(
+        urls,
+        cacheKey: cacheKey,
+        generation: generation,
+        requestKey: requestKey,
+      ),
+    );
     return true;
   }
 
@@ -213,13 +265,30 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   void _startCycle() {
     _cycleTimer?.cancel();
     if (_photoUrls.length <= 1 || _cacheKey == null) return;
-    _cycleTimer = Timer.periodic(_cycleDuration, (_) {
-      if (!mounted || _photoUrls.length <= 1 || _cacheKey == null) return;
-      final notifier = ref.read(artistPhotoCacheProvider.notifier);
-      final nextIndex =
-          (notifier.currentIndex(_cacheKey!) + 1) % _photoUrls.length;
-      notifier.updateIndex(_cacheKey!, nextIndex);
+    _cycleTimer = Timer(_cycleDuration, () {
+      unawaited(_showNextPhotoWhenReady());
     });
+  }
+
+  Future<void> _showNextPhotoWhenReady() async {
+    final cacheKey = _cacheKey;
+    final generation = _requestGeneration;
+    if (!mounted || _photoUrls.length <= 1 || cacheKey == null) return;
+
+    final notifier = ref.read(artistPhotoCacheProvider.notifier);
+    final nextIndex = (notifier.currentIndex(cacheKey) + 1) % _photoUrls.length;
+    final nextUrl = _photoUrls[nextIndex];
+    final isReady = await _waitForPhoto(nextUrl);
+    if (!mounted || generation != _requestGeneration || cacheKey != _cacheKey) {
+      return;
+    }
+    if (!isReady) {
+      _showCoverFallback(generation);
+      return;
+    }
+
+    notifier.updateIndex(cacheKey, nextIndex);
+    _startCycle();
   }
 
   @override
@@ -254,14 +323,137 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
     if (_artistPhotoState == ArtistPhotoVisualState.photo &&
         _photoUrls.isNotEmpty) {
       final url = _photoUrls[photoIndex.clamp(0, _photoUrls.length - 1)];
-      return widget.artistPhotoImageProviderBuilder?.call(url) ??
-          CachedNetworkImageProvider(url);
+      return _photoImageProvider(url);
     }
     if (_artistPhotoState == ArtistPhotoVisualState.loading ||
         _artistPhotoState == ArtistPhotoVisualState.coverFallback) {
-      return widget.imageProvider;
+      return _displayedCoverImageProvider;
     }
     return null;
+  }
+
+  ImageProvider<Object> _photoImageProvider(String url) {
+    return _photoImageProviders.putIfAbsent(
+      url,
+      () =>
+          widget.artistPhotoImageProviderBuilder?.call(url) ??
+          CachedNetworkImageProvider(url),
+    );
+  }
+
+  /// 等写真首帧可绘制后再允许切换，避免淡出旧图时暴露底层渐变。
+  Future<bool> _waitForPhoto(String url) async {
+    final imageProvider = _photoImageProvider(url);
+    final readyChecker = widget.artistPhotoImageReadyChecker;
+    if (readyChecker != null) return readyChecker(url, imageProvider);
+
+    return _waitForImage(imageProvider);
+  }
+
+  Future<bool> _waitForCover(ImageProvider<Object> imageProvider) async {
+    final readyChecker = widget.artistPhotoCoverImageReadyChecker;
+    if (readyChecker != null) return readyChecker(imageProvider);
+
+    return _waitForImage(imageProvider);
+  }
+
+  Future<bool> _waitForImage(ImageProvider<Object> imageProvider) async {
+    final imageStream = imageProvider.resolve(ImageConfiguration.empty);
+    final completer = Completer<bool>();
+    ImageInfo? resolvedImage;
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (image, _) {
+        if (completer.isCompleted) return;
+        resolvedImage = image;
+        completer.complete(true);
+      },
+      onError: (_, _) {
+        if (!completer.isCompleted) completer.complete(false);
+      },
+    );
+    imageStream.addListener(listener);
+    final isReady = await completer.future;
+    if (!isReady) {
+      imageStream.removeListener(listener);
+      return false;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      resolvedImage?.dispose();
+      imageStream.removeListener(listener);
+    });
+    return true;
+  }
+
+  void _prepareTargetCover(
+    ImageProvider<Object>? imageProvider, {
+    required int generation,
+    required String requestKey,
+  }) {
+    _targetCoverImageProvider = imageProvider;
+    if (imageProvider == null) {
+      _targetCoverReady = false;
+      if (_targetPhotoResolutionComplete &&
+          !(_displayedGeneration == generation &&
+              _artistPhotoState == ArtistPhotoVisualState.photo)) {
+        _showCoverFallback(generation);
+      }
+      return;
+    }
+
+    _targetCoverReady = null;
+    unawaited(
+      _showTargetCoverWhenReady(
+        imageProvider,
+        generation: generation,
+        requestKey: requestKey,
+      ),
+    );
+  }
+
+  Future<void> _showTargetCoverWhenReady(
+    ImageProvider<Object> imageProvider, {
+    required int generation,
+    required String requestKey,
+  }) async {
+    final isReady = await _waitForCover(imageProvider);
+    if (!_isCurrentRequest(generation, requestKey) ||
+        imageProvider != _targetCoverImageProvider) {
+      return;
+    }
+
+    _targetCoverReady = isReady;
+    if (!isReady) {
+      if (_targetPhotoResolutionComplete) {
+        _showCoverFallback(generation);
+      }
+      return;
+    }
+    if (_displayedGeneration == generation &&
+        _artistPhotoState == ArtistPhotoVisualState.photo) {
+      return;
+    }
+
+    _showTargetCover(
+      generation,
+      _targetPhotoResolutionComplete
+          ? ArtistPhotoVisualState.coverFallback
+          : ArtistPhotoVisualState.loading,
+    );
+  }
+
+  void _showTargetCover(int generation, ArtistPhotoVisualState visualState) {
+    final imageProvider = _targetCoverImageProvider;
+    if (!mounted || generation != _requestGeneration || imageProvider == null) {
+      return;
+    }
+    setState(() {
+      _cacheKey = null;
+      _photoUrls = const <String>[];
+      _displayedCoverImageProvider = imageProvider;
+      _artistPhotoState = visualState;
+      _displayedGeneration = generation;
+    });
   }
 
   String _resolveArtistPhotoImageKey(int photoIndex) {
@@ -274,7 +466,7 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   }
 
   VoidCallback? _resolveArtistPhotoImageError(int photoIndex) {
-    final generation = _requestGeneration;
+    final generation = _displayedGeneration;
     if (_artistPhotoState == ArtistPhotoVisualState.photo &&
         _photoUrls.isNotEmpty) {
       final url = _photoUrls[photoIndex.clamp(0, _photoUrls.length - 1)];
@@ -349,22 +541,48 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
         _showCoverFallback(generation);
         return;
       }
-      setState(() {
-        _photoUrls = urls;
-        _cacheKey = cacheKey;
-        _artistPhotoState = ArtistPhotoVisualState.photo;
-      });
-      // 确保索引在有效范围内，超出时重置为 0。
-      final notifier = ref.read(artistPhotoCacheProvider.notifier);
-      if (notifier.currentIndex(cacheKey) >= urls.length) {
-        notifier.updateIndex(cacheKey, 0);
-      }
-      _startCycle();
+      await _showArtistPhotosWhenReady(
+        urls,
+        cacheKey: cacheKey,
+        generation: generation,
+        requestKey: requestKey,
+      );
     } catch (_) {
       if (_isCurrentRequest(generation, requestKey)) {
         _showCoverFallback(generation);
       }
     }
+  }
+
+  Future<void> _showArtistPhotosWhenReady(
+    List<String> urls, {
+    required String cacheKey,
+    required int generation,
+    required String requestKey,
+  }) async {
+    final notifier = ref.read(artistPhotoCacheProvider.notifier);
+    final cachedIndex = notifier.currentIndex(cacheKey);
+    final initialIndex = cachedIndex >= 0 && cachedIndex < urls.length
+        ? cachedIndex
+        : 0;
+    final isReady = await _waitForPhoto(urls[initialIndex]);
+    if (!_isCurrentRequest(generation, requestKey)) return;
+    if (!isReady) {
+      _showCoverFallback(generation);
+      return;
+    }
+
+    setState(() {
+      _photoUrls = urls;
+      _cacheKey = cacheKey;
+      _artistPhotoState = ArtistPhotoVisualState.photo;
+      _targetPhotoResolutionComplete = true;
+      _displayedGeneration = generation;
+    });
+    if (initialIndex != cachedIndex) {
+      notifier.updateIndex(cacheKey, initialIndex);
+    }
+    _startCycle();
   }
 }
 
@@ -420,6 +638,7 @@ class _ArtistPhotoBackdrop extends StatelessWidget {
                       child: Image(
                         image: image,
                         fit: BoxFit.cover,
+                        gaplessPlayback: true,
                         errorBuilder: (context, error, stackTrace) {
                           final callback = onImageError;
                           if (callback != null) {
