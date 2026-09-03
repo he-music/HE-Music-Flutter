@@ -86,7 +86,7 @@ void main() {
     );
   });
 
-  testWidgets('scene palette colors only the primary playback control', (
+  testWidgets('primary playback control stays borderless under scene palette', (
     tester,
   ) async {
     const palette = PlayerScenePalette(
@@ -140,11 +140,11 @@ void main() {
     final playButton = _button(tester, Icons.play_arrow_rounded);
     expect(
       playButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
-      palette.foreground,
+      Colors.white,
     );
     expect(
       playButton.style?.backgroundColor?.resolve(const <WidgetState>{}),
-      palette.surfaceDeep.withValues(alpha: 0.72),
+      Colors.transparent,
     );
   });
 

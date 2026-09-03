@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../domain/entities/player_play_mode.dart';
 
 class PlayerControlBar extends StatelessWidget {
@@ -133,9 +132,8 @@ class _PrimaryControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = PlayerScenePalette.maybeOf(context);
-    final foreground = palette?.foreground ?? Colors.white;
-    final button = IconButton(
+    final foreground = Colors.white;
+    return IconButton(
       onPressed: onPressed,
       icon: isTrackTransitioning
           ? Semantics(
@@ -159,29 +157,11 @@ class _PrimaryControlButton extends StatelessWidget {
           : Icon(icon, size: compact ? 34 : 42),
       color: foreground,
       style: IconButton.styleFrom(
-        backgroundColor:
-            palette?.surfaceDeep.withValues(alpha: 0.72) ?? Colors.transparent,
+        backgroundColor: Colors.transparent,
         foregroundColor: foreground,
         shadowColor: Colors.transparent,
         padding: EdgeInsets.all(compact ? 8 : 12),
-        side: palette == null
-            ? null
-            : BorderSide(color: palette.accent.withValues(alpha: 0.58)),
       ),
-    );
-    if (palette == null) return button;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: palette.accent.withValues(alpha: 0.18),
-            blurRadius: 14,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: button,
     );
   }
 }
