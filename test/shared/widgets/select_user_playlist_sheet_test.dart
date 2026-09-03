@@ -3,7 +3,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
-import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_theme.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
@@ -39,9 +38,8 @@ void main() {
           ],
           child: MaterialApp(
             theme: buildAppPlayerStyleTheme(
-              AppPlayerStyleRegistry.instance.resolve(
-                AppPlayerStyleRegistry.classicId,
-              ),
+              appPlayerForegroundColors,
+              appPlayerSystemOverlayStyle,
               sheetBrightness: testCase.brightness,
             ),
             home: Builder(

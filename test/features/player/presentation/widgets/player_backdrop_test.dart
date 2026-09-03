@@ -76,7 +76,7 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: PlayerBackdrop(
-            stageKind: AppPlayerStageKind.classic,
+            backdropKind: AppPlayerBackdropKind.coverGradient,
             imageProvider: null,
           ),
         ),
@@ -86,7 +86,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(
-      find.byKey(const ValueKey<String>('player-backdrop-classic')),
+      find.byKey(const ValueKey<String>('player-backdrop-cover-gradient')),
       findsOneWidget,
     );
   });
@@ -94,9 +94,9 @@ void main() {
   testWidgets('classic and cassette receive the resolved backdrop palette', (
     tester,
   ) async {
-    for (final stageKind in <AppPlayerStageKind>[
-      AppPlayerStageKind.classic,
-      AppPlayerStageKind.cassette,
+    for (final backdropKind in <AppPlayerBackdropKind>[
+      AppPlayerBackdropKind.coverGradient,
+      AppPlayerBackdropKind.coverGradient,
     ]) {
       final palettes = <List<Color>>[];
       await tester.pumpWidget(
@@ -104,7 +104,7 @@ void main() {
           child: MaterialApp(
             home: Scaffold(
               body: PlayerBackdrop(
-                stageKind: stageKind,
+                backdropKind: backdropKind,
                 imageProvider: null,
                 onClassicPaletteChanged: palettes.add,
               ),
@@ -147,7 +147,7 @@ void main() {
               valueListenable: imageProvider,
               builder: (context, value, child) {
                 return PlayerBackdrop(
-                  stageKind: AppPlayerStageKind.classic,
+                  backdropKind: AppPlayerBackdropKind.coverGradient,
                   imageProvider: value,
                   onClassicPaletteChanged: palettes.add,
                 );
@@ -179,7 +179,7 @@ void main() {
           data: MediaQueryData(disableAnimations: true),
           child: Scaffold(
             body: PlayerBackdrop(
-              stageKind: AppPlayerStageKind.fluid,
+              backdropKind: AppPlayerBackdropKind.fluid,
               imageProvider: null,
             ),
           ),
@@ -206,44 +206,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('vinyl cassette and radial spectrum reuse the classic backdrop', (
+  testWidgets('cover gradient is the shared backdrop for every stage', (
     tester,
   ) async {
-    const backdropKeys = <AppPlayerStageKind, String>{
-      AppPlayerStageKind.classic: 'player-backdrop-classic',
-      AppPlayerStageKind.vinyl: 'player-backdrop-vinyl',
-      AppPlayerStageKind.cassette: 'player-backdrop-cassette',
-      AppPlayerStageKind.radialSpectrum: 'player-backdrop-radial-spectrum',
-    };
-    final gradients = <AppPlayerStageKind, List<Color>>{};
+    const backdropKey = 'player-backdrop-cover-gradient';
 
-    for (final entry in backdropKeys.entries) {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(
-            home: Scaffold(
-              body: PlayerBackdrop(stageKind: entry.key, imageProvider: null),
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: PlayerBackdrop(
+              backdropKind: AppPlayerBackdropKind.coverGradient,
+              imageProvider: null,
             ),
           ),
         ),
-      );
-      await tester.pump(Duration.zero);
-      await tester.pump(const Duration(seconds: 1));
+      ),
+    );
+    await tester.pump(Duration.zero);
+    await tester.pump(const Duration(seconds: 1));
 
-      final backdrop = find.byKey(ValueKey<String>(entry.value));
-      final decoratedBox = tester.widget<DecoratedBox>(
-        find
-            .descendant(of: backdrop, matching: find.byType(DecoratedBox))
-            .first,
-      );
-      final decoration = decoratedBox.decoration as BoxDecoration;
-      gradients[entry.key] = (decoration.gradient! as LinearGradient).colors;
-    }
-
-    final classic = gradients[AppPlayerStageKind.classic];
-    expect(gradients[AppPlayerStageKind.vinyl], classic);
-    expect(gradients[AppPlayerStageKind.cassette], classic);
-    expect(gradients[AppPlayerStageKind.radialSpectrum], classic);
+    final backdrop = find.byKey(const ValueKey<String>(backdropKey));
+    expect(backdrop, findsOneWidget);
+    final decoratedBox = tester.widget<DecoratedBox>(
+      find
+          .descendant(of: backdrop, matching: find.byType(DecoratedBox))
+          .first,
+    );
+    final decoration = decoratedBox.decoration as BoxDecoration;
+    expect((decoration.gradient as LinearGradient).colors, isNotEmpty);
   });
 
   testWidgets('fluid backdrop keeps moving until it is disposed', (
@@ -253,7 +244,7 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: PlayerBackdrop(
-            stageKind: AppPlayerStageKind.fluid,
+            backdropKind: AppPlayerBackdropKind.fluid,
             imageProvider: null,
           ),
         ),
@@ -609,7 +600,7 @@ Widget _buildArtistBackdrop(
     child: MaterialApp(
       home: Scaffold(
         body: PlayerBackdrop(
-          stageKind: AppPlayerStageKind.artistPhoto,
+          backdropKind: AppPlayerBackdropKind.artistPhoto,
           imageProvider: cover,
           track: _track,
           isPortrait: true,
@@ -632,7 +623,7 @@ Widget _buildDynamicArtistBackdrop(
           valueListenable: isPortrait,
           builder: (context, value, child) {
             return PlayerBackdrop(
-              stageKind: AppPlayerStageKind.artistPhoto,
+              backdropKind: AppPlayerBackdropKind.artistPhoto,
               imageProvider: _validImageProvider(),
               track: _track,
               isPortrait: value,
@@ -657,7 +648,7 @@ Widget _buildTrackDynamicArtistBackdrop(
           valueListenable: track,
           builder: (context, value, child) {
             return PlayerBackdrop(
-              stageKind: AppPlayerStageKind.artistPhoto,
+              backdropKind: AppPlayerBackdropKind.artistPhoto,
               imageProvider: _validImageProvider(),
               track: value,
               isPortrait: true,

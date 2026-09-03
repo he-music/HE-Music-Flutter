@@ -34,7 +34,10 @@ const _githubDownloadAccelerationEnabledKey =
 const _githubDownloadProxyAutoUpdateEnabledKey =
     'app_config.github_download_proxy_auto_update_enabled';
 const _githubDownloadProxyIdKey = 'app_config.github_download_proxy_id';
-const _playerStyleIdKey = 'app_config.player_style_id';
+const _playerStageIdKey = 'app_config.player_stage_id';
+const _playerBackdropIdKey = 'app_config.player_backdrop_id';
+const _playerLyricsIdKey = 'app_config.player_lyrics_id';
+const _legacyPlayerStyleIdKey = 'app_config.player_style_id';
 const _legacyLyricHighlightColorKey = 'app_config.lyric_highlight_color';
 const _lyricHighlightModeKey = 'app_config.lyric_highlight_mode';
 const _lyricHighlightPresetKey = 'app_config.lyric_highlight_preset';
@@ -72,15 +75,27 @@ class AppConfigDataSource {
       prefs.getString(_skinIdKey),
       hasCustomSkin: customSkin != null,
     );
-    final playerStyleId = AppPlayerStyleRegistry.instance.normalizeId(
-      prefs.getString(_playerStyleIdKey),
-    );
+    final legacyStyleId = prefs.getString(_legacyPlayerStyleIdKey);
+    final (playerStageId, playerBackdropId, playerLyricsId) = legacyStyleId != null
+        ? _migrateLegacyStyleId(legacyStyleId)
+        : (
+            AppPlayerStageRegistry.instance.normalizeId(
+              prefs.getString(_playerStageIdKey),
+            ),
+            AppPlayerBackdropRegistry.instance.normalizeId(
+              prefs.getString(_playerBackdropIdKey),
+            ),
+            AppPlayerLyricsRegistry.instance.normalizeId(
+              prefs.getString(_playerLyricsIdKey),
+            ),
+          );
+    await prefs.remove(_legacyPlayerStyleIdKey);
+    await prefs.setString(_playerStageIdKey, playerStageId);
+    await prefs.setString(_playerBackdropIdKey, playerBackdropId);
+    await prefs.setString(_playerLyricsIdKey, playerLyricsId);
     if (prefs.containsKey(_skinIdKey) &&
         prefs.getString(_skinIdKey) != skinId) {
       await prefs.setString(_skinIdKey, skinId);
-    }
-    if (prefs.getString(_playerStyleIdKey) != playerStyleId) {
-      await prefs.setString(_playerStyleIdKey, playerStyleId);
     }
     return AppConfigState.initial.copyWith(
       themeMode: _readThemeMode(prefs.getString(_themeModeKey)),
@@ -110,7 +125,9 @@ class AppConfigDataSource {
           prefs.getBool(_githubDownloadAccelerationEnabledKey) ?? false,
       githubDownloadProxyAutoUpdateEnabled:
           prefs.getBool(_githubDownloadProxyAutoUpdateEnabledKey) ?? true,
-      playerStyleId: playerStyleId,
+      playerStageId: playerStageId,
+      playerBackdropId: playerBackdropId,
+      playerLyricsId: playerLyricsId,
       lyricHighlightMode: lyricHighlightMode,
       lyricHighlightPreset: _readLyricHighlightPreset(prefs),
       lyricHighlightCustomColor: _readLyricHighlightCustomColor(prefs),
@@ -175,8 +192,16 @@ class AppConfigDataSource {
       state.githubDownloadProxyAutoUpdateEnabled,
     );
     await prefs.setString(
-      _playerStyleIdKey,
-      AppPlayerStyleRegistry.instance.normalizeId(state.playerStyleId),
+      _playerStageIdKey,
+      AppPlayerStageRegistry.instance.normalizeId(state.playerStageId),
+    );
+    await prefs.setString(
+      _playerBackdropIdKey,
+      AppPlayerBackdropRegistry.instance.normalizeId(state.playerBackdropId),
+    );
+    await prefs.setString(
+      _playerLyricsIdKey,
+      AppPlayerLyricsRegistry.instance.normalizeId(state.playerLyricsId),
     );
     await prefs.setString(
       _lyricHighlightModeKey,
@@ -418,5 +443,33 @@ class AppConfigDataSource {
       return null;
     }
     return Color(colorValue).toARGB32();
+  }
+}
+
+/// 将旧的单一 `player_style_id` 值映射到三轴，未知值回退默认组合。
+/// 返回 `(stageId, backdropId, lyricsId)`。
+(String, String, String) _migrateLegacyStyleId(String legacyId) {
+  const cover = AppPlayerBackdropRegistry.coverGradientId;
+  switch (legacyId) {
+    case 'classic':
+      return ('classic', cover, AppPlayerLyricsRegistry.legacyId);
+    case 'fluid':
+      return ('classic', AppPlayerBackdropRegistry.fluidId, AppPlayerLyricsRegistry.legacyId);
+    case 'vinyl':
+      return ('vinyl', cover, AppPlayerLyricsRegistry.legacyId);
+    case 'cassette':
+      return ('cassette', cover, AppPlayerLyricsRegistry.legacyId);
+    case 'artist_photo':
+      return ('classic', AppPlayerBackdropRegistry.artistPhotoId, AppPlayerLyricsRegistry.legacyId);
+    case 'radial_spectrum':
+      return ('radial_spectrum', cover, AppPlayerLyricsRegistry.legacyId);
+    case 'monet_lyrics':
+      return ('classic', cover, AppPlayerLyricsRegistry.monetId);
+    case 'partita_lyrics':
+      return ('classic', cover, AppPlayerLyricsRegistry.partitaId);
+    case 'cadenza_lyrics':
+      return ('classic', cover, AppPlayerLyricsRegistry.cadenzaId);
+    default:
+      return (AppPlayerStageRegistry.classicId, cover, AppPlayerLyricsRegistry.legacyId);
   }
 }

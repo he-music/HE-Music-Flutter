@@ -1,108 +1,112 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:he_music_flutter/app/i18n/app_i18n.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
 import 'package:he_music_flutter/app/theme/player/styles/classic_player_style.dart';
 
 void main() {
-  test('built-in registry exposes complete unique styles', () {
-    final registry = AppPlayerStyleRegistry.builtIn();
+  test('stage registry exposes four unique stage options', () {
+    final registry = AppPlayerStageRegistry.builtIn();
 
     expect(
-      registry.styles.map((style) => style.metadata.id).toSet(),
-      AppPlayerStyleRegistry.builtInIds,
+      registry.options.map((o) => o.metadata.id).toSet(),
+      AppPlayerStageRegistry.builtInIds,
     );
-    expect(registry.styles, hasLength(9));
-    expect(registry.styles.every((style) => style.isValid), isTrue);
-    final cadenza = registry.resolve(AppPlayerStyleRegistry.cadenzaLyricsId);
-    expect(cadenza.metadata.id, 'cadenza_lyrics');
-    expect(cadenza.metadata.labelKey, 'player.style.cadenza_lyrics');
+    expect(registry.options, hasLength(4));
+    expect(registry.options.every((o) => o.isValid), isTrue);
     expect(
-      cadenza.metadata.previewAsset,
-      'assets/player_styles/cadenza_lyrics/preview.png',
-    );
-    expect(cadenza.stageKind, AppPlayerStageKind.classic);
-    expect(cadenza.lyricsKind, AppPlayerLyricsKind.cadenza);
-    expect(AppI18n.cadenzaLyricsNameZh, 'Cadenza 心象');
-    expect(AppI18n.cadenzaLyricsDescriptionZh, '按词与片段排布当前歌词，像思绪在画面中浮现');
-    expect(AppI18n.cadenzaLyricsNameEn, 'Cadenza Mindscape');
-    expect(
-      AppI18n.cadenzaLyricsDescriptionEn,
-      'Measured words and fragments arrange the current line like thoughts surfacing',
+      registry.resolve(AppPlayerStageRegistry.classicId).stageKind,
+      AppPlayerStageKind.classic,
     );
     expect(
-      registry.resolve(AppPlayerStyleRegistry.monetLyricsId).lyricsKind,
-      AppPlayerLyricsKind.monet,
+      registry.resolve(AppPlayerStageRegistry.vinylId).stageKind,
+      AppPlayerStageKind.vinyl,
     );
     expect(
-      registry.resolve(AppPlayerStyleRegistry.partitaLyricsId).lyricsKind,
-      AppPlayerLyricsKind.partita,
+      registry.resolve(AppPlayerStageRegistry.cassetteId).stageKind,
+      AppPlayerStageKind.cassette,
     );
     expect(
-      registry.styles
-          .where(
-            (style) =>
-                style.metadata.id != AppPlayerStyleRegistry.monetLyricsId &&
-                style.metadata.id != AppPlayerStyleRegistry.partitaLyricsId &&
-                style.metadata.id != AppPlayerStyleRegistry.cadenzaLyricsId,
-          )
-          .every((style) => style.lyricsKind == AppPlayerLyricsKind.legacy),
-      isTrue,
+      registry.resolve(AppPlayerStageRegistry.radialSpectrumId).stageKind,
+      AppPlayerStageKind.radialSpectrum,
     );
     expect(
-      registry
-          .resolve(AppPlayerStyleRegistry.radialSpectrumId)
+      registry.resolve(AppPlayerStageRegistry.radialSpectrumId)
           .usesRealtimeSpectrum,
       isTrue,
     );
-    expect(
-      registry.styles
-          .where(
-            (style) =>
-                style.metadata.id != AppPlayerStyleRegistry.radialSpectrumId,
-          )
-          .every((style) => !style.usesRealtimeSpectrum),
-      isTrue,
-    );
-  });
-
-  test('unknown and empty ids resolve to classic', () {
-    final registry = AppPlayerStyleRegistry.builtIn();
-
-    expect(registry.normalizeId(null), AppPlayerStyleRegistry.classicId);
-    expect(registry.normalizeId(''), AppPlayerStyleRegistry.classicId);
+    expect(registry.normalizeId(null), AppPlayerStageRegistry.classicId);
+    expect(registry.normalizeId(''), AppPlayerStageRegistry.classicId);
     expect(
       registry.resolve('removed').metadata.id,
-      AppPlayerStyleRegistry.classicId,
+      AppPlayerStageRegistry.classicId,
     );
   });
 
-  test('classic-backed styles share backdrop base colors', () {
-    final registry = AppPlayerStyleRegistry.builtIn();
-    final classicColors = registry
-        .resolve(AppPlayerStyleRegistry.classicId)
-        .colors;
+  test('backdrop registry exposes three unique backdrop options', () {
+    final registry = AppPlayerBackdropRegistry.builtIn();
 
-    for (final id in <String>{
-      AppPlayerStyleRegistry.vinylId,
-      AppPlayerStyleRegistry.cassetteId,
-      AppPlayerStyleRegistry.radialSpectrumId,
-      AppPlayerStyleRegistry.monetLyricsId,
-      AppPlayerStyleRegistry.partitaLyricsId,
-      AppPlayerStyleRegistry.cadenzaLyricsId,
-    }) {
-      final colors = registry.resolve(id).colors;
-      expect(colors.backgroundStart, classicColors.backgroundStart, reason: id);
-      expect(colors.backgroundEnd, classicColors.backgroundEnd, reason: id);
-    }
+    expect(
+      registry.options.map((o) => o.metadata.id).toSet(),
+      AppPlayerBackdropRegistry.builtInIds,
+    );
+    expect(registry.options, hasLength(3));
+    expect(registry.options.every((o) => o.isValid), isTrue);
+    expect(
+      registry.resolve(AppPlayerBackdropRegistry.coverGradientId).backdropKind,
+      AppPlayerBackdropKind.coverGradient,
+    );
+    expect(
+      registry.resolve(AppPlayerBackdropRegistry.fluidId).backdropKind,
+      AppPlayerBackdropKind.fluid,
+    );
+    expect(
+      registry.resolve(AppPlayerBackdropRegistry.artistPhotoId).backdropKind,
+      AppPlayerBackdropKind.artistPhoto,
+    );
+    expect(
+      registry.normalizeId(null),
+      AppPlayerBackdropRegistry.coverGradientId,
+    );
+    expect(registry.normalizeId(''), AppPlayerBackdropRegistry.coverGradientId);
+    expect(
+      registry.resolve('removed').metadata.id,
+      AppPlayerBackdropRegistry.coverGradientId,
+    );
   });
 
-  test('registry rejects duplicate ids', () {
+  test('lyrics registry exposes four unique lyric options', () {
+    final registry = AppPlayerLyricsRegistry.builtIn();
+
     expect(
-      () => AppPlayerStyleRegistry(const [
-        classicPlayerStyle,
-        classicPlayerStyle,
-      ]),
+      registry.options.map((o) => o.metadata.id).toSet(),
+      AppPlayerLyricsRegistry.builtInIds,
+    );
+    expect(registry.options, hasLength(4));
+    expect(registry.options.every((o) => o.isValid), isTrue);
+    expect(
+      registry.resolve(AppPlayerLyricsRegistry.legacyId).lyricsKind,
+      AppPlayerLyricsKind.legacy,
+    );
+    expect(
+      registry.resolve(AppPlayerLyricsRegistry.monetId).lyricsKind,
+      AppPlayerLyricsKind.monet,
+    );
+    expect(
+      registry.resolve(AppPlayerLyricsRegistry.partitaId).lyricsKind,
+      AppPlayerLyricsKind.partita,
+    );
+    expect(
+      registry.resolve(AppPlayerLyricsRegistry.cadenzaId).lyricsKind,
+      AppPlayerLyricsKind.cadenza,
+    );
+    expect(registry.normalizeId(null), AppPlayerLyricsRegistry.legacyId);
+    expect(registry.normalizeId(''), AppPlayerLyricsRegistry.legacyId);
+    expect(registry.resolve('removed').metadata.id, AppPlayerLyricsRegistry.legacyId);
+  });
+
+  test('stage registry rejects duplicate ids', () {
+    expect(
+      () => AppPlayerStageRegistry([classicPlayerStage, classicPlayerStage]),
       throwsStateError,
     );
   });

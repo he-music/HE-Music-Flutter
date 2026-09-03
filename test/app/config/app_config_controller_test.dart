@@ -82,7 +82,7 @@ void main() {
     expect(dataSource.saved.showContentBackground, isTrue);
   });
 
-  test('controller normalizes and persists player style ids', () async {
+  test('controller normalizes and persists player stage ids', () async {
     final dataSource = _RecordingAppConfigDataSource(AppConfigState.initial);
     final container = ProviderContainer(
       overrides: [appConfigDataSourceProvider.overrideWithValue(dataSource)],
@@ -91,20 +91,20 @@ void main() {
     final controller = container.read(appConfigProvider.notifier);
     await controller.waitUntilHydrated();
 
-    controller.setPlayerStyleId(AppPlayerStyleRegistry.cassetteId);
+    controller.setPlayerStageId(AppPlayerStageRegistry.cassetteId);
     await Future<void>.delayed(Duration.zero);
     expect(
-      container.read(appConfigProvider).playerStyleId,
-      AppPlayerStyleRegistry.cassetteId,
+      container.read(appConfigProvider).playerStageId,
+      AppPlayerStageRegistry.cassetteId,
     );
 
-    controller.setPlayerStyleId('removed');
+    controller.setPlayerStageId('removed');
     await Future<void>.delayed(Duration.zero);
     expect(
-      container.read(appConfigProvider).playerStyleId,
-      AppPlayerStyleRegistry.classicId,
+      container.read(appConfigProvider).playerStageId,
+      AppPlayerStageRegistry.classicId,
     );
-    expect(dataSource.saved.playerStyleId, AppPlayerStyleRegistry.classicId);
+    expect(dataSource.saved.playerStageId, AppPlayerStageRegistry.classicId);
   });
 
   test('controller persists download acceleration preferences', () async {
@@ -173,7 +173,7 @@ void main() {
     final dataSource = _RecordingAppConfigDataSource(
       AppConfigState.initial.copyWith(
         themeAccent: AppThemeAccent.rose,
-        playerStyleId: AppPlayerStyleRegistry.vinylId,
+        playerStageId: AppPlayerStageRegistry.vinylId,
       ),
     );
     final container = ProviderContainer(
@@ -194,7 +194,7 @@ void main() {
     expect(state.skinId, AppSkinRegistry.customImageId);
     expect(state.customSkinConfig, _customConfig());
     expect(state.themeAccent, AppThemeAccent.rose);
-    expect(state.playerStyleId, AppPlayerStyleRegistry.vinylId);
+    expect(state.playerStageId, AppPlayerStageRegistry.vinylId);
   });
 
   test(

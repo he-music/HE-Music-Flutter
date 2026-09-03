@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
-import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_theme.dart';
 import 'package:he_music_flutter/features/download/presentation/widgets/download_quality_sheet.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_quality_option.dart';
@@ -225,9 +224,8 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: buildAppPlayerStyleTheme(
-            AppPlayerStyleRegistry.instance.resolve(
-              AppPlayerStyleRegistry.classicId,
-            ),
+            appPlayerForegroundColors,
+            appPlayerSystemOverlayStyle,
             sheetBrightness: testCase.brightness,
           ),
           home: Builder(

@@ -88,7 +88,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: PlayerBackdrop(
-            stageKind: AppPlayerStageKind.classic,
+            backdropKind: AppPlayerBackdropKind.coverGradient,
             imageProvider: null,
           ),
         ),
@@ -96,7 +96,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       expect(
-        find.byKey(const ValueKey<String>('player-backdrop-classic')),
+        find.byKey(const ValueKey<String>('player-backdrop-cover-gradient')),
         findsOneWidget,
       );
       expect(find.byType(Image), findsNothing);

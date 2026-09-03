@@ -17,12 +17,12 @@ enum ArtistPhotoVisualState { loading, photo, coverFallback, neutralGradient }
 
 /// 播放器背景组件。
 ///
-/// 根据 [stageKind] 切换样式背景。歌手写真模式下，
+/// 根据 [backdropKind] 切换样式背景。歌手写真模式下，
 /// 通过 [track] 携带的歌手信息请求写真，同一首歌不重复请求。
 class PlayerBackdrop extends ConsumerStatefulWidget {
   const PlayerBackdrop({
     super.key,
-    required this.stageKind,
+    required this.backdropKind,
     required this.imageProvider,
     this.track,
     this.isPortrait = false,
@@ -30,7 +30,7 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
     this.onClassicPaletteChanged,
   });
 
-  final AppPlayerStageKind stageKind;
+  final AppPlayerBackdropKind backdropKind;
   final ImageProvider<Object>? imageProvider;
   final PlayerTrack? track;
 
@@ -77,7 +77,7 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   }
 
   void _syncArtistPhoto() {
-    if (widget.stageKind != AppPlayerStageKind.artistPhoto ||
+    if (widget.backdropKind != AppPlayerBackdropKind.artistPhoto ||
         widget.track == null) {
       if (_lastRequestKey != null) {
         _requestGeneration++;
@@ -232,33 +232,20 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
             ),
           )
         : 0;
-    return switch (widget.stageKind) {
-      AppPlayerStageKind.classic => _ClassicGradientBackdrop(
-        backdropKey: 'player-backdrop-classic',
+    return switch (widget.backdropKind) {
+      AppPlayerBackdropKind.coverGradient => _ClassicGradientBackdrop(
+        backdropKey: 'player-backdrop-cover-gradient',
         imageProvider: widget.imageProvider,
         onPaletteChanged: widget.onClassicPaletteChanged,
       ),
-      AppPlayerStageKind.fluid => FluidPlayerBackdrop(
+      AppPlayerBackdropKind.fluid => FluidPlayerBackdrop(
         imageProvider: widget.imageProvider,
       ),
-      AppPlayerStageKind.vinyl => _ClassicGradientBackdrop(
-        backdropKey: 'player-backdrop-vinyl',
-        imageProvider: widget.imageProvider,
-      ),
-      AppPlayerStageKind.cassette => _ClassicGradientBackdrop(
-        backdropKey: 'player-backdrop-cassette',
-        imageProvider: widget.imageProvider,
-        onPaletteChanged: widget.onClassicPaletteChanged,
-      ),
-      AppPlayerStageKind.artistPhoto => _ArtistPhotoBackdrop(
+      AppPlayerBackdropKind.artistPhoto => _ArtistPhotoBackdrop(
         visualState: _artistPhotoState,
         imageProvider: _resolveArtistPhotoImageProvider(photoIndex),
         imageKey: _resolveArtistPhotoImageKey(photoIndex),
         onImageError: _resolveArtistPhotoImageError(photoIndex),
-      ),
-      AppPlayerStageKind.radialSpectrum => _ClassicGradientBackdrop(
-        backdropKey: 'player-backdrop-radial-spectrum',
-        imageProvider: widget.imageProvider,
       ),
     };
   }

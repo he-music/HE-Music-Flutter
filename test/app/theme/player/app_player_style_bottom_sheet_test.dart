@@ -14,25 +14,39 @@ void main() {
     'player sheet preserves result, colors, and system overlay style',
     (tester) async {
       final cases =
-          <({ThemeMode mode, String playerStyleId, AppPlayerSheetStyle sheet})>[
+          <({
+            ThemeMode mode,
+            String playerStageId,
+            String playerBackdropId,
+            String playerLyricsId,
+            AppPlayerSheetStyle sheet,
+          })>[
             (
               mode: ThemeMode.light,
-              playerStyleId: AppPlayerStyleRegistry.vinylId,
+              playerStageId: AppPlayerStageRegistry.vinylId,
+              playerBackdropId: AppPlayerBackdropRegistry.coverGradientId,
+              playerLyricsId: AppPlayerLyricsRegistry.legacyId,
               sheet: AppPlayerSheetStyle.light,
             ),
             (
               mode: ThemeMode.light,
-              playerStyleId: AppPlayerStyleRegistry.artistPhotoId,
+              playerStageId: AppPlayerStageRegistry.classicId,
+              playerBackdropId: AppPlayerBackdropRegistry.artistPhotoId,
+              playerLyricsId: AppPlayerLyricsRegistry.legacyId,
               sheet: AppPlayerSheetStyle.light,
             ),
             (
               mode: ThemeMode.dark,
-              playerStyleId: AppPlayerStyleRegistry.classicId,
+              playerStageId: AppPlayerStageRegistry.classicId,
+              playerBackdropId: AppPlayerBackdropRegistry.coverGradientId,
+              playerLyricsId: AppPlayerLyricsRegistry.legacyId,
               sheet: AppPlayerSheetStyle.dark,
             ),
             (
               mode: ThemeMode.dark,
-              playerStyleId: AppPlayerStyleRegistry.cassetteId,
+              playerStageId: AppPlayerStageRegistry.cassetteId,
+              playerBackdropId: AppPlayerBackdropRegistry.coverGradientId,
+              playerLyricsId: AppPlayerLyricsRegistry.legacyId,
               sheet: AppPlayerSheetStyle.dark,
             ),
           ];
@@ -46,7 +60,11 @@ void main() {
           ProviderScope(
             overrides: [
               appConfigProvider.overrideWith(
-                () => _PlayerConfigController(testCase.playerStyleId),
+                () => _PlayerConfigController(
+                  playerStageId: testCase.playerStageId,
+                  playerBackdropId: testCase.playerBackdropId,
+                  playerLyricsId: testCase.playerLyricsId,
+                ),
               ),
             ],
             child: MaterialApp(
@@ -118,9 +136,7 @@ void main() {
             );
         expect(
           overlayStyleGuard.value,
-          AppPlayerStyleRegistry.instance
-              .resolve(testCase.playerStyleId)
-              .systemOverlayStyle,
+          appPlayerSystemOverlayStyle,
         );
 
         await tester.tap(find.text('Close'));
@@ -147,7 +163,9 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWith(
-            () => _PlayerConfigController(AppPlayerStyleRegistry.classicId),
+            () => _PlayerConfigController(
+              playerStageId: AppPlayerStageRegistry.classicId,
+            ),
           ),
         ],
         child: ValueListenableBuilder<ThemeMode>(
@@ -237,12 +255,22 @@ Color? _playerSheetHandleColor(WidgetTester tester) {
 }
 
 class _PlayerConfigController extends AppConfigController {
-  _PlayerConfigController(this.playerStyleId);
+  _PlayerConfigController({
+    this.playerStageId = AppPlayerStageRegistry.classicId,
+    this.playerBackdropId = AppPlayerBackdropRegistry.coverGradientId,
+    this.playerLyricsId = AppPlayerLyricsRegistry.legacyId,
+  });
 
-  final String playerStyleId;
+  final String playerStageId;
+  final String playerBackdropId;
+  final String playerLyricsId;
 
   @override
   AppConfigState build() {
-    return AppConfigState.initial.copyWith(playerStyleId: playerStyleId);
+    return AppConfigState.initial.copyWith(
+      playerStageId: playerStageId,
+      playerBackdropId: playerBackdropId,
+      playerLyricsId: playerLyricsId,
+    );
   }
 }

@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_player_style_models.dart';
 
 @immutable
 class AppPlayerStyleTheme extends ThemeExtension<AppPlayerStyleTheme> {
   const AppPlayerStyleTheme({
-    required this.package,
+    required this.systemOverlayStyle,
     required this.sheetBrightness,
   });
 
-  final AppPlayerStylePackage package;
+  final SystemUiOverlayStyle systemOverlayStyle;
   final Brightness sheetBrightness;
 
   static AppPlayerStyleTheme of(BuildContext context) {
@@ -20,11 +21,11 @@ class AppPlayerStyleTheme extends ThemeExtension<AppPlayerStyleTheme> {
 
   @override
   AppPlayerStyleTheme copyWith({
-    AppPlayerStylePackage? package,
+    SystemUiOverlayStyle? systemOverlayStyle,
     Brightness? sheetBrightness,
   }) {
     return AppPlayerStyleTheme(
-      package: package ?? this.package,
+      systemOverlayStyle: systemOverlayStyle ?? this.systemOverlayStyle,
       sheetBrightness: sheetBrightness ?? this.sheetBrightness,
     );
   }
@@ -39,17 +40,17 @@ class AppPlayerStyleTheme extends ThemeExtension<AppPlayerStyleTheme> {
 }
 
 ThemeData buildAppPlayerStyleTheme(
-  AppPlayerStylePackage package, {
+  AppPlayerStyleForegroundColors colors,
+  SystemUiOverlayStyle systemOverlayStyle, {
   Brightness sheetBrightness = Brightness.dark,
 }) {
-  final colors = package.colors;
   final sheetStyle = AppPlayerSheetStyle.forBrightness(sheetBrightness);
   final scheme = ColorScheme.dark(
     primary: colors.accent,
-    onPrimary: colors.backgroundEnd,
+    onPrimary: appPlayerSurfaceColor,
     secondary: colors.accent,
-    onSecondary: colors.backgroundEnd,
-    surface: colors.backgroundEnd,
+    onSecondary: appPlayerSurfaceColor,
+    surface: appPlayerSurfaceColor,
     onSurface: colors.foreground,
     outline: colors.controlBorder,
     outlineVariant: colors.controlBorder,
@@ -68,7 +69,10 @@ ThemeData buildAppPlayerStyleTheme(
     ),
     bottomSheetTheme: buildAppPlayerBottomSheetTheme(sheetStyle),
     extensions: <ThemeExtension<dynamic>>[
-      AppPlayerStyleTheme(package: package, sheetBrightness: sheetBrightness),
+      AppPlayerStyleTheme(
+        systemOverlayStyle: systemOverlayStyle,
+        sheetBrightness: sheetBrightness,
+      ),
     ],
   );
 }

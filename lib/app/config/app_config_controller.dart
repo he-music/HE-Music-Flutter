@@ -144,9 +144,20 @@ class AppConfigController extends Notifier<AppConfigState> {
     );
   }
 
-  void setPlayerStyleId(String styleId) {
-    final normalized = AppPlayerStyleRegistry.instance.normalizeId(styleId);
-    _update(state.copyWith(playerStyleId: normalized));
+  void setPlayerStageId(String stageId) {
+    final normalized = AppPlayerStageRegistry.instance.normalizeId(stageId);
+    _update(state.copyWith(playerStageId: normalized));
+  }
+
+  void setPlayerBackdropId(String backdropId) {
+    final normalized =
+        AppPlayerBackdropRegistry.instance.normalizeId(backdropId);
+    _update(state.copyWith(playerBackdropId: normalized));
+  }
+
+  void setPlayerLyricsId(String lyricsId) {
+    final normalized = AppPlayerLyricsRegistry.instance.normalizeId(lyricsId);
+    _update(state.copyWith(playerLyricsId: normalized));
   }
 
   void setLyricHighlightMode(AppLyricHighlightMode mode) {
@@ -306,7 +317,9 @@ class AppConfigController extends Notifier<AppConfigState> {
           loaded.githubDownloadAccelerationEnabled,
       githubDownloadProxyAutoUpdateEnabled:
           loaded.githubDownloadProxyAutoUpdateEnabled,
-      playerStyleId: loaded.playerStyleId,
+      playerStageId: loaded.playerStageId,
+      playerBackdropId: loaded.playerBackdropId,
+      playerLyricsId: loaded.playerLyricsId,
       lyricHighlightMode: loaded.lyricHighlightMode,
       lyricHighlightPreset: loaded.lyricHighlightPreset,
       lyricHighlightCustomColor: loaded.lyricHighlightCustomColor,

@@ -21,12 +21,14 @@ class PlayerStyleSelectionSheet extends ConsumerStatefulWidget {
 
 class _PlayerStyleSelectionSheetState
     extends ConsumerState<PlayerStyleSelectionSheet> {
-  String? _pendingStyleId;
+  String? _pendingStageId;
 
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
-    final styles = AppPlayerStyleRegistry.instance.styles;
+    final stages = AppPlayerStageRegistry.instance.options;
+    final backdrops = AppPlayerBackdropRegistry.instance.options;
+    final lyrics = AppPlayerLyricsRegistry.instance.options;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -41,28 +43,54 @@ class _PlayerStyleSelectionSheetState
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.72,
-              ),
-              itemCount: styles.length,
-              itemBuilder: (context, index) {
-                final style = styles[index];
-                return _PlayerStyleOption(
-                  style: style,
-                  label: AppI18n.t(config, style.metadata.labelKey),
-                  selected: style.metadata.id == config.playerStyleId,
-                  pending: _pendingStyleId == style.metadata.id,
-                  onTap: _pendingStyleId == style.metadata.id
-                      ? null
-                      : () => unawaited(_selectStyle(style)),
-                );
-              },
+            _AxisSection(
+              title: AppI18n.t(config, 'player.style.group.stage'),
+              options: stages
+                  .map(
+                    (stage) => _OptionSpec(
+                      id: stage.metadata.id,
+                      label: AppI18n.t(config, stage.metadata.labelKey),
+                      previewAsset: stage.metadata.previewAsset,
+                      backgroundStart: appPlayerForegroundColors.controlSurface,
+                      backgroundEnd: appPlayerSurfaceColor,
+                    ),
+                  )
+                  .toList(),
+              selectedId: config.playerStageId,
+              pendingId: _pendingStageId,
+              onTap: (id) => unawaited(_selectStage(id)),
+            ),
+            _AxisSection(
+              title: AppI18n.t(config, 'player.style.group.backdrop'),
+              options: backdrops
+                  .map(
+                    (backdrop) => _OptionSpec(
+                      id: backdrop.metadata.id,
+                      label: AppI18n.t(config, backdrop.metadata.labelKey),
+                      previewAsset: backdrop.metadata.previewAsset,
+                      backgroundStart: backdrop.backgroundStart,
+                      backgroundEnd: backdrop.backgroundEnd,
+                    ),
+                  )
+                  .toList(),
+              selectedId: config.playerBackdropId,
+              onTap: (id) => _applyBackdrop(id),
+            ),
+            _AxisSection(
+              title: AppI18n.t(config, 'player.style.group.lyrics'),
+              options: lyrics
+                  .map(
+                    (lyric) => _OptionSpec(
+                      id: lyric.metadata.id,
+                      label: AppI18n.t(config, lyric.metadata.labelKey),
+                      previewAsset: lyric.metadata.previewAsset,
+                      backgroundStart: appPlayerForegroundColors.controlSurface,
+                      backgroundEnd: appPlayerSurfaceColor,
+                    ),
+                  )
+                  .toList(),
+              selectedId: config.playerLyricsId,
+              onTap: (id) => _applyLyrics(id),
             ),
           ],
         ),
@@ -70,20 +98,21 @@ class _PlayerStyleSelectionSheetState
     );
   }
 
-  Future<void> _selectStyle(AppPlayerStylePackage style) async {
-    if (!style.usesRealtimeSpectrum ||
+  Future<void> _selectStage(String stageId) async {
+    final stage = AppPlayerStageRegistry.instance.resolve(stageId);
+    if (!stage.usesRealtimeSpectrum ||
         kIsWeb ||
         defaultTargetPlatform != TargetPlatform.android) {
-      _applyStyle(style);
+      _applyStage(stageId);
       return;
     }
-    setState(() => _pendingStyleId = style.metadata.id);
+    setState(() => _pendingStageId = stageId);
     try {
       final permission = ref.read(realtimeSpectrumPermissionPortProvider);
       var status = await permission.status();
       if (!mounted) return;
       if (status == RealtimeSpectrumPermissionState.granted) {
-        _applyStyle(style);
+        _applyStage(stageId);
         return;
       }
       final shouldContinue = await showDialog<bool>(
@@ -129,7 +158,7 @@ class _PlayerStyleSelectionSheetState
       if (!mounted) return;
       switch (status) {
         case RealtimeSpectrumPermissionState.granted:
-          _applyStyle(style);
+          _applyStage(stageId);
         case RealtimeSpectrumPermissionState.denied:
           AppMessageService.showWarning(
             AppI18n.t(
@@ -151,7 +180,7 @@ class _PlayerStyleSelectionSheetState
       }
     } finally {
       if (mounted) {
-        setState(() => _pendingStyleId = null);
+        setState(() => _pendingStageId = null);
       }
     }
   }
@@ -188,46 +217,126 @@ class _PlayerStyleSelectionSheetState
     }
   }
 
-  void _applyStyle(AppPlayerStylePackage style) {
-    ref.read(appConfigProvider.notifier).setPlayerStyleId(style.metadata.id);
+  void _applyStage(String stageId) {
+    ref.read(appConfigProvider.notifier).setPlayerStageId(stageId);
     Navigator.of(context).pop();
+  }
+
+  void _applyBackdrop(String backdropId) {
+    ref
+        .read(appConfigProvider.notifier)
+        .setPlayerBackdropId(backdropId);
+    Navigator.of(context).pop();
+  }
+
+  void _applyLyrics(String lyricsId) {
+    ref.read(appConfigProvider.notifier).setPlayerLyricsId(lyricsId);
+    Navigator.of(context).pop();
+  }
+}
+
+class _OptionSpec {
+  const _OptionSpec({
+    required this.id,
+    required this.label,
+    required this.previewAsset,
+    required this.backgroundStart,
+    required this.backgroundEnd,
+  });
+
+  final String id;
+  final String label;
+  final String previewAsset;
+  final Color backgroundStart;
+  final Color backgroundEnd;
+}
+
+class _AxisSection extends StatelessWidget {
+  const _AxisSection({
+    required this.title,
+    required this.options,
+    required this.selectedId,
+    required this.onTap,
+    this.pendingId,
+  });
+
+  final String title;
+  final List<_OptionSpec> options;
+  final String selectedId;
+  final String? pendingId;
+  final ValueChanged<String> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.72,
+          ),
+          itemCount: options.length,
+          itemBuilder: (context, index) {
+            final option = options[index];
+            final pending = pendingId == option.id;
+            return _PlayerStyleOption(
+              spec: option,
+              selected: option.id == selectedId,
+              pending: pending,
+              onTap: pending ? null : () => onTap(option.id),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
   }
 }
 
 class _PlayerStyleOption extends StatelessWidget {
   const _PlayerStyleOption({
-    required this.style,
-    required this.label,
+    required this.spec,
     required this.selected,
     required this.pending,
     required this.onTap,
   });
 
-  final AppPlayerStylePackage style;
-  final String label;
+  final _OptionSpec spec;
   final bool selected;
   final bool pending;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colors = style.colors;
+    final accent = appPlayerForegroundColors.accent;
     final borderColor = selected
-        ? colors.accent
-        : colors.controlBorder.withValues(alpha: 0.78);
+        ? accent
+        : appPlayerForegroundColors.controlBorder.withValues(alpha: 0.78);
     return Semantics(
       button: true,
       selected: selected,
-      label: label,
+      label: spec.label,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          key: ValueKey<String>('player-style-option-${style.metadata.id}'),
+          key: ValueKey<String>('player-style-option-${spec.id}'),
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: colors.controlSurface,
+              color: appPlayerForegroundColors.controlSurface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: borderColor, width: selected ? 2 : 1),
             ),
@@ -242,8 +351,8 @@ class _PlayerStyleOption extends StatelessWidget {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: <Color>[
-                            colors.backgroundStart,
-                            colors.backgroundEnd,
+                            spec.backgroundStart,
+                            spec.backgroundEnd,
                           ],
                         ),
                       ),
@@ -251,13 +360,13 @@ class _PlayerStyleOption extends StatelessWidget {
                         fit: StackFit.expand,
                         children: <Widget>[
                           Image.asset(
-                            style.metadata.previewAsset,
+                            spec.previewAsset,
                             key: ValueKey<String>(
-                              'player-style-preview-${style.metadata.id}',
+                              'player-style-preview-${spec.id}',
                             ),
                             fit: BoxFit.contain,
                             errorBuilder: (context, error, stackTrace) {
-                              return _PlayerStylePreviewFallback(style: style);
+                              return _PlayerStylePreviewFallback(spec: spec);
                             },
                           ),
                           if (selected)
@@ -265,19 +374,19 @@ class _PlayerStyleOption extends StatelessWidget {
                               alignment: Alignment.topRight,
                               child: Container(
                                 key: ValueKey<String>(
-                                  'player-style-selected-${style.metadata.id}',
+                                  'player-style-selected-${spec.id}',
                                 ),
                                 width: 28,
                                 height: 28,
                                 margin: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: colors.accent,
+                                  color: accent,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   Icons.check_rounded,
                                   size: 18,
-                                  color: style.colors.backgroundEnd,
+                                  color: appPlayerSurfaceColor,
                                 ),
                               ),
                             ),
@@ -300,7 +409,7 @@ class _PlayerStyleOption extends StatelessWidget {
                     height: 40,
                     child: Center(
                       child: Text(
-                        label,
+                        spec.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelLarge,
@@ -318,37 +427,25 @@ class _PlayerStyleOption extends StatelessWidget {
 }
 
 class _PlayerStylePreviewFallback extends StatelessWidget {
-  const _PlayerStylePreviewFallback({required this.style});
+  const _PlayerStylePreviewFallback({required this.spec});
 
-  final AppPlayerStylePackage style;
+  final _OptionSpec spec;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      key: ValueKey<String>(
-        'player-style-preview-fallback-${style.metadata.id}',
-      ),
+      key: ValueKey<String>('player-style-preview-fallback-${spec.id}'),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[
-            style.colors.backgroundStart,
-            style.colors.backgroundEnd,
-          ],
+          colors: <Color>[spec.backgroundStart, spec.backgroundEnd],
         ),
       ),
       child: Icon(
-        switch (style.stageKind) {
-          AppPlayerStageKind.classic => Icons.album_rounded,
-          AppPlayerStageKind.fluid => Icons.water_drop_rounded,
-          AppPlayerStageKind.vinyl => Icons.radio_button_checked_rounded,
-          AppPlayerStageKind.cassette => Icons.audiotrack_rounded,
-          AppPlayerStageKind.artistPhoto => Icons.photo_rounded,
-          AppPlayerStageKind.radialSpectrum => Icons.graphic_eq_rounded,
-        },
+        Icons.music_note_rounded,
         size: 38,
-        color: style.colors.secondaryForeground,
+        color: appPlayerForegroundColors.secondaryForeground,
       ),
     );
   }

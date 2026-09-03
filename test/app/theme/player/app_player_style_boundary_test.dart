@@ -6,6 +6,7 @@ import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
@@ -18,9 +19,6 @@ void main() {
     final immersive = AppSkinRegistry.builtIn(
       AppThemeAccent.rose,
     ).resolve(AppSkinRegistry.citySoundCreatorId);
-    final expected = AppPlayerStyleRegistry.instance.resolve(
-      AppPlayerStyleRegistry.cassetteId,
-    );
     late ThemeData capturedTheme;
 
     Future<void> pump(ThemeData outerTheme) async {
@@ -51,15 +49,15 @@ void main() {
         .extension<AppPlayerStyleTheme>();
 
     expect(capturedTheme.brightness, Brightness.dark);
-    expect(lightPlayerStyleTheme?.package, same(expected));
+    expect(lightPlayerStyleTheme?.systemOverlayStyle, appPlayerSystemOverlayStyle);
     expect(lightPlayerStyleTheme?.sheetBrightness, Brightness.light);
     expect(capturedTheme.extension<AppSkinTheme>(), isNull);
 
     await pump(AppTheme.dark(immersive));
     final darkPlayerStyleTheme = capturedTheme.extension<AppPlayerStyleTheme>();
     expect(capturedTheme.colorScheme.primary, lightOuterPlayerColor);
-    expect(capturedTheme.colorScheme.primary, expected.colors.accent);
-    expect(darkPlayerStyleTheme?.package, same(expected));
+    expect(capturedTheme.colorScheme.primary, appPlayerForegroundColors.accent);
+    expect(darkPlayerStyleTheme?.systemOverlayStyle, appPlayerSystemOverlayStyle);
     expect(darkPlayerStyleTheme?.sheetBrightness, Brightness.dark);
   });
 }
@@ -70,7 +68,7 @@ class _CassetteConfigController extends AppConfigController {
     return AppConfigState.initial.copyWith(
       skinId: AppSkinRegistry.citySoundCreatorId,
       themeAccent: AppThemeAccent.rose,
-      playerStyleId: AppPlayerStyleRegistry.cassetteId,
+      playerStageId: AppPlayerStageRegistry.cassetteId,
     );
   }
 }

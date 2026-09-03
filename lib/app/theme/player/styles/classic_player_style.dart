@@ -1,33 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../app_player_style_models.dart';
 
+/// 经典封书背景使用的封面渐变示例色（供 cover_gradient 背景复用）。
 const Color classicPlayerBackgroundStart = Color(0xFF24423A);
 const Color classicPlayerBackgroundEnd = Color(0xFF080D0B);
 
-const AppPlayerStylePackage classicPlayerStyle = AppPlayerStylePackage(
+const AppPlayerStageOption classicPlayerStage = AppPlayerStageOption(
   metadata: AppPlayerStyleMetadata(
     id: 'classic',
     labelKey: 'player.style.classic',
     previewAsset: 'assets/player_styles/classic/preview.png',
   ),
   stageKind: AppPlayerStageKind.classic,
-  colors: AppPlayerStyleColors(
-    backgroundStart: classicPlayerBackgroundStart,
-    backgroundEnd: classicPlayerBackgroundEnd,
-    foreground: Color(0xFFF7FAF8),
-    secondaryForeground: Color(0xBFD9E4DE),
-    accent: Color(0xFFA7E2C5),
-    controlSurface: Color(0x292B4038),
-    controlBorder: Color(0x3DFFFFFF),
-  ),
-  geometry: AppPlayerStyleGeometry(stageMaxWidth: 420, controlRadius: 22),
-  systemOverlayStyle: SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    statusBarBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ),
+  stageMaxWidth: 420,
 );

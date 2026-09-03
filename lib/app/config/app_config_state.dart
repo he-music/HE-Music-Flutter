@@ -24,7 +24,9 @@ class AppConfigState {
     required this.autoCheckUpdates,
     required this.githubDownloadAccelerationEnabled,
     required this.githubDownloadProxyAutoUpdateEnabled,
-    required this.playerStyleId,
+    required this.playerStageId,
+    required this.playerBackdropId,
+    required this.playerLyricsId,
     required this.lyricHighlightMode,
     required this.lyricHighlightPreset,
     this.lyricHighlightCustomColor,
@@ -53,7 +55,9 @@ class AppConfigState {
   final bool autoCheckUpdates;
   final bool githubDownloadAccelerationEnabled;
   final bool githubDownloadProxyAutoUpdateEnabled;
-  final String playerStyleId;
+  final String playerStageId;
+  final String playerBackdropId;
+  final String playerLyricsId;
   final AppLyricHighlightMode lyricHighlightMode;
   final AppLyricHighlightColor lyricHighlightPreset;
   final int? lyricHighlightCustomColor;
@@ -83,7 +87,9 @@ class AppConfigState {
     bool? autoCheckUpdates,
     bool? githubDownloadAccelerationEnabled,
     bool? githubDownloadProxyAutoUpdateEnabled,
-    String? playerStyleId,
+    String? playerStageId,
+    String? playerBackdropId,
+    String? playerLyricsId,
     AppLyricHighlightMode? lyricHighlightMode,
     AppLyricHighlightColor? lyricHighlightPreset,
     int? lyricHighlightCustomColor,
@@ -128,7 +134,9 @@ class AppConfigState {
       githubDownloadProxyAutoUpdateEnabled:
           githubDownloadProxyAutoUpdateEnabled ??
           this.githubDownloadProxyAutoUpdateEnabled,
-      playerStyleId: playerStyleId ?? this.playerStyleId,
+      playerStageId: playerStageId ?? this.playerStageId,
+      playerBackdropId: playerBackdropId ?? this.playerBackdropId,
+      playerLyricsId: playerLyricsId ?? this.playerLyricsId,
       lyricHighlightMode: lyricHighlightMode ?? this.lyricHighlightMode,
       lyricHighlightPreset: lyricHighlightPreset ?? this.lyricHighlightPreset,
       lyricHighlightCustomColor: clearLyricHighlightCustomColor
@@ -170,7 +178,9 @@ class AppConfigState {
     autoCheckUpdates: true,
     githubDownloadAccelerationEnabled: false,
     githubDownloadProxyAutoUpdateEnabled: true,
-    playerStyleId: AppPlayerStyleRegistry.classicId,
+    playerStageId: AppPlayerStageRegistry.classicId,
+    playerBackdropId: AppPlayerBackdropRegistry.coverGradientId,
+    playerLyricsId: AppPlayerLyricsRegistry.legacyId,
     lyricHighlightMode: AppLyricHighlightMode.preset,
     lyricHighlightPreset: AppLyricHighlightColor.sky,
     lyricFontPreset: AppLyricFontPreset.medium,

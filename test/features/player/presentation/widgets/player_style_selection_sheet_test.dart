@@ -22,7 +22,7 @@ void main() {
     await tester.tap(_radialOption);
     await tester.pumpAndSettle();
 
-    expect(harness.config.state.playerStyleId, 'radial_spectrum');
+    expect(harness.config.state.playerStageId, 'radial_spectrum');
     expect(permission.statusCount, 1);
     expect(permission.requestCount, 0);
     debugDefaultTargetPlatformOverride = null;
@@ -42,7 +42,7 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
-    expect(harness.config.state.playerStyleId, 'classic');
+    expect(harness.config.state.playerStageId, 'classic');
     expect(permission.requestCount, 0);
     debugDefaultTargetPlatformOverride = null;
   });
@@ -67,11 +67,11 @@ void main() {
     );
     await tester.tap(_radialOption);
     expect(permission.requestCount, 1);
-    expect(harness.config.state.playerStyleId, 'classic');
+    expect(harness.config.state.playerStageId, 'classic');
 
     requestGate.complete(RealtimeSpectrumPermissionState.granted);
     await tester.pumpAndSettle();
-    expect(harness.config.state.playerStyleId, 'radial_spectrum');
+    expect(harness.config.state.playerStageId, 'radial_spectrum');
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -89,7 +89,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(permission.requestCount, 1);
-    expect(harness.config.state.playerStyleId, 'classic');
+    expect(harness.config.state.playerStageId, 'classic');
     expect(_radialOption, findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
@@ -112,7 +112,7 @@ void main() {
 
     expect(permission.requestCount, 0);
     expect(permission.openSettingsCount, 1);
-    expect(harness.config.state.playerStyleId, 'classic');
+    expect(harness.config.state.playerStageId, 'classic');
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -127,7 +127,7 @@ void main() {
     await tester.tap(_radialOption);
     await tester.pumpAndSettle();
 
-    expect(harness.config.state.playerStyleId, 'radial_spectrum');
+    expect(harness.config.state.playerStageId, 'radial_spectrum');
     expect(permission.statusCount, 0);
     expect(permission.requestCount, 0);
     debugDefaultTargetPlatformOverride = null;
@@ -140,8 +140,13 @@ void main() {
       _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
     );
 
-    expect(_styleOptions, findsNWidgets(9));
-    for (final id in AppPlayerStyleRegistry.builtInIds) {
+    expect(_styleOptions, findsNWidgets(11));
+    final allIds = <String>{
+      ...AppPlayerStageRegistry.builtInIds,
+      ...AppPlayerBackdropRegistry.builtInIds,
+      ...AppPlayerLyricsRegistry.builtInIds,
+    };
+    for (final id in allIds) {
       expect(
         find.byKey(ValueKey<String>('player-style-option-$id')),
         findsOneWidget,
@@ -167,7 +172,7 @@ void main() {
     await tester.tap(_cadenzaOption);
     await tester.pumpAndSettle();
 
-    expect(harness.config.state.playerStyleId, 'cadenza_lyrics');
+    expect(harness.config.state.playerLyricsId, 'cadenza_lyrics');
     debugDefaultTargetPlatformOverride = null;
   });
 }
@@ -234,9 +239,24 @@ class _TestConfigController extends AppConfigController {
   }
 
   @override
-  void setPlayerStyleId(String styleId) {
+  void setPlayerStageId(String stageId) {
     state = state.copyWith(
-      playerStyleId: AppPlayerStyleRegistry.instance.normalizeId(styleId),
+      playerStageId: AppPlayerStageRegistry.instance.normalizeId(stageId),
+    );
+  }
+
+  @override
+  void setPlayerBackdropId(String backdropId) {
+    state = state.copyWith(
+      playerBackdropId:
+          AppPlayerBackdropRegistry.instance.normalizeId(backdropId),
+    );
+  }
+
+  @override
+  void setPlayerLyricsId(String lyricsId) {
+    state = state.copyWith(
+      playerLyricsId: AppPlayerLyricsRegistry.instance.normalizeId(lyricsId),
     );
   }
 }

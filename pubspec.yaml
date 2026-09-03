@@ -116,6 +116,8 @@ flutter:
     - assets/icons/logo.png
     - assets/icons/favicon-512x512.png
     - assets/icons/auth/
+    - assets/player_styles/cover_gradient/preview.png
+    - assets/player_styles/legacy/preview.png
     - assets/player_styles/classic/preview.png
     - assets/player_styles/fluid/preview.png
     - assets/player_styles/vinyl/preview.png

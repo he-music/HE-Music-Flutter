@@ -35,7 +35,7 @@ void main() {
         githubDownloadAccelerationEnabled: true,
         githubDownloadProxyAutoUpdateEnabled: false,
         githubDownloadProxyId: 'proxy-1',
-        playerStyleId: AppPlayerStyleRegistry.partitaLyricsId,
+        playerLyricsId: AppPlayerLyricsRegistry.partitaId,
         lyricHighlightMode: AppLyricHighlightMode.custom,
         lyricHighlightPreset: AppLyricHighlightColor.sky,
         lyricHighlightCustomColor: 0xFF123456,
@@ -64,7 +64,7 @@ void main() {
     expect(state.githubDownloadAccelerationEnabled, isTrue);
     expect(state.githubDownloadProxyAutoUpdateEnabled, isFalse);
     expect(state.githubDownloadProxyId, 'proxy-1');
-    expect(state.playerStyleId, AppPlayerStyleRegistry.partitaLyricsId);
+    expect(state.playerLyricsId, AppPlayerLyricsRegistry.partitaId);
     expect(state.lyricHighlightMode, AppLyricHighlightMode.custom);
     expect(state.lyricHighlightPreset, AppLyricHighlightColor.sky);
     expect(state.lyricHighlightCustomColor, 0xFF123456);
@@ -115,7 +115,7 @@ void main() {
       AppConfigState.initial.lyricHighlightPreset,
     );
     expect(state.lyricFontPreset, AppConfigState.initial.lyricFontPreset);
-    expect(state.playerStyleId, AppPlayerStyleRegistry.classicId);
+    expect(state.playerStageId, AppPlayerStageRegistry.classicId);
     expect(state.enableWordByWordLyric, isTrue);
     expect(state.skinId, AppSkinRegistry.classicId);
     expect(state.enableSkinAnimation, isTrue);
@@ -206,7 +206,7 @@ void main() {
     },
   );
 
-  test('legacy player background does not migrate to a player style', () async {
+  test('legacy player background does not migrate to a player stage', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'app_config.player_background_style': 'artist_photo',
     });
@@ -215,10 +215,10 @@ void main() {
     final state = await dataSource.load();
     final prefs = await SharedPreferences.getInstance();
 
-    expect(state.playerStyleId, AppPlayerStyleRegistry.classicId);
+    expect(state.playerStageId, AppPlayerStageRegistry.classicId);
     expect(
-      prefs.getString('app_config.player_style_id'),
-      AppPlayerStyleRegistry.classicId,
+      prefs.getString('app_config.player_stage_id'),
+      AppPlayerStageRegistry.classicId,
     );
     expect(
       prefs.getString('app_config.player_background_style'),
@@ -226,19 +226,46 @@ void main() {
     );
   });
 
-  test('load normalizes and persists an unknown player style id', () async {
+  test('legacy player style id migrates to three-axis ids', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
-      'app_config.player_style_id': 'removed_style',
+      'app_config.player_style_id': 'fluid',
     });
     const dataSource = AppConfigDataSource();
 
     final state = await dataSource.load();
     final prefs = await SharedPreferences.getInstance();
 
-    expect(state.playerStyleId, AppPlayerStyleRegistry.classicId);
+    expect(state.playerStageId, AppPlayerStageRegistry.classicId);
+    expect(state.playerBackdropId, AppPlayerBackdropRegistry.fluidId);
+    expect(state.playerLyricsId, AppPlayerLyricsRegistry.legacyId);
+    expect(prefs.containsKey('app_config.player_style_id'), isFalse);
     expect(
-      prefs.getString('app_config.player_style_id'),
-      AppPlayerStyleRegistry.classicId,
+      prefs.getString('app_config.player_stage_id'),
+      AppPlayerStageRegistry.classicId,
+    );
+    expect(
+      prefs.getString('app_config.player_backdrop_id'),
+      AppPlayerBackdropRegistry.fluidId,
+    );
+    expect(
+      prefs.getString('app_config.player_lyrics_id'),
+      AppPlayerLyricsRegistry.legacyId,
+    );
+  });
+
+  test('load normalizes and persists an unknown player stage id', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'app_config.player_stage_id': 'removed_style',
+    });
+    const dataSource = AppConfigDataSource();
+
+    final state = await dataSource.load();
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(state.playerStageId, AppPlayerStageRegistry.classicId);
+    expect(
+      prefs.getString('app_config.player_stage_id'),
+      AppPlayerStageRegistry.classicId,
     );
   });
 

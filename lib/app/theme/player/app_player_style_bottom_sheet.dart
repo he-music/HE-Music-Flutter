@@ -17,7 +17,7 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   final sheetBrightness =
       playerStyleTheme?.sheetBrightness ?? inheritedTheme.brightness;
   final sheet = AppPlayerSheetStyle.forBrightness(sheetBrightness);
-  final systemOverlayStyle = playerStyleTheme?.package.systemOverlayStyle;
+  final systemOverlayStyle = playerStyleTheme?.systemOverlayStyle;
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   final modalContext = playerStyleTheme == null ? context : navigator.context;
   final overlayEntry = systemOverlayStyle == null

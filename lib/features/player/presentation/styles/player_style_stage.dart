@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../domain/entities/player_track.dart';
-import '../widgets/player_cover_hero.dart';
 import 'cassette_player_stage.dart';
 import 'classic_player_stage.dart';
 import 'radial_spectrum_player_stage.dart';
@@ -30,11 +29,6 @@ class PlayerStyleStage extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (stageKind == AppPlayerStageKind.artistPhoto) {
-          return const SizedBox.expand(
-            key: ValueKey<String>('player-stage-artist-photo-safe-area'),
-          );
-        }
         final isCassette = stageKind == AppPlayerStageKind.cassette;
         final aspectRatio = isCassette ? cassettePlayerStageAspectRatio : 1.0;
         final width = math.min(
@@ -57,11 +51,6 @@ class PlayerStyleStage extends StatelessWidget {
               ),
               AppPlayerStageKind.radialSpectrum => RadialSpectrumPlayerStage(
                 track: track,
-              ),
-              _ => PlayerCoverHero(
-                artworkUrl: track?.artworkUrl,
-                artworkBytes: track?.artworkBytes,
-                size: width,
               ),
             },
           ),

@@ -533,6 +533,11 @@ abstract final class AppI18n {
       'player.style.partita_lyrics': 'Partita 云阶',
       'player.style.cadenza_lyrics': 'Cadenza 心象',
       'player.style.cadenza_lyrics.description': '按词与片段排布当前歌词，像思绪在画面中浮现',
+      'player.style.group.stage': '封面',
+      'player.style.group.backdrop': '背景',
+      'player.style.group.lyrics': '歌词',
+      'player.style.cover_gradient': '封面色',
+      'player.style.legacy': '经典歌词',
       'player.spectrum.permission.title': '允许显示实时频谱',
       'player.spectrum.permission.message':
           'Android 要求授予麦克风权限才能分析当前播放器的音频。HE Music 不会录音，也不会保存或上传音频数据。',
@@ -1387,6 +1392,11 @@ abstract final class AppI18n {
       'player.style.monet_lyrics': 'Monet Lyrics',
       'player.style.partita_lyrics': 'Partita Cloud Steps',
       'player.style.cadenza_lyrics': 'Cadenza Mindscape',
+      'player.style.cover_gradient': 'Cover Color',
+      'player.style.legacy': 'Classic Lyrics',
+      'player.style.group.stage': 'Cover',
+      'player.style.group.backdrop': 'Background',
+      'player.style.group.lyrics': 'Lyrics',
       'player.style.cadenza_lyrics.description':
           'Measured words and fragments arrange the current line like thoughts surfacing',
       'player.spectrum.permission.title': 'Allow Real-time Spectrum',

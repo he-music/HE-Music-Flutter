@@ -269,15 +269,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     widget.debugOnBuild?.call();
     final config = ref.watch(
       appConfigProvider.select(
-        (state) =>
-            (playerStyleId: state.playerStyleId, localeCode: state.localeCode),
+        (state) => (
+          stageId: state.playerStageId,
+          backdropId: state.playerBackdropId,
+          lyricsId: state.playerLyricsId,
+          localeCode: state.localeCode,
+        ),
       ),
     );
-    final playerStyle = AppPlayerStyleRegistry.instance.resolve(
-      config.playerStyleId,
-    );
+    final stage = AppPlayerStageRegistry.instance.resolve(config.stageId);
+    final backdrop =
+        AppPlayerBackdropRegistry.instance.resolve(config.backdropId);
+    final lyrics = AppPlayerLyricsRegistry.instance.resolve(config.lyricsId);
     final scenePalette = _resolvePlayerScenePalette(
-      playerStyle.stageKind,
+      stage.stageKind,
+      backdrop.backdropKind,
       _classicBackdropColors,
     );
     final controller = ref.read(playerControllerProvider.notifier);
@@ -322,7 +328,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     ).mode;
     final isMobileLandscape =
         currentLayoutMode == PlayerLayoutMode.mobileLandscape;
-    _usesRealtimeSpectrum = playerStyle.usesRealtimeSpectrum;
+    _usesRealtimeSpectrum = stage.usesRealtimeSpectrum;
     _scheduleSpectrumVisibilitySync();
     final landscapeSafeMinimum = isMobileLandscape
         ? resolvePlayerLandscapeContentInsets(
@@ -350,7 +356,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         artworkBytes: presentation.currentTrack?.artworkBytes,
         center: false,
       );
-      return switch (playerStyle.lyricsKind) {
+      return switch (lyrics.lyricsKind) {
         AppPlayerLyricsKind.legacy => lyricPage,
         AppPlayerLyricsKind.monet => MonetLyricPage(
           emptyText: AppI18n.tByLocaleCode(
@@ -393,7 +399,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           children: <Widget>[
             Positioned.fill(
               child: PlayerBackdrop(
-                stageKind: playerStyle.stageKind,
+                backdropKind: backdrop.backdropKind,
                 imageProvider: backdropImageProvider,
                 track: displayedTrack,
                 isPortrait: usePortraitArtistPhoto,
@@ -445,8 +451,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           controller: controller,
                           onSeek: seek,
                           layoutSpec: spec,
-                          stageKind: playerStyle.stageKind,
-                          stageMaxWidth: playerStyle.geometry.stageMaxWidth,
+                          stageKind: stage.stageKind,
+                          backdropKind: backdrop.backdropKind,
+                          stageMaxWidth: stage.stageMaxWidth,
                           track: displayedTrack,
                           onOpenArtist: onOpenArtist,
                           onOpenQueue: _openQueueSheet,
@@ -470,8 +477,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           controller: controller,
                           onSeek: seek,
                           layoutSpec: spec,
-                          stageKind: playerStyle.stageKind,
-                          stageMaxWidth: playerStyle.geometry.stageMaxWidth,
+                          stageKind: stage.stageKind,
+                          backdropKind: backdrop.backdropKind,
+                          stageMaxWidth: stage.stageMaxWidth,
                           track: displayedTrack,
                           lyrics: buildLyricPage(),
                           exitLandscapeTooltip: AppI18n.tByLocaleCode(
@@ -1620,8 +1628,13 @@ bool supportsPlayerOrientationControlsForTest({
 
 PlayerScenePalette? _resolvePlayerScenePalette(
   AppPlayerStageKind stageKind,
+  AppPlayerBackdropKind backdropKind,
   List<Color> backdropColors,
 ) {
+  // 歌手写真满屏时没有封面舞台，不派生场景色。
+  if (backdropKind == AppPlayerBackdropKind.artistPhoto) {
+    return null;
+  }
   return switch (stageKind) {
     AppPlayerStageKind.classic => classicPlayerScenePaletteFromBackdrop(
       backdropColors,
@@ -1629,7 +1642,8 @@ PlayerScenePalette? _resolvePlayerScenePalette(
     AppPlayerStageKind.cassette => CassettePlayerPalette.fromBackdrop(
       backdropColors,
     ),
-    _ => null,
+    AppPlayerStageKind.vinyl ||
+    AppPlayerStageKind.radialSpectrum => null,
   };
 }
 
@@ -1725,6 +1739,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
     required this.onSeek,
     required this.layoutSpec,
     required this.stageKind,
+    required this.backdropKind,
     required this.stageMaxWidth,
     required this.track,
     required this.lyrics,
@@ -1741,6 +1756,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
   final Future<void> Function(Duration) onSeek;
   final PlayerLayoutSpec layoutSpec;
   final AppPlayerStageKind stageKind;
+  final AppPlayerBackdropKind backdropKind;
   final double stageMaxWidth;
   final PlayerTrack? track;
   final Widget lyrics;
@@ -1806,7 +1822,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
       ],
     );
 
-    if (stageKind == AppPlayerStageKind.artistPhoto) {
+    if (backdropKind == AppPlayerBackdropKind.artistPhoto) {
       return Stack(
         key: const ValueKey<String>('player-mobile-landscape-layout'),
         children: <Widget>[
@@ -1909,6 +1925,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
     required this.onSeek,
     required this.layoutSpec,
     required this.stageKind,
+    required this.backdropKind,
     required this.stageMaxWidth,
     required this.track,
     required this.onOpenArtist,
@@ -1924,6 +1941,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
   final Future<void> Function(Duration) onSeek;
   final PlayerLayoutSpec layoutSpec;
   final AppPlayerStageKind stageKind;
+  final AppPlayerBackdropKind backdropKind;
   final double stageMaxWidth;
   final PlayerTrack? track;
   final VoidCallback? onOpenArtist;
@@ -1967,12 +1985,14 @@ class _PlayerMetaControlPage extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: gap),
-              child: PlayerStyleStage(
-                stageKind: stageKind,
-                track: track,
-                maxWidth: stageMaxWidth,
-                cassetteLabel: cassetteLabel,
-              ),
+              child: backdropKind == AppPlayerBackdropKind.artistPhoto
+                  ? const SizedBox.expand()
+                  : PlayerStyleStage(
+                      stageKind: stageKind,
+                      track: track,
+                      maxWidth: stageMaxWidth,
+                      cassetteLabel: cassetteLabel,
+                    ),
             ),
           ),
           SizedBox(height: gap),
@@ -2020,12 +2040,14 @@ class _PlayerMetaControlPage extends StatelessWidget {
                 children: <Widget>[
                   SizedBox(
                     height: stageHeight,
-                    child: PlayerStyleStage(
-                      stageKind: stageKind,
-                      track: track,
-                      maxWidth: stageMaxWidth,
-                      cassetteLabel: cassetteLabel,
-                    ),
+                    child: backdropKind == AppPlayerBackdropKind.artistPhoto
+                        ? const SizedBox.expand()
+                        : PlayerStyleStage(
+                            stageKind: stageKind,
+                            track: track,
+                            maxWidth: stageMaxWidth,
+                            cassetteLabel: cassetteLabel,
+                          ),
                   ),
                   SizedBox(height: gap),
                   if (!usesCassetteLabel) ...<Widget>[

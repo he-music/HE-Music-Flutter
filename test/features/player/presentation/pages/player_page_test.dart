@@ -43,7 +43,6 @@ import 'package:he_music_flutter/features/player/presentation/pages/player_page.
 import 'package:he_music_flutter/features/player/presentation/providers/artist_photo_provider.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/styles/player_style_stage.dart';
-import 'package:he_music_flutter/features/player/presentation/widgets/player_backdrop.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/cadenza_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/monet_lyric_page.dart';
@@ -333,7 +332,7 @@ void main() {
         controllerFactory: _SpectrumPlayerController.new,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.radialSpectrumId,
+          playerStageId: AppPlayerStageRegistry.radialSpectrumId,
         ),
         spectrumController: spectrum,
       ),
@@ -377,7 +376,7 @@ void main() {
         controllerFactory: _SpectrumPlayerController.new,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.radialSpectrumId,
+          playerStageId: AppPlayerStageRegistry.radialSpectrumId,
         ),
         spectrumController: spectrum,
       ),
@@ -413,7 +412,7 @@ void main() {
         controllerFactory: _SpectrumPlayerController.new,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.radialSpectrumId,
+          playerStageId: AppPlayerStageRegistry.radialSpectrumId,
         ),
         spectrumController: spectrum,
       ),
@@ -469,7 +468,7 @@ void main() {
         controllerFactory: _SpectrumPlayerController.new,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.radialSpectrumId,
+          playerStageId: AppPlayerStageRegistry.radialSpectrumId,
         ),
         spectrumController: spectrum,
       ),
@@ -484,7 +483,7 @@ void main() {
     );
     container
         .read(appConfigProvider.notifier)
-        .setPlayerStyleId(AppPlayerStyleRegistry.classicId);
+        .setPlayerStageId(AppPlayerStageRegistry.classicId);
     await tester.pump();
     await tester.pump();
 
@@ -716,7 +715,12 @@ void main() {
     await tester.tap(find.text('Player Style'));
     await tester.pumpAndSettle();
 
-    for (final styleId in AppPlayerStyleRegistry.builtInIds) {
+    final allIds = <String>{
+      ...AppPlayerStageRegistry.builtInIds,
+      ...AppPlayerBackdropRegistry.builtInIds,
+      ...AppPlayerLyricsRegistry.builtInIds,
+    };
+    for (final styleId in allIds) {
       final previewFinder = find.byKey(
         ValueKey<String>('player-style-preview-$styleId'),
       );
@@ -767,7 +771,7 @@ void main() {
       closeTo(1, 0.001),
     );
     expect(
-      find.byKey(const ValueKey<String>('player-backdrop-vinyl')),
+      find.byKey(const ValueKey<String>('player-backdrop-cover-gradient')),
       findsOneWidget,
     );
   });
@@ -997,7 +1001,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.byKey(const ValueKey<String>('player-backdrop-classic')),
+      find.byKey(const ValueKey<String>('player-backdrop-cover-gradient')),
       findsOneWidget,
     );
     final stage = find.byKey(const ValueKey<String>('classic-player-stage'));
@@ -1041,7 +1045,7 @@ void main() {
         lyricDocument: _monetFixtureDocument,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.monetLyricsId,
+          playerLyricsId: AppPlayerLyricsRegistry.monetId,
         ),
       ),
     );
@@ -1141,7 +1145,7 @@ void main() {
 
     container
         .read(appConfigProvider.notifier)
-        .setPlayerStyleId(AppPlayerStyleRegistry.vinylId);
+        .setPlayerLyricsId(AppPlayerLyricsRegistry.legacyId);
     await tester.pump();
 
     expect(find.byType(MonetLyricPage), findsNothing);
@@ -1162,7 +1166,7 @@ void main() {
         onPlayerPageBuild: () => playerPageBuilds += 1,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.partitaLyricsId,
+          playerLyricsId: AppPlayerLyricsRegistry.partitaId,
         ),
       ),
     );
@@ -1256,7 +1260,7 @@ void main() {
 
     container
         .read(appConfigProvider.notifier)
-        .setPlayerStyleId(AppPlayerStyleRegistry.classicId);
+        .setPlayerLyricsId(AppPlayerLyricsRegistry.legacyId);
     await tester.pump();
     expect(find.byType(PartitaLyricPage), findsNothing);
     expect(find.byType(PlayerLyricPage), findsOneWidget);
@@ -1276,7 +1280,7 @@ void main() {
         onPlayerPageBuild: () => playerPageBuilds += 1,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.cadenzaLyricsId,
+          playerLyricsId: AppPlayerLyricsRegistry.cadenzaId,
         ),
       ),
     );
@@ -1381,8 +1385,8 @@ void main() {
         .addSong(songId: 'song-1', platform: 'qq');
     await tester.pump();
 
-    for (final styleId in AppPlayerStyleRegistry.builtInIds) {
-      container.read(appConfigProvider.notifier).setPlayerStyleId(styleId);
+    for (final styleId in AppPlayerStageRegistry.builtInIds) {
+      container.read(appConfigProvider.notifier).setPlayerStageId(styleId);
       await tester.pump();
 
       final heart = tester.widget<Icon>(find.byIcon(Icons.favorite_rounded));
@@ -1401,7 +1405,7 @@ void main() {
         controllerFactory: _OnlineTrackPlayerController.new,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.vinylId,
+          playerStageId: AppPlayerStageRegistry.vinylId,
         ),
       ),
     );
@@ -1409,7 +1413,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.byKey(const ValueKey<String>('player-backdrop-vinyl')),
+      find.byKey(const ValueKey<String>('player-backdrop-cover-gradient')),
       findsOneWidget,
     );
     expect(
@@ -1441,7 +1445,7 @@ void main() {
         controllerFactory: _OnlineTrackPlayerController.new,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.cassetteId,
+          playerStageId: AppPlayerStageRegistry.cassetteId,
         ),
       ),
     );
@@ -1449,7 +1453,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.byKey(const ValueKey<String>('player-backdrop-cassette')),
+      find.byKey(const ValueKey<String>('player-backdrop-cover-gradient')),
       findsOneWidget,
     );
     expect(
@@ -1499,7 +1503,7 @@ void main() {
         controllerFactory: _OnlineTrackPlayerController.new,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.cassetteId,
+          playerStageId: AppPlayerStageRegistry.cassetteId,
         ),
       ),
     );
@@ -1530,7 +1534,7 @@ void main() {
         controllerFactory: _OnlineTrackPlayerController.new,
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
-          playerStyleId: AppPlayerStyleRegistry.cassetteId,
+          playerStageId: AppPlayerStageRegistry.cassetteId,
         ),
       ),
     );
@@ -1882,13 +1886,13 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(700, 420));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    for (final styleId in AppPlayerStyleRegistry.builtInIds) {
+    for (final styleId in AppPlayerStageRegistry.builtInIds) {
       await tester.pumpWidget(
         _buildPlayerTestApp(
           controllerFactory: _OnlineTrackPlayerController.new,
           config: AppConfigState.initial.copyWith(
             localeCode: 'en',
-            playerStyleId: styleId,
+            playerStageId: styleId,
           ),
         ),
       );
@@ -1900,26 +1904,6 @@ void main() {
         findsOneWidget,
         reason: styleId,
       );
-      if (styleId == AppPlayerStyleRegistry.artistPhotoId) {
-        expect(
-          tester.widget<PlayerBackdrop>(find.byType(PlayerBackdrop)).isPortrait,
-          isFalse,
-        );
-        expect(
-          find.byKey(
-            const ValueKey<String>(
-              'player-mobile-landscape-artist-photo-content',
-            ),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(
-            const ValueKey<String>('player-stage-artist-photo-safe-area'),
-          ),
-          findsNothing,
-        );
-      }
       expect(tester.takeException(), isNull, reason: styleId);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -1936,7 +1920,7 @@ void main() {
           controllerFactory: _OnlineTrackPlayerController.new,
           config: AppConfigState.initial.copyWith(
             localeCode: 'en',
-            playerStyleId: AppPlayerStyleRegistry.artistPhotoId,
+            playerBackdropId: AppPlayerBackdropRegistry.artistPhotoId,
           ),
         ),
       );
@@ -2556,9 +2540,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     for (final styleId in const <String>[
-      AppPlayerStyleRegistry.classicId,
-      AppPlayerStyleRegistry.fluidId,
-      AppPlayerStyleRegistry.cassetteId,
+      AppPlayerStageRegistry.classicId,
+      AppPlayerStageRegistry.cassetteId,
     ]) {
       late _TransitionPlayerController controller;
       await tester.pumpWidget(
@@ -2569,7 +2552,7 @@ void main() {
           },
           config: AppConfigState.initial.copyWith(
             localeCode: 'en',
-            playerStyleId: styleId,
+            playerStageId: styleId,
           ),
         ),
       );
@@ -2582,7 +2565,7 @@ void main() {
         find.byType(PlayerStyleStage),
       );
       expect(stage.track?.id, 'track-c', reason: styleId);
-      if (styleId == AppPlayerStyleRegistry.cassetteId) {
+      if (styleId == AppPlayerStageRegistry.cassetteId) {
         expect(find.text('Track C'), findsWidgets);
       }
       expect(tester.takeException(), isNull, reason: styleId);
@@ -2765,9 +2748,25 @@ class _TestAppConfigController extends AppConfigController {
   }
 
   @override
-  void setPlayerStyleId(String styleId) {
+  void setPlayerStageId(String stageId) {
     state = state.copyWith(
-      playerStyleId: AppPlayerStyleRegistry.instance.normalizeId(styleId),
+      playerStageId: AppPlayerStageRegistry.instance.normalizeId(stageId),
+    );
+  }
+
+  @override
+  void setPlayerBackdropId(String backdropId) {
+    state = state.copyWith(
+      playerBackdropId: AppPlayerBackdropRegistry.instance.normalizeId(
+        backdropId,
+      ),
+    );
+  }
+
+  @override
+  void setPlayerLyricsId(String lyricsId) {
+    state = state.copyWith(
+      playerLyricsId: AppPlayerLyricsRegistry.instance.normalizeId(lyricsId),
     );
   }
 }
