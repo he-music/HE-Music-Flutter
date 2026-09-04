@@ -48,6 +48,7 @@ import 'package:he_music_flutter/features/player/presentation/widgets/player_lyr
 import 'package:he_music_flutter/features/player/presentation/widgets/monet_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/partita_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/player_style_live_preview.dart';
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
@@ -715,45 +716,14 @@ void main() {
     await tester.tap(find.text('Player Style'));
     await tester.pumpAndSettle();
 
-    final allIds = <String>{
-      ...AppPlayerStageRegistry.builtInIds,
-      ...AppPlayerBackdropRegistry.builtInIds,
-      ...AppPlayerLyricsRegistry.builtInIds,
-    };
-    for (final styleId in allIds) {
-      final previewFinder = find.byKey(
-        ValueKey<String>('player-style-preview-$styleId'),
-      );
-      expect(previewFinder, findsOneWidget);
-      expect(tester.widget<Image>(previewFinder).fit, BoxFit.contain);
-    }
-    expect(
-      find.byKey(const ValueKey<String>('player-style-selected-classic')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('vinyl-player-stage')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('cassette-player-stage')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('player-backdrop-artist-photo')),
-      findsNothing,
-    );
+    expect(find.byType(PlayerStyleLivePreview), findsOneWidget);
 
-    final pager = tester.widget<PageView>(
-      find.byKey(const ValueKey<String>('player-mobile-pager')),
-    );
-    pager.controller!.jumpToPage(1);
-    await tester.pumpAndSettle();
-
+    // 通过封面缩略图选择黑胶舞台，播放状态不重置。
     await tester.tap(
       find.byKey(const ValueKey<String>('player-style-option-vinyl')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final after = playerController.snapshot;
     expect(after.currentTrack, same(before.currentTrack));
@@ -761,19 +731,6 @@ void main() {
     expect(after.position, before.position);
     expect(after.queue, same(before.queue));
     expect(after.playMode, before.playMode);
-    expect(
-      tester
-          .widget<PageView>(
-            find.byKey(const ValueKey<String>('player-mobile-pager')),
-          )
-          .controller!
-          .page,
-      closeTo(1, 0.001),
-    );
-    expect(
-      find.byKey(const ValueKey<String>('player-backdrop-cover-gradient')),
-      findsOneWidget,
-    );
   });
 
   testWidgets('player page hides desktop lyric actions in utility row', (

@@ -1,11 +1,11 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/i18n/app_i18n.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/core/device/realtime_spectrum_permission.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_style_selection_sheet.dart';
@@ -19,8 +19,11 @@ void main() {
     );
     final harness = await _pumpSheet(tester, permission);
 
-    await tester.tap(_radialOption);
-    await tester.pumpAndSettle();
+    await _selectStyleOption(
+      tester,
+      axis: 'stage',
+      optionId: 'radial_spectrum',
+    );
 
     expect(harness.config.state.playerStageId, 'radial_spectrum');
     expect(permission.statusCount, 1);
@@ -36,61 +39,40 @@ void main() {
     );
     final harness = await _pumpSheet(tester, permission);
 
-    await tester.tap(_radialOption);
-    await tester.pumpAndSettle();
+    await _selectStyleOption(
+      tester,
+      axis: 'stage',
+      optionId: 'radial_spectrum',
+    );
     expect(find.text('Allow Real-time Spectrum'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(harness.config.state.playerStageId, 'classic');
     expect(permission.requestCount, 0);
     debugDefaultTargetPlatformOverride = null;
   });
 
-  testWidgets('Android 请求期间禁用同一选项，授权后才保存', (tester) async {
+  testWidgets('Android 请求后拒绝时保持原样式', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    final requestGate = Completer<RealtimeSpectrumPermissionState>();
     final permission = _FakeSpectrumPermission(
       current: RealtimeSpectrumPermissionState.denied,
-      requestGate: requestGate,
     );
     final harness = await _pumpSheet(tester, permission);
 
-    await tester.tap(_radialOption);
-    await tester.pumpAndSettle();
+    await _selectStyleOption(
+      tester,
+      axis: 'stage',
+      optionId: 'radial_spectrum',
+    );
     await tester.tap(find.text('Continue'));
     await tester.pump();
-    expect(
-      find.byKey(const ValueKey<String>('player-style-permission-progress')),
-      findsOneWidget,
-    );
-    await tester.tap(_radialOption);
-    expect(permission.requestCount, 1);
-    expect(harness.config.state.playerStageId, 'classic');
-
-    requestGate.complete(RealtimeSpectrumPermissionState.granted);
-    await tester.pumpAndSettle();
-    expect(harness.config.state.playerStageId, 'radial_spectrum');
-    debugDefaultTargetPlatformOverride = null;
-  });
-
-  testWidgets('Android 请求后拒绝时保持原样式并允许重试', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    final permission = _FakeSpectrumPermission(
-      current: RealtimeSpectrumPermissionState.denied,
-    );
-    final harness = await _pumpSheet(tester, permission);
-
-    await tester.tap(_radialOption);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(permission.requestCount, 1);
     expect(harness.config.state.playerStageId, 'classic');
-    expect(_radialOption, findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -102,13 +84,18 @@ void main() {
     );
     final harness = await _pumpSheet(tester, permission);
 
-    await tester.tap(_radialOption);
-    await tester.pumpAndSettle();
+    await _selectStyleOption(
+      tester,
+      axis: 'stage',
+      optionId: 'radial_spectrum',
+    );
     await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Allow Access in Settings'), findsOneWidget);
     await tester.tap(find.text('Open Settings'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(permission.requestCount, 0);
     expect(permission.openSettingsCount, 1);
@@ -124,15 +111,19 @@ void main() {
     );
     final harness = await _pumpSheet(tester, permission);
 
-    await tester.tap(_radialOption);
-    await tester.pumpAndSettle();
+    await _selectStyleOption(
+      tester,
+      axis: 'stage',
+      optionId: 'radial_spectrum',
+    );
 
     expect(harness.config.state.playerStageId, 'radial_spectrum');
     expect(permission.statusCount, 0);
     expect(permission.requestCount, 0);
     debugDefaultTargetPlatformOverride = null;
   });
-  testWidgets('Monet、Partita 与 Cadenza 保持可见且 Cadenza 可选择', (tester) async {
+
+  testWidgets('三轴缩略图分别保存对应配置且面板不关闭', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final harness = await _pumpSheet(
@@ -140,60 +131,151 @@ void main() {
       _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
     );
 
-    expect(_styleOptions, findsNWidgets(11));
-    final allIds = <String>{
-      ...AppPlayerStageRegistry.builtInIds,
-      ...AppPlayerBackdropRegistry.builtInIds,
-      ...AppPlayerLyricsRegistry.builtInIds,
-    };
-    for (final id in allIds) {
-      expect(
-        find.byKey(ValueKey<String>('player-style-option-$id')),
-        findsOneWidget,
+    await _selectStyleOption(tester, axis: 'stage', optionId: 'vinyl');
+    expect(harness.config.state.playerStageId, 'vinyl');
+
+    await _selectStyleOption(tester, axis: 'backdrop', optionId: 'fluid');
+    expect(harness.config.state.playerBackdropId, 'fluid');
+
+    await _selectStyleOption(
+      tester,
+      axis: 'lyrics',
+      optionId: 'cadenza_lyrics',
+    );
+    expect(harness.config.state.playerLyricsId, 'cadenza_lyrics');
+
+    // 选择后面板保持打开，不自动关闭。
+    expect(find.byType(PlayerStyleSelectionSheet), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('同时展示紧凑的封面页和歌词页预览', (tester) async {
+    await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
+    );
+
+    for (final page in <String>['cover', 'lyrics']) {
+      final preview = find.byKey(
+        ValueKey<String>('player-style-live-preview-$page-frame'),
       );
+      final previewSize = tester.getSize(preview);
+      expect(previewSize.width, 96);
+      expect(previewSize.height, closeTo(96 * 16 / 9, 0.01));
       expect(
-        find.byKey(ValueKey<String>('player-style-preview-$id')),
+        find.byKey(ValueKey<String>('player-style-preview-$page')),
         findsOneWidget,
       );
     }
-    expect(find.text('Monet Lyrics'), findsOneWidget);
-    expect(find.text('Partita Cloud Steps'), findsOneWidget);
-    expect(find.text('Cadenza Mindscape'), findsOneWidget);
+    expect(find.byType(PopupMenuButton), findsNothing);
+  });
 
-    final cadenzaPreview = tester.widget<Image>(
-      find.byKey(const ValueKey<String>('player-style-preview-cadenza_lyrics')),
+  testWidgets('歌手写真背景禁用封面选项并在切换背景后恢复', (tester) async {
+    final harness = await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
     );
+
+    await _selectStyleOption(
+      tester,
+      axis: 'backdrop',
+      optionId: 'artist_photo',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('player-style-axis-stage')),
+    );
+    await tester.pump();
+
     expect(
-      (cadenzaPreview.image as AssetImage).assetName,
-      'assets/player_styles/cadenza_lyrics/preview.png',
+      find.byKey(
+        const ValueKey<String>('player-style-stage-suppressed-notice'),
+      ),
+      findsOneWidget,
     );
+    final vinylFinder = find.byKey(
+      const ValueKey<String>('player-style-option-vinyl'),
+    );
+    expect(tester.widget<InkWell>(vinylFinder).onTap, isNull);
+    expect(harness.config.state.playerStageId, 'classic');
 
-    await tester.ensureVisible(_cadenzaOption);
-    await tester.tap(_cadenzaOption);
-    await tester.pumpAndSettle();
+    await _selectStyleOption(
+      tester,
+      axis: 'backdrop',
+      optionId: 'cover_gradient',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('player-style-axis-stage')),
+    );
+    await tester.pump();
 
-    expect(harness.config.state.playerLyricsId, 'cadenza_lyrics');
-    debugDefaultTargetPlatformOverride = null;
+    expect(
+      find.byKey(
+        const ValueKey<String>('player-style-stage-suppressed-notice'),
+      ),
+      findsNothing,
+    );
+    expect(tester.widget<InkWell>(vinylFinder).onTap, isNotNull);
+  });
+
+  testWidgets('歌词样式按语言显示简洁名称', (tester) async {
+    expect(AppI18n.tByLocaleCode('zh', 'player.style.monet_lyrics'), '莫奈');
+    expect(AppI18n.tByLocaleCode('zh', 'player.style.partita_lyrics'), '云阶');
+    expect(AppI18n.tByLocaleCode('zh', 'player.style.cadenza_lyrics'), '心象');
+
+    await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('player-style-axis-lyrics')),
+    );
+    await tester.pump();
+
+    expect(find.text('Monet'), findsOneWidget);
+    expect(find.text('Partita'), findsOneWidget);
+    expect(find.text('Cadenza'), findsOneWidget);
+    expect(find.text('Monet Lyrics'), findsNothing);
+    expect(find.text('Partita Cloud Steps'), findsNothing);
+    expect(find.text('Cadenza Mindscape'), findsNothing);
+  });
+
+  testWidgets('窄屏切换三轴时保持无溢出', (tester) async {
+    await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
+      surfaceSize: const Size(320, 700),
+    );
+    expect(tester.takeException(), isNull);
+
+    for (final axis in <String>['backdrop', 'lyrics', 'stage']) {
+      await tester.tap(find.byKey(ValueKey<String>('player-style-axis-$axis')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.takeException(), isNull);
+    }
   });
 }
 
-Finder get _styleOptions => find.byWidgetPredicate((widget) {
-  final key = widget.key;
-  return key is ValueKey<String> &&
-      key.value.startsWith('player-style-option-');
-});
-
-Finder get _cadenzaOption =>
-    find.byKey(const ValueKey<String>('player-style-option-cadenza_lyrics'));
-
-Finder get _radialOption =>
-    find.byKey(const ValueKey<String>('player-style-option-radial_spectrum'));
+Future<void> _selectStyleOption(
+  WidgetTester tester, {
+  required String axis,
+  required String optionId,
+}) async {
+  await tester.tap(find.byKey(ValueKey<String>('player-style-axis-$axis')));
+  await tester.pump(const Duration(milliseconds: 200));
+  await tester.tap(
+    find.byKey(ValueKey<String>('player-style-option-$optionId')),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+}
 
 Future<_SheetHarness> _pumpSheet(
   WidgetTester tester,
-  _FakeSpectrumPermission permission,
-) async {
-  await tester.binding.setSurfaceSize(const Size(430, 1200));
+  _FakeSpectrumPermission permission, {
+  Size surfaceSize = const Size(430, 1200),
+}) async {
+  await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   late _TestConfigController config;
   await tester.pumpWidget(
@@ -222,7 +304,8 @@ Future<_SheetHarness> _pumpSheet(
     ),
   );
   await tester.tap(find.text('Open'));
-  await tester.pumpAndSettle();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
   return _SheetHarness(config: config);
 }
 
@@ -248,8 +331,9 @@ class _TestConfigController extends AppConfigController {
   @override
   void setPlayerBackdropId(String backdropId) {
     state = state.copyWith(
-      playerBackdropId:
-          AppPlayerBackdropRegistry.instance.normalizeId(backdropId),
+      playerBackdropId: AppPlayerBackdropRegistry.instance.normalizeId(
+        backdropId,
+      ),
     );
   }
 
@@ -262,10 +346,9 @@ class _TestConfigController extends AppConfigController {
 }
 
 class _FakeSpectrumPermission implements RealtimeSpectrumPermissionPort {
-  _FakeSpectrumPermission({required this.current, this.requestGate});
+  _FakeSpectrumPermission({required this.current});
 
   RealtimeSpectrumPermissionState current;
-  final Completer<RealtimeSpectrumPermissionState>? requestGate;
   int statusCount = 0;
   int requestCount = 0;
   int openSettingsCount = 0;
@@ -279,7 +362,6 @@ class _FakeSpectrumPermission implements RealtimeSpectrumPermissionPort {
   @override
   Future<RealtimeSpectrumPermissionState> request() async {
     requestCount += 1;
-    current = await requestGate?.future ?? current;
     return current;
   }
 

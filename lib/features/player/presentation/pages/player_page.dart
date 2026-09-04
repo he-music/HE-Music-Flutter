@@ -1151,7 +1151,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => const PlayerStyleSelectionSheet(),
+      builder: (context) => PlayerStyleSelectionSheet(
+        track: ref.read(playerControllerProvider).currentTrack,
+      ),
     );
   }
 
