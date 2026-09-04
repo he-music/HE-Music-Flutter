@@ -320,3 +320,5 @@ CI 会把 `ANDROID_KEYSTORE_BASE64` 解码为 `android/keystore/release.jks`，�
 ## 鸣谢
 
 感谢 Flutter 及其生态为本项目提供跨平台应用基础，也感谢 Riverpod、GoRouter、Dio、Retrofit、just_audio、audio_service、Drift、background_downloader、flutter_lyric、media-kit、local_audio_scan、audiotags、mobile_scanner、qr_flutter 等开源项目为本项目提供基础能力。
+
+同时特别感谢 [Folia](https://github.com/chthollyphile/folia-major)（作者 chthollyphile）的歌词可视化设计。本项目中的 Monet、Partita、Cadenza 等歌词视觉样式参考并移植自 Folia 的 lyrics visualizer 实现。Folia 基于 [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html) 开源，相关移植与衍生代码请遵循其许可条款。
