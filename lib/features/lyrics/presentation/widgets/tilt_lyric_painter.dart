@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -6,49 +7,157 @@ import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../helpers/tilt_lyric_layout.dart';
 
 @immutable
+class TiltGraphemePaintData {
+  const TiltGraphemePaintData({
+    required this.layout,
+    required this.bodyPainter,
+    required this.activePainter,
+    required this.bodyColor,
+    required this.activeColor,
+  });
+
+  final TiltGraphemePlacement layout;
+  final TextPainter bodyPainter;
+  final TextPainter? activePainter;
+  final Color bodyColor;
+  final Color? activeColor;
+}
+
+@immutable
+class TiltSegmentPaintData {
+  const TiltSegmentPaintData({required this.layout, required this.graphemes});
+
+  final TiltLyricSegmentLayout layout;
+  final List<TiltGraphemePaintData> graphemes;
+}
+
+@immutable
+class TiltLyricRenderData {
+  const TiltLyricRenderData({
+    required this.layout,
+    required this.segments,
+    required this.scaleCenterY,
+  });
+
+  final TiltLyricLineLayout? layout;
+  final List<TiltSegmentPaintData> segments;
+  final double scaleCenterY;
+}
+
+TiltLyricRenderData buildTiltLyricRenderData({
+  required TiltLyricLineLayout? layout,
+  required TextStyle normalStyle,
+  required TextStyle tiltStyle,
+  required PlayerScenePalette palette,
+  required Color? highlightColor,
+  required TextDirection textDirection,
+  required Locale? locale,
+  required double textScaleFactor,
+  VoidCallback? debugOnTextLayout,
+}) {
+  if (layout == null) {
+    return TiltLyricRenderData(
+      layout: null,
+      segments: const <TiltSegmentPaintData>[],
+      scaleCenterY: normalStyle.fontSize ?? 16,
+    );
+  }
+
+  TextPainter layoutPainter(String text, TextStyle style) {
+    debugOnTextLayout?.call();
+    return TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: textDirection,
+      locale: locale,
+      textScaler: TextScaler.linear(textScaleFactor),
+      maxLines: 1,
+    )..layout();
+  }
+
+  final pulseLine =
+      layout.sourceLine.text == tiltInterludeText &&
+      layout.sourceLine.tokens.length == 6 &&
+      layout.sourceLine.tokens.every((token) => token.text == '.');
+  final segments = layout.segments
+      .map((segment) {
+        final style = segment.isTilt ? tiltStyle : normalStyle;
+        final usesActiveColor = segment.isTilt || pulseLine;
+        final bodyColor = usesActiveColor
+            ? palette.foreground.withValues(alpha: 0.72)
+            : palette.foreground;
+        final graphemes = segment.graphemes
+            .map(
+              (grapheme) => TiltGraphemePaintData(
+                layout: grapheme,
+                bodyPainter: layoutPainter(
+                  grapheme.text,
+                  style.copyWith(color: bodyColor),
+                ),
+                activePainter: usesActiveColor
+                    ? layoutPainter(
+                        grapheme.text,
+                        style.copyWith(color: highlightColor ?? palette.accent),
+                      )
+                    : null,
+                bodyColor: bodyColor,
+                activeColor: usesActiveColor
+                    ? highlightColor ?? palette.accent
+                    : null,
+              ),
+            )
+            .toList(growable: false);
+        return TiltSegmentPaintData(
+          layout: segment,
+          graphemes: List<TiltGraphemePaintData>.unmodifiable(graphemes),
+        );
+      })
+      .toList(growable: false);
+  return TiltLyricRenderData(
+    layout: layout,
+    segments: List<TiltSegmentPaintData>.unmodifiable(segments),
+    scaleCenterY: normalStyle.fontSize ?? 16,
+  );
+}
+
+@immutable
 class TiltLyricPainter extends CustomPainter {
   const TiltLyricPainter({
-    required this.layout,
+    required this.data,
     required this.timelinePosition,
-    required this.normalStyle,
-    required this.tiltStyle,
-    required this.palette,
-    this.highlightColor,
-    this.textDirection = TextDirection.ltr,
-    this.textScaleFactor = 1,
     this.revealAnimation = true,
     this.positionListenable,
+    this.onPaint,
     Listenable? repaint,
   }) : super(repaint: repaint ?? positionListenable);
 
-  final TiltLyricLineLayout? layout;
+  final TiltLyricRenderData data;
   final Duration timelinePosition;
-  final TextStyle normalStyle;
-  final TextStyle tiltStyle;
-  final PlayerScenePalette palette;
-  final Color? highlightColor;
   final bool revealAnimation;
-  final TextDirection textDirection;
-  final double textScaleFactor;
   final ValueListenable<Duration>? positionListenable;
+  final VoidCallback? onPaint;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final value = layout;
+    onPaint?.call();
+    final layout = data.layout;
     final currentPosition = positionListenable?.value ?? timelinePosition;
-    if (value == null) return;
-    for (final segment in value.segments) {
+    if (layout == null) return;
+    final lineActive =
+        currentPosition >= layout.sourceLine.start &&
+        (layout.sourceLine.end == null ||
+            currentPosition <= layout.sourceLine.end!);
+    for (final segment in data.segments) {
       final entryProgress = revealAnimation
-          ? _entryProgress(currentPosition, segment.revealAt)
+          ? _entryProgress(currentPosition, segment.layout.revealAt)
           : 1.0;
       if (entryProgress <= 0) continue;
       canvas.save();
-      canvas.translate(segment.origin.dx, segment.origin.dy);
-      final fitScale = segment.paintScale;
+      canvas.translate(segment.layout.origin.dx, segment.layout.origin.dy);
+      final fitScale = segment.layout.paintScale;
       canvas.scale(fitScale);
       final localSize = Size(
-        segment.size.width / fitScale,
-        segment.size.height / fitScale,
+        segment.layout.size.width / fitScale,
+        segment.layout.size.height / fitScale,
       );
       if (entryProgress < 1) {
         canvas.scale(entryProgress, entryProgress);
@@ -57,105 +166,90 @@ class TiltLyricPainter extends CustomPainter {
           localSize.height * (1 - entryProgress) / (2 * entryProgress),
         );
       }
-      _paintSegment(canvas, segment, currentPosition);
+      _paintSegment(canvas, segment, currentPosition, lineActive);
       canvas.restore();
     }
   }
 
   void _paintSegment(
     Canvas canvas,
-    TiltLyricSegmentLayout segment,
+    TiltSegmentPaintData segment,
     Duration currentPosition,
+    bool lineActive,
   ) {
-    final style = segment.isTilt ? tiltStyle : normalStyle;
-    final sourceLine = layout!.sourceLine;
-    final lineActive =
-        currentPosition >= sourceLine.start &&
-        (sourceLine.end == null || currentPosition <= sourceLine.end!);
-    final pulseLine =
-        sourceLine.text == tiltInterludeText &&
-        sourceLine.tokens.length == 6 &&
-        sourceLine.tokens.every((token) => token.text == '.');
     for (final grapheme in segment.graphemes) {
-      final progress = grapheme.isTimed
-          ? _graphemeProgress(currentPosition, grapheme.start!, grapheme.end!)
+      final placement = grapheme.layout;
+      final progress = placement.isTimed
+          ? _graphemeProgress(currentPosition, placement.start!, placement.end!)
           : 0.0;
-      final activeScale = grapheme.isTimed
+      final activeScale = placement.isTimed
           ? resolveTiltGraphemeScale(
               currentPosition,
-              grapheme.start!,
-              grapheme.end!,
+              placement.start!,
+              placement.end!,
             )
           : lineActive
           ? 1.12
           : 1.0;
-      final color = (segment.isTilt || pulseLine)
-          ? Color.lerp(
-              palette.foreground.withValues(alpha: 0.72),
-              highlightColor ?? palette.accent,
-              progress,
-            )!
-          : palette.foreground;
-      _paintGrapheme(
-        canvas,
-        grapheme,
-        style.copyWith(color: color),
-        activeScale,
-      );
+      _paintGrapheme(canvas, grapheme, progress, activeScale);
     }
   }
 
   void _paintGrapheme(
     Canvas canvas,
-    TiltGraphemePlacement grapheme,
-    TextStyle style,
+    TiltGraphemePaintData grapheme,
+    double activeProgress,
     double scale,
   ) {
-    final width = math.max(grapheme.localBounds.width, 1);
+    final placement = grapheme.layout;
+    final width = math.max(placement.localBounds.width, 1);
     final center = Offset(
-      grapheme.localBounds.left + width / 2,
-      normalStyle.fontSize ?? 16,
+      placement.localBounds.left + width / 2,
+      data.scaleCenterY,
+    );
+    final offset = Offset(
+      placement.localBounds.left,
+      placement.staggerSign * 3,
     );
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.scale(scale);
     canvas.translate(-center.dx, -center.dy);
-    _paintText(
-      canvas,
-      grapheme.text,
-      Offset(grapheme.localBounds.left, grapheme.staggerSign * 3),
-      style,
-      textDirection: textDirection,
-    );
+    final activePainter = grapheme.activePainter;
+    if (activePainter == null || activeProgress <= 0) {
+      grapheme.bodyPainter.paint(canvas, offset);
+    } else if (activeProgress >= 1) {
+      activePainter.paint(canvas, offset);
+    } else {
+      final color = Color.lerp(
+        grapheme.bodyColor,
+        grapheme.activeColor,
+        activeProgress,
+      )!;
+      final padding = math.max(activePainter.height * 0.25, 2);
+      final bounds = Rect.fromLTWH(
+        offset.dx - padding,
+        offset.dy - padding,
+        activePainter.width + padding * 2,
+        activePainter.height + padding * 2,
+      );
+      canvas.saveLayer(bounds, Paint());
+      activePainter.paint(canvas, offset);
+      canvas.drawRect(
+        bounds,
+        Paint()
+          ..color = color
+          ..blendMode = BlendMode.srcIn,
+      );
+      canvas.restore();
+    }
     canvas.restore();
-  }
-
-  void _paintText(
-    Canvas canvas,
-    String text,
-    Offset offset,
-    TextStyle style, {
-    required TextDirection textDirection,
-  }) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: textDirection,
-      textScaler: TextScaler.linear(textScaleFactor),
-      maxLines: 1,
-    )..layout();
-    painter.paint(canvas, offset);
   }
 
   @override
   bool shouldRepaint(covariant TiltLyricPainter oldDelegate) {
-    return oldDelegate.layout != layout ||
+    return !identical(oldDelegate.data, data) ||
         oldDelegate.timelinePosition != timelinePosition ||
-        oldDelegate.normalStyle != normalStyle ||
-        oldDelegate.tiltStyle != tiltStyle ||
-        oldDelegate.palette != palette ||
-        oldDelegate.highlightColor != highlightColor ||
-        oldDelegate.textDirection != textDirection ||
-        oldDelegate.textScaleFactor != textScaleFactor ||
         oldDelegate.revealAnimation != revealAnimation;
   }
 }

@@ -920,6 +920,8 @@ String _documentSignature(LyricDocument document) => Object.hashAll(<Object?>[
       line.start,
       line.end,
       line.text,
+      line.translation,
+      line.romanization,
       Object.hashAll(<Object?>[
         for (final token in line.tokens)
           Object.hash(token.text, token.startOffset, token.duration),

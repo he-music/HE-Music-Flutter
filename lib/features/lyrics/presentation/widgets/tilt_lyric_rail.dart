@@ -21,6 +21,9 @@ class TiltLyricRail extends ConsumerStatefulWidget {
     required this.onSeek,
     this.documentIdentity,
     this.seekListenable,
+    this.debugOnStructureBuild,
+    this.debugOnTextLayout,
+    this.debugOnPaint,
     super.key,
   });
 
@@ -32,6 +35,13 @@ class TiltLyricRail extends ConsumerStatefulWidget {
   final ValueChanged<Duration>? onSeek;
   final String? documentIdentity;
   final Listenable? seekListenable;
+
+  @visibleForTesting
+  final VoidCallback? debugOnStructureBuild;
+  @visibleForTesting
+  final VoidCallback? debugOnTextLayout;
+  @visibleForTesting
+  final VoidCallback? debugOnPaint;
 
   @override
   ConsumerState<TiltLyricRail> createState() => _TiltLyricRailState();
@@ -47,6 +57,8 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
   int? _activeIndex;
   int? _manualAnchorIndex;
   double _dragDistance = 0;
+  TiltLyricRenderData? _renderData;
+  int? _renderSignature;
 
   @override
   void initState() {
@@ -78,7 +90,18 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
           .activeIndex;
       _manualAnchorIndex = null;
       _manualResetTimer?.cancel();
+      _layoutCache.clear();
+      _resetRenderData();
+    } else if (oldWidget.palette != widget.palette ||
+        oldWidget.highlightColor != widget.highlightColor ||
+        oldWidget.fontPreset != widget.fontPreset) {
+      _resetRenderData();
     }
+  }
+
+  void _resetRenderData() {
+    _renderData = null;
+    _renderSignature = null;
   }
 
   @override
@@ -160,6 +183,12 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
                 options: options,
                 cache: _layoutCache,
               );
+        final renderData = _resolveRenderData(
+          layout: layout,
+          normalStyle: baseStyle,
+          tiltStyle: tiltStyle,
+          options: options,
+        );
         final auxiliary = line?.translation.trim().isNotEmpty == true
             ? line!.translation
             : line?.romanization.trim().isNotEmpty == true
@@ -202,16 +231,11 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
                     CustomPaint(
                       key: const ValueKey<String>('tilt-lyric-painter'),
                       painter: TiltLyricPainter(
-                        layout: layout,
+                        data: renderData,
                         timelinePosition: _positionNotifier.value,
-                        normalStyle: baseStyle,
-                        tiltStyle: tiltStyle,
-                        palette: widget.palette,
-                        highlightColor: widget.highlightColor,
-                        textDirection: options.textDirection,
-                        textScaleFactor: options.textScaleFactor,
                         revealAnimation: widget.enableWordByWordLyric,
                         positionListenable: _positionNotifier,
+                        onPaint: widget.debugOnPaint,
                       ),
                     ),
                     if (auxiliary != null)
@@ -240,6 +264,42 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
         );
       },
     );
+  }
+
+  TiltLyricRenderData _resolveRenderData({
+    required TiltLyricLineLayout? layout,
+    required TextStyle normalStyle,
+    required TextStyle tiltStyle,
+    required TiltLyricLayoutOptions options,
+  }) {
+    final signature = Object.hashAll(<Object?>[
+      layout?.cacheKey,
+      normalStyle,
+      tiltStyle,
+      widget.palette,
+      widget.highlightColor,
+      options.textDirection,
+      options.locale,
+      options.textScaleFactor,
+    ]);
+    final cached = _renderData;
+    if (cached != null && signature == _renderSignature) return cached;
+
+    final next = buildTiltLyricRenderData(
+      layout: layout,
+      normalStyle: normalStyle,
+      tiltStyle: tiltStyle,
+      palette: widget.palette,
+      highlightColor: widget.highlightColor,
+      textDirection: options.textDirection,
+      locale: options.locale,
+      textScaleFactor: options.textScaleFactor,
+      debugOnTextLayout: widget.debugOnTextLayout,
+    );
+    _renderData = next;
+    _renderSignature = signature;
+    widget.debugOnStructureBuild?.call();
+    return next;
   }
 
   final TiltLyricLayoutCache _layoutCache = TiltLyricLayoutCache();

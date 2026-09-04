@@ -29,6 +29,8 @@ import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyri
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_rail.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_lyric_painter.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_lyric_rail.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/tilt_lyric_painter.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/tilt_lyric_rail.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/favorite_song_status_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -47,6 +49,7 @@ import 'package:he_music_flutter/features/player/presentation/widgets/cadenza_ly
 import 'package:he_music_flutter/features/player/presentation/widgets/player_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/monet_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/partita_lyric_page.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/tilt_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_style_live_preview.dart';
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
@@ -1319,6 +1322,60 @@ void main() {
       tester.widget<PlayerPage>(find.byType(PlayerPage)),
       same(playerPageWidget),
     );
+    expect(playerPageBuilds, initialPlayerPageBuilds);
+  });
+
+  testWidgets('Tilt style isolates progress repaint from the player page', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    var playerPageBuilds = 0;
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        lyricDocument: _monetFixtureDocument,
+        onPlayerPageBuild: () => playerPageBuilds += 1,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerLyricsId: AppPlayerLyricsRegistry.tiltId,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final pager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('player-mobile-pager')),
+    );
+    pager.controller!.jumpToPage(1);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TiltLyricPage), findsOneWidget);
+    expect(find.byType(TiltLyricRail), findsOneWidget);
+    final initialData = _tiltPainter(tester).data;
+    expect(initialData.layout?.sourceLine.text, '低频大厅');
+    final initialPlayerPageBuilds = playerPageBuilds;
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(PlayerPage)),
+    );
+
+    container
+        .read(_playerTestLyricPositionProvider.notifier)
+        .update(const Duration(minutes: 1, seconds: 25));
+    await tester.pump();
+
+    expect(_tiltPainter(tester).data, same(initialData));
+    expect(playerPageBuilds, initialPlayerPageBuilds);
+
+    container
+        .read(_playerTestLyricPositionProvider.notifier)
+        .update(const Duration(minutes: 1, seconds: 30));
+    await tester.pump();
+
+    expect(_tiltPainter(tester).data, isNot(same(initialData)));
+    expect(_tiltPainter(tester).data.layout?.sourceLine.text, '信号房间');
     expect(playerPageBuilds, initialPlayerPageBuilds);
   });
 
@@ -2598,6 +2655,15 @@ CadenzaLyricPainter _cadenzaPainter(WidgetTester tester) {
           )
           .painter!
       as CadenzaLyricPainter;
+}
+
+TiltLyricPainter _tiltPainter(WidgetTester tester) {
+  return tester
+          .widget<CustomPaint>(
+            find.byKey(const ValueKey<String>('tilt-lyric-painter')),
+          )
+          .painter!
+      as TiltLyricPainter;
 }
 
 Widget _buildPlayerTestApp({
