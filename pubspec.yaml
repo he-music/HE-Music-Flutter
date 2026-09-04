@@ -127,6 +127,7 @@ flutter:
     - assets/player_styles/monet_lyrics/preview.png
     - assets/player_styles/partita_lyrics/preview.png
     - assets/player_styles/cadenza_lyrics/preview.png
+    - assets/player_styles/tilt_lyrics/preview.png
     - assets/skins/classic/preview_light.png
     - assets/skins/classic/preview_dark.png
     - assets/skins/city_sound_creator/wallpaper_light.png

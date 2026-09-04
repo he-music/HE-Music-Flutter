@@ -532,6 +532,8 @@ abstract final class AppI18n {
       'player.style.monet_lyrics': '莫奈',
       'player.style.partita_lyrics': '云阶',
       'player.style.cadenza_lyrics': '心象',
+      'player.style.tilt_lyrics': '倾诉',
+      'player.style.tilt_lyrics.description': '将当前歌词拆成错落的文字片段，随节奏逐字显现',
       'player.style.cadenza_lyrics.description': '按词与片段排布当前歌词，像思绪在画面中浮现',
       'player.style.stage.hidden_by_artist_photo': '歌手写真背景下不显示封面样式，当前选择会保留',
       'player.style.preview.cover': '封面页',
@@ -1395,6 +1397,9 @@ abstract final class AppI18n {
       'player.style.monet_lyrics': 'Monet',
       'player.style.partita_lyrics': 'Partita',
       'player.style.cadenza_lyrics': 'Cadenza',
+      'player.style.tilt_lyrics': 'Tilt',
+      'player.style.tilt_lyrics.description':
+          'Current lyrics split into offset fragments that reveal with the beat',
       'player.style.cover_gradient': 'Cover Color',
       'player.style.legacy': 'Classic Lyrics',
       'player.style.group.stage': 'Cover',
@@ -1724,6 +1729,18 @@ abstract final class AppI18n {
 
   static String get cadenzaLyricsDescriptionEn =>
       tByLocaleCode('en', 'player.style.cadenza_lyrics.description');
+
+  static String get tiltLyricsNameZh =>
+      tByLocaleCode('zh', 'player.style.tilt_lyrics');
+
+  static String get tiltLyricsDescriptionZh =>
+      tByLocaleCode('zh', 'player.style.tilt_lyrics.description');
+
+  static String get tiltLyricsNameEn =>
+      tByLocaleCode('en', 'player.style.tilt_lyrics');
+
+  static String get tiltLyricsDescriptionEn =>
+      tByLocaleCode('en', 'player.style.tilt_lyrics.description');
 
   static String t(AppConfigState config, String key) {
     return tByLocaleCode(_resolveLocaleCode(config.localeCode), key);

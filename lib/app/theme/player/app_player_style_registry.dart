@@ -8,6 +8,7 @@ import 'styles/fluid_player_style.dart';
 import 'styles/legacy_lyrics_option.dart';
 import 'styles/monet_lyrics_player_style.dart';
 import 'styles/partita_lyrics_player_style.dart';
+import 'styles/tilt_lyrics_player_style.dart';
 import 'styles/radial_spectrum_player_style.dart';
 import 'styles/vinyl_player_style.dart';
 
@@ -113,6 +114,7 @@ class AppPlayerLyricsRegistry {
       monetLyricsOption,
       partitaLyricsOption,
       cadenzaLyricsOption,
+      tiltLyricsOption,
     ]);
   }
 
@@ -120,12 +122,14 @@ class AppPlayerLyricsRegistry {
   static const String monetId = 'monet_lyrics';
   static const String partitaId = 'partita_lyrics';
   static const String cadenzaId = 'cadenza_lyrics';
+  static const String tiltId = 'tilt_lyrics';
 
   static const Set<String> builtInIds = <String>{
     legacyId,
     monetId,
     partitaId,
     cadenzaId,
+    tiltId,
   };
 
   static final AppPlayerLyricsRegistry instance =

@@ -50,6 +50,7 @@ import '../styles/player_track_header.dart';
 import '../widgets/monet_lyric_page.dart';
 import '../widgets/cadenza_lyric_page.dart';
 import '../widgets/partita_lyric_page.dart';
+import '../widgets/tilt_lyric_page.dart';
 import '../widgets/player_backdrop.dart';
 import '../widgets/player_compact_lyric_section.dart';
 import '../widgets/player_control_bar.dart';
@@ -278,8 +279,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       ),
     );
     final stage = AppPlayerStageRegistry.instance.resolve(config.stageId);
-    final backdrop =
-        AppPlayerBackdropRegistry.instance.resolve(config.backdropId);
+    final backdrop = AppPlayerBackdropRegistry.instance.resolve(
+      config.backdropId,
+    );
     final lyrics = AppPlayerLyricsRegistry.instance.resolve(config.lyricsId);
     final scenePalette = _resolvePlayerScenePalette(
       stage.stageKind,
@@ -376,6 +378,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           seekListenable: _seekRevision,
         ),
         AppPlayerLyricsKind.cadenza => CadenzaLyricPage(
+          emptyText: AppI18n.tByLocaleCode(
+            config.localeCode,
+            'player.lyrics.empty',
+          ),
+          onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
+          palette: scenePalette,
+          seekListenable: _seekRevision,
+        ),
+        AppPlayerLyricsKind.tilt => TiltLyricPage(
           emptyText: AppI18n.tByLocaleCode(
             config.localeCode,
             'player.lyrics.empty',
@@ -1644,8 +1655,7 @@ PlayerScenePalette? _resolvePlayerScenePalette(
     AppPlayerStageKind.cassette => CassettePlayerPalette.fromBackdrop(
       backdropColors,
     ),
-    AppPlayerStageKind.vinyl ||
-    AppPlayerStageKind.radialSpectrum => null,
+    AppPlayerStageKind.vinyl || AppPlayerStageKind.radialSpectrum => null,
   };
 }
 

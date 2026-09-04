@@ -30,8 +30,7 @@ void main() {
       AppPlayerStageKind.radialSpectrum,
     );
     expect(
-      registry.resolve(AppPlayerStageRegistry.radialSpectrumId)
-          .usesRealtimeSpectrum,
+      registry.resolve(AppPlayerStageRegistry.radialSpectrumId).usesRealtimeSpectrum,
       isTrue,
     );
     expect(registry.normalizeId(null), AppPlayerStageRegistry.classicId);
@@ -74,14 +73,14 @@ void main() {
     );
   });
 
-  test('lyrics registry exposes four unique lyric options', () {
+  test('lyrics registry exposes five unique lyric options', () {
     final registry = AppPlayerLyricsRegistry.builtIn();
 
     expect(
       registry.options.map((o) => o.metadata.id).toSet(),
       AppPlayerLyricsRegistry.builtInIds,
     );
-    expect(registry.options, hasLength(4));
+    expect(registry.options, hasLength(5));
     expect(registry.options.every((o) => o.isValid), isTrue);
     expect(
       registry.resolve(AppPlayerLyricsRegistry.legacyId).lyricsKind,
@@ -99,9 +98,16 @@ void main() {
       registry.resolve(AppPlayerLyricsRegistry.cadenzaId).lyricsKind,
       AppPlayerLyricsKind.cadenza,
     );
+    expect(
+      registry.resolve(AppPlayerLyricsRegistry.tiltId).lyricsKind,
+      AppPlayerLyricsKind.tilt,
+    );
     expect(registry.normalizeId(null), AppPlayerLyricsRegistry.legacyId);
     expect(registry.normalizeId(''), AppPlayerLyricsRegistry.legacyId);
-    expect(registry.resolve('removed').metadata.id, AppPlayerLyricsRegistry.legacyId);
+    expect(
+      registry.resolve('removed').metadata.id,
+      AppPlayerLyricsRegistry.legacyId,
+    );
   });
 
   test('stage registry rejects duplicate ids', () {

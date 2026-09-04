@@ -21,6 +21,7 @@ import '../styles/player_style_stage.dart';
 import 'cadenza_lyric_page.dart';
 import 'monet_lyric_page.dart';
 import 'partita_lyric_page.dart';
+import 'tilt_lyric_page.dart';
 import 'player_backdrop.dart';
 import 'player_lyric_page.dart';
 
@@ -287,6 +288,11 @@ class _LyricStagePreview extends StatelessWidget {
         breathingEnabled: true,
       ),
       AppPlayerLyricsKind.cadenza => CadenzaLyricPage(
+        emptyText: emptyText,
+        onSeek: null,
+        palette: null,
+      ),
+      AppPlayerLyricsKind.tilt => TiltLyricPage(
         emptyText: emptyText,
         onSeek: null,
         palette: null,
