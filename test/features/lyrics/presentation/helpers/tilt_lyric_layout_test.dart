@@ -121,6 +121,35 @@ void main() {
     expect(engine.seekPositionFor(0), const Duration(milliseconds: 500));
   });
 
+  test('creates six-dot timed interludes for long lyric gaps', () {
+    final engine = TiltLyricLayoutEngine.fromDocument(
+      const LyricDocument(
+        lines: <LyricLine>[
+          LyricLine(
+            start: Duration(seconds: 1),
+            end: Duration(seconds: 2),
+            text: 'first',
+          ),
+          LyricLine(
+            start: Duration(seconds: 8),
+            end: Duration(seconds: 9),
+            text: 'second',
+          ),
+        ],
+      ),
+    );
+    final interlude = engine.lineAt(1);
+    final position = engine.resolvePosition(const Duration(seconds: 4));
+    final layout = engine.layoutLine(sourceLineIndex: 1, options: options());
+
+    expect(engine.lineCount, 3);
+    expect(engine.isInterludeAt(1), isTrue);
+    expect(interlude?.text, tiltInterludeText);
+    expect(interlude?.tokens, hasLength(6));
+    expect(position.activeIndex, 1);
+    expect(layout?.hasFineTiming, isTrue);
+  });
+
   test('keeps layout cache bounded and keys style/size changes', () {
     final engine = TiltLyricLayoutEngine.fromDocument(
       const LyricDocument(

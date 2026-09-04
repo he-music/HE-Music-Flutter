@@ -245,9 +245,10 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
   final TiltLyricLayoutCache _layoutCache = TiltLyricLayoutCache();
 
   void _handleTap(TiltLyricLineLayout layout, Offset position) {
-    if (layout.segments.every(
-      (segment) => !segment.hitRect.contains(position),
-    )) {
+    if (_engine.isInterludeAt(layout.sourceLineIndex) ||
+        layout.segments.every(
+          (segment) => !segment.hitRect.contains(position),
+        )) {
       return;
     }
     final onSeek = widget.onSeek;

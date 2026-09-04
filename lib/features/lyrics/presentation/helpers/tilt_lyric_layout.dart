@@ -7,6 +7,8 @@ import '../../domain/entities/lyric_line.dart';
 
 const double tiltDefaultSplitProbability = 0.75;
 const double tiltDefaultStyleProbability = 0.35;
+const String tiltInterludeText = '......';
+const Duration tiltInterludeGap = Duration(seconds: 3);
 
 /// The source line duration bucket used by the reveal animation.
 enum TiltTimingClass { normal, short, micro }
@@ -170,38 +172,151 @@ class TiltLyricLayoutCache {
   void clear() => _values.clear();
 }
 
+@immutable
+class _TiltRenderableLine {
+  const _TiltRenderableLine({
+    required this.line,
+    required this.sourceIndex,
+    required this.isInterlude,
+  });
+
+  final LyricLine line;
+  final int sourceIndex;
+  final bool isInterlude;
+}
+
+List<_TiltRenderableLine> _buildTiltRenderableLines(
+  List<LyricLine> sourceLines,
+) {
+  if (sourceLines.isEmpty) return const <_TiltRenderableLine>[];
+  final result = <_TiltRenderableLine>[];
+  final first = sourceLines.first;
+  if (first.start > tiltInterludeGap) {
+    result.add(
+      _TiltRenderableLine(
+        line: _createTiltInterlude(
+          const Duration(milliseconds: 500),
+          first.start,
+        ),
+        sourceIndex: 0,
+        isInterlude: true,
+      ),
+    );
+  }
+  for (var index = 0; index < sourceLines.length; index++) {
+    final current = sourceLines[index];
+    final next = index + 1 < sourceLines.length ? sourceLines[index + 1] : null;
+    if (next == null || current.end == null) {
+      result.add(
+        _TiltRenderableLine(
+          line: current,
+          sourceIndex: index,
+          isInterlude: false,
+        ),
+      );
+      continue;
+    }
+    final gap = next.start - current.end!;
+    if (gap > Duration.zero && gap <= tiltInterludeGap) {
+      result.add(
+        _TiltRenderableLine(
+          line: _copyTiltLineWithEnd(current, next.start),
+          sourceIndex: index,
+          isInterlude: false,
+        ),
+      );
+      continue;
+    }
+    result.add(
+      _TiltRenderableLine(
+        line: current,
+        sourceIndex: index,
+        isInterlude: false,
+      ),
+    );
+    if (gap > tiltInterludeGap) {
+      result.add(
+        _TiltRenderableLine(
+          line: _createTiltInterlude(current.end!, next.start),
+          sourceIndex: index,
+          isInterlude: true,
+        ),
+      );
+    }
+  }
+  return List<_TiltRenderableLine>.unmodifiable(result);
+}
+
+LyricLine _copyTiltLineWithEnd(LyricLine line, Duration end) => LyricLine(
+  start: line.start,
+  end: end,
+  text: line.text,
+  tokens: line.tokens,
+  translation: line.translation,
+  romanization: line.romanization,
+);
+
+LyricLine _createTiltInterlude(Duration start, Duration end) {
+  final durationMicros = math.max(end.inMicroseconds - start.inMicroseconds, 1);
+  final tokens = List<LyricToken>.generate(6, (index) {
+    final tokenStart = Duration(
+      microseconds: start.inMicroseconds + durationMicros * index ~/ 6,
+    );
+    final tokenEnd = Duration(
+      microseconds: start.inMicroseconds + durationMicros * (index + 1) ~/ 6,
+    );
+    return LyricToken(
+      text: '.',
+      startOffset: tokenStart - start,
+      duration: tokenEnd - tokenStart,
+    );
+  }, growable: false);
+  return LyricLine(
+    start: start,
+    end: end,
+    text: tiltInterludeText,
+    tokens: tokens,
+  );
+}
+
 class TiltLyricLayoutEngine {
   TiltLyricLayoutEngine(this.document)
-    : documentSignature = _documentSignature(document);
+    : documentSignature = _documentSignature(document),
+      _renderLines = _buildTiltRenderableLines(document.lines);
 
   factory TiltLyricLayoutEngine.fromDocument(LyricDocument document) =>
       TiltLyricLayoutEngine(document);
 
   final LyricDocument document;
   final String documentSignature;
+  final List<_TiltRenderableLine> _renderLines;
 
-  int get lineCount => document.lines.length;
+  int get lineCount => _renderLines.length;
 
-  LyricLine? lineAt(int index) => index < 0 || index >= document.lines.length
+  LyricLine? lineAt(int index) => index < 0 || index >= _renderLines.length
       ? null
-      : document.lines[index];
+      : _renderLines[index].line;
+
+  bool isInterludeAt(int index) =>
+      index >= 0 &&
+      index < _renderLines.length &&
+      _renderLines[index].isInterlude;
 
   TiltLyricPosition resolvePosition(Duration playbackPosition) {
     final timelinePosition =
         playbackPosition + Duration(milliseconds: document.offset);
     int? activeIndex;
-    for (var index = document.lines.length - 1; index >= 0; index--) {
-      final line = document.lines[index];
+    for (var index = _renderLines.length - 1; index >= 0; index--) {
+      final line = _renderLines[index].line;
       if (timelinePosition < line.start) continue;
-      final end = _lineEnd(line, index);
-      if (timelinePosition <= end) {
+      if (timelinePosition <= _lineEnd(line, index)) {
         activeIndex = index;
         break;
       }
     }
     final upcomingIndex = activeIndex == null
         ? _firstIndexAfter(timelinePosition)
-        : activeIndex + 1 < document.lines.length
+        : activeIndex + 1 < _renderLines.length
         ? activeIndex + 1
         : null;
     return TiltLyricPosition(
@@ -212,9 +327,13 @@ class TiltLyricLayoutEngine {
     );
   }
 
-  Duration seekPositionFor(int sourceLineIndex) {
-    final line = lineAt(sourceLineIndex);
-    if (line == null) return Duration.zero;
+  Duration seekPositionFor(int renderLineIndex) {
+    if (renderLineIndex < 0 ||
+        renderLineIndex >= _renderLines.length ||
+        isInterludeAt(renderLineIndex)) {
+      return Duration.zero;
+    }
+    final line = _renderLines[renderLineIndex].line;
     final value = line.start - Duration(milliseconds: document.offset);
     return value.isNegative ? Duration.zero : value;
   }
@@ -251,22 +370,22 @@ class TiltLyricLayoutEngine {
 
   Duration _lineEnd(LyricLine line, int index) {
     if (line.end != null && line.end! > line.start) return line.end!;
-    if (index + 1 < document.lines.length &&
-        document.lines[index + 1].start > line.start) {
-      return document.lines[index + 1].start;
+    if (index + 1 < _renderLines.length &&
+        _renderLines[index + 1].line.start > line.start) {
+      return _renderLines[index + 1].line.start;
     }
     final tokenEnd = line.tokens.fold<Duration>(
       Duration.zero,
       (max, token) => token.endOffset > max ? token.endOffset : max,
     );
-    return tokenEnd > line.start
-        ? tokenEnd
+    return tokenEnd > Duration.zero
+        ? line.start + tokenEnd
         : line.start + const Duration(seconds: 3);
   }
 
   int? _firstIndexAfter(Duration position) {
-    for (var index = 0; index < document.lines.length; index++) {
-      if (document.lines[index].start > position) return index;
+    for (var index = 0; index < _renderLines.length; index++) {
+      if (_renderLines[index].line.start > position) return index;
     }
     return null;
   }

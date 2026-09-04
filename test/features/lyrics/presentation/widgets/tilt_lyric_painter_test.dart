@@ -34,5 +34,10 @@ void main() {
       1,
     );
     expect(resolveTiltGraphemeProgress(start, end, start), 0);
+
+    expect(
+      resolveTiltGraphemeScale(const Duration(milliseconds: 2500), start, end),
+      closeTo(1.3, 0.001),
+    );
   });
 }

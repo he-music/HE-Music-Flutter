@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -43,11 +44,17 @@ class TiltLyricPainter extends CustomPainter {
       if (entryProgress <= 0) continue;
       canvas.save();
       canvas.translate(segment.origin.dx, segment.origin.dy);
+      final fitScale = segment.paintScale;
+      canvas.scale(fitScale);
+      final localSize = Size(
+        segment.size.width / fitScale,
+        segment.size.height / fitScale,
+      );
       if (entryProgress < 1) {
         canvas.scale(entryProgress, entryProgress);
         canvas.translate(
-          segment.size.width * (1 - entryProgress) / (2 * entryProgress),
-          segment.size.height * (1 - entryProgress) / (2 * entryProgress),
+          localSize.width * (1 - entryProgress) / (2 * entryProgress),
+          localSize.height * (1 - entryProgress) / (2 * entryProgress),
         );
       }
       _paintSegment(canvas, segment, currentPosition);
@@ -61,37 +68,66 @@ class TiltLyricPainter extends CustomPainter {
     Duration currentPosition,
   ) {
     final style = segment.isTilt ? tiltStyle : normalStyle;
-    if (!segment.isTilt) {
-      _paintText(
-        canvas,
-        segment.text,
-        Offset.zero,
-        style.copyWith(color: palette.foreground),
-        textDirection: textDirection,
-      );
-      return;
-    }
+    final sourceLine = layout!.sourceLine;
+    final lineActive =
+        currentPosition >= sourceLine.start &&
+        (sourceLine.end == null || currentPosition <= sourceLine.end!);
+    final pulseLine =
+        sourceLine.text == tiltInterludeText &&
+        sourceLine.tokens.length == 6 &&
+        sourceLine.tokens.every((token) => token.text == '.');
     for (final grapheme in segment.graphemes) {
       final progress = grapheme.isTimed
           ? _graphemeProgress(currentPosition, grapheme.start!, grapheme.end!)
-          : 0.25;
-      final color = Color.lerp(
-        palette.foreground.withValues(alpha: 0.72),
-        highlightColor ?? palette.accent,
-        progress,
-      )!;
-      final offset = Offset(
-        grapheme.localBounds.left,
-        grapheme.staggerSign * 3,
-      );
-      _paintText(
+          : 0.0;
+      final activeScale = grapheme.isTimed
+          ? resolveTiltGraphemeScale(
+              currentPosition,
+              grapheme.start!,
+              grapheme.end!,
+            )
+          : lineActive
+          ? 1.12
+          : 1.0;
+      final color = (segment.isTilt || pulseLine)
+          ? Color.lerp(
+              palette.foreground.withValues(alpha: 0.72),
+              highlightColor ?? palette.accent,
+              progress,
+            )!
+          : palette.foreground;
+      _paintGrapheme(
         canvas,
-        grapheme.text,
-        offset,
+        grapheme,
         style.copyWith(color: color),
-        textDirection: textDirection,
+        activeScale,
       );
     }
+  }
+
+  void _paintGrapheme(
+    Canvas canvas,
+    TiltGraphemePlacement grapheme,
+    TextStyle style,
+    double scale,
+  ) {
+    final width = math.max(grapheme.localBounds.width, 1);
+    final center = Offset(
+      grapheme.localBounds.left + width / 2,
+      normalStyle.fontSize ?? 16,
+    );
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(scale);
+    canvas.translate(-center.dx, -center.dy);
+    _paintText(
+      canvas,
+      grapheme.text,
+      Offset(grapheme.localBounds.left, grapheme.staggerSign * 3),
+      style,
+      textDirection: textDirection,
+    );
+    canvas.restore();
   }
 
   void _paintText(
@@ -145,6 +181,16 @@ double resolveTiltGraphemeProgress(
   if (position >= end) return 1;
   return ((position - start).inMicroseconds / (end - start).inMicroseconds)
       .clamp(0.0, 1.0);
+}
+
+@visibleForTesting
+double resolveTiltGraphemeScale(
+  Duration position,
+  Duration start,
+  Duration end,
+) {
+  final progress = resolveTiltGraphemeProgress(position, start, end);
+  return 1 + 0.3 * math.sin(math.pi * progress);
 }
 
 double _entryProgress(Duration position, Duration revealAt) =>
