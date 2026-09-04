@@ -162,17 +162,28 @@ void main() {
     },
   );
 
-  testWidgets('login page shows scan entry on mobile', (tester) async {
+  testWidgets('mobile login page supports qr login via tab switch', (
+    tester,
+  ) async {
+    final client = _LoginPageTestClient.desktop();
     await tester.pumpWidget(
       _buildApp(
         platform: TargetPlatform.android,
-        client: _LoginPageTestClient.mobile(),
+        client: client,
       ),
     );
     await tester.pump();
 
     expect(find.text('扫一扫登录设备'), findsNothing);
-    expect(find.text('二维码登录'), findsNothing);
+    expect(find.text('扫码登录'), findsOneWidget);
+    expect(find.byType(QrImageView), findsNothing);
+    expect(client.createQrCallCount, 0);
+
+    await tester.tap(find.text('扫码登录'));
+    await tester.pump();
+
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(client.createQrCallCount, 1);
   });
 
   testWidgets('password login keeps keyboard hidden after challenge returns', (

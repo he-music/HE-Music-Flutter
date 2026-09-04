@@ -41,7 +41,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   bool _loadingAuthProviders = true;
   bool _oauthBusy = false;
   bool _oauthPollingInFlight = false;
-  bool _desktopQrInitializedInPage = false;
+  bool _qrInitializedInPage = false;
   List<String> _authProviders = const <String>[];
   String? _authProviderError;
   String? _oauthProvider;
@@ -50,7 +50,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   int _oauthExpiresAt = 0;
   int _oauthCheckInterval = 0;
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
-  _DesktopLoginTab _desktopLoginTab = _DesktopLoginTab.password;
+  _LoginTab _loginTab = _LoginTab.password;
 
   @override
   void initState() {
@@ -99,7 +99,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
     final config = ref.watch(appConfigProvider);
     final qrState = ref.watch(qrLoginControllerProvider);
     final oauthStatusText = _oauthStatusText?.trim() ?? '';
-    final isDesktopQr = _isDesktopQrPlatform;
     return Scaffold(
       appBar: AppBar(
         title: Text(AppI18n.t(config, 'auth.login.title')),
@@ -146,23 +145,19 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            if (isDesktopQr) ...<Widget>[
-                              _DesktopLoginTabs(
-                                config: config,
-                                currentTab: _desktopLoginTab,
-                                onTabChanged: _switchDesktopLoginTab,
-                              ),
-                              const SizedBox(height: 18),
-                            ],
-                            if (!isDesktopQr ||
-                                _desktopLoginTab == _DesktopLoginTab.password)
+                            _LoginTabs(
+                              config: config,
+                              currentTab: _loginTab,
+                              onTabChanged: _switchLoginTab,
+                            ),
+                            const SizedBox(height: 18),
+                            if (_loginTab == _LoginTab.password)
                               ..._buildPasswordLoginSection(config, theme),
-                            if (isDesktopQr &&
-                                _desktopLoginTab == _DesktopLoginTab.qr)
-                              _DesktopQrLoginSection(
+                            if (_loginTab == _LoginTab.qr)
+                              _QrLoginSection(
                                 config: config,
                                 state: qrState,
-                                onRefresh: _refreshDesktopQrLogin,
+                                onRefresh: _refreshQrLogin,
                               ),
                           ],
                         ),
@@ -259,38 +254,32 @@ class _LoginPageState extends ConsumerState<LoginPage>
     }
   }
 
-  bool get _isDesktopQrPlatform {
-    final platform = Theme.of(context).platform;
-    return platform == TargetPlatform.macOS ||
-        platform == TargetPlatform.windows ||
-        platform == TargetPlatform.linux;
-  }
 
-  void _switchDesktopLoginTab(_DesktopLoginTab nextTab) {
-    if (_desktopLoginTab == nextTab) {
+  void _switchLoginTab(_LoginTab nextTab) {
+    if (_loginTab == nextTab) {
       return;
     }
     setState(() {
-      _desktopLoginTab = nextTab;
+      _loginTab = nextTab;
     });
-    if (nextTab == _DesktopLoginTab.qr) {
-      if (!_desktopQrInitializedInPage) {
-        _desktopQrInitializedInPage = true;
-        unawaited(_refreshDesktopQrLogin());
+    if (nextTab == _LoginTab.qr) {
+      if (!_qrInitializedInPage) {
+        _qrInitializedInPage = true;
+        unawaited(_refreshQrLogin());
         return;
       }
-      unawaited(_restoreDesktopQrLogin());
+      unawaited(_restoreQrLogin());
     }
   }
 
-  Future<void> _restoreDesktopQrLogin() async {
+  Future<void> _restoreQrLogin() async {
     final qrState = ref.read(qrLoginControllerProvider);
     final shouldCreate =
         qrState.sessionId.trim().isEmpty &&
         qrState.qrContent.trim().isEmpty &&
         !qrState.isBusy;
     if (shouldCreate) {
-      await _refreshDesktopQrLogin();
+      await _refreshQrLogin();
       return;
     }
     if (_shouldKeepPolling(qrState.status)) {
@@ -298,7 +287,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     }
   }
 
-  Future<void> _refreshDesktopQrLogin() async {
+  Future<void> _refreshQrLogin() async {
     _qrPollTimer?.cancel();
     try {
       await ref
@@ -341,7 +330,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
   Future<void> _pollQrLoginStatus() async {
     final qrState = ref.read(qrLoginControllerProvider);
     if (_lifecycleState != AppLifecycleState.resumed ||
-        !_isDesktopQrPlatform ||
         qrState.isBusy ||
         qrState.sessionId.trim().isEmpty ||
         qrState.status == QrLoginWorkflowStatus.success ||
@@ -776,18 +764,18 @@ class _LoginPageState extends ConsumerState<LoginPage>
   }
 }
 
-enum _DesktopLoginTab { password, qr }
+enum _LoginTab { password, qr }
 
-class _DesktopLoginTabs extends StatelessWidget {
-  const _DesktopLoginTabs({
+class _LoginTabs extends StatelessWidget {
+  const _LoginTabs({
     required this.config,
     required this.currentTab,
     required this.onTabChanged,
   });
 
   final AppConfigState config;
-  final _DesktopLoginTab currentTab;
-  final ValueChanged<_DesktopLoginTab> onTabChanged;
+  final _LoginTab currentTab;
+  final ValueChanged<_LoginTab> onTabChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -803,21 +791,21 @@ class _DesktopLoginTabs extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Expanded(
-            child: _DesktopLoginTabButton(
+            child: _LoginTabButton(
               label: AppI18n.t(config, 'auth.tab.password'),
-              selected: currentTab == _DesktopLoginTab.password,
+              selected: currentTab == _LoginTab.password,
               selectedColor: selectedColor,
               unselectedColor: unselectedColor,
-              onTap: () => onTabChanged(_DesktopLoginTab.password),
+              onTap: () => onTabChanged(_LoginTab.password),
             ),
           ),
           Expanded(
-            child: _DesktopLoginTabButton(
+            child: _LoginTabButton(
               label: AppI18n.t(config, 'auth.tab.qr'),
-              selected: currentTab == _DesktopLoginTab.qr,
+              selected: currentTab == _LoginTab.qr,
               selectedColor: selectedColor,
               unselectedColor: unselectedColor,
-              onTap: () => onTabChanged(_DesktopLoginTab.qr),
+              onTap: () => onTabChanged(_LoginTab.qr),
             ),
           ),
         ],
@@ -826,8 +814,8 @@ class _DesktopLoginTabs extends StatelessWidget {
   }
 }
 
-class _DesktopLoginTabButton extends StatelessWidget {
-  const _DesktopLoginTabButton({
+class _LoginTabButton extends StatelessWidget {
+  const _LoginTabButton({
     required this.label,
     required this.selected,
     required this.selectedColor,
@@ -866,8 +854,8 @@ class _DesktopLoginTabButton extends StatelessWidget {
   }
 }
 
-class _DesktopQrLoginSection extends StatelessWidget {
-  const _DesktopQrLoginSection({
+class _QrLoginSection extends StatelessWidget {
+  const _QrLoginSection({
     required this.config,
     required this.state,
     required this.onRefresh,

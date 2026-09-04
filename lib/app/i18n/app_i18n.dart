@@ -130,7 +130,7 @@ abstract final class AppI18n {
       'auth.qr.confirm_status_failed': '当前登录会话不可继续',
       'auth.qr.confirm_desc': '确认当前账号登录这台设备。',
       'auth.qr.confirm_submit': '确认登录这台设备',
-      'auth.qr.confirm_done': '登录已确认，请返回桌面端继续。',
+      'auth.qr.confirm_done': '登录已确认，请返回待登录设备继续。',
       'auth.qr.confirm_need_login': '先登录当前账号',
       'auth.qr.confirm_back_my': '返回我的',
       'auth.qr.invalid': '无法识别该登录二维码',
@@ -946,7 +946,7 @@ abstract final class AppI18n {
           'Confirm that this account should sign in on the target device.',
       'auth.qr.confirm_submit': 'Confirm Device Sign In',
       'auth.qr.confirm_done':
-          'Sign-in confirmed. Return to the desktop app to continue.',
+          'Sign-in confirmed. Return to the device you are signing into to continue.',
       'auth.qr.confirm_need_login': 'Sign in first',
       'auth.qr.confirm_back_my': 'Back to My',
       'auth.qr.invalid': 'This QR login code is invalid',
