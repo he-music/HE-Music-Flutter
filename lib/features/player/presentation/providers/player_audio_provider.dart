@@ -77,6 +77,7 @@ final audioPlayerPortProvider = Provider<AudioPlayerPort>((ref) {
         lyricHighlightCustomColor: config.lyricHighlightCustomColor,
         lyricFontPreset: config.lyricFontPreset,
         enableWordByWordLyric: config.enableWordByWordLyric,
+        lyricAuxiliaryMode: config.lyricAuxiliaryMode,
       ),
     ),
     (_, _) => syncConfig(),

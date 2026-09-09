@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import 'app_lyric_auxiliary_mode.dart';
 import '../../core/audio/cache/audio_cache_policy.dart';
 
 import 'app_custom_skin_config.dart';
@@ -152,6 +153,9 @@ class AppConfigDataSource {
       lyricHighlightCustomColor: _readLyricHighlightCustomColor(prefs),
       clearLyricHighlightCustomColor:
           _readLyricHighlightCustomColor(prefs) == null,
+      lyricAuxiliaryMode: AppLyricAuxiliaryMode.fromValue(
+        prefs.getString('app_config.lyric_auxiliary_mode'),
+      ),
       lyricFontPreset: AppLyricFontPreset.fromValue(
         prefs.getString(_lyricFontPresetKey),
       ),
@@ -250,6 +254,10 @@ class AppConfigDataSource {
         lyricHighlightCustomColor.toString(),
       );
     }
+    await prefs.setString(
+      'app_config.lyric_auxiliary_mode',
+      state.lyricAuxiliaryMode.name,
+    );
     await prefs.setString(_lyricFontPresetKey, state.lyricFontPreset.value);
     await prefs.setBool(_enableWordByWordLyricKey, state.enableWordByWordLyric);
     await prefs.setBool(_enableDesktopLyricKey, state.enableDesktopLyric);

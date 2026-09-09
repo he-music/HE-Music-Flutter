@@ -1,4 +1,7 @@
 import 'dart:io';
+import '../../domain/entities/lyric_request.dart';
+import '../../domain/entities/raw_lyric_bundle.dart';
+import '../storage/lyric_store.dart';
 
 import '../../../../core/audio/local_audio_metadata_reader.dart';
 import '../../domain/entities/lyric_document.dart';
@@ -11,8 +14,13 @@ class LyricRepositoryImpl implements LyricRepository {
   LyricRepositoryImpl(
     this._onlineDataSource,
     this._demoDataSource,
-    this._metadataReader,
-  );
+    this._metadataReader, {
+    LyricStore? store,
+    this.onWarning,
+  }) : _store = store ?? LyricStore.shared;
+
+  final LyricStore _store;
+  final void Function(String)? onWarning;
 
   final OnlineLyricDataSource _onlineDataSource;
   final DemoLyricDataSource _demoDataSource;
@@ -24,6 +32,18 @@ class LyricRepositoryImpl implements LyricRepository {
     String? platform,
     String? localPath,
   }) async {
+    final target = LyricRequest(
+      trackId: trackId,
+      platform: platform,
+      localPath: localPath,
+    );
+    final epoch = _store.automaticEpoch;
+    try {
+      final manual = await _store.read(target, manual: true);
+      if (manual != null) return _parse(manual);
+    } catch (_) {
+      onWarning?.call('手动歌词读取失败，已临时使用默认歌词；原选择仍保留');
+    }
     final normalizedPlatform = platform?.trim() ?? '';
     final normalizedPath = localPath?.trim() ?? '';
     if (normalizedPlatform == 'local' && normalizedPath.isNotEmpty) {
@@ -35,16 +55,25 @@ class LyricRepositoryImpl implements LyricRepository {
     }
     if (normalizedPlatform.isNotEmpty) {
       try {
+        final cached = await _store.read(target, manual: false);
+        if (cached != null && epoch == _store.automaticEpoch) {
+          return _parse(cached);
+        }
+      } catch (_) {
+        /* Cache failure must not block default retrieval. */
+      }
+      try {
         final onlineRaw = await _onlineDataSource.fetchRawLyric(
           trackId: trackId,
           platform: normalizedPlatform,
         );
-        if (onlineRaw != null && onlineRaw.lyric.trim().isNotEmpty) {
-          return parseLyricDocument(
-            lyric: onlineRaw.lyric,
-            translation: onlineRaw.translation,
-            romanization: onlineRaw.romanization,
-          );
+        if (onlineRaw != null && LyricStore.usable(onlineRaw)) {
+          try {
+            await _store.saveAutomatic(target, onlineRaw, epoch);
+          } catch (_) {
+            /* Display remains available when disk is full. */
+          }
+          return _parse(onlineRaw);
         }
       } catch (_) {
         return const LyricDocument.empty();
@@ -63,31 +92,38 @@ class LyricRepositoryImpl implements LyricRepository {
     );
   }
 
-  Future<LyricDocument> _readLocalLyrics(String filePath) async {
-    try {
-      final metadata = await _metadataReader.read(filePath);
-      final raw = metadata?.embeddedLyrics?.trim() ?? '';
-      if (raw.isNotEmpty) {
-        final split = splitLocalLyrics(raw);
-        return parseLyricDocument(
-          lyric: split.lyric,
-          translation: split.translation,
-          romanization: split.romanization,
-        );
-      }
-    } catch (_) {
-      // 内嵌歌词读取失败时继续尝试同目录 lrc。
-    }
-    final lrcRaw = await _readSidecarLrc(filePath);
-    if (lrcRaw.isEmpty) {
-      return const LyricDocument.empty();
-    }
-    final split = splitLocalLyrics(lrcRaw);
+  LyricDocument _parse(RawLyricBundle bundle) => parseLyricDocument(
+    lyric: bundle.lyric,
+    translation: bundle.translation,
+    romanization: bundle.romanization,
+  );
+
+  LyricDocument _parseLocal(String raw) {
+    final split = splitLocalLyrics(raw);
     return parseLyricDocument(
       lyric: split.lyric,
       translation: split.translation,
       romanization: split.romanization,
     );
+  }
+
+  Future<LyricDocument> _readLocalLyrics(String filePath) async {
+    if (filePath.startsWith('file:')) {
+      filePath = Uri.parse(filePath).toFilePath();
+    }
+    final sidecar = await _readSidecarLrc(filePath);
+    if (sidecar.isNotEmpty) {
+      final document = _parseLocal(sidecar);
+      if (!document.isEmpty) return document;
+    }
+    try {
+      final metadata = await _metadataReader.read(filePath);
+      final raw = metadata?.embeddedLyrics?.trim() ?? '';
+      if (raw.isNotEmpty) return _parseLocal(raw);
+    } catch (_) {
+      /* An unavailable local source falls through to empty. */
+    }
+    return const LyricDocument.empty();
   }
 
   Future<String> _readSidecarLrc(String filePath) async {

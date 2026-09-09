@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../../lyrics/domain/entities/lyric_candidate.dart';
+import '../../lyrics/domain/entities/raw_lyric_bundle.dart';
 import '../../../shared/models/he_music_models.dart';
 import '../presentation/pages/online_search_models.dart';
 
@@ -642,6 +644,53 @@ class OnlineApiClient {
       },
     );
     return _asMap(response.data);
+  }
+
+  Future<List<LyricCandidate>> searchLyricCandidates({
+    required String platform,
+    required String name,
+    required List<String> artistNames,
+    String albumName = '',
+    int duration = 0,
+  }) async {
+    if (platform.trim().isEmpty ||
+        name.trim().isEmpty ||
+        artistNames.isEmpty ||
+        artistNames.any((name) => name.trim().isEmpty) ||
+        duration < 0) {
+      throw ArgumentError('请补齐歌名和歌手');
+    }
+    final response = await _dio.get(
+      '/v1/lyric/search',
+      queryParameters: {
+        'platform': platform,
+        'name': name,
+        'artist_names': artistNames,
+        'album_name': albumName,
+        'duration': duration,
+      },
+      options: Options(listFormat: ListFormat.multi),
+    );
+    final payload = _asMap(response.data);
+    return (payload['list'] as List? ?? const [])
+        .map((value) => LyricCandidate.fromJson(_asMap(value)))
+        .toList(growable: false);
+  }
+
+  Future<RawLyricBundle> fetchLyricCandidate(LyricCandidate candidate) async {
+    final response = await _dio.get(
+      '/v1/lyric',
+      queryParameters: {'platform': candidate.platform, 'id': candidate.id},
+    );
+    final info = _asMap(_asMap(response.data)['info']);
+    if (info['platform'] != candidate.platform || info['id'] != candidate.id) {
+      throw const FormatException('歌词候选身份不匹配');
+    }
+    return RawLyricBundle(
+      lyric: info['lyric'] as String? ?? '',
+      translation: info['trans'] as String? ?? '',
+      romanization: info['roma'] as String? ?? '',
+    );
   }
 
   Future<Map<String, dynamic>> fetchSongLyric({

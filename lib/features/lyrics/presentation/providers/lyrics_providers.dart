@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'dart:async';
+import '../../data/storage/lyric_store.dart';
+import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/app_message_service.dart';
 
 import '../../../../core/audio/audio_player_port.dart';
 import '../../../player/presentation/providers/player_audio_provider.dart';
@@ -28,6 +32,9 @@ class CurrentLyricStoreController
     final audioPlayer = ref.watch(audioPlayerPortProvider);
     _customEventSubscription?.cancel();
     _customEventSubscription = audioPlayer.customEventStream.listen((event) {
+      if (event is Map && event['type'] == 'lyricWarning') {
+        AppMessageService.showWarning('${event['message']}');
+      }
       if (event is! Map || event['type'] != 'lyricState') {
         return;
       }
@@ -128,3 +135,18 @@ String? _nullableString(dynamic value) {
   }
   return normalized;
 }
+
+final displayedLyricDocumentProvider = Provider<AsyncValue<LyricDocument>>((
+  ref,
+) {
+  final mode = ref.watch(
+    appConfigProvider.select((config) => config.lyricAuxiliaryMode),
+  );
+  return ref.watch(currentLyricDocumentProvider).whenData(mode.project);
+});
+
+final lyricStoreProvider = Provider<LyricStore>((ref) => LyricStore.shared);
+
+final lyricStorageStatisticsChangesProvider = StreamProvider.autoDispose<int>(
+  (ref) => ref.watch(lyricStoreProvider).statisticsChanges,
+);

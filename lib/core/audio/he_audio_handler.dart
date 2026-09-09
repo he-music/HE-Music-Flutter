@@ -10,6 +10,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../app/config/app_lyric_auxiliary_mode.dart';
+import '../../features/lyrics/data/storage/lyric_store.dart';
 import '../../app/config/app_config_data_source.dart';
 import '../../app/config/app_environment.dart';
 import '../../app/config/app_lyric_font_preset.dart';
@@ -64,6 +66,7 @@ class HeAudioHandlerRuntimeConfig {
     required this.lyricHighlightCustomColorValue,
     required this.lyricFontPresetIndex,
     required this.enableWordByWordLyric,
+    this.lyricAuxiliaryMode = AppLyricAuxiliaryMode.translation,
   });
 
   final String apiBaseUrl;
@@ -80,6 +83,7 @@ class HeAudioHandlerRuntimeConfig {
   final int? lyricHighlightCustomColorValue;
   final int lyricFontPresetIndex;
   final bool enableWordByWordLyric;
+  final AppLyricAuxiliaryMode lyricAuxiliaryMode;
 }
 
 typedef HeAudioHandlerFetchSongUrl =
@@ -153,6 +157,7 @@ Future<HeAudioHandlerRuntimeConfig> loadHeAudioHandlerRuntimeConfig({
     lyricHighlightCustomColorValue: config.lyricHighlightCustomColor,
     lyricFontPresetIndex: config.lyricFontPreset.index,
     enableWordByWordLyric: config.enableWordByWordLyric,
+    lyricAuxiliaryMode: config.lyricAuxiliaryMode,
   );
 }
 
@@ -181,6 +186,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     HeAudioHandlerFetchSongUrl? fetchSongUrlOverride,
     HeAudioHandlerFetchRadioSongs? fetchRadioSongsOverride,
     HeAudioHandlerFetchLyrics? fetchLyricsOverride,
+    LyricStore? lyricStore,
     HeAudioHandlerSetAudioSource? setAudioSourceOverride,
     HeAudioHandlerPlay? playOverride,
     HeAudioHandlerPause? pauseOverride,
@@ -205,6 +211,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
        _fetchSongUrlOverride = fetchSongUrlOverride,
        _fetchRadioSongsOverride = fetchRadioSongsOverride,
        _fetchLyricsOverride = fetchLyricsOverride,
+       _lyricStore = lyricStore ?? LyricStore.shared,
        _setAudioSourceOverride = setAudioSourceOverride,
        _playOverride = playOverride,
        _pauseOverride = pauseOverride,
@@ -290,6 +297,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final HeAudioHandlerFetchSongUrl? _fetchSongUrlOverride;
   final HeAudioHandlerFetchRadioSongs? _fetchRadioSongsOverride;
   final HeAudioHandlerFetchLyrics? _fetchLyricsOverride;
+  final LyricStore _lyricStore;
   final HeAudioHandlerSetAudioSource? _setAudioSourceOverride;
   final HeAudioHandlerPlay? _playOverride;
   final HeAudioHandlerPause? _pauseOverride;
@@ -373,6 +381,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   String? _currentRadioId;
   String? _currentRadioPlatform;
   int? _currentRadioPageIndex;
+  StreamSubscription<String?>? _lyricStoreSubscription;
+  int _lyricGeneration = 0;
   LyricRequest? _currentLyricRequest;
   LyricDocument _currentLyricDocument = const LyricDocument.empty();
   bool _isLyricLoading = false;
@@ -387,6 +397,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   int? _autoLyricHighlightColorValue;
   int _lyricFontPresetIndex = 0;
   bool _enableWordByWordLyric = false;
+  AppLyricAuxiliaryMode _lyricAuxiliaryMode = AppLyricAuxiliaryMode.translation;
   List<OnlinePlatform> _coverPlatforms = const <OnlinePlatform>[];
 
   String _apiBaseUrl = AppEnvironment.apiBaseUrl;
@@ -418,6 +429,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     required int? lyricHighlightCustomColorValue,
     required int lyricFontPresetIndex,
     required bool enableWordByWordLyric,
+    AppLyricAuxiliaryMode lyricAuxiliaryMode =
+        AppLyricAuxiliaryMode.translation,
   }) async {
     final shouldOpenOverlay = !_enableDesktopLyric && enableDesktopLyric;
     final shouldCloseOverlay = _enableDesktopLyric && !enableDesktopLyric;
@@ -448,6 +461,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _lyricHighlightCustomColorValue = lyricHighlightCustomColorValue;
     _lyricFontPresetIndex = lyricFontPresetIndex;
     _enableWordByWordLyric = enableWordByWordLyric;
+    _lyricAuxiliaryMode = lyricAuxiliaryMode;
     _configRecovered = true;
     if (shouldRefreshPreload &&
         _networkConnectionType != NetworkConnectionType.offline &&
@@ -1260,6 +1274,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<void> disposeHandler() async {
+    _lyricGeneration++;
+    await _lyricStoreSubscription?.cancel();
+    _lyricStoreSubscription = null;
     _beginTransition();
     _clearSleepTimerState();
     _appLifecycleListener.dispose();
@@ -2607,6 +2624,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _lyricHighlightCustomColorValue = config.lyricHighlightCustomColorValue;
     _lyricFontPresetIndex = config.lyricFontPresetIndex;
     _enableWordByWordLyric = config.enableWordByWordLyric;
+    _lyricAuxiliaryMode = config.lyricAuxiliaryMode;
     _configRecovered = true;
   }
 
@@ -3296,6 +3314,12 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<void> _loadLyricsForCurrentTrack({required bool force}) async {
+    _lyricStoreSubscription ??= _lyricStore.changes.listen((key) {
+      final request = _currentLyricRequest;
+      if (request != null && (key == null || key == lyricStorageKey(request))) {
+        unawaited(_loadLyricsForCurrentTrack(force: true));
+      }
+    });
     final track = _safeTrack(_committedIndex);
     if (track == null) {
       _clearLyricState();
@@ -3313,6 +3337,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       await _syncOverlayCurrentState();
       return;
     }
+    final generation = ++_lyricGeneration;
     _currentLyricRequest = request;
     _isLyricLoading = true;
     _currentLyricErrorMessage = null;
@@ -3324,7 +3349,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         platform: request.platform,
         localPath: request.localPath,
       );
-      if (_currentLyricRequest != request) {
+      if (_currentLyricRequest != request || generation != _lyricGeneration) {
         return;
       }
       _currentLyricDocument = document;
@@ -3333,7 +3358,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _broadcastLyricState();
       await _syncOverlayCurrentState();
     } catch (error) {
-      if (_currentLyricRequest != request) {
+      if (_currentLyricRequest != request || generation != _lyricGeneration) {
         return;
       }
       _currentLyricDocument = const LyricDocument.empty();
@@ -3344,6 +3369,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   void _clearLyricState() {
+    _lyricGeneration++;
     _currentLyricRequest = null;
     _currentLyricDocument = const LyricDocument.empty();
     _isLyricLoading = false;
@@ -3578,11 +3604,18 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   LyricRepository _createLyricRepository() {
+    final generation = _lyricGeneration;
     final dio = _createApiDio();
     return LyricRepositoryImpl(
       OnlineLyricDataSource(OnlineApiClient(dio)),
       DemoLyricDataSource(),
       const LocalAudioMetadataReader(),
+      store: _lyricStore,
+      onWarning: (message) {
+        if (generation == _lyricGeneration) {
+          customEvent.add({'type': 'lyricWarning', 'message': message});
+        }
+      },
     );
   }
 
@@ -3656,7 +3689,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       );
     }
     await _overlayLyricsService.sendDocument(
-      _currentLyricDocument,
+      _lyricAuxiliaryMode.project(_currentLyricDocument),
       _overlayConfigState,
       autoHighlightColorValue: _autoLyricHighlightColorValue,
     );

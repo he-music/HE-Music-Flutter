@@ -28,6 +28,7 @@ class AudioHandlerPlayerAdapter
       lyricHighlightCustomColorValue: config.lyricHighlightCustomColor,
       lyricFontPresetIndex: config.lyricFontPreset.index,
       enableWordByWordLyric: config.enableWordByWordLyric,
+      lyricAuxiliaryMode: config.lyricAuxiliaryMode,
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/full_lyric_controls.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -233,6 +234,7 @@ void main() {
     pager.controller!.jumpToPage(1);
     await tester.pumpAndSettle();
     expect(find.byType(PlayerLyricPage), findsOneWidget);
+    expect(find.byType(FullLyricControls), findsOneWidget);
     expect(wakeLock.calls, <bool>[true]);
 
     final playerContext = tester.element(find.byType(PlayerPage));
@@ -1818,6 +1820,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('all lyric styles retain bottom controls on ordinary desktop', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(1024, 768));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final option in AppPlayerLyricsRegistry.instance.options) {
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+          config: AppConfigState.initial.copyWith(
+            playerLyricsId: option.metadata.id,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.byType(FullLyricControls),
+        findsOneWidget,
+        reason: option.metadata.id,
+      );
+      expect(find.byKey(const ValueKey('lyric-play-control')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('lyric-options-control')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull, reason: option.metadata.id);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('player desktop target viewports stay overflow free', (
     tester,
   ) async {
@@ -1959,6 +1996,7 @@ void main() {
         findsOneWidget,
         reason: styleId,
       );
+      expect(find.byType(FullLyricControls), findsNothing);
       expect(tester.takeException(), isNull, reason: styleId);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();

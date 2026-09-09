@@ -1,3 +1,4 @@
+import 'package:he_music_flutter/app/config/app_lyric_auxiliary_mode.dart';
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -143,6 +144,42 @@ void main() {
         ),
       ]);
       expect(store.admissionCalls, 1);
+    },
+  );
+
+  test(
+    'auxiliary preference synchronizes to the handler independently of audio cache policy',
+    () async {
+      final handler = HeAudioHandler(
+        initialConfig: AppConfigState.initial,
+        networkStatusPort: _WifiNetwork(),
+      );
+      addTearDown(handler.disposeHandler);
+      final adapter = _RecordingAdapter(handler);
+      final container = ProviderContainer(
+        overrides: [
+          appConfigDataSourceProvider.overrideWithValue(
+            RecordingCacheConfigDataSource(AppConfigState.initial),
+          ),
+          audioCacheRuntimeProvider.overrideWithValue(null),
+          audioHandlerPlayerAdapterProvider.overrideWithValue(adapter),
+          onlinePlatformsProvider.overrideWith(_NoPlatforms.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(audioPlayerPortProvider);
+      await container.read(appConfigProvider.notifier).waitUntilHydrated();
+      await Future<void>.delayed(Duration.zero);
+      final previousCount = adapter.synced.length;
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricAuxiliaryMode(AppLyricAuxiliaryMode.romanization);
+      await Future<void>.delayed(Duration.zero);
+      expect(adapter.synced.length, previousCount + 1);
+      expect(
+        adapter.synced.last.lyricAuxiliaryMode,
+        AppLyricAuxiliaryMode.romanization,
+      );
     },
   );
 

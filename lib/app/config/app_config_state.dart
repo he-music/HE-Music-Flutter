@@ -1,3 +1,4 @@
+import 'app_lyric_auxiliary_mode.dart';
 import 'app_environment.dart';
 import '../../core/audio/cache/audio_cache_policy.dart';
 import 'app_custom_skin_config.dart';
@@ -40,6 +41,7 @@ class AppConfigState {
     this.authToken,
     this.refreshToken,
     this.tokenExpiresAt,
+    this.lyricAuxiliaryMode = AppLyricAuxiliaryMode.translation,
     this.enablePlaybackAudioCache = true,
     this.enableCellularAudioCache = false,
     this.audioCacheLimitBytes = AudioCachePolicy.defaultLimitBytes,
@@ -74,6 +76,7 @@ class AppConfigState {
   final String? authToken;
   final String? refreshToken;
   final int? tokenExpiresAt;
+  final AppLyricAuxiliaryMode lyricAuxiliaryMode;
   final bool enablePlaybackAudioCache;
   final bool enableCellularAudioCache;
   final int audioCacheLimitBytes;
@@ -120,11 +123,13 @@ class AppConfigState {
     String? refreshToken,
     int? tokenExpiresAt,
     bool clearRefreshToken = false,
+    AppLyricAuxiliaryMode? lyricAuxiliaryMode,
     bool? enablePlaybackAudioCache,
     bool? enableCellularAudioCache,
     int? audioCacheLimitBytes,
   }) {
     return AppConfigState(
+      lyricAuxiliaryMode: lyricAuxiliaryMode ?? this.lyricAuxiliaryMode,
       enablePlaybackAudioCache:
           enablePlaybackAudioCache ?? this.enablePlaybackAudioCache,
       enableCellularAudioCache:

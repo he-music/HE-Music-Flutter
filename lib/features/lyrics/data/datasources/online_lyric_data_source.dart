@@ -14,6 +14,16 @@ class OnlineLyricDataSource {
       songId: trackId,
       platform: platform,
     );
+    final info = _asMap(payload['info']);
+    if (info.isNotEmpty) {
+      final sourcePlatform = _readText(info['platform']);
+      if (sourcePlatform != null && sourcePlatform != platform) return null;
+      return RawLyricBundle(
+        lyric: info['lyric'] as String? ?? '',
+        translation: info['trans'] as String? ?? '',
+        romanization: info['roma'] as String? ?? '',
+      );
+    }
     final data = _asMap(payload['data']);
     final lrc = _asMap(payload['lrc']);
     if (!_matchesRequest(

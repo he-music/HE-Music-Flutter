@@ -35,6 +35,8 @@ abstract final class SettingsItemIds {
   static const monochrome = 'monochrome';
   static const playbackAudioCache = 'playback-audio-cache';
   static const cellularAudioCache = 'cellular-audio-cache';
+  static const automaticLyricCache = 'automatic-lyric-cache';
+  static const manualLyrics = 'manual-lyrics';
   static const audioCacheLimit = 'audio-cache-limit';
   static const clearAudioCache = 'clear-audio-cache';
   static const audioCacheItems = {
@@ -265,6 +267,24 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.select,
     icon: Icons.delete_outline_rounded,
     keywords: ['缓存', '清除', 'cache'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.automaticLyricCache,
+    sectionId: SettingsSectionIds.playback,
+    groupId: SettingsGroupIds.playbackCache,
+    titleKey: 'settings.lyric_cache.automatic',
+    kind: SettingsItemKind.select,
+    icon: Icons.cached,
+    keywords: ['歌词', '缓存', 'lyric'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.manualLyrics,
+    sectionId: SettingsSectionIds.playback,
+    groupId: SettingsGroupIds.playbackCache,
+    titleKey: 'settings.lyric_cache.manual',
+    kind: SettingsItemKind.select,
+    icon: Icons.lyrics_outlined,
+    keywords: ['歌词', '手动', 'lyric'],
   ),
   SettingsItemNode(
     id: SettingsItemIds.lyricHighlightColor,

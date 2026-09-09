@@ -1,3 +1,4 @@
+import '../widgets/lyric_storage_settings_tile.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -231,6 +232,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             is AppSkinRiveAnimationDescriptor ||
         currentSkin.dark.background.animation is AppSkinRiveAnimationDescriptor;
     final tile = switch (item.id) {
+      SettingsItemIds.automaticLyricCache => const LyricStorageSettingsTile(
+        manual: false,
+      ),
+      SettingsItemIds.manualLyrics => const LyricStorageSettingsTile(
+        manual: true,
+      ),
       SettingsItemIds.playbackAudioCache ||
       SettingsItemIds.cellularAudioCache ||
       SettingsItemIds.audioCacheLimit ||

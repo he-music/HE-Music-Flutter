@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_lyric/core/lyric_model.dart' as flm;
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
@@ -129,7 +131,7 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
     _bindTapToSeekIfNeeded();
 
     final request = ref.watch(currentLyricRequestProvider);
-    final documentAsync = ref.watch(currentLyricDocumentProvider);
+    final documentAsync = ref.watch(displayedLyricDocumentProvider);
     final config = ref.watch(appConfigProvider);
 
     return documentAsync.when(
@@ -250,20 +252,25 @@ String buildLyricDocumentCacheKey(
   LyricDocument document, {
   required bool enableWordByWordLyric,
 }) {
-  final firstLine = document.lines.isEmpty ? null : document.lines.first;
-  final lastLine = document.lines.isEmpty ? null : document.lines.last;
-  return <Object?>[
-    cacheKey ?? 'current',
+  return jsonEncode([
+    cacheKey,
     enableWordByWordLyric,
     document.offset,
-    document.lines.length,
-    firstLine?.start.inMilliseconds,
-    firstLine?.end?.inMilliseconds,
-    firstLine?.text,
-    lastLine?.start.inMilliseconds,
-    lastLine?.end?.inMilliseconds,
-    lastLine?.text,
-  ].join(':');
+    for (final line in document.lines)
+      [
+        line.start.inMicroseconds,
+        line.end?.inMicroseconds,
+        line.text,
+        line.translation,
+        line.romanization,
+        for (final token in line.tokens)
+          [
+            token.text,
+            token.startOffset.inMicroseconds,
+            token.duration.inMicroseconds,
+          ],
+      ],
+  ]);
 }
 
 _LyricFontSizes _resolveLyricFontSizes(

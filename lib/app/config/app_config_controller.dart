@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app_lyric_auxiliary_mode.dart';
 import '../../core/network/token_refresh_interceptor.dart';
 import '../../core/audio/cache/audio_cache_policy.dart';
 import '../theme/skin/app_custom_skin_store.dart';
@@ -197,6 +198,10 @@ class AppConfigController extends Notifier<AppConfigState> {
     );
   }
 
+  void setLyricAuxiliaryMode(AppLyricAuxiliaryMode mode) {
+    _update(state.copyWith(lyricAuxiliaryMode: mode));
+  }
+
   void setLyricFontPreset(AppLyricFontPreset preset) {
     _update(state.copyWith(lyricFontPreset: preset));
   }
@@ -345,6 +350,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       lyricHighlightPreset: loaded.lyricHighlightPreset,
       lyricHighlightCustomColor: loaded.lyricHighlightCustomColor,
       clearLyricHighlightCustomColor: loaded.lyricHighlightCustomColor == null,
+      lyricAuxiliaryMode: loaded.lyricAuxiliaryMode,
       lyricFontPreset: loaded.lyricFontPreset,
       enableWordByWordLyric: loaded.enableWordByWordLyric,
       enableDesktopLyric: loaded.enableDesktopLyric,

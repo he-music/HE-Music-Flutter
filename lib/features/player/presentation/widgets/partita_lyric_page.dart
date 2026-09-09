@@ -79,7 +79,7 @@ class _PartitaLyricDataHost extends ConsumerWidget {
         ),
       ),
     );
-    final documentAsync = ref.watch(currentLyricDocumentProvider);
+    final documentAsync = ref.watch(displayedLyricDocumentProvider);
     final request = ref.watch(currentLyricRequestProvider);
     return documentAsync.when(
       data: (document) => document.isEmpty

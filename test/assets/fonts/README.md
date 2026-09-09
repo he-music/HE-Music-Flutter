@@ -18,3 +18,7 @@ pyftsubset "$ANDROID_HOME/platforms/android-22/data/fonts/DroidSansFallback.ttf"
   --notdef-glyph --notdef-outline --recommended-glyphs \
   --name-IDs='*' --name-legacy --name-languages='*'
 ```
+
+`DroidSansFallback-LyricSubset.ttf` uses the same AOSP source and license, with
+`lyric_cjk_glyphs.txt` as its glyph list. Regenerate with the command above,
+substituting the lyric glyph list and output filename.

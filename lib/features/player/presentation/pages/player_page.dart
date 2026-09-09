@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../lyrics/presentation/widgets/full_lyric_controls.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -346,7 +347,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         (currentLayoutMode == PlayerLayoutMode.mobileLandscape ||
             _orientationPreference ==
                 _PlayerOrientationPreference.manualLandscape);
-    Widget buildLyricPage() {
+    Widget buildLyricPage({bool showControls = true}) {
       final lyricPage = PlayerLyricPage(
         key: _lyricPageKey,
         emptyText: AppI18n.tByLocaleCode(
@@ -358,7 +359,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         artworkBytes: presentation.currentTrack?.artworkBytes,
         center: false,
       );
-      return switch (lyrics.lyricsKind) {
+      final content = switch (lyrics.lyricsKind) {
         AppPlayerLyricsKind.legacy => lyricPage,
         AppPlayerLyricsKind.monet => MonetLyricPage(
           emptyText: AppI18n.tByLocaleCode(
@@ -396,6 +397,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           seekListenable: _seekRevision,
         ),
       };
+      if (!showControls) return content;
+      return Column(
+        children: [
+          Expanded(child: content),
+          const FullLyricControls(),
+        ],
+      );
     }
 
     return PopScope(
@@ -492,7 +500,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           backdropKind: backdrop.backdropKind,
                           stageMaxWidth: stage.stageMaxWidth,
                           track: displayedTrack,
-                          lyrics: buildLyricPage(),
+                          lyrics: buildLyricPage(showControls: false),
                           exitLandscapeTooltip: AppI18n.tByLocaleCode(
                             config.localeCode,
                             'player.action.exit_landscape',
