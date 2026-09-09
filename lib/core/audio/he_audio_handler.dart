@@ -1,5 +1,8 @@
+// ignore_for_file: experimental_member_use
+
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
@@ -27,6 +30,7 @@ import '../../features/online/domain/entities/online_platform.dart';
 import '../../shared/models/he_music_models.dart';
 import '../../shared/utils/cover_resolver.dart';
 import '../../shared/utils/audio_quality_selector.dart';
+import '../../shared/utils/link_info_size_parser.dart';
 import '../device/device_info_provider.dart';
 import '../network/auth_token_interceptor.dart';
 import '../network/network_status_port.dart';
@@ -37,6 +41,11 @@ import 'audio_player_factory.dart';
 import 'audio_spectrum_frame.dart';
 import 'audio_spectrum_projector.dart';
 import 'audio_track.dart';
+import 'cache/audio_cache_entry.dart';
+import 'cache/audio_cache_key.dart';
+import 'cache/audio_cache_policy.dart';
+import 'cache/audio_cache_runtime.dart';
+import 'cache/audio_cache_source_plan.dart';
 import 'local_audio_metadata_reader.dart';
 
 class HeAudioHandlerRuntimeConfig {
@@ -97,6 +106,14 @@ typedef HeAudioHandlerVisualizerFftStream =
     Stream<VisualizerFftCapture> Function(AudioPlayer player);
 typedef HeAudioHandlerNow = DateTime Function();
 typedef HeAudioHandlerLog = void Function(String message);
+typedef HeAudioHandlerCreateCachingSource =
+    LockCachingAudioSource Function({
+      required Uri uri,
+      required File cacheFile,
+      required MediaItem tag,
+    });
+typedef HeAudioHandlerReleaseAudioSource =
+    Future<void> Function(AudioSource source, AudioPlayer player);
 
 typedef HeAudioHandlerFetchRadioSongs =
     Future<List<SongInfo>> Function({
@@ -116,8 +133,10 @@ typedef HeAudioHandlerFetchLyrics =
 @visibleForTesting
 Future<HeAudioHandlerRuntimeConfig> loadHeAudioHandlerRuntimeConfig({
   AppConfigDataSource? dataSource,
+  AppConfigState? initialConfig,
 }) async {
-  final config = await (dataSource ?? const AppConfigDataSource()).load();
+  final config =
+      initialConfig ?? await (dataSource ?? const AppConfigDataSource()).load();
   return HeAudioHandlerRuntimeConfig(
     apiBaseUrl: config.apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), ''),
     authToken: config.authToken?.trim(),
@@ -175,9 +194,13 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     HeAudioHandlerLog? logOverride,
     DeviceInfoGetter? getDeviceInfoOverride,
     AppConfigDataSource? configDataSourceOverride,
+    this.initialConfig,
     NetworkStatusPort? networkStatusPort,
     Random? randomOverride,
     OverlayChannelService? overlayLyricsServiceOverride,
+    AudioCacheRuntime? audioCacheRuntime,
+    HeAudioHandlerCreateCachingSource? createCachingSourceOverride,
+    HeAudioHandlerReleaseAudioSource? releaseAudioSourceOverride,
   }) : _player = player ?? createHeAudioPlayer(),
        _fetchSongUrlOverride = fetchSongUrlOverride,
        _fetchRadioSongsOverride = fetchRadioSongsOverride,
@@ -199,7 +222,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
        _networkStatusPort = networkStatusPort ?? globalNetworkStatusPort,
        _random = randomOverride ?? Random(),
        _overlayLyricsService =
-           overlayLyricsServiceOverride ?? OverlayLyricsService() {
+           overlayLyricsServiceOverride ?? OverlayLyricsService(),
+       _audioCacheRuntime = audioCacheRuntime,
+       _createCachingSourceOverride = createCachingSourceOverride,
+       _releaseAudioSourceOverride = releaseAudioSourceOverride {
     _appLifecycleListener = AppLifecycleListener(
       onStateChange: _onAppLifecycleChanged,
     );
@@ -223,7 +249,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _player.playbackEventStream.listen((_) {
       _refreshDurationFromPlayer();
       _broadcastPlaybackState();
-    }, onError: _handlePlaybackStreamError);
+    });
+    _playbackErrorSubscription = _player.errorStream.listen((error) {
+      _handlePlaybackStreamError(error, StackTrace.empty);
+    });
     _player
         .createPositionStream(
           minPeriod: _overlayPositionPeriod,
@@ -276,14 +305,23 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final AppConfigDataSource _configDataSource;
   final NetworkStatusPort _networkStatusPort;
   final OverlayChannelService _overlayLyricsService;
+  final AudioCacheRuntime? _audioCacheRuntime;
+  final HeAudioHandlerCreateCachingSource? _createCachingSourceOverride;
+  final HeAudioHandlerReleaseAudioSource? _releaseAudioSourceOverride;
   final Random _random;
   late final AppLifecycleListener _appLifecycleListener;
   late final StreamSubscription<NetworkConnectionType>
   _networkStatusSubscription;
+  late final StreamSubscription<PlayerException> _playbackErrorSubscription;
   final StreamController<AudioSpectrumFrame> _spectrumFrameController =
       StreamController<AudioSpectrumFrame>.broadcast();
   final AudioSpectrumProjector _spectrumProjector =
       const AudioSpectrumProjector();
+  final Map<AudioSource, _AudioSourceNativeFence> _sourceNativeFences =
+      <AudioSource, _AudioSourceNativeFence>{};
+  final Set<ResolvedAudioSourcePlan> _activePendingSourcePlans =
+      <ResolvedAudioSourcePlan>{};
+  final Set<Future<void>> _pendingSourcePlanDisposals = <Future<void>>{};
 
   StreamSubscription<VisualizerFftCapture>? _visualizerFftSubscription;
   Timer? _spectrumProjectionTimer;
@@ -361,7 +399,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   bool _playIntent = false;
   _PendingPlaybackRecovery? _pendingPlaybackRecovery;
   Future<void>? _playbackRecoveryFuture;
+  _CommittedPlaybackSource? _committedPlaybackSource;
+  Duration _stoppedPlaybackPosition = Duration.zero;
   String? _lastSelectedQualityName;
+
+  final AppConfigState? initialConfig;
 
   Future<void> syncConfig({
     required String apiBaseUrl,
@@ -491,6 +533,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _syncShuffleCursor(0, forceRebuild: true);
       _autoLyricHighlightColorValue = null;
       await _player.stop();
+      await _releaseCommittedPlaybackSource(needsReload: false);
+      _committedPlaybackSource = null;
+      _stoppedPlaybackPosition = Duration.zero;
       _duration = null;
       _clearLyricState();
       queue.add(const <MediaItem>[]);
@@ -508,11 +553,16 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (sameCurrentTrack &&
         previousIndex == targetIndex &&
         !forceReloadCurrent &&
+        _committedPlaybackSource?.needsReload != true &&
         _player.audioSource != null &&
         _player.processingState != ProcessingState.idle) {
       _guardTransition(transitionId);
       _tracks = stagedTracks;
       _committedIndex = targetIndex;
+      final committed = _committedPlaybackSource;
+      if (committed != null) {
+        committed.transitionId = transitionId;
+      }
       _applyQueueContext(queueContext);
       _syncShuffleCursor(_committedIndex, forceRebuild: true);
       queue.add(_tracks.map(_toMediaItem).toList(growable: false));
@@ -745,6 +795,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   Future<void> _pausePlaybackForSleepTimer() async {
     final transitionId = _beginTransition(clearExpiredSleepTimer: false);
+    _committedPlaybackSource?.transitionId = transitionId;
     _playIntent = false;
     try {
       await _pausePlayer();
@@ -943,7 +994,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       await retryCurrentPlayback();
       return;
     }
-    if (_isCurrentRemoteTrack &&
+    if (_committedPlaybackSource?.needsReload == true) {
+      await _reloadStoppedPlaybackSource();
+      return;
+    }
+    if ((_committedPlaybackSource?.requiresNetwork ?? false) &&
         _networkConnectionType == NetworkConnectionType.offline) {
       _rememberCurrentPlaybackRecovery();
       _broadcastTransitionError(
@@ -969,8 +1024,23 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<void> stop() async {
     _playIntent = false;
     final hadSleepTimer = _clearSleepTimerState();
-    _beginTransition();
+    _stoppedPlaybackPosition = _currentPosition;
+    final committed = _committedPlaybackSource;
+    final transitionId = _beginTransition();
     await _player.stop();
+    if (transitionId != _transitionId ||
+        !identical(committed, _committedPlaybackSource)) {
+      return;
+    }
+    if (committed != null && !committed.canRetainOnStop) {
+      await _disposeCommittedPlaybackSource(committed, needsReload: true);
+    } else if (committed != null) {
+      committed.transitionId = _transitionId;
+      if (committed.cacheLease?.publication ==
+          AudioCachePublication.published) {
+        committed.requiresNetwork = false;
+      }
+    }
     _broadcastPlaybackState();
     if (hadSleepTimer) {
       _broadcastSleepTimerState();
@@ -1194,6 +1264,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _clearSleepTimerState();
     _appLifecycleListener.dispose();
     await _networkStatusSubscription.cancel();
+    await _playbackErrorSubscription.cancel();
     _spectrumDisposed = true;
     _spectrumCaptureTarget = false;
     try {
@@ -1203,6 +1274,15 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
     await _clearSpectrumCaptureResources();
     await _spectrumFrameController.close();
+    try {
+      await _player.stop();
+      await _player.clearAudioSources();
+    } catch (error) {
+      _logSourceFailure('source.dispose.stop_failed', error);
+    }
+    await _awaitPendingSourcePlanDisposals();
+    await _releaseCommittedPlaybackSource(needsReload: false);
+    _committedPlaybackSource = null;
     final override = _disposeOverride;
     if (override != null) {
       await override(_player);
@@ -1222,6 +1302,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     bool forceShuffleRebuild = false,
     bool forceUrlRefresh = false,
     String? forcedQualityName,
+    _FrozenPlaybackRequest? frozenRequestOverride,
+    _ResolvedPlaybackUrl? resolvedPayloadOverride,
+    bool disableCacheLookup = false,
+    bool disableCacheWrite = false,
+    bool allowRemoteUrlRetry = true,
   }) async {
     final candidateTracks = sourceTracks ?? _tracks;
     final track = index < 0 || index >= candidateTracks.length
@@ -1236,17 +1321,38 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _pendingShuffleCursor = shuffleCursor;
     _logTransition('load.resolve.start', transitionId, track: track);
     try {
-      var resolved = await _resolveTrack(
-        track,
-        forceRefresh: forceUrlRefresh,
-        forcedQualityName: forcedQualityName,
-      );
+      final frozenRequest =
+          frozenRequestOverride ??
+          await _freezePlaybackRequest(
+            track,
+            forcedQualityName: forcedQualityName,
+          );
       _guardTransition(transitionId);
-      Object? lastError;
-      for (var attempt = 1; attempt <= _setSourceMaxAttempts; attempt += 1) {
-        if (_networkConnectionType == NetworkConnectionType.offline &&
-            shouldRefreshRemotePlaybackUrl(track)) {
-          throw const _NetworkUnavailableException();
+      var payload = resolvedPayloadOverride;
+      var skipCacheLookup = disableCacheLookup;
+      var writeDisabled = disableCacheWrite;
+      var refreshPayload = forceUrlRefresh && payload == null;
+      var remoteSetAttempts = 0;
+      var cachePlainReloadAttempted = false;
+      while (true) {
+        final prepared = await _planPlaybackSource(
+          frozenRequest,
+          resolvedPayload: payload,
+          forceUrlRefresh: refreshPayload,
+          skipCacheLookup: skipCacheLookup,
+          disableCacheWrite: writeDisabled,
+        );
+        payload = prepared.remotePayload ?? payload;
+        refreshPayload = false;
+        try {
+          _guardTransition(transitionId);
+        } on _StaleTransitionException {
+          await prepared.plan.dispose();
+          rethrow;
+        }
+        final isManagedRemote = prepared.request.resolvesRemoteUrl;
+        if (isManagedRemote) {
+          remoteSetAttempts += 1;
         }
         try {
           final generation = ++_sourceGeneration;
@@ -1258,15 +1364,13 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
             generation: generation,
             track: track,
           );
-          final initialDuration = await _setAudioSource(_buildSource(resolved));
-          _guardTransition(transitionId);
-          _commitLoadedTrack(
+          await _installPreparedSource(
+            prepared,
             index: index,
-            resolved: resolved,
             sourceTracks: candidateTracks,
             queueContext: queueContext,
             generation: generation,
-            initialDuration: initialDuration,
+            transitionId: transitionId,
             shuffleOrder: shuffleOrder,
             shuffleCursor: shuffleCursor,
             forceShuffleRebuild: forceShuffleRebuild,
@@ -1277,7 +1381,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
             generation: generation,
             track: track,
           );
-          await _notifyTrackChanged(resolved);
+          await _notifyTrackChanged(prepared.resolvedTrack);
           unawaited(_loadLyricsForCurrentTrack(force: true));
           unawaited(_preloadNextTrackUrl(index));
           if (autoplay) {
@@ -1288,27 +1392,69 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           rethrow;
         } on PlayerInterruptedException {
           throw const _StaleTransitionException();
+        } on _CacheCommitRevokedException {
+          if (_networkConnectionType == NetworkConnectionType.offline &&
+              prepared.request.requiresNetwork) {
+            throw const _NetworkUnavailableException();
+          }
+          skipCacheLookup = true;
+          writeDisabled = true;
+          payload = prepared.remotePayload;
+          remoteSetAttempts = 0;
         } catch (error) {
-          lastError = error;
-          final shouldRetry =
-              shouldRefreshRemotePlaybackUrl(track) &&
-              attempt < _setSourceMaxAttempts;
-          if (!shouldRetry) {
+          _guardTransition(transitionId);
+          if (prepared.plan.kind == AudioSourceKind.localCacheHit) {
+            await _invalidateCacheEntry(prepared.plan.cacheKey);
+            _guardTransition(transitionId);
+            if (_networkConnectionType == NetworkConnectionType.offline) {
+              throw const _NetworkUnavailableException();
+            }
+            skipCacheLookup = true;
+            payload = null;
+            refreshPayload = false;
+            remoteSetAttempts = 0;
+            continue;
+          }
+          final cacheTerminal = prepared.cacheCompletion == null
+              ? null
+              : await prepared.cacheCompletion;
+          _guardTransition(transitionId);
+          if (prepared.plan.kind == AudioSourceKind.cachingRemote &&
+              (_isCacheWriteFailure(error) ||
+                  cacheTerminal?.failure ==
+                      LockCachingAudioSourceFailure.fileSystem) &&
+              !cachePlainReloadAttempted &&
+              prepared.remotePayload != null) {
+            if (_isStructuralProxyFailure(error)) {
+              _audioCacheRuntime?.markWriteUnavailable();
+            }
+            cachePlainReloadAttempted = true;
+            skipCacheLookup = true;
+            writeDisabled = true;
+            payload = prepared.remotePayload;
+            continue;
+          }
+          final shouldRetryRemote =
+              isManagedRemote &&
+              allowRemoteUrlRetry &&
+              !cachePlainReloadAttempted &&
+              remoteSetAttempts < _setSourceMaxAttempts;
+          if (!shouldRetryRemote) {
             rethrow;
           }
-          final failedUrl = resolved.url.trim();
-          resolved = await _resolveTrack(
-            track,
+          final failedUrl = prepared.remotePayload?.url.trim() ?? '';
+          final nextPayload = await _resolvePlaybackUrl(
+            prepared.request,
             forceRefresh: true,
-            forcedQualityName: forcedQualityName,
           );
           _guardTransition(transitionId);
-          if (resolved.url.trim() == failedUrl) {
+          if (nextPayload.url.trim() == failedUrl) {
             throw _UnchangedPlaybackUrlException(track.id);
           }
+          payload = nextPayload;
+          skipCacheLookup = true;
         }
       }
-      throw lastError ?? StateError('Failed to load track.');
     } finally {
       if (transitionId == _transitionId && _pendingIndex == index) {
         _pendingIndex = null;
@@ -1316,6 +1462,113 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         _pendingShuffleCursor = null;
       }
     }
+  }
+
+  Future<void> _installPreparedSource(
+    _PreparedPlaybackSource prepared, {
+    required int index,
+    required List<AudioTrack> sourceTracks,
+    required _QueueContext? queueContext,
+    required int generation,
+    required int transitionId,
+    required List<int>? shuffleOrder,
+    required int? shuffleCursor,
+    required bool forceShuffleRebuild,
+  }) async {
+    PlaybackSourceLease? transferredLease;
+    _activePendingSourcePlans.add(prepared.plan);
+    try {
+      Duration? initialDuration;
+      final previous = _committedPlaybackSource;
+      try {
+        final setFuture = _setAudioSource(prepared.plan.source);
+        _sourceNativeFences[prepared.plan.source]?.bind(setFuture);
+        initialDuration = await setFuture;
+      } finally {
+        if (previous != null && identical(_committedPlaybackSource, previous)) {
+          await _disposeCommittedPlaybackSource(previous, needsReload: true);
+        }
+      }
+      _guardTransition(transitionId);
+      transferredLease = await prepared.plan.commit(generation);
+      if (transferredLease == null) {
+        throw const _CacheCommitRevokedException();
+      }
+      try {
+        _guardTransition(transitionId);
+      } on _StaleTransitionException {
+        await transferredLease.dispose();
+        rethrow;
+      }
+      final committed = _CommittedPlaybackSource(
+        transitionId: transitionId,
+        generation: generation,
+        kind: prepared.plan.kind,
+        cacheKey: prepared.plan.cacheKey,
+        requiresNetwork: prepared.plan.requiresNetwork,
+        playbackSourceLease: transferredLease,
+        request: prepared.request,
+        remotePayload: prepared.remotePayload,
+        cachingSource: prepared.cachingSource,
+        cacheCompletion: prepared.cacheCompletion,
+      );
+      _committedPlaybackSource = committed;
+      _stoppedPlaybackPosition = Duration.zero;
+      _commitLoadedTrack(
+        index: index,
+        resolved: prepared.resolvedTrack,
+        sourceTracks: sourceTracks,
+        queueContext: queueContext,
+        generation: generation,
+        initialDuration: initialDuration,
+        shuffleOrder: shuffleOrder,
+        shuffleCursor: shuffleCursor,
+        forceShuffleRebuild: forceShuffleRebuild,
+      );
+      if (prepared.plan.kind == AudioSourceKind.localCacheHit) {
+        try {
+          await transferredLease.cacheLease?.touchAfterSourceCommit();
+        } catch (error) {
+          _logSourceFailure('cache.touch.failed', error);
+        }
+      }
+      final completion = prepared.cacheCompletion;
+      if (completion != null) {
+        _monitorCacheCompletion(committed, completion);
+      }
+    } finally {
+      _activePendingSourcePlans.remove(prepared.plan);
+      await prepared.plan.dispose();
+    }
+  }
+
+  Future<void> _disposeCommittedPlaybackSource(
+    _CommittedPlaybackSource source, {
+    required bool needsReload,
+  }) async {
+    source.needsReload = needsReload;
+    final lease = source.playbackSourceLease;
+    if (lease == null) {
+      return;
+    }
+    try {
+      await lease.dispose();
+      if (identical(source.playbackSourceLease, lease)) {
+        source.playbackSourceLease = null;
+      }
+    } catch (error) {
+      _logSourceFailure('source.release.failed', error);
+    }
+  }
+
+  Future<void> _releaseCommittedPlaybackSource({
+    required bool needsReload,
+  }) async {
+    final source = _committedPlaybackSource;
+    if (source == null) {
+      return;
+    }
+    await _disposeCommittedPlaybackSource(source, needsReload: needsReload);
   }
 
   void _commitLoadedTrack({
@@ -1365,6 +1618,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     bool clearExpiredSleepTimer = true,
   }) {
     _transitionId += 1;
+    _cancelPendingSourcePlans();
     _pendingPlaybackRecovery = null;
     _playbackRecoveryFuture = null;
     if (!preservePending) {
@@ -1379,6 +1633,30 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _clearExpiredSleepTimerAfterTransition();
     }
     return _transitionId;
+  }
+
+  void _cancelPendingSourcePlans() {
+    for (final plan in _activePendingSourcePlans.toList(growable: false)) {
+      late final Future<void> disposal;
+      disposal = plan
+          .dispose()
+          .catchError((Object error, StackTrace stackTrace) {
+            _logSourceFailure('source.pending.release_failed', error);
+          })
+          .whenComplete(() {
+            _pendingSourcePlanDisposals.remove(disposal);
+          });
+      _pendingSourcePlanDisposals.add(disposal);
+    }
+  }
+
+  Future<void> _awaitPendingSourcePlanDisposals() async {
+    _cancelPendingSourcePlans();
+    while (_pendingSourcePlanDisposals.isNotEmpty) {
+      await Future.wait<void>(
+        _pendingSourcePlanDisposals.toList(growable: false),
+      );
+    }
   }
 
   void _guardTransition(int transitionId) {
@@ -1441,17 +1719,35 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   void _handlePlaybackStreamError(Object error, StackTrace stackTrace) {
+    final committed = _committedPlaybackSource;
+    if (_sourceGeneration != _armedSourceGeneration ||
+        _pendingIndex != null ||
+        (committed != null && committed.transitionId != _transitionId)) {
+      return;
+    }
+    if (committed != null &&
+        committed.generation == _armedSourceGeneration &&
+        committed.kind == AudioSourceKind.cachingRemote &&
+        committed.cachingSource?.downloadState ==
+            LockCachingAudioSourceState.failed) {
+      unawaited(_handleCachingSourceError(committed, error));
+      return;
+    }
+    if (committed != null &&
+        committed.generation == _armedSourceGeneration &&
+        committed.kind == AudioSourceKind.localCacheHit) {
+      unawaited(_recoverCachedSourceFailure(committed));
+      return;
+    }
     _broadcastTransitionError(error, _transitionId);
-  }
-
-  bool get _isCurrentRemoteTrack {
-    final track = _safeTrack(_committedIndex);
-    return track != null && shouldRefreshRemotePlaybackUrl(track);
   }
 
   void _rememberCurrentPlaybackRecovery() {
     final track = _safeTrack(_committedIndex);
-    if (track == null || !shouldRefreshRemotePlaybackUrl(track)) {
+    final committed = _committedPlaybackSource;
+    if (track == null ||
+        committed == null ||
+        (!committed.requiresNetwork && !committed.needsReload)) {
       return;
     }
     final previous = _pendingPlaybackRecovery;
@@ -1468,6 +1764,234 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           ? previous.position
           : position,
     );
+  }
+
+  Future<void> _reloadStoppedPlaybackSource() async {
+    final committed = _committedPlaybackSource;
+    final track = _safeTrack(_committedIndex);
+    if (committed == null || track == null || !committed.needsReload) {
+      _requestPlay(_transitionId);
+      return;
+    }
+    final position = _stoppedPlaybackPosition;
+    final transitionId = _beginTransition();
+    try {
+      await _loadTrackAt(
+        _committedIndex,
+        autoplay: false,
+        transitionId: transitionId,
+        forceUrlRefresh: true,
+      );
+      _guardTransition(transitionId);
+      if (position > Duration.zero) {
+        await _seek(position);
+        _guardTransition(transitionId);
+      }
+      if (_playIntent) {
+        _requestPlay(transitionId);
+      }
+    } on _StaleTransitionException {
+      return;
+    } catch (error) {
+      _broadcastTransitionError(error, transitionId);
+    }
+  }
+
+  void _monitorCacheCompletion(
+    _CommittedPlaybackSource committed,
+    Future<_CacheSourceCompletion> completion,
+  ) {
+    unawaited(
+      () async {
+        final result = await completion;
+        _logCacheDecision(
+          'cache.write.completed',
+          key: committed.cacheKey,
+          transitionId: committed.transitionId,
+          generation: committed.generation,
+          reason: result.failure?.name ?? result.publication.name,
+        );
+        if (!identical(_committedPlaybackSource, committed) ||
+            committed.transitionId != _transitionId ||
+            committed.generation != _armedSourceGeneration) {
+          return;
+        }
+        if (result.failure == null) {
+          committed.requiresNetwork = false;
+          return;
+        }
+        if (result.failure == LockCachingAudioSourceFailure.fileSystem) {
+          await _recoverCacheWriteFailure(committed);
+        }
+      }().catchError((Object error, StackTrace stackTrace) {
+        _logSourceFailure('cache.completion.failed', error);
+      }),
+    );
+  }
+
+  Future<void> _handleCachingSourceError(
+    _CommittedPlaybackSource committed,
+    Object playbackError,
+  ) async {
+    final completion = committed.cacheCompletion;
+    final result = completion == null ? null : await completion;
+    if (!identical(_committedPlaybackSource, committed) ||
+        committed.transitionId != _transitionId ||
+        committed.generation != _armedSourceGeneration) {
+      return;
+    }
+    if (result?.failure == LockCachingAudioSourceFailure.fileSystem) {
+      await _recoverCacheWriteFailure(committed);
+      return;
+    }
+    _broadcastTransitionError(playbackError, _transitionId);
+  }
+
+  Future<void> _recoverCacheWriteFailure(
+    _CommittedPlaybackSource committed,
+  ) async {
+    if (!identical(_committedPlaybackSource, committed) ||
+        committed.transitionId != _transitionId ||
+        committed.generation != _armedSourceGeneration ||
+        committed.cachePlainReloadAttempted ||
+        committed.remotePayload == null) {
+      return;
+    }
+    committed.cachePlainReloadAttempted = true;
+    _logCacheDecision(
+      'cache.write.reload_plain',
+      key: committed.cacheKey,
+      transitionId: committed.transitionId,
+      generation: committed.generation,
+      reason: 'file_system',
+    );
+    final transitionId = _transitionId;
+    final position = _currentPosition;
+    final shouldPlay = _playIntent;
+    try {
+      await _loadTrackAt(
+        _committedIndex,
+        autoplay: false,
+        transitionId: transitionId,
+        frozenRequestOverride: committed.request,
+        resolvedPayloadOverride: committed.remotePayload,
+        disableCacheLookup: true,
+        disableCacheWrite: true,
+        allowRemoteUrlRetry: false,
+      );
+      _guardTransition(transitionId);
+      if (position > Duration.zero) {
+        await _seek(position);
+        _guardTransition(transitionId);
+      }
+      if (shouldPlay && _playIntent) {
+        _requestPlay(transitionId);
+      }
+    } on _StaleTransitionException {
+      return;
+    } catch (error) {
+      _broadcastTransitionError(error, transitionId);
+    }
+  }
+
+  Future<void> _recoverCachedSourceFailure(
+    _CommittedPlaybackSource committed,
+  ) async {
+    if (!identical(_committedPlaybackSource, committed) ||
+        committed.transitionId != _transitionId ||
+        committed.generation != _armedSourceGeneration ||
+        committed.automaticRecoveryStarted) {
+      return;
+    }
+    committed.automaticRecoveryStarted = true;
+    _logCacheDecision(
+      'cache.hit.invalidated',
+      key: committed.cacheKey,
+      transitionId: committed.transitionId,
+      generation: committed.generation,
+      reason: _networkConnectionType == NetworkConnectionType.offline
+          ? 'playback_error_offline'
+          : 'playback_error_online',
+    );
+    final transitionId = committed.transitionId;
+    final generation = committed.generation;
+    final index = _committedIndex;
+    final position = _currentPosition;
+    final shouldPlay = _playIntent;
+    await _invalidateCacheEntry(committed.cacheKey);
+    if (!identical(_committedPlaybackSource, committed) ||
+        transitionId != _transitionId ||
+        generation != _armedSourceGeneration ||
+        generation != _sourceGeneration) {
+      return;
+    }
+    committed.needsReload = true;
+    if (_networkConnectionType == NetworkConnectionType.offline) {
+      _rememberCurrentPlaybackRecovery();
+      _broadcastTransitionError(
+        const _NetworkUnavailableException(),
+        _transitionId,
+      );
+      return;
+    }
+    try {
+      await _loadTrackAt(
+        index,
+        autoplay: false,
+        transitionId: transitionId,
+        forceUrlRefresh: true,
+        frozenRequestOverride: committed.request.withEnvironment(
+          network: _networkConnectionType,
+          policy: _audioCacheRuntime?.policy ?? committed.request.policy,
+        ),
+        disableCacheLookup: true,
+      );
+      _guardTransition(transitionId);
+      if (position > Duration.zero) {
+        await _seek(position);
+        _guardTransition(transitionId);
+      }
+      if (shouldPlay && _playIntent) {
+        _requestPlay(transitionId);
+      }
+    } on _StaleTransitionException {
+      return;
+    } catch (error) {
+      _broadcastTransitionError(error, transitionId);
+    }
+  }
+
+  Future<void> _invalidateCacheEntry(AudioCacheKey? key) async {
+    if (key == null) {
+      return;
+    }
+    try {
+      await _audioCacheRuntime?.invalidate(key);
+      _logCacheDecision('cache.invalidate.success', key: key);
+    } catch (error) {
+      _logSourceFailure('cache.invalidate.failed', error);
+    }
+  }
+
+  bool _isCacheWriteFailure(Object error) {
+    return error is FileSystemException ||
+        _isStructuralProxyFailure(error) ||
+        (error is LockCachingAudioSourceException &&
+            error.failure == LockCachingAudioSourceFailure.fileSystem);
+  }
+
+  bool _isStructuralProxyFailure(Object error) {
+    if (error is! SocketException) {
+      return false;
+    }
+    return const <int>{
+      1,
+      13,
+      48,
+      98,
+      10013,
+      10048,
+    }.contains(error.osError?.errorCode);
   }
 
   /// 强刷当前远程音源。通知栏、播放器按钮和联网恢复共享同一单飞入口。
@@ -1559,87 +2083,325 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _broadcastPlaybackState();
   }
 
-  Future<AudioTrack> _resolveTrack(
+  Future<_FrozenPlaybackRequest> _freezePlaybackRequest(
     AudioTrack track, {
-    bool forceRefresh = false,
     String? forcedQualityName,
   }) async {
     await _ensureConfigRecovered();
-    final localPath = track.path?.trim() ?? '';
-    if (localPath.isNotEmpty) {
-      return AudioTrack(
-        id: track.id,
-        title: track.title,
-        url: _localPathToUrl(localPath),
-        path: localPath,
-        duration: track.duration,
-        links: track.links,
-        artist: track.artist,
-        album: track.album,
-        artworkUrl: track.artworkUrl,
-        platform: track.platform,
-        format: track.format,
-        bitrate: track.bitrate,
-        sampleRate: track.sampleRate,
-      );
-    }
-    if (!shouldRefreshRemotePlaybackUrl(track)) {
-      if (track.url.trim().isNotEmpty) {
-        return track;
-      }
-      final matchedDirect =
-          _resolvePreferredLink(
-            track.links,
-            forcedQualityName: forcedQualityName,
-          )?.url.trim() ??
-          '';
-      if (matchedDirect.isNotEmpty) {
-        return AudioTrack(
-          id: track.id,
-          title: track.title,
-          url: matchedDirect,
-          path: track.path,
-          duration: track.duration,
-          links: track.links,
-          artist: track.artist,
-          album: track.album,
-          artworkUrl: track.artworkUrl,
-          platform: track.platform,
-          format: track.format,
-          bitrate: track.bitrate,
-          sampleRate: track.sampleRate,
-        );
-      }
-      return track;
-    }
-    if (_networkConnectionType == NetworkConnectionType.offline) {
-      throw const _NetworkUnavailableException();
-    }
-    final matchedQuality = _resolvePreferredLink(
+    final selectedLink = _resolvePreferredLink(
       track.links,
       forcedQualityName: forcedQualityName,
     );
-    final platform = track.platform?.trim() ?? '';
-    if (platform.isEmpty) {
-      return track;
-    }
-    final quality = _requestQuality(matchedQuality);
-    final format = _requestFormat(matchedQuality);
-    final cacheKey = _playbackUrlCacheKey(
-      track,
-      quality: quality,
-      format: format,
-    );
-    if (forceRefresh) {
-      _invalidatePlaybackUrl(cacheKey);
-    }
-    final url = await _resolvePlaybackUrl(
+    final requestQuality = _requestQuality(selectedLink) ?? 320;
+    final requestFormat =
+        _requestFormat(selectedLink)?.trim().toLowerCase() ?? 'mp3';
+    final keyQuality = selectedLink != null && selectedLink.quality > 0
+        ? selectedLink.quality
+        : null;
+    final keyFormat = selectedLink?.format.trim().toLowerCase();
+    final cacheKey = selectedLink == null
+        ? null
+        : AudioCacheKey.tryCreate(
+            platform: track.platform,
+            trackId: track.id,
+            quality: keyQuality,
+            requestedFormat: keyFormat,
+          );
+    return _FrozenPlaybackRequest(
+      track: track,
+      selectedLink: selectedLink,
+      requestedQuality: requestQuality,
+      requestedFormat: requestFormat,
       cacheKey: cacheKey,
-      songId: track.id,
-      platform: platform,
-      quality: quality,
-      format: format,
+      expectedBytes: selectedLink == null
+          ? null
+          : parseLinkInfoSizeBytes(selectedLink.size),
+      network: _networkConnectionType,
+      policy:
+          _audioCacheRuntime?.policy ?? const AudioCachePolicy(enabled: false),
     );
+  }
+
+  Future<_PreparedPlaybackSource> _planPlaybackSource(
+    _FrozenPlaybackRequest request, {
+    _ResolvedPlaybackUrl? resolvedPayload,
+    required bool forceUrlRefresh,
+    required bool skipCacheLookup,
+    required bool disableCacheWrite,
+  }) async {
+    final track = request.track;
+    final localPath = track.path?.trim() ?? '';
+    if (localPath.isNotEmpty) {
+      final resolved = _copyResolvedTrack(
+        track,
+        url: _localPathToUrl(localPath),
+      );
+      return _plainPreparedSource(
+        request,
+        resolved,
+        kind: AudioSourceKind.localTrack,
+        requiresNetwork: false,
+        uri: _localPathToUri(localPath),
+      );
+    }
+    if (!request.resolvesRemoteUrl) {
+      final directUrl = track.url.trim().isNotEmpty
+          ? track.url.trim()
+          : request.selectedLink?.url.trim() ?? '';
+      final resolved = _copyResolvedTrack(track, url: directUrl);
+      final uri = Uri.parse(directUrl);
+      return _plainPreparedSource(
+        request,
+        resolved,
+        kind: uri.scheme == 'file'
+            ? AudioSourceKind.localTrack
+            : AudioSourceKind.plainRemote,
+        requiresNetwork: uri.scheme == 'http' || uri.scheme == 'https',
+        uri: uri,
+      );
+    }
+
+    final runtime = _audioCacheRuntime;
+    final requestedKey = request.cacheKey;
+    if (!skipCacheLookup && runtime != null && requestedKey != null) {
+      final hit = await runtime.lookupAndPin(
+        requestedKey,
+        offline: request.network == NetworkConnectionType.offline,
+      );
+      if (hit != null) {
+        _logCacheDecision(
+          'cache.lookup.hit',
+          key: hit.key,
+          reason: hit.key == requestedKey ? 'exact' : 'offline_alternate',
+        );
+        final actualRequest = request.forCacheHit(hit.key);
+        final resolved = _copyResolvedTrack(
+          track,
+          url: track.url,
+          format: hit.resolvedFormat,
+          bitrate: hit.key.quality,
+        );
+        final source = AudioSource.uri(
+          Uri.file(hit.path),
+          tag: _toMediaItem(resolved),
+        );
+        return _PreparedPlaybackSource(
+          request: actualRequest,
+          resolvedTrack: resolved,
+          plan: ResolvedAudioSourcePlan(
+            cacheKey: hit.key,
+            requestedQuality: hit.key.quality,
+            requestedFormat: hit.key.requestedFormat,
+            resolvedFormat: hit.resolvedFormat,
+            expectedBytes: actualRequest.expectedBytes,
+            kind: AudioSourceKind.localCacheHit,
+            requiresNetwork: false,
+            sourceLease: _ownPlaybackSource(source, cacheLease: hit),
+          ),
+        );
+      }
+      _logCacheDecision('cache.lookup.miss', key: requestedKey);
+    }
+    if (request.network == NetworkConnectionType.offline ||
+        _networkConnectionType == NetworkConnectionType.offline) {
+      throw const _NetworkUnavailableException();
+    }
+
+    final payload = resolvedPayload != null && resolvedPayload.matches(request)
+        ? resolvedPayload
+        : await _resolvePlaybackUrl(request, forceRefresh: forceUrlRefresh);
+    final payloadRequest = request.withExpectedBytes(payload.expectedBytes);
+    final resolved = _copyResolvedTrack(
+      track,
+      url: payload.url,
+      format: payload.resolvedFormat,
+      bitrate: payload.requestedQuality,
+    );
+    LockCachingAudioSource? cachingSource;
+    Future<_CacheSourceCompletion>? cacheCompletion;
+    if (!disableCacheWrite &&
+        runtime != null &&
+        requestedKey != null &&
+        payload.expectedBytes != null &&
+        payload.expectedBytes! > 0) {
+      final owned = await runtime.createCachingSource(
+        key: requestedKey,
+        resolvedFormat: payload.resolvedFormat,
+        expectedBytes: payload.expectedBytes,
+        frozenPolicy: request.policy,
+        frozenNetwork: request.network,
+        factory: (cacheLease) {
+          try {
+            cachingSource = _createCachingAudioSource(
+              uri: Uri.parse(payload.url),
+              cacheFile: File(cacheLease.path),
+              tag: _toMediaItem(resolved),
+            );
+          } catch (error) {
+            if (error is SocketException) {
+              runtime.markWriteUnavailable();
+            }
+            rethrow;
+          }
+          final completedFile = cachingSource!.completedFile;
+          final failure = completedFile.then<LockCachingAudioSourceFailure?>(
+            (_) => null,
+            onError: (Object error, StackTrace stackTrace) =>
+                error is LockCachingAudioSourceException
+                ? error.failure
+                : LockCachingAudioSourceFailure.originStream,
+          );
+          final publication = runtime.observeWriteCompletion(
+            cacheLease,
+            completedFile,
+          );
+          cacheCompletion = () async {
+            return _CacheSourceCompletion(
+              publication: await publication,
+              failure: await failure,
+            );
+          }();
+          return _ownPlaybackSource(
+            cachingSource!,
+            cacheLease: cacheLease,
+            cachingSource: cachingSource,
+          );
+        },
+      );
+      if (owned != null && cachingSource != null && cacheCompletion != null) {
+        _logCacheDecision('cache.write.started', key: requestedKey);
+        return _PreparedPlaybackSource(
+          request: payloadRequest,
+          resolvedTrack: resolved,
+          remotePayload: payload,
+          cachingSource: cachingSource,
+          cacheCompletion: cacheCompletion,
+          plan: ResolvedAudioSourcePlan(
+            cacheKey: requestedKey,
+            requestedQuality: payload.requestedQuality,
+            requestedFormat: payload.requestedFormat,
+            resolvedFormat: payload.resolvedFormat,
+            expectedBytes: payload.expectedBytes,
+            kind: AudioSourceKind.cachingRemote,
+            requiresNetwork: true,
+            sourceLease: owned,
+          ),
+        );
+      }
+      final rejectionReason = !runtime.capabilityEnabled
+          ? 'capability_disabled'
+          : !request.policy.allowsWrite(request.network)
+          ? 'policy_disallowed'
+          : runtime.writeHealth != AudioCacheWriteHealth.ready
+          ? runtime.writeHealth.name
+          : 'admission_rejected';
+      _logCacheDecision(
+        'cache.write.rejected',
+        key: requestedKey,
+        reason: rejectionReason,
+      );
+    } else if (requestedKey != null && !disableCacheWrite) {
+      final reason = runtime == null
+          ? 'runtime_absent'
+          : payload.expectedBytes == null || payload.expectedBytes! <= 0
+          ? 'invalid_size'
+          : 'disabled';
+      _logCacheDecision(
+        'cache.write.skipped',
+        key: requestedKey,
+        reason: reason,
+      );
+    }
+    _logCacheDecision(
+      'cache.source.plain',
+      key: requestedKey,
+      reason: disableCacheWrite ? 'write_bypassed' : 'write_unavailable',
+    );
+    return _plainPreparedSource(
+      payloadRequest,
+      resolved,
+      kind: AudioSourceKind.plainRemote,
+      requiresNetwork: true,
+      uri: Uri.parse(payload.url),
+      remotePayload: payload,
+    );
+  }
+
+  _PreparedPlaybackSource _plainPreparedSource(
+    _FrozenPlaybackRequest request,
+    AudioTrack resolved, {
+    required AudioSourceKind kind,
+    required bool requiresNetwork,
+    required Uri uri,
+    _ResolvedPlaybackUrl? remotePayload,
+  }) {
+    final source = AudioSource.uri(uri, tag: _toMediaItem(resolved));
+    return _PreparedPlaybackSource(
+      request: request,
+      resolvedTrack: resolved,
+      remotePayload: remotePayload,
+      plan: ResolvedAudioSourcePlan(
+        cacheKey: null,
+        requestedQuality: request.requestedQuality,
+        requestedFormat: request.requestedFormat,
+        resolvedFormat:
+            remotePayload?.resolvedFormat ?? request.requestedFormat,
+        expectedBytes: remotePayload?.expectedBytes ?? request.expectedBytes,
+        kind: kind,
+        requiresNetwork: requiresNetwork,
+        sourceLease: _ownPlaybackSource(source),
+      ),
+    );
+  }
+
+  PlaybackSourceLease _ownPlaybackSource(
+    AudioSource source, {
+    AudioCacheSourceLease? cacheLease,
+    LockCachingAudioSource? cachingSource,
+  }) {
+    final nativeFence = _AudioSourceNativeFence(source);
+    _sourceNativeFences[source] = nativeFence;
+    return PlaybackSourceLease(
+      source: source,
+      cacheLease: cacheLease,
+      releaseNative: () => nativeFence.release(_player),
+      cancelTransport: () => cachingSource?.cancelDownload() ?? Future.value(),
+      releaseSourceRegistration: () async {
+        try {
+          await _releaseAudioSource(source);
+        } finally {
+          if (identical(_sourceNativeFences[source], nativeFence)) {
+            _sourceNativeFences.remove(source);
+          }
+        }
+      },
+    );
+  }
+
+  Future<void> _releaseAudioSource(AudioSource source) {
+    final override = _releaseAudioSourceOverride;
+    return override == null
+        ? _player.releaseAudioSource(source)
+        : override(source, _player);
+  }
+
+  LockCachingAudioSource _createCachingAudioSource({
+    required Uri uri,
+    required File cacheFile,
+    required MediaItem tag,
+  }) {
+    final override = _createCachingSourceOverride;
+    return override == null
+        ? LockCachingAudioSource(uri, cacheFile: cacheFile, tag: tag)
+        : override(uri: uri, cacheFile: cacheFile, tag: tag);
+  }
+
+  AudioTrack _copyResolvedTrack(
+    AudioTrack track, {
+    required String url,
+    String? format,
+    int? bitrate,
+  }) {
     return AudioTrack(
       id: track.id,
       title: track.title,
@@ -1651,8 +2413,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       album: track.album,
       artworkUrl: track.artworkUrl,
       platform: track.platform,
-      format: track.format,
-      bitrate: track.bitrate,
+      format: format ?? track.format,
+      bitrate: bitrate ?? track.bitrate,
       sampleRate: track.sampleRate,
     );
   }
@@ -1670,18 +2432,20 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       }
       final nextIndex = _resolveNextTrackIndex(sourceIndex, advance: false);
       track = _safeTrack(nextIndex);
-      if (track == null ||
-          !shouldRefreshRemotePlaybackUrl(track) ||
+      if (track == null || !shouldRefreshRemotePlaybackUrl(track)) {
+        return;
+      }
+      final request = await _freezePlaybackRequest(track);
+      if (request.network == NetworkConnectionType.offline ||
           _hasFreshResolvedPlaybackUrl(
-            track,
+            request,
             minimumRemainingValidity: minimumRemainingValidity,
           )) {
         return;
       }
-      final cacheKey = _playbackUrlCacheKey(track);
-      await _resolveTrack(
-        track,
-        forceRefresh: _resolvedPlaybackUrls.containsKey(cacheKey),
+      await _resolvePlaybackUrl(
+        request,
+        forceRefresh: _resolvedPlaybackUrls.containsKey(request.urlCacheKey),
       );
     } catch (error) {
       // 预加载失败不能影响当前播放；真正切歌时仍会按正常链路重试。
@@ -1690,12 +2454,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   bool _hasFreshResolvedPlaybackUrl(
-    AudioTrack track, {
+    _FrozenPlaybackRequest request, {
     Duration minimumRemainingValidity = Duration.zero,
   }) {
-    final cacheKey = _playbackUrlCacheKey(track);
-    final cached = _resolvedPlaybackUrls[cacheKey];
-    if (cached == null) {
+    final cached = _resolvedPlaybackUrls[request.urlCacheKey];
+    if (cached == null || !cached.matches(request)) {
       return false;
     }
     final age = _now().difference(cached.resolvedAt);
@@ -1725,48 +2488,71 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     );
   }
 
-  Future<String> _resolvePlaybackUrl({
-    required String cacheKey,
-    required String songId,
-    required String platform,
-    required int? quality,
-    required String? format,
+  Future<_ResolvedPlaybackUrl> _resolvePlaybackUrl(
+    _FrozenPlaybackRequest request, {
+    bool forceRefresh = false,
   }) async {
+    final cacheKey = request.urlCacheKey;
+    if (forceRefresh) {
+      _invalidatePlaybackUrl(cacheKey);
+    }
     final version = _playbackUrlVersions[cacheKey] ?? 0;
     final cached = _resolvedPlaybackUrls[cacheKey];
     if (cached != null &&
         cached.version == version &&
+        cached.matches(request) &&
         _now().difference(cached.resolvedAt) < _preloadedPlaybackUrlTtl) {
       _logTransition('url.cache.hit', _transitionId);
-      return cached.url;
+      return cached;
     }
     final pending = _inFlightPlaybackUrls[cacheKey];
-    if (pending != null && pending.version == version) {
+    if (pending != null &&
+        pending.version == version &&
+        pending.matches(request)) {
       _logTransition('url.inflight.join', _transitionId);
       return pending.future;
     }
     _logTransition('url.fetch.start', _transitionId);
     final future =
         _fetchSongUrlWithRetry(
-          songId: songId,
-          platform: platform,
-          quality: quality,
-          format: format,
+          songId: request.track.id,
+          platform: request.platform,
+          quality: request.requestedQuality,
+          format: request.requestedFormat,
         ).then((payload) {
           final url = '${payload['url'] ?? ''}'.trim();
           if (url.isEmpty) {
-            throw _TrackUnavailableException(songId);
+            throw _TrackUnavailableException(request.track.id);
           }
+          final payloadFormat = '${payload['format'] ?? ''}'
+              .trim()
+              .toLowerCase();
+          final resolved = _ResolvedPlaybackUrl(
+            url: url,
+            requestedKey: request.cacheKey,
+            requestCacheKey: cacheKey,
+            requestedQuality: request.requestedQuality,
+            requestedFormat: request.requestedFormat,
+            resolvedFormat: payloadFormat.isEmpty
+                ? request.requestedFormat
+                : payloadFormat,
+            expectedBytes: request.expectedBytes,
+            resolvedAt: _now(),
+            version: version,
+          );
           if ((_playbackUrlVersions[cacheKey] ?? 0) == version) {
-            _resolvedPlaybackUrls[cacheKey] = _ResolvedPlaybackUrl(
-              url: url,
-              resolvedAt: _now(),
-              version: version,
-            );
+            _resolvedPlaybackUrls[cacheKey] = resolved;
           }
-          return url;
+          return resolved;
         });
-    final inFlight = _InFlightPlaybackUrl(version: version, future: future);
+    final inFlight = _InFlightPlaybackUrl(
+      version: version,
+      requestedKey: request.cacheKey,
+      requestedQuality: request.requestedQuality,
+      requestedFormat: request.requestedFormat,
+      expectedBytes: request.expectedBytes,
+      future: future,
+    );
     _inFlightPlaybackUrls[cacheKey] = inFlight;
     try {
       return await future;
@@ -1781,17 +2567,6 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _resolvedPlaybackUrls.remove(cacheKey);
     _playbackUrlVersions[cacheKey] = (_playbackUrlVersions[cacheKey] ?? 0) + 1;
     _logTransition('url.cache.invalidated', _transitionId);
-  }
-
-  String _playbackUrlCacheKey(
-    AudioTrack track, {
-    int? quality,
-    String? format,
-  }) {
-    final selectedQuality = _resolvePreferredLink(track.links);
-    final resolvedQuality = quality ?? _requestQuality(selectedQuality) ?? 320;
-    final resolvedFormat = format ?? _requestFormat(selectedQuality) ?? 'mp3';
-    return '${track.platform ?? ''}|${track.id}|$resolvedQuality|$resolvedFormat';
   }
 
   Future<void> _ensureConfigRecovered() async {
@@ -1815,6 +2590,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<void> _recoverConfig() async {
     final config = await loadHeAudioHandlerRuntimeConfig(
       dataSource: _configDataSource,
+      initialConfig: initialConfig,
     );
     _apiBaseUrl = config.apiBaseUrl;
     _authToken = config.authToken;
@@ -2053,9 +2829,33 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   @visibleForTesting
-  void handlePlaybackErrorForTesting(Object error) {
-    _broadcastTransitionError(error, _transitionId);
+  void handlePlaybackErrorForTesting(Object error, {int? sourceGeneration}) {
+    if (sourceGeneration != null &&
+        sourceGeneration != _armedSourceGeneration) {
+      return;
+    }
+    _handlePlaybackStreamError(error, StackTrace.current);
   }
+
+  @visibleForTesting
+  AudioSourceKind? get currentSourceKindForTesting =>
+      _committedPlaybackSource?.kind;
+
+  @visibleForTesting
+  AudioCacheKey? get currentCacheKeyForTesting =>
+      _committedPlaybackSource?.cacheKey;
+
+  @visibleForTesting
+  bool? get currentSourceRequiresNetworkForTesting =>
+      _committedPlaybackSource?.requiresNetwork;
+
+  @visibleForTesting
+  bool get currentSourceNeedsReloadForTesting =>
+      _committedPlaybackSource?.needsReload ?? false;
+
+  @visibleForTesting
+  int? get currentSourceGenerationForTesting =>
+      _committedPlaybackSource?.generation;
 
   @visibleForTesting
   Future<void> refreshNextTrackUrlNearEndForTesting(Duration position) {
@@ -2218,6 +3018,37 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     developer.log(message, name: 'HeAudioHandler');
   }
 
+  void _logCacheDecision(
+    String event, {
+    required AudioCacheKey? key,
+    int? transitionId,
+    int? generation,
+    String? reason,
+  }) {
+    final digest = key?.digest;
+    final fingerprint = digest == null ? '-' : digest.substring(0, 12);
+    final message =
+        '$event transitionId=${transitionId ?? _transitionId} '
+        'sourceGeneration=${generation ?? _sourceGeneration} '
+        'cacheKey=$fingerprint reason=${reason ?? '-'}';
+    final override = _logOverride;
+    if (override != null) {
+      override(message);
+      return;
+    }
+    developer.log(message, name: 'HeAudioHandler');
+  }
+
+  void _logSourceFailure(String event, Object error) {
+    final message = '$event failure=${error.runtimeType}';
+    final override = _logOverride;
+    if (override != null) {
+      override(message);
+      return;
+    }
+    developer.log(message, name: 'HeAudioHandler');
+  }
+
   void _logSpectrumFailure(String event, Object error) {
     final message = '$event failure=${error.runtimeType}';
     final override = _logOverride;
@@ -2247,15 +3078,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       album: track.album,
       artUri: artwork.isEmpty ? null : _localPathToUri(artwork),
       duration: _safeTrack(_committedIndex)?.id == track.id ? _duration : null,
-    );
-  }
-
-  AudioSource _buildSource(AudioTrack track) {
-    final sourceUrl = track.url.trim();
-    final localPath = track.path?.trim() ?? '';
-    return AudioSource.uri(
-      localPath.isNotEmpty ? _localPathToUri(localPath) : Uri.parse(sourceUrl),
-      tag: _toMediaItem(track),
+      extras: <String, dynamic>{
+        if ((track.format ?? '').trim().isNotEmpty)
+          'format': track.format!.trim(),
+        if ((track.bitrate ?? 0) > 0) 'bitrate': track.bitrate,
+      },
     );
   }
 
@@ -2947,23 +3774,260 @@ enum _PlaybackFailureCategory {
   unknown,
 }
 
+class _FrozenPlaybackRequest {
+  const _FrozenPlaybackRequest({
+    required this.track,
+    required this.selectedLink,
+    required this.requestedQuality,
+    required this.requestedFormat,
+    required this.cacheKey,
+    required this.expectedBytes,
+    required this.network,
+    required this.policy,
+  });
+
+  final AudioTrack track;
+  final LinkInfo? selectedLink;
+  final int requestedQuality;
+  final String requestedFormat;
+  final AudioCacheKey? cacheKey;
+  final int? expectedBytes;
+  final NetworkConnectionType network;
+  final AudioCachePolicy policy;
+
+  String get platform => track.platform?.trim() ?? '';
+  bool get resolvesRemoteUrl => shouldRefreshRemotePlaybackUrl(track);
+  String get urlCacheKey =>
+      '$platform|${track.id}|$requestedQuality|$requestedFormat';
+  bool get requiresNetwork {
+    if (resolvesRemoteUrl) {
+      return true;
+    }
+    final localPath = track.path?.trim() ?? '';
+    if (localPath.isNotEmpty) {
+      return false;
+    }
+    final raw = track.url.trim().isNotEmpty
+        ? track.url.trim()
+        : selectedLink?.url.trim() ?? '';
+    final scheme = Uri.tryParse(raw)?.scheme;
+    return scheme == 'http' || scheme == 'https';
+  }
+
+  _FrozenPlaybackRequest withEnvironment({
+    required NetworkConnectionType network,
+    required AudioCachePolicy policy,
+  }) {
+    return _FrozenPlaybackRequest(
+      track: track,
+      selectedLink: selectedLink,
+      requestedQuality: requestedQuality,
+      requestedFormat: requestedFormat,
+      cacheKey: cacheKey,
+      expectedBytes: expectedBytes,
+      network: network,
+      policy: policy,
+    );
+  }
+
+  _FrozenPlaybackRequest withExpectedBytes(int? value) {
+    return _FrozenPlaybackRequest(
+      track: track,
+      selectedLink: selectedLink,
+      requestedQuality: requestedQuality,
+      requestedFormat: requestedFormat,
+      cacheKey: cacheKey,
+      expectedBytes: value,
+      network: network,
+      policy: policy,
+    );
+  }
+
+  _FrozenPlaybackRequest forCacheHit(AudioCacheKey actualKey) {
+    LinkInfo? actualLink;
+    for (final link in track.links) {
+      if (link.quality == actualKey.quality &&
+          link.format.trim().toLowerCase() == actualKey.requestedFormat) {
+        actualLink = link;
+        break;
+      }
+    }
+    return _FrozenPlaybackRequest(
+      track: track,
+      selectedLink: actualLink,
+      requestedQuality: actualKey.quality,
+      requestedFormat: actualKey.requestedFormat,
+      cacheKey: actualKey,
+      expectedBytes: actualLink == null
+          ? null
+          : parseLinkInfoSizeBytes(actualLink.size),
+      network: network,
+      policy: policy,
+    );
+  }
+}
+
 class _ResolvedPlaybackUrl {
   const _ResolvedPlaybackUrl({
     required this.url,
+    required this.requestedKey,
+    required this.requestCacheKey,
+    required this.requestedQuality,
+    required this.requestedFormat,
+    required this.resolvedFormat,
+    required this.expectedBytes,
     required this.resolvedAt,
     required this.version,
   });
 
   final String url;
+  final AudioCacheKey? requestedKey;
+  final String requestCacheKey;
+  final int requestedQuality;
+  final String requestedFormat;
+  final String resolvedFormat;
+  final int? expectedBytes;
   final DateTime resolvedAt;
   final int version;
+
+  bool matches(_FrozenPlaybackRequest request) {
+    return requestCacheKey == request.urlCacheKey &&
+        requestedKey == request.cacheKey &&
+        requestedQuality == request.requestedQuality &&
+        requestedFormat == request.requestedFormat &&
+        expectedBytes == request.expectedBytes;
+  }
 }
 
 class _InFlightPlaybackUrl {
-  const _InFlightPlaybackUrl({required this.version, required this.future});
+  const _InFlightPlaybackUrl({
+    required this.version,
+    required this.requestedKey,
+    required this.requestedQuality,
+    required this.requestedFormat,
+    required this.expectedBytes,
+    required this.future,
+  });
 
   final int version;
-  final Future<String> future;
+  final AudioCacheKey? requestedKey;
+  final int requestedQuality;
+  final String requestedFormat;
+  final int? expectedBytes;
+  final Future<_ResolvedPlaybackUrl> future;
+
+  bool matches(_FrozenPlaybackRequest request) {
+    return requestedKey == request.cacheKey &&
+        requestedQuality == request.requestedQuality &&
+        requestedFormat == request.requestedFormat &&
+        expectedBytes == request.expectedBytes;
+  }
+}
+
+class _PreparedPlaybackSource {
+  const _PreparedPlaybackSource({
+    required this.request,
+    required this.resolvedTrack,
+    required this.plan,
+    this.remotePayload,
+    this.cachingSource,
+    this.cacheCompletion,
+  });
+
+  final _FrozenPlaybackRequest request;
+  final AudioTrack resolvedTrack;
+  final ResolvedAudioSourcePlan plan;
+  final _ResolvedPlaybackUrl? remotePayload;
+  final LockCachingAudioSource? cachingSource;
+  final Future<_CacheSourceCompletion>? cacheCompletion;
+}
+
+class _CacheSourceCompletion {
+  const _CacheSourceCompletion({
+    required this.publication,
+    required this.failure,
+  });
+
+  final AudioCachePublication publication;
+  final LockCachingAudioSourceFailure? failure;
+}
+
+class _AudioSourceNativeFence {
+  _AudioSourceNativeFence(this.source);
+
+  final AudioSource source;
+  Future<void>? _setFuture;
+
+  void bind(Future<Duration?> future) {
+    _setFuture ??= future.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {},
+    );
+  }
+
+  Future<void> release(AudioPlayer player) async {
+    await _detach(player);
+    try {
+      await _setFuture;
+    } catch (_) {
+      // The load error is owned by the transition that awaited setAudioSource.
+    }
+    await _detach(player);
+  }
+
+  Future<void> _detach(AudioPlayer player) async {
+    await player.detachAudioSource(source);
+    if (identical(player.audioSource, source)) {
+      await player.clearAudioSources();
+    }
+  }
+}
+
+class _CommittedPlaybackSource {
+  _CommittedPlaybackSource({
+    required this.transitionId,
+    required this.generation,
+    required this.kind,
+    required this.cacheKey,
+    required this.requiresNetwork,
+    required this.playbackSourceLease,
+    required this.request,
+    required this.remotePayload,
+    required this.cachingSource,
+    required this.cacheCompletion,
+  });
+
+  int transitionId;
+  final int generation;
+  final AudioSourceKind kind;
+  final AudioCacheKey? cacheKey;
+  bool requiresNetwork;
+  PlaybackSourceLease? playbackSourceLease;
+  final _FrozenPlaybackRequest request;
+  final _ResolvedPlaybackUrl? remotePayload;
+  final LockCachingAudioSource? cachingSource;
+  final Future<_CacheSourceCompletion>? cacheCompletion;
+  bool needsReload = false;
+  bool cachePlainReloadAttempted = false;
+  bool automaticRecoveryStarted = false;
+
+  AudioCacheSourceLease? get cacheLease => playbackSourceLease?.cacheLease;
+  bool get canRetainOnStop {
+    final owner = playbackSourceLease;
+    if (owner == null) {
+      return false;
+    }
+    return switch (kind) {
+      AudioSourceKind.localTrack => true,
+      AudioSourceKind.localCacheHit || AudioSourceKind.cachingRemote =>
+        owner.cacheLease?.canRetainOnStop ?? false,
+      AudioSourceKind.plainRemote => false,
+    };
+  }
+}
+
+class _CacheCommitRevokedException implements Exception {
+  const _CacheCommitRevokedException();
 }
 
 class _QueueContext {
@@ -3020,9 +4084,18 @@ class _PendingPlaybackRecovery {
 
 late final HeAudioHandler globalHeAudioHandler;
 
-Future<void> initHeAudioHandler() async {
+Future<void> initHeAudioHandler({
+  AppConfigState? config,
+  AudioCacheRuntime? audioCacheRuntime,
+  HeAudioHandler Function(AppConfigState?, AudioCacheRuntime?)? createHandler,
+}) async {
   globalHeAudioHandler = await AudioService.init(
-    builder: HeAudioHandler.new,
+    builder: () =>
+        createHandler?.call(config, audioCacheRuntime) ??
+        HeAudioHandler(
+          initialConfig: config,
+          audioCacheRuntime: audioCacheRuntime,
+        ),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.hemusic.music.flutter.audio',
       androidNotificationChannelName: 'HE-Music 播放控制',

@@ -6,6 +6,7 @@ import '../../../online/domain/entities/online_platform.dart';
 import '../../domain/entities/player_quality_option.dart';
 import '../../domain/entities/player_track.dart';
 import '../../../../shared/utils/audio_quality_selector.dart';
+import '../../../../shared/utils/link_info_size_parser.dart';
 
 /// 曲目播放解析结果。
 ///
@@ -65,7 +66,7 @@ class PlayerQualityManager {
           quality: link.quality,
           format: link.format,
           url: link.url,
-          sizeBytes: _parseLinkSizeBytes(link.size),
+          sizeBytes: parseLinkInfoSizeBytes(link.size),
         ),
       );
     }
@@ -101,6 +102,20 @@ class PlayerQualityManager {
       return matched.name;
     }
     return availableQualities.first.name;
+  }
+
+  String? resolveCommittedQualityName({
+    required PlayerTrack track,
+    required List<PlayerQualityOption> availableQualities,
+  }) {
+    final format = track.format?.trim().toLowerCase();
+    for (final option in availableQualities) {
+      if (option.quality == track.bitrate &&
+          option.format.trim().toLowerCase() == format) {
+        return option.name;
+      }
+    }
+    return resolveSelectedQualityName(availableQualities: availableQualities);
   }
 
   /// 按名称查找音质选项。
@@ -181,18 +196,6 @@ class PlayerQualityManager {
       }
     }
     return const <String, String>{};
-  }
-
-  int? _parseLinkSizeBytes(String rawSize) {
-    final normalized = rawSize.trim();
-    if (normalized.isEmpty) {
-      return null;
-    }
-    final parsed = int.tryParse(normalized);
-    if (parsed == null || parsed <= 0) {
-      return null;
-    }
-    return parsed;
   }
 
   String _localPathToUrl(String localPath) {

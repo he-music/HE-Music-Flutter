@@ -44,6 +44,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
   late PlayerHistoryManager _historyManager;
   late PlayerProgressManager _progressManager;
   late PlayerQualityManager _qualityManager;
+  int _committedQueueEventVersion = 0;
   late PlayerQueueManager _queueManager;
   late PlayerStreamManager _streamManager;
 
@@ -962,6 +963,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         forcedQualityName: forcedQualityName,
       );
       _guardTrackSwitchRequest(requestId);
+      final queueEventVersion = _committedQueueEventVersion;
       await _syncQueueToAudioPlayer(
         queue: resolution.updatedQueue,
         currentIndex: index,
@@ -971,7 +973,20 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         forceReloadCurrent: forceReloadCurrent,
       );
       _guardTrackSwitchRequest(requestId);
-      result = resolution;
+      final committedTrack = state.currentTrack;
+      if (_committedQueueEventVersion != queueEventVersion &&
+          committedTrack != null &&
+          _queueManager.trackKey(committedTrack) ==
+              _queueManager.trackKey(resolution.track)) {
+        result = TrackPlaybackResolution(
+          track: committedTrack,
+          updatedQueue: state.queue,
+          availableQualities: state.currentAvailableQualities,
+          selectedQualityName: state.currentSelectedQualityName,
+        );
+      } else {
+        result = resolution;
+      }
     }, trackSwitchRequestId: requestId);
     return result;
   }
@@ -1281,7 +1296,8 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         : _qualityManager.resolveAvailableQualities(currentTrack);
     final selectedQualityName = currentTrack == null
         ? null
-        : _qualityManager.resolveSelectedQualityName(
+        : _qualityManager.resolveCommittedQualityName(
+            track: currentTrack,
             availableQualities: availableQualities,
           );
     final transitionId = event['transitionId'] is int
@@ -1311,6 +1327,9 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       if (transitionId > _settledManualSkipTransitionId) {
         _settledManualSkipTransitionId = transitionId;
       }
+    }
+    if (!manualSkipTargetActive) {
+      _committedQueueEventVersion += 1;
     }
     state = state.copyWith(
       queue: queue,
@@ -1574,7 +1593,8 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       );
     }
     final availableQualities = _qualityManager.resolveAvailableQualities(track);
-    final selectedQualityName = _qualityManager.resolveSelectedQualityName(
+    final selectedQualityName = _qualityManager.resolveCommittedQualityName(
+      track: track,
       availableQualities: availableQualities,
     );
     _settleManualSkipTransition(state.requestedTransitionId);

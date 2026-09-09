@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/core/audio/audio_handler_player_adapter.dart';
 import 'package:he_music_flutter/core/audio/audio_player_port.dart';
@@ -28,6 +29,95 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+
+  test(
+    'committed fallback quality survives held controller load without changing preference',
+    () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(audioPlayer.dispose);
+      final config = container.read(appConfigProvider.notifier);
+      config.setWifiOnlineAudioQualityPreference(AppOnlineAudioQuality.mp3320);
+      config.setLastSelectedOnlineAudioQualityName('320k');
+      final preference = container.read(appConfigProvider);
+      final controller = container.read(playerControllerProvider.notifier);
+      await controller.initialize();
+      final gate = Completer<void>();
+      audioPlayer.setQueueCompleter = gate;
+      final loading = controller.replaceQueue(
+        _buildQualityQueue(),
+        autoplay: true,
+      );
+      await audioPlayer.setQueueStarted.future;
+      final track = _buildQualityQueue().single.copyWith(
+        bitrate: 999,
+        format: 'flac',
+      );
+      audioPlayer.emitCustomEvent(
+        _queueStateEvent(
+          transitionId: 123,
+          currentIndex: 0,
+          manualSkipTargetActive: false,
+          tracks: [
+            {
+              ..._trackEventMap(track),
+              'links': track.links
+                  .map(
+                    (link) => {
+                      'name': link.name,
+                      'quality': link.quality,
+                      'format': link.format,
+                      'size': link.size,
+                      'url': link.url,
+                    },
+                  )
+                  .toList(),
+            },
+          ],
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(playerControllerProvider).currentSelectedQualityName,
+        'FLAC',
+      );
+      gate.complete();
+      await loading;
+      expect(
+        container.read(playerControllerProvider).currentSelectedQualityName,
+        'FLAC',
+      );
+      expect(
+        container.read(playerControllerProvider).currentTrack?.bitrate,
+        999,
+      );
+      audioPlayer.emitCurrentIndex(0);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(playerControllerProvider).currentSelectedQualityName,
+        'FLAC',
+      );
+      final after = container.read(appConfigProvider);
+      expect(
+        after.lastSelectedOnlineAudioQualityName,
+        preference.lastSelectedOnlineAudioQualityName,
+      );
+      expect(
+        after.wifiOnlineAudioQualityPreference,
+        preference.wifiOnlineAudioQualityPreference,
+      );
+      expect(
+        after.cellularOnlineAudioQualityPreference,
+        preference.cellularOnlineAudioQualityPreference,
+      );
+    },
+  );
 
   test('并发初始化期间应保持持久化歌曲且只绑定一次播放流', () async {
     const queueDataSource = PlayerQueueDataSource();

@@ -8,13 +8,36 @@ import '../../../../core/audio/audio_player_port.dart';
 import '../../../../core/audio/audio_sleep_timer.dart';
 import '../../../../core/audio/audio_spectrum_port.dart';
 import '../../../../core/audio/he_audio_handler.dart';
+import '../../../../core/audio/cache/audio_cache_provider.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 
+final audioHandlerPlayerAdapterProvider = Provider<AudioHandlerPlayerAdapter>(
+  (ref) => AudioHandlerPlayerAdapter(globalHeAudioHandler),
+);
+
 final audioPlayerPortProvider = Provider<AudioPlayerPort>((ref) {
-  final adapter = AudioHandlerPlayerAdapter(globalHeAudioHandler);
+  final adapter = ref.watch(audioHandlerPlayerAdapterProvider);
+  final runtime = ref.read(audioCacheRuntimeProvider);
+  var hydrated = false;
 
   void syncConfig() {
-    unawaited(adapter.syncConfig(ref.read(appConfigProvider)));
+    if (hydrated) unawaited(adapter.syncConfig(ref.read(appConfigProvider)));
+  }
+
+  void syncCachePolicy() {
+    if (hydrated && runtime != null) {
+      unawaited(
+        runtime.updatePolicy(ref.read(appConfigProvider).audioCachePolicy),
+      );
+    }
+  }
+
+  Future<void> syncAfterHydration() async {
+    await ref.read(appConfigProvider.notifier).waitUntilHydrated();
+    if (!ref.mounted) return;
+    hydrated = true;
+    syncConfig();
+    syncCachePolicy();
   }
 
   void syncCoverPlatforms() {
@@ -24,8 +47,18 @@ final audioPlayerPortProvider = Provider<AudioPlayerPort>((ref) {
     }
   }
 
-  syncConfig();
+  unawaited(syncAfterHydration());
   syncCoverPlatforms();
+  ref.listen(
+    appConfigProvider.select(
+      (config) => (
+        config.enablePlaybackAudioCache,
+        config.enableCellularAudioCache,
+        config.audioCacheLimitBytes,
+      ),
+    ),
+    (_, _) => syncCachePolicy(),
+  );
   ref.listen(
     appConfigProvider.select(
       (config) => (

@@ -6,6 +6,7 @@ import '../../../../app/theme/player/app_player_style_theme.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../player/domain/entities/player_quality_option.dart';
 import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/utils/link_info_size_parser.dart';
 
 List<PlayerQualityOption> buildDownloadQualityOptions({
   required List<LinkInfo> links,
@@ -26,7 +27,7 @@ List<PlayerQualityOption> buildDownloadQualityOptions({
         format: link.format.trim(),
         url: link.url.trim(),
         description: description.isEmpty ? null : description,
-        sizeBytes: _parseLinkSizeBytes(link.size),
+        sizeBytes: parseLinkInfoSizeBytes(link.size),
       ),
     );
   }
@@ -120,16 +121,4 @@ class _QualitySubtitle extends StatelessWidget {
       ],
     );
   }
-}
-
-int? _parseLinkSizeBytes(String rawSize) {
-  final normalized = rawSize.trim();
-  if (normalized.isEmpty) {
-    return null;
-  }
-  final parsed = int.tryParse(normalized);
-  if (parsed == null || parsed <= 0) {
-    return null;
-  }
-  return parsed;
 }
