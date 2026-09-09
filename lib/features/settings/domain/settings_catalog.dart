@@ -14,6 +14,7 @@ abstract final class SettingsGroupIds {
   static const appearanceTheme = 'appearance-theme';
   static const appearanceDisplay = 'appearance-display';
   static const playbackAudio = 'playback-audio';
+  static const playbackCache = 'playback-cache';
   static const lyricsStyle = 'lyrics-style';
   static const lyricsBehavior = 'lyrics-behavior';
   static const lyricsDesktop = 'lyrics-desktop';
@@ -32,6 +33,16 @@ abstract final class SettingsItemIds {
   static const skinAnimation = 'skin-animation';
   static const contentBackground = 'content-background';
   static const monochrome = 'monochrome';
+  static const playbackAudioCache = 'playback-audio-cache';
+  static const cellularAudioCache = 'cellular-audio-cache';
+  static const audioCacheLimit = 'audio-cache-limit';
+  static const clearAudioCache = 'clear-audio-cache';
+  static const audioCacheItems = {
+    playbackAudioCache,
+    cellularAudioCache,
+    audioCacheLimit,
+    clearAudioCache,
+  };
   static const wifiOnlineAudioQuality = 'wifi-online-audio-quality';
   static const cellularOnlineAudioQuality = 'cellular-online-audio-quality';
   static const lyricHighlightColor = 'lyric-highlight-color';
@@ -93,6 +104,11 @@ const List<SettingsGroupNode> settingsGroups = <SettingsGroupNode>[
     id: SettingsGroupIds.playbackAudio,
     sectionId: SettingsSectionIds.playback,
     titleKey: 'settings.group.playback.audio',
+  ),
+  SettingsGroupNode(
+    id: SettingsGroupIds.playbackCache,
+    sectionId: SettingsSectionIds.playback,
+    titleKey: 'settings.group.playback.cache',
   ),
   SettingsGroupNode(
     id: SettingsGroupIds.lyricsStyle,
@@ -213,6 +229,42 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.select,
     icon: Icons.network_cell_rounded,
     keywords: <String>['音质', '播放', '蜂窝网络', '移动网络'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.playbackAudioCache,
+    sectionId: SettingsSectionIds.playback,
+    groupId: SettingsGroupIds.playbackCache,
+    titleKey: 'settings.audio_cache.enabled',
+    kind: SettingsItemKind.toggle,
+    icon: Icons.cached_rounded,
+    keywords: ['缓存', 'cache'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.cellularAudioCache,
+    sectionId: SettingsSectionIds.playback,
+    groupId: SettingsGroupIds.playbackCache,
+    titleKey: 'settings.audio_cache.cellular',
+    kind: SettingsItemKind.toggle,
+    icon: Icons.network_cell_rounded,
+    keywords: ['缓存', '蜂窝', 'cache'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.audioCacheLimit,
+    sectionId: SettingsSectionIds.playback,
+    groupId: SettingsGroupIds.playbackCache,
+    titleKey: 'settings.audio_cache.limit',
+    kind: SettingsItemKind.select,
+    icon: Icons.storage_rounded,
+    keywords: ['缓存', '空间', 'cache'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.clearAudioCache,
+    sectionId: SettingsSectionIds.playback,
+    groupId: SettingsGroupIds.playbackCache,
+    titleKey: 'settings.audio_cache.clear',
+    kind: SettingsItemKind.select,
+    icon: Icons.delete_outline_rounded,
+    keywords: ['缓存', '清除', 'cache'],
   ),
   SettingsItemNode(
     id: SettingsItemIds.lyricHighlightColor,

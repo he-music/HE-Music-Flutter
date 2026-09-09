@@ -1,0 +1,3 @@
+// Opt-in xcodebuild override, never included by production configurations.
+HE_MUSIC_BUNDLE_IDENTIFIER = com.hemusic.music.flutter.cacheharness
+HE_MUSIC_PRODUCT_NAME = HE-Music-CacheHarness

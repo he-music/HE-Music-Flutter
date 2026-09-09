@@ -55,6 +55,9 @@ import 'package:he_music_flutter/features/player/presentation/widgets/player_sty
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
+import 'package:he_music_flutter/core/audio/cache/audio_cache_provider.dart';
+import '../../../../core/audio/cache/cache_surface_test_support.dart';
+
 final _playerTestLyricPositionProvider =
     NotifierProvider<_PlayerTestLyricPositionController, Duration>(
       _PlayerTestLyricPositionController.new,
@@ -106,6 +109,44 @@ const _monetFixtureDocument = LyricDocument(
 );
 
 void main() {
+  testWidgets('published cache adds no full player or queue badge', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final cache = CacheSurfaceFixture();
+    addTearDown(cache.store.dispose);
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        cache: cache,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('在线歌曲'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('player-quality-badge')),
+      findsOneWidget,
+    );
+    final before = visibleCacheSurface(tester);
+    cache.publish();
+    await tester.pumpAndSettle();
+    expect(cache.runtime.snapshot.entryCount, 2);
+    expect(visibleCacheSurface(tester), before);
+    expect(
+      find.textContaining(RegExp('cache|缓存', caseSensitive: false)),
+      findsNothing,
+    );
+    await tester.tap(find.byIcon(Icons.queue_music_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(PlayerQueueSheet), findsOneWidget);
+    expect(find.text('在线歌曲'), findsWidgets);
+    expect(
+      find.textContaining(RegExp('cache|缓存', caseSensitive: false)),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
   test(
     'resolvePlayerLyricHighlightColor should fallback to sky on auto failure',
     () {
@@ -2675,9 +2716,12 @@ Widget _buildPlayerTestApp({
   AudioSpectrumPort? spectrumPort,
   RealtimeSpectrumController? spectrumController,
   VoidCallback? onPlayerPageBuild,
+  CacheSurfaceFixture? cache,
 }) {
   return ProviderScope(
     overrides: [
+      if (cache != null)
+        audioCacheRuntimeProvider.overrideWithValue(cache.runtime),
       appConfigProvider.overrideWith(
         () => _TestAppConfigController(
           config ?? AppConfigState.initial.copyWith(localeCode: 'en'),

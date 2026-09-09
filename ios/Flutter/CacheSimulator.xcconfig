@@ -1,0 +1,3 @@
+// Explicit XCODE_XCCONFIG_FILE override, never included by normal builds.
+HE_MUSIC_BUNDLE_IDENTIFIER = com.hemusic.music.flutter.cachesim
+CODE_SIGNING_ALLOWED = NO

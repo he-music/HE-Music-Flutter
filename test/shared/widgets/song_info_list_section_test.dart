@@ -9,6 +9,9 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/song_info_list_section.dart';
 
+import 'package:he_music_flutter/core/audio/cache/audio_cache_provider.dart';
+import '../../core/audio/cache/cache_surface_test_support.dart';
+
 void main() {
   final songs = [
     const SongInfo(
@@ -38,6 +41,41 @@ void main() {
   ];
 
   group('SongInfoListSection', () {
+    testWidgets('published cache adds no song labels icons or actions', (
+      tester,
+    ) async {
+      final cache = CacheSurfaceFixture();
+      addTearDown(cache.store.dispose);
+      var taps = 0;
+      await tester.pumpWidget(
+        _wrap(
+          SongInfoListSection(
+            songs: songs,
+            resolveSongCover: (_) => '',
+            resolvePlatformId: (song) => song.platform,
+            onTapSong: (_, _, _) => taps++,
+            onLikeSong: (_) {},
+            onMoreSong: (_, _) {},
+          ),
+          cache: cache,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Song A'), findsOneWidget);
+      expect(find.text('Song B'), findsOneWidget);
+      final before = visibleCacheSurface(tester);
+      cache.publish();
+      await tester.pumpAndSettle();
+      expect(cache.runtime.snapshot.entryCount, 2);
+      expect(visibleCacheSurface(tester), before);
+      expect(
+        find.textContaining(RegExp('cache|缓存', caseSensitive: false)),
+        findsNothing,
+      );
+      await tester.tap(find.text('Song A'));
+      expect(taps, 1);
+      expect(tester.takeException(), isNull);
+    });
     testWidgets('应渲染歌曲列表', (tester) async {
       await tester.pumpWidget(
         _wrap(
@@ -114,9 +152,11 @@ void main() {
   });
 }
 
-Widget _wrap(Widget child) {
+Widget _wrap(Widget child, {CacheSurfaceFixture? cache}) {
   return ProviderScope(
     overrides: [
+      if (cache != null)
+        audioCacheRuntimeProvider.overrideWithValue(cache.runtime),
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
     ],

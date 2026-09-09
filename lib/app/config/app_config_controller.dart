@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/token_refresh_interceptor.dart';
+import '../../core/audio/cache/audio_cache_policy.dart';
 import '../theme/skin/app_custom_skin_store.dart';
 import 'app_config_data_source.dart';
 import 'app_config_state.dart';
@@ -122,6 +123,19 @@ class AppConfigController extends Notifier<AppConfigState> {
     _update(state.copyWith(cellularOnlineAudioQualityPreference: quality));
   }
 
+  void setEnablePlaybackAudioCache(bool value) {
+    _update(state.copyWith(enablePlaybackAudioCache: value));
+  }
+
+  void setEnableCellularAudioCache(bool value) {
+    _update(state.copyWith(enableCellularAudioCache: value));
+  }
+
+  void setAudioCacheLimitBytes(int value) {
+    if (!AudioCachePolicy.limits.contains(value)) return;
+    _update(state.copyWith(audioCacheLimitBytes: value));
+  }
+
   void setAutoCheckUpdates(bool value) {
     _update(state.copyWith(autoCheckUpdates: value));
   }
@@ -150,8 +164,9 @@ class AppConfigController extends Notifier<AppConfigState> {
   }
 
   void setPlayerBackdropId(String backdropId) {
-    final normalized =
-        AppPlayerBackdropRegistry.instance.normalizeId(backdropId);
+    final normalized = AppPlayerBackdropRegistry.instance.normalizeId(
+      backdropId,
+    );
     _update(state.copyWith(playerBackdropId: normalized));
   }
 
@@ -272,7 +287,10 @@ class AppConfigController extends Notifier<AppConfigState> {
   }
 
   Future<void> _hydrate() async {
-    final loaded = await ref.read(appConfigDataSourceProvider).load();
+    final loaded = await (ref.read(bootstrapAppConfigProvider) == null
+        ? ref.read(appConfigDataSourceProvider).load()
+        : Future.value(ref.read(bootstrapAppConfigProvider)!));
+    if (!ref.mounted) return;
     var customSkin = loaded.customSkinConfig;
     var skinId = loaded.skinId;
     final store = ref.read(appCustomSkinStoreProvider);
@@ -312,6 +330,9 @@ class AppConfigController extends Notifier<AppConfigState> {
       wifiOnlineAudioQualityPreference: loaded.wifiOnlineAudioQualityPreference,
       cellularOnlineAudioQualityPreference:
           loaded.cellularOnlineAudioQualityPreference,
+      enablePlaybackAudioCache: loaded.enablePlaybackAudioCache,
+      enableCellularAudioCache: loaded.enableCellularAudioCache,
+      audioCacheLimitBytes: loaded.audioCacheLimitBytes,
       autoCheckUpdates: loaded.autoCheckUpdates,
       githubDownloadAccelerationEnabled:
           loaded.githubDownloadAccelerationEnabled,
@@ -376,6 +397,9 @@ class AppConfigController extends Notifier<AppConfigState> {
     );
   }
 }
+
+/// Bootstrap has already read persistence before constructing the audio service.
+final bootstrapAppConfigProvider = Provider<AppConfigState?>((ref) => null);
 
 final appConfigDataSourceProvider = Provider<AppConfigDataSource>((ref) {
   return const AppConfigDataSource();

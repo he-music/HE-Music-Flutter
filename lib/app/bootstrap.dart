@@ -7,17 +7,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'config/app_environment.dart';
+import 'config/app_config_controller.dart';
+import 'config/app_config_data_source.dart';
+import 'config/app_config_state.dart';
+import '../core/audio/cache/audio_cache_store.dart';
+import '../core/audio/cache/audio_cache_runtime.dart';
+import 'audio_cache_bootstrap.dart';
+import 'audio_cache_simulator_guard.dart';
+import '../core/audio/cache/audio_cache_provider.dart';
 import '../core/audio/he_audio_handler.dart';
 import 'app.dart';
 
-Future<void> bootstrap() async {
+Future<void> bootstrap({
+  AppConfigDataSource dataSource = const AppConfigDataSource(),
+  AudioCacheStore Function()? createAudioCacheStore,
+  HeAudioHandler Function(AppConfigState?, AudioCacheRuntime?)?
+  createAudioHandler,
+  Widget Function(AppConfigState, AudioCacheRuntime?)? createApp,
+  bool debugIosSimulatorCache = false,
+}) async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (debugIosSimulatorCache) await requireAudioCacheDebugSimulator();
   MediaKit.ensureInitialized();
   await AppEnvironment.initialize();
   _setupHttpOverrides();
-  await initHeAudioHandler();
+  final audio = await prepareAudioBootstrap(
+    dataSource: dataSource,
+    createStore: createAudioCacheStore,
+    debugIosSimulatorCache: debugIosSimulatorCache,
+  );
+  await initHeAudioHandler(
+    config: audio.config,
+    audioCacheRuntime: audio.runtime,
+    createHandler: createAudioHandler,
+  );
   await _enableSystemStatusBar();
-  runApp(const ProviderScope(child: HeMusicApp()));
+  runApp(
+    ProviderScope(
+      overrides: [
+        bootstrapAppConfigProvider.overrideWithValue(audio.config),
+        audioCacheRuntimeProvider.overrideWithValue(audio.runtime),
+      ],
+      child: createApp?.call(audio.config, audio.runtime) ?? const HeMusicApp(),
+    ),
+  );
 }
 
 Future<void> _enableSystemStatusBar() async {

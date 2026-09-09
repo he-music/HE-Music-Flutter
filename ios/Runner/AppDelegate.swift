@@ -14,7 +14,64 @@ import MediaPlayer
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     setupMediaLibraryChannel(with: engineBridge.applicationRegistrar.messenger())
+    #if targetEnvironment(simulator)
+    setupCacheSimulatorChannel(with: engineBridge.applicationRegistrar.messenger())
+    #endif
   }
+
+  #if targetEnvironment(simulator)
+  private func setupCacheSimulatorChannel(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "com.hemusic/audio_cache_capacity", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      let bundle = Bundle.main.bundleIdentifier ?? ""
+      guard bundle == "com.hemusic.music.flutter.cachesim" else {
+        result(FlutterError(code: "isolation_required", message: "Independent simulator bundle required", details: nil))
+        return
+      }
+      if call.method == "simulatorIdentity" {
+        result(["simulator": true, "bundle": bundle])
+        return
+      }
+      guard call.method == "availableBytes" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard let arguments = call.arguments as? [String: Any],
+            let path = arguments["cachePath"] as? String, path.hasPrefix("/") else {
+        result(FlutterError(code: "invalid_path", message: "Cache directory required", details: nil))
+        return
+      }
+      DispatchQueue.global(qos: .utility).async {
+        let response: Any
+        do {
+          let directory = URL(fileURLWithPath: path, isDirectory: true)
+            .standardizedFileURL.resolvingSymlinksInPath()
+          let cache = try FileManager.default.url(for: .cachesDirectory,
+            in: .userDomainMask, appropriateFor: nil, create: false)
+            .standardizedFileURL.resolvingSymlinksInPath()
+          var isDirectory: ObjCBool = false
+          guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory),
+                isDirectory.boolValue, directory.path.hasPrefix(cache.path + "/") else {
+            DispatchQueue.main.async {
+              result(FlutterError(code: "invalid_path", message: "Not a cache subtree", details: nil))
+            }
+            return
+          }
+          let values = try directory.resourceValues(forKeys: [.volumeAvailableCapacityForOpportunisticUsageKey])
+          if let bytes = values.volumeAvailableCapacityForOpportunisticUsage, bytes >= 0 {
+            response = NSNumber(value: bytes)
+          } else {
+            response = NSNull()
+          }
+        } catch {
+          response = FlutterError(code: "capacity_unavailable", message: "Cache capacity unavailable", details: nil)
+        }
+        DispatchQueue.main.async { result(response) }
+      }
+    }
+  }
+  #endif
 
   private func setupMediaLibraryChannel(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(

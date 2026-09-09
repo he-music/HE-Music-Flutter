@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import '../../core/audio/cache/audio_cache_policy.dart';
 
 import 'app_custom_skin_config.dart';
 import 'app_config_state.dart';
@@ -49,6 +50,9 @@ const _enableDesktopLyricLockKey = 'app_config.enable_desktop_lyric_lock';
 const _authTokenKey = 'app_config.auth_token';
 const _refreshTokenKey = 'app_config.refresh_token';
 const _tokenExpiresAtKey = 'app_config.token_expires_at';
+const _playbackAudioCacheKey = 'app_config.enable_playback_audio_cache';
+const _cellularAudioCacheKey = 'app_config.enable_cellular_audio_cache';
+const _audioCacheLimitKey = 'app_config.audio_cache_limit_bytes';
 
 class AppConfigDataSource {
   const AppConfigDataSource();
@@ -76,7 +80,11 @@ class AppConfigDataSource {
       hasCustomSkin: customSkin != null,
     );
     final legacyStyleId = prefs.getString(_legacyPlayerStyleIdKey);
-    final (playerStageId, playerBackdropId, playerLyricsId) = legacyStyleId != null
+    final (
+      playerStageId,
+      playerBackdropId,
+      playerLyricsId,
+    ) = legacyStyleId != null
         ? _migrateLegacyStyleId(legacyStyleId)
         : (
             AppPlayerStageRegistry.instance.normalizeId(
@@ -98,6 +106,17 @@ class AppConfigDataSource {
       await prefs.setString(_skinIdKey, skinId);
     }
     return AppConfigState.initial.copyWith(
+      enablePlaybackAudioCache: switch (prefs.get(_playbackAudioCacheKey)) {
+        bool value => value,
+        _ => true,
+      },
+      enableCellularAudioCache: switch (prefs.get(_cellularAudioCacheKey)) {
+        bool value => value,
+        _ => false,
+      },
+      audioCacheLimitBytes: _readAudioCacheLimit(
+        prefs.get(_audioCacheLimitKey),
+      ),
       themeMode: _readThemeMode(prefs.getString(_themeModeKey)),
       themeAccent: AppThemeAccent.fromValue(prefs.getString(_themeAccentKey)),
       skinId: skinId,
@@ -158,8 +177,19 @@ class AppConfigDataSource {
     );
   }
 
+  static int _readAudioCacheLimit(Object? value) =>
+      value is int && AudioCachePolicy.limits.contains(value)
+      ? value
+      : AudioCachePolicy.defaultLimitBytes;
+
   Future<void> save(AppConfigState state) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_playbackAudioCacheKey, state.enablePlaybackAudioCache);
+    await prefs.setBool(_cellularAudioCacheKey, state.enableCellularAudioCache);
+    await prefs.setInt(
+      _audioCacheLimitKey,
+      _readAudioCacheLimit(state.audioCacheLimitBytes),
+    );
     await prefs.setString(_themeModeKey, state.themeMode.name);
     await prefs.setString(_themeAccentKey, state.themeAccent.value);
     await prefs.setString(_skinIdKey, state.skinId);
@@ -454,13 +484,21 @@ class AppConfigDataSource {
     case 'classic':
       return ('classic', cover, AppPlayerLyricsRegistry.legacyId);
     case 'fluid':
-      return ('classic', AppPlayerBackdropRegistry.fluidId, AppPlayerLyricsRegistry.legacyId);
+      return (
+        'classic',
+        AppPlayerBackdropRegistry.fluidId,
+        AppPlayerLyricsRegistry.legacyId,
+      );
     case 'vinyl':
       return ('vinyl', cover, AppPlayerLyricsRegistry.legacyId);
     case 'cassette':
       return ('cassette', cover, AppPlayerLyricsRegistry.legacyId);
     case 'artist_photo':
-      return ('classic', AppPlayerBackdropRegistry.artistPhotoId, AppPlayerLyricsRegistry.legacyId);
+      return (
+        'classic',
+        AppPlayerBackdropRegistry.artistPhotoId,
+        AppPlayerLyricsRegistry.legacyId,
+      );
     case 'radial_spectrum':
       return ('radial_spectrum', cover, AppPlayerLyricsRegistry.legacyId);
     case 'monet_lyrics':
@@ -470,6 +508,10 @@ class AppConfigDataSource {
     case 'cadenza_lyrics':
       return ('classic', cover, AppPlayerLyricsRegistry.cadenzaId);
     default:
-      return (AppPlayerStageRegistry.classicId, cover, AppPlayerLyricsRegistry.legacyId);
+      return (
+        AppPlayerStageRegistry.classicId,
+        cover,
+        AppPlayerLyricsRegistry.legacyId,
+      );
   }
 }

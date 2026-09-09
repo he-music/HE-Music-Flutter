@@ -1,4 +1,5 @@
 import 'app_environment.dart';
+import '../../core/audio/cache/audio_cache_policy.dart';
 import 'app_custom_skin_config.dart';
 import 'app_lyric_font_preset.dart';
 import 'app_lyric_highlight_color.dart';
@@ -39,6 +40,9 @@ class AppConfigState {
     this.authToken,
     this.refreshToken,
     this.tokenExpiresAt,
+    this.enablePlaybackAudioCache = true,
+    this.enableCellularAudioCache = false,
+    this.audioCacheLimitBytes = AudioCachePolicy.defaultLimitBytes,
   });
 
   final String apiBaseUrl;
@@ -70,6 +74,15 @@ class AppConfigState {
   final String? authToken;
   final String? refreshToken;
   final int? tokenExpiresAt;
+  final bool enablePlaybackAudioCache;
+  final bool enableCellularAudioCache;
+  final int audioCacheLimitBytes;
+
+  AudioCachePolicy get audioCachePolicy => AudioCachePolicy(
+    enabled: enablePlaybackAudioCache,
+    allowCellular: enableCellularAudioCache,
+    limitBytes: audioCacheLimitBytes,
+  );
 
   AppConfigState copyWith({
     String? apiBaseUrl,
@@ -107,8 +120,16 @@ class AppConfigState {
     String? refreshToken,
     int? tokenExpiresAt,
     bool clearRefreshToken = false,
+    bool? enablePlaybackAudioCache,
+    bool? enableCellularAudioCache,
+    int? audioCacheLimitBytes,
   }) {
     return AppConfigState(
+      enablePlaybackAudioCache:
+          enablePlaybackAudioCache ?? this.enablePlaybackAudioCache,
+      enableCellularAudioCache:
+          enableCellularAudioCache ?? this.enableCellularAudioCache,
+      audioCacheLimitBytes: audioCacheLimitBytes ?? this.audioCacheLimitBytes,
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
       themeMode: themeMode ?? this.themeMode,
       themeAccent: themeAccent ?? this.themeAccent,

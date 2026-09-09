@@ -27,6 +27,8 @@ import 'settings_item_presentation_registry.dart';
 import 'settings_navigation_registry.dart';
 import '../widgets/settings_single_choice_sheet.dart';
 import '../widgets/settings_tiles.dart';
+import '../widgets/audio_cache_settings_tile.dart';
+import '../../../../core/audio/cache/audio_cache_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({this.sectionId, this.highlightedItemId, super.key});
@@ -229,6 +231,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             is AppSkinRiveAnimationDescriptor ||
         currentSkin.dark.background.animation is AppSkinRiveAnimationDescriptor;
     final tile = switch (item.id) {
+      SettingsItemIds.playbackAudioCache ||
+      SettingsItemIds.cellularAudioCache ||
+      SettingsItemIds.audioCacheLimit ||
+      SettingsItemIds.clearAudioCache => AudioCacheSettingsTile(
+        item: item,
+        highlighted: _highlightedItemId == item.id,
+      ),
       SettingsItemIds.themeMode => SettingsSelectTile(
         icon: item.icon,
         iconRole: settingsItemIconRole(item.id),
@@ -499,6 +508,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   bool _isItemVisible(String itemId, AppConfigState config) {
+    if (SettingsItemIds.audioCacheItems.contains(itemId)) {
+      return ref.read(audioCacheRuntimeProvider)?.capabilityEnabled ?? false;
+    }
     if (itemId == SettingsItemIds.desktopLyric ||
         itemId == SettingsItemIds.desktopLyricLock) {
       return defaultTargetPlatform == TargetPlatform.android;

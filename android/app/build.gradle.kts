@@ -9,6 +9,8 @@ plugins {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+val audioCacheSpikeApplicationId =
+    providers.gradleProperty("audioCacheSpikeApplicationId").orNull
 
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use(keystoreProperties::load)
@@ -41,7 +43,8 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.hemusic.music.flutter"
+        applicationId =
+            audioCacheSpikeApplicationId ?: "com.hemusic.music.flutter"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -56,7 +59,11 @@ android {
             resValue("string", "app_name", "HE-Music Debug")
         }
         release {
-            resValue("string", "app_name", "HE-Music")
+            resValue(
+                "string",
+                "app_name",
+                if (audioCacheSpikeApplicationId == null) "HE-Music" else "Audio Cache Spike",
+            )
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {

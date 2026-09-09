@@ -25,7 +25,39 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 
+import 'package:he_music_flutter/core/audio/cache/audio_cache_provider.dart';
+import '../../../../core/audio/cache/cache_surface_test_support.dart';
+
 void main() {
+  testWidgets('published cache creates no library navigation entry', (
+    tester,
+  ) async {
+    final cache = CacheSurfaceFixture();
+    addTearDown(cache.store.dispose);
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_buildTestApp(localeCode: 'en', cache: cache));
+    await tester.pumpAndSettle();
+    for (final label in [
+      'Play History',
+      'Local Songs',
+      'Downloads',
+      'Collections',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
+    final before = visibleCacheSurface(tester);
+    cache.publish();
+    await tester.pumpAndSettle();
+    expect(cache.runtime.snapshot.entryCount, 2);
+    expect(visibleCacheSurface(tester), before);
+    expect(
+      find.textContaining(RegExp('cache|缓存', caseSensitive: false)),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('my page shows chinese labels when locale is zh', (tester) async {
     await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
     await tester.pump();
@@ -216,9 +248,12 @@ Widget _buildTestApp({
   bool overviewLoading = false,
   Future<List<MyFavoriteItem>>? playlistsFuture,
   bool useCitySkin = false,
+  CacheSurfaceFixture? cache,
 }) {
   return ProviderScope(
     overrides: [
+      if (cache != null)
+        audioCacheRuntimeProvider.overrideWithValue(cache.runtime),
       appConfigProvider.overrideWith(
         () => _TestAppConfigController(
           localeCode: localeCode,
