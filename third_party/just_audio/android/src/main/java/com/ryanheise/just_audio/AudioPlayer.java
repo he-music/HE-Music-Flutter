@@ -329,7 +329,7 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "PLAYLIST_TRANSITION_ERROR");
             }
         }
         lastPlaylistLength = player.getMediaItemCount();
@@ -412,24 +412,24 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
             final ExoPlaybackException exoError = (ExoPlaybackException)error;
             switch (exoError.type) {
             case ExoPlaybackException.TYPE_SOURCE:
-                Log.e(TAG, "TYPE_SOURCE: " + exoError.getSourceException().getMessage());
+                Log.e(TAG, "TYPE_SOURCE");
                 break;
 
             case ExoPlaybackException.TYPE_RENDERER:
-                Log.e(TAG, "TYPE_RENDERER: " + exoError.getRendererException().getMessage());
+                Log.e(TAG, "TYPE_RENDERER");
                 break;
 
             case ExoPlaybackException.TYPE_UNEXPECTED:
-                Log.e(TAG, "TYPE_UNEXPECTED: " + exoError.getUnexpectedException().getMessage());
+                Log.e(TAG, "TYPE_UNEXPECTED");
                 break;
 
             default:
-                Log.e(TAG, "default ExoPlaybackException: " + exoError.getUnexpectedException().getMessage());
+                Log.e(TAG, "UNKNOWN_EXOPLAYBACK_ERROR");
             }
             // TODO: send both errorCode and type
             sendError(exoError.type, exoError.getMessage(), mapOf("index", currentIndex));
         } else {
-            Log.e(TAG, "default PlaybackException: " + error.getMessage());
+            Log.e(TAG, "PLAYBACK_ERROR");
             sendError(error.errorCode, error.getMessage(), mapOf("index", currentIndex));
         }
     }
@@ -585,11 +585,11 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
                 break;
             }
         } catch (IllegalStateException e) {
-            e.printStackTrace();
-            result.error("Illegal state: " + e.getMessage(), e.toString(), null);
+            Log.e(TAG, "METHOD_CALL_ILLEGAL_STATE");
+            result.error("Illegal state", "Illegal state", null);
         } catch (Exception e) {
-            e.printStackTrace();
-            result.error("Error: " + e, e.toString(), null);
+            Log.e(TAG, "METHOD_CALL_ERROR");
+            result.error("Error", "Unexpected error", null);
         } finally {
             broadcastPendingPlaybackEvent();
         }

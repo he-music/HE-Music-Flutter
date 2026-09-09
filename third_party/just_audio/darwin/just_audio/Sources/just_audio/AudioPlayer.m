@@ -1248,6 +1248,14 @@ static void finalizeTap(MTAudioProcessingTapRef tap) {
 }
 
 - (void)abortExistingConnection:(BOOL)switchToIdle {
+    // Cancellation belongs to the pending load, not a particular player item.
+    FlutterResult loadResult = _loadResult;
+    _loadResult = nil;
+    if (loadResult) {
+        loadResult([FlutterError errorWithCode:[NSString stringWithFormat:@"%d", ERROR_ABORT]
+                                      message:@"Connection aborted"
+                                      details:nil]);
+    }
     [self sendError:@(ERROR_ABORT) errorMessage:@"Connection aborted" playerItem:nil switchToIdle:switchToIdle];
 }
 
@@ -1575,6 +1583,14 @@ static void finalizeTap(MTAudioProcessingTapRef tap) {
 }
 
 - (void)dispose:(BOOL)calledFromDealloc {
+    // Detach acknowledgement must not leave Dart awaiting an abandoned load.
+    FlutterResult loadResult = _loadResult;
+    _loadResult = nil;
+    if (loadResult && !calledFromDealloc) {
+        loadResult([FlutterError errorWithCode:[NSString stringWithFormat:@"%d", ERROR_ABORT]
+                                      message:@"Connection aborted"
+                                      details:nil]);
+    }
     if (!_player) return;
     if (_processingState != psIdle) {
         [_player pause];
