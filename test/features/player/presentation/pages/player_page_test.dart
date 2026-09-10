@@ -44,6 +44,8 @@ import 'package:he_music_flutter/features/player/presentation/controllers/realti
 import 'package:he_music_flutter/features/player/presentation/providers/player_audio_provider.dart';
 import 'package:he_music_flutter/features/player/presentation/pages/player_page.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/artist_photo_provider.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_sleep_timer_provider.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/player_more_sheet_widgets.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/styles/player_style_stage.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/cadenza_lyric_page.dart';
@@ -701,6 +703,110 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add to Playlist'), findsNothing);
+  });
+
+  testWidgets('sleep timer ticks update only the more sheet summary', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final times = StreamController<DateTime>.broadcast();
+    final states = StreamController<SleepTimerState>.broadcast();
+    addTearDown(times.close);
+    addTearDown(states.close);
+    final now = DateTime.now();
+    final active = SleepTimerState(
+      deadline: now.add(const Duration(minutes: 30)),
+      stopAfterCurrent: false,
+      waitingForTrackEnd: false,
+    );
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _OnlineTrackPlayerController.new,
+        sleepTimerStates: states.stream,
+        sleepTimerTimes: times.stream,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    await _scrollPlayerMoreSheetTo(tester, 'Sleep Timer');
+    states.add(active);
+    times.add(now);
+    await tester.pump();
+    await tester.pump();
+
+    final listFinder = find.byKey(const ValueKey('player-more-sheet-list'));
+    final initialList = tester.widget<ListView>(listFinder);
+    final styleFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is PlayerSheetActionTile &&
+          widget.icon == Icons.palette_outlined,
+    );
+    final initialStyle = tester.widget<PlayerSheetActionTile>(styleFinder);
+    final timerFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is PlayerSheetActionTile &&
+          widget.icon == Icons.bedtime_rounded,
+    );
+    final initialTimer = tester.widget<PlayerSheetActionTile>(timerFinder);
+    expect(initialTimer.subtitle, 'In 30 min');
+    for (var second = 1; second <= 5; second++) {
+      times.add(now.add(Duration(seconds: second)));
+      await tester.pump();
+      await tester.pump();
+      expect(tester.widget<ListView>(listFinder), same(initialList));
+      expect(
+        tester.widget<PlayerSheetActionTile>(styleFinder),
+        same(initialStyle),
+      );
+      expect(
+        tester.widget<PlayerSheetActionTile>(timerFinder),
+        same(initialTimer),
+      );
+    }
+    times.add(now.add(const Duration(minutes: 1)));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.widget<PlayerSheetActionTile>(timerFinder).subtitle,
+      'In 29 min',
+    );
+    expect(tester.widget<ListView>(listFinder), same(initialList));
+    expect(
+      tester.widget<PlayerSheetActionTile>(styleFinder),
+      same(initialStyle),
+    );
+
+    times.add(active.deadline!);
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.widget<PlayerSheetActionTile>(timerFinder).subtitle,
+      'Stopping soon',
+    );
+    expect(tester.widget<ListView>(listFinder), same(initialList));
+
+    states.add(
+      SleepTimerState(
+        deadline: active.deadline,
+        stopAfterCurrent: true,
+        waitingForTrackEnd: true,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final waitingSummary = tester
+        .widget<PlayerSheetActionTile>(timerFinder)
+        .subtitle;
+    expect(waitingSummary, 'Stops after this song');
+    states.add(SleepTimerState.inactive);
+    await tester.pump();
+    await tester.pump();
+    expect(tester.widget<PlayerSheetActionTile>(timerFinder).subtitle, 'Off');
+    expect(tester.widget<ListView>(listFinder), same(initialList));
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('custom sleep timer picker loops hour and minute columns', (
@@ -2754,6 +2860,8 @@ Widget _buildPlayerTestApp({
   AudioSpectrumPort? spectrumPort,
   RealtimeSpectrumController? spectrumController,
   VoidCallback? onPlayerPageBuild,
+  Stream<SleepTimerState>? sleepTimerStates,
+  Stream<DateTime>? sleepTimerTimes,
   CacheSurfaceFixture? cache,
 }) {
   return ProviderScope(
@@ -2782,6 +2890,10 @@ Widget _buildPlayerTestApp({
       sleepTimerAudioPortProvider.overrideWithValue(
         const _NoopSleepTimerAudioPort(),
       ),
+      if (sleepTimerStates != null)
+        sleepTimerStateProvider.overrideWith((ref) => sleepTimerStates),
+      if (sleepTimerTimes != null)
+        sleepTimerNowProvider.overrideWith((ref) => sleepTimerTimes),
       if (spectrumController != null)
         realtimeSpectrumControllerProvider.overrideWith(
           () => spectrumController,

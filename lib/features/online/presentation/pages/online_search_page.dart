@@ -85,12 +85,16 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   bool _showSuggestionPanel = true;
   bool _loadingSearchHistory = true;
   bool _loadingHotKeywords = true;
-  bool _loadingSuggestions = false;
+  final _suggestions = ValueNotifier<({bool loading, List<String> keywords})>((
+    loading: false,
+    keywords: const <String>[],
+  ));
+  String _suggestionQuery = '';
+  int _suggestionRevision = 0;
   String _activeSearchKeyword = '';
   SearchDefaultEntry? _frozenPlaceholderEntry;
   List<String> _searchHistoryKeywords = const <String>[];
   List<String> _hotKeywords = const <String>[];
-  List<String> _suggestKeywords = const <String>[];
 
   SearchType _selectedType = SearchType.comprehensive;
   late String _selectedPlatformId;
@@ -130,6 +134,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     if (keyword.isEmpty) {
       return;
     }
+    _suggestionQuery = keyword;
     _searchController.text = keyword;
     _showSuggestionPanel = false;
     Future.microtask(_search);
@@ -225,10 +230,14 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                               unawaited(_clearSearchHistory()),
                         )
                       : showSuggestPanel
-                      ? OnlineSearchSuggestPanel(
-                          loading: _loadingSuggestions,
-                          suggestions: _suggestKeywords,
-                          onTapKeyword: _onTapSuggestedKeyword,
+                      ? ValueListenableBuilder(
+                          valueListenable: _suggestions,
+                          builder: (context, suggestions, child) =>
+                              OnlineSearchSuggestPanel(
+                                loading: suggestions.loading,
+                                suggestions: suggestions.keywords,
+                                onTapKeyword: _onTapSuggestedKeyword,
+                              ),
                         )
                       : OnlineSearchResultPage(
                           localeCode: config.localeCode,
@@ -278,6 +287,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     _searchFocusNode
       ..removeListener(_onSearchFocusChanged)
       ..dispose();
+    _suggestions.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -300,12 +310,12 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         selection: TextSelection.collapsed(offset: keyword.length),
       );
     }
+    _cancelSuggestions();
+    _suggestionQuery = keyword;
     _searchFocusNode.unfocus();
     if (_showSuggestionPanel) {
       setState(() {
         _showSuggestionPanel = false;
-        _loadingSuggestions = false;
-        _suggestKeywords = const <String>[];
       });
     }
     final searchType = _selectedType;
@@ -647,18 +657,18 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
 
   void _onSearchChanged(String value) {
     final keyword = value.trim();
+    final wasEmpty = _suggestionQuery.isEmpty;
+    _suggestionQuery = keyword;
     if (keyword.isNotEmpty) {
-      if (!_showSuggestionPanel) {
+      if (!_showSuggestionPanel || wasEmpty) {
         setState(() => _showSuggestionPanel = true);
       }
       _scheduleLoadSuggestions(keyword);
       return;
     }
-    _suggestDebounce?.cancel();
+    _cancelSuggestions();
     setState(() {
       _showSuggestionPanel = false;
-      _loadingSuggestions = false;
-      _suggestKeywords = const <String>[];
       if (_activeSearchKeyword.isNotEmpty) {
         _activeSearchKeyword = '';
       }
@@ -705,24 +715,29 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     await _search();
   }
 
+  void _cancelSuggestions() {
+    _suggestDebounce?.cancel();
+    _suggestionRevision += 1;
+    _suggestions.value = (loading: false, keywords: const <String>[]);
+  }
+
   void _scheduleLoadSuggestions(String keyword) {
     _suggestDebounce?.cancel();
+    final revision = ++_suggestionRevision;
     _suggestDebounce = Timer(const Duration(milliseconds: 280), () {
-      unawaited(_loadSearchSuggestions(keyword));
+      unawaited(_loadSearchSuggestions(keyword, revision));
     });
   }
 
-  Future<void> _loadSearchSuggestions(String keyword) async {
+  Future<void> _loadSearchSuggestions(String keyword, int revision) async {
     final query = keyword.trim();
     if (query.isEmpty) {
       return;
     }
-    if (!mounted) {
+    if (!mounted || revision != _suggestionRevision) {
       return;
     }
-    setState(() {
-      _loadingSuggestions = true;
-    });
+    _suggestions.value = (loading: true, keywords: _suggestions.value.keywords);
     var suggested = const <String>[];
     final suggestPlatformId = _firstPlatformIdSupportingFeature(
       PlatformFeatureSupportFlag.getSearchSuggest,
@@ -739,7 +754,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         suggested = const <String>[];
       }
     }
-    if (!mounted) {
+    if (!mounted || revision != _suggestionRevision) {
       return;
     }
     if (_searchController.text.trim() != query) {
@@ -755,10 +770,10 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       }
       deduped.add(trimmed);
     }
-    setState(() {
-      _loadingSuggestions = false;
-      _suggestKeywords = deduped.take(18).toList(growable: false);
-    });
+    _suggestions.value = (
+      loading: false,
+      keywords: deduped.take(18).toList(growable: false),
+    );
   }
 
   List<String> _localSuggestions(String keyword) {

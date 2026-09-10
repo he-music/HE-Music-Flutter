@@ -15,6 +15,8 @@ import 'package:he_music_flutter/features/online/domain/entities/online_platform
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_bars.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_hot_panel.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_suggest_panel.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_page.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_page.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
@@ -25,6 +27,164 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 
 void main() {
+  testWidgets('suggestion loading and results preserve the search page shell', (
+    tester,
+  ) async {
+    final client = _PendingSuggestionsClient();
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(
+        client: client,
+        platformsFuture: Future.value(_suggestPlatforms),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Taylor');
+    await tester.pump();
+    final shell = tester.widget<Scaffold>(find.byType(Scaffold).first);
+    final header = tester.widget<SearchTopBox>(find.byType(SearchTopBox));
+    await tester.pump(const Duration(milliseconds: 280));
+    expect(
+      tester
+          .widget<OnlineSearchSuggestPanel>(
+            find.byType(OnlineSearchSuggestPanel),
+          )
+          .loading,
+      isTrue,
+    );
+    expect(tester.widget<Scaffold>(find.byType(Scaffold).first), same(shell));
+    expect(
+      tester.widget<SearchTopBox>(find.byType(SearchTopBox)),
+      same(header),
+    );
+    client.requests.single.complete(['Taylor suggestion']);
+    await tester.pump();
+    expect(find.text('Taylor suggestion'), findsOneWidget);
+    expect(tester.widget<Scaffold>(find.byType(Scaffold).first), same(shell));
+    expect(
+      tester.widget<SearchTopBox>(find.byType(SearchTopBox)),
+      same(header),
+    );
+
+    await tester.enterText(find.byType(TextField), 'Taylor Swift');
+    await tester.pump(const Duration(milliseconds: 280));
+    expect(tester.widget<Scaffold>(find.byType(Scaffold).first), same(shell));
+    expect(
+      tester.widget<SearchTopBox>(find.byType(SearchTopBox)),
+      same(header),
+    );
+    client.requests.last.complete(['Swift suggestion']);
+    await tester.pump();
+    expect(find.text('Swift suggestion'), findsOneWidget);
+    expect(find.text('Taylor suggestion'), findsNothing);
+    expect(
+      tester.widget<SearchTopBox>(find.byType(SearchTopBox)),
+      same(header),
+    );
+    await tester.tap(find.text('Swift suggestion'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OnlineSearchResultPage), findsOneWidget);
+    expect(find.byType(OnlineSearchSuggestPanel), findsNothing);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Swift suggestion',
+    );
+    expect(client.comprehensiveSearchCallCount, 1);
+  });
+
+  testWidgets(
+    'clearing and retyping ignores an older request for the same query',
+    (tester) async {
+      final client = _PendingSuggestionsClient();
+      await tester.pumpWidget(
+        _buildOnlineSearchApp(
+          client: client,
+          platformsFuture: Future.value(_suggestPlatforms),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Taylor');
+      await tester.pump(const Duration(milliseconds: 280));
+      final oldRequest = client.requests.single;
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      expect(find.byType(OnlineSearchHotPanel), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Taylor');
+      await tester.pump(const Duration(milliseconds: 280));
+      client.requests.last.complete(['Current suggestion']);
+      await tester.pump();
+      oldRequest.complete(['Stale suggestion']);
+      await tester.pump();
+      expect(find.text('Current suggestion'), findsOneWidget);
+      expect(find.text('Stale suggestion'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'submitting during suggestion loading keeps search results visible',
+    (tester) async {
+      final client = _PendingSuggestionsClient();
+      await tester.pumpWidget(
+        _buildOnlineSearchApp(
+          client: client,
+          platformsFuture: Future.value(_suggestPlatforms),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Taylor');
+      await tester.pump(const Duration(milliseconds: 280));
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      final result = tester.widget<OnlineSearchResultPage>(
+        find.byType(OnlineSearchResultPage),
+      );
+      client.requests.single.complete(['Late suggestion']);
+      await tester.pump();
+      expect(
+        tester.widget<OnlineSearchResultPage>(
+          find.byType(OnlineSearchResultPage),
+        ),
+        same(result),
+      );
+      expect(find.byType(OnlineSearchSuggestPanel), findsNothing);
+      expect(client.comprehensiveSearchCallCount, 1);
+    },
+  );
+
+  testWidgets(
+    'suggestion failure shows local matches and disposal ignores replies',
+    (tester) async {
+      final client = _PendingSuggestionsClient();
+      await tester.pumpWidget(
+        _buildOnlineSearchApp(
+          client: client,
+          platformsFuture: Future.value(_suggestPlatforms),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '周');
+      await tester.pump(const Duration(milliseconds: 280));
+      client.requests.single.completeError(
+        Exception('suggestions unavailable'),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<OnlineSearchSuggestPanel>(
+              find.byType(OnlineSearchSuggestPanel),
+            )
+            .loading,
+        isFalse,
+      );
+      expect(find.text('周杰伦'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Adele');
+      await tester.pump(const Duration(milliseconds: 280));
+      await tester.pumpWidget(const SizedBox.shrink());
+      client.requests.last.complete(['Late reply']);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('online search autofocuses the search field', (tester) async {
     await tester.pumpWidget(_buildOnlineSearchApp());
     await tester.pump();
@@ -359,6 +519,32 @@ final _lyricSearchPlatform = OnlinePlatform(
       _searchPlatforms.single.featureSupportFlag |
       PlatformFeatureSupportFlag.searchLyricSong,
 );
+
+final _suggestPlatforms = [
+  OnlinePlatform(
+    id: 'qq',
+    name: 'QQ音乐',
+    shortName: 'QQ',
+    status: 1,
+    featureSupportFlag:
+        _searchPlatforms.single.featureSupportFlag |
+        PlatformFeatureSupportFlag.getSearchSuggest,
+  ),
+];
+
+class _PendingSuggestionsClient extends _SearchPageOnlineApiClient {
+  final requests = <Completer<List<String>>>[];
+
+  @override
+  Future<List<String>> fetchSearchSuggestions({
+    required String keyword,
+    String? platform,
+  }) {
+    final request = Completer<List<String>>();
+    requests.add(request);
+    return request.future;
+  }
+}
 
 class _SearchPageOnlineApiClient extends OnlineApiClient {
   _SearchPageOnlineApiClient() : super(Dio());

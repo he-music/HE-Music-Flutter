@@ -12,6 +12,7 @@ import '../../../../core/audio/audio_sleep_timer.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../providers/player_audio_provider.dart';
 import '../providers/player_sleep_timer_provider.dart';
+import 'player_more_sheet_widgets.dart';
 
 const List<int> _sleepTimerPresetMinutes = <int>[10, 30, 60, 90];
 
@@ -39,6 +40,38 @@ String formatSleepTimerSummary(
   });
 }
 
+final _sleepTimerSummaryProvider = Provider.autoDispose<String>((ref) {
+  final config = ref.watch(appConfigProvider);
+  final state =
+      ref.watch(sleepTimerStateProvider).value ?? SleepTimerState.inactive;
+  final now = state.isActive && !state.waitingForTrackEnd
+      ? ref.watch(sleepTimerNowProvider).value ?? DateTime.now()
+      : DateTime.now();
+  return formatSleepTimerSummary(config, state, now);
+});
+
+class PlayerSleepTimerActionTile extends ConsumerWidget {
+  const PlayerSleepTimerActionTile({required this.onTap, super.key});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
+    final enabled = ref.watch(sleepTimerAudioPortProvider) != null;
+    final summary = ref.watch(_sleepTimerSummaryProvider);
+    return PlayerSheetActionTile(
+      icon: Icons.bedtime_rounded,
+      title: AppI18n.tByLocaleCode(localeCode, 'player.sleep_timer.title'),
+      subtitle: summary,
+      enabled: enabled,
+      onTap: enabled ? onTap : null,
+    );
+  }
+}
+
 class PlayerSleepTimerSheet extends ConsumerStatefulWidget {
   const PlayerSleepTimerSheet({super.key});
 
@@ -57,10 +90,6 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
     final port = ref.watch(sleepTimerAudioPortProvider);
     final sleepTimer =
         ref.watch(sleepTimerStateProvider).value ?? SleepTimerState.inactive;
-    var now = DateTime.now();
-    if (sleepTimer.isActive && !sleepTimer.waitingForTrackEnd) {
-      now = ref.watch(sleepTimerNowProvider).value ?? now;
-    }
     if (!_syncedInitialState) {
       _stopAfterCurrent = sleepTimer.stopAfterCurrent;
       _syncedInitialState = true;
@@ -109,13 +138,9 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
               onTap: enabled ? () => unawaited(_cancelTimer()) : null,
             ),
             for (final minutes in _sleepTimerPresetMinutes)
-              ListTile(
-                enabled: enabled,
-                leading: const Icon(Icons.timer_outlined),
-                title: Text(_formatDurationOption(config, minutes)),
-                trailing: _isSelectedPreset(sleepTimer, now, minutes)
-                    ? const Icon(Icons.check_rounded)
-                    : null,
+              _SleepTimerPresetTile(
+                config: config,
+                minutes: minutes,
                 onTap: enabled
                     ? () => unawaited(_setTimer(Duration(minutes: minutes)))
                     : null,
@@ -126,7 +151,7 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
               title: Text(AppI18n.t(config, 'player.sleep_timer.custom')),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: enabled
-                  ? () => unawaited(_openCustomDurationPicker(sleepTimer, now))
+                  ? () => unawaited(_openCustomDurationPicker())
                   : null,
             ),
           ],
@@ -157,10 +182,10 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
     }
   }
 
-  Future<void> _openCustomDurationPicker(
-    SleepTimerState sleepTimer,
-    DateTime now,
-  ) async {
+  Future<void> _openCustomDurationPicker() async {
+    final sleepTimer =
+        ref.read(sleepTimerStateProvider).value ?? SleepTimerState.inactive;
+    final now = DateTime.now();
     final currentRemaining =
         sleepTimer.isActive && !sleepTimer.waitingForTrackEnd
         ? sleepTimer.remainingFrom(now)
@@ -178,16 +203,31 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
     }
     await _setTimer(selected);
   }
+}
 
-  bool _isSelectedPreset(
-    SleepTimerState sleepTimer,
-    DateTime now,
-    int minutes,
-  ) {
-    if (!sleepTimer.isActive || sleepTimer.waitingForTrackEnd) {
-      return false;
-    }
-    return _ceilMinutes(sleepTimer.remainingFrom(now)) == minutes;
+class _SleepTimerPresetTile extends ConsumerWidget {
+  const _SleepTimerPresetTile({
+    required this.config,
+    required this.minutes,
+    required this.onTap,
+  });
+
+  final AppConfigState config;
+  final int minutes;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(
+      sleepTimerRemainingMinutesProvider.select((value) => value == minutes),
+    );
+    return ListTile(
+      enabled: onTap != null,
+      leading: const Icon(Icons.timer_outlined),
+      title: Text(_formatDurationOption(config, minutes)),
+      trailing: selected ? const Icon(Icons.check_rounded) : null,
+      onTap: onTap,
+    );
   }
 }
 
