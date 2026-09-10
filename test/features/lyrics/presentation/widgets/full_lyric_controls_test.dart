@@ -18,6 +18,9 @@ import 'package:he_music_flutter/app/config/app_lyric_auxiliary_mode.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/pages/lyric_search_page.dart';
+import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
+import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/full_lyric_controls.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/lyric_panel.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
@@ -58,6 +61,58 @@ class _Document extends Notifier<LyricDocument> {
 }
 
 void main() {
+  for (final scenario in ['audio', 'metadata', 'switched']) {
+    testWidgets('search navigation passes target duration: $scenario', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(store: _Store()));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(FullLyricControls)),
+      );
+      final player =
+          container.read(playerControllerProvider.notifier) as _Player;
+      const target = PlayerTrack(
+        id: 'song',
+        title: '城市回声',
+        artist: '歌手',
+        duration: Duration(seconds: 279),
+      );
+      player.updatePlayback(target, Duration.zero);
+      await tester.pump();
+      await tester.tap(find.text('词'));
+      await tester.pumpAndSettle();
+      player.updatePlayback(
+        scenario == 'switched' ? target.copyWith(id: 'next') : target,
+        scenario == 'metadata'
+            ? Duration.zero
+            : const Duration(milliseconds: 301900),
+      );
+      await tester.tap(find.text('搜索歌词'));
+      await tester.pumpAndSettle();
+      final page = tester.widget<LyricSearchPage>(find.byType(LyricSearchPage));
+      expect(page.target.id, target.id);
+      expect(page.target.title, target.title);
+      expect(page.target.artist, target.artist);
+      expect(
+        page.target.duration,
+        scenario == 'audio'
+            ? const Duration(milliseconds: 301900)
+            : target.duration,
+      );
+      player.updatePlayback(
+        target.copyWith(id: 'another'),
+        const Duration(seconds: 400),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<LyricSearchPage>(find.byType(LyricSearchPage)).target,
+        same(page.target),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.android,
@@ -375,6 +430,7 @@ Widget _app({
   overrides: [
     if (store != null) lyricStoreProvider.overrideWithValue(store),
     appConfigProvider.overrideWith(_Config.new),
+    onlinePlatformsProvider.overrideWith(_EmptyPlatforms.new),
     playerControllerProvider.overrideWith(_Player.new),
     currentLyricDocumentProvider.overrideWith(
       (ref) => AsyncData(
@@ -462,7 +518,16 @@ class _Config extends AppConfigController {
   }
 }
 
+class _EmptyPlatforms extends OnlinePlatformsController {
+  @override
+  Future<List<OnlinePlatform>> build() async => [];
+}
+
 class _Player extends PlayerController {
+  void updatePlayback(PlayerTrack track, Duration duration) {
+    state = state.copyWith(queue: [track], duration: duration);
+  }
+
   @override
   PlayerPlaybackState build() => PlayerPlaybackState.initial(const [
     PlayerTrack(id: 'song', title: '城市回声'),

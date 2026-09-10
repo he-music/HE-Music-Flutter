@@ -40,7 +40,7 @@ class FullLyricControls extends ConsumerWidget {
               tooltip: '歌词选项',
               onPressed: track == null
                   ? null
-                  : () => _openOptions(context, track),
+                  : () => _openOptions(context, ref, track),
             ),
             const _AuxiliaryButton(),
             const Spacer(),
@@ -55,7 +55,11 @@ class FullLyricControls extends ConsumerWidget {
     );
   }
 
-  Future<void> _openOptions(BuildContext context, PlayerTrack track) async {
+  Future<void> _openOptions(
+    BuildContext context,
+    WidgetRef ref,
+    PlayerTrack track,
+  ) async {
     final search = await showPlayerStyledBottomSheet<bool>(
       context: context,
       showDragHandle: true,
@@ -63,8 +67,20 @@ class FullLyricControls extends ConsumerWidget {
       builder: (_) => _LyricOptions(target: track),
     );
     if (search == true && context.mounted) {
+      final playback = ref.read(playerControllerProvider);
+      final currentTrack = playback.currentTrack;
+      final isCurrentTrack =
+          currentTrack != null &&
+          currentTrack.id == track.id &&
+          currentTrack.platform == track.platform &&
+          currentTrack.path == track.path;
+      final target = isCurrentTrack && playback.duration > Duration.zero
+          ? track.copyWith(duration: playback.duration)
+          : track;
       await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => LyricSearchPage(target: track)),
+        MaterialPageRoute<void>(
+          builder: (_) => LyricSearchPage(target: target),
+        ),
       );
     }
   }

@@ -195,6 +195,29 @@ void main() {
     },
   );
 
+  testWidgets('search sends the supplied target duration in whole seconds', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      target: _track.copyWith(duration: const Duration(milliseconds: 301900)),
+    );
+    expect(api.lastDuration, 301);
+    await search(tester);
+    expect(api.lastDuration, 301);
+    expect(api.calls, ['B']);
+
+    api.pending['B']!.complete([]);
+    await tester.pumpAndSettle();
+    await search(tester);
+    expect(api.lastDuration, 301);
+    expect(api.calls, ['B', 'B']);
+    await tester.tap(find.text('QQ'));
+    await tester.pump();
+    expect(api.lastDuration, 301);
+    expect(api.calls, ['B', 'B', 'A']);
+  });
+
   testWidgets('no capable platforms has explicit empty state', (tester) async {
     await open(tester, emptyPlatforms: true);
     expect(find.text('暂无可用的歌词搜索平台'), findsOneWidget);
