@@ -13,6 +13,8 @@ import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_ly
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_rail.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/monet_lyric_painter.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/tilt_lyric_rail.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/pendolo_lyric_rail.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/pendolo_lyric_painter.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/tilt_lyric_painter.dart';
 
 final _position = NotifierProvider<_Position, Duration>(_Position.new);
@@ -49,7 +51,7 @@ const _document = LyricDocument(
 );
 
 void main() {
-  for (final style in ['monet', 'tilt', 'cadenza', 'partita']) {
+  for (final style in ['monet', 'tilt', 'cadenza', 'partita', 'pendolo']) {
     testWidgets(
       '$style interpolates locally and snaps pause seek hidden reduced motion and replacement',
       (tester) async {
@@ -73,6 +75,15 @@ void main() {
           void built() => builds++;
           final rail = switch (style) {
             'monet' => MonetLyricRail(
+              document: document,
+              fontPreset: AppLyricFontPreset.medium,
+              enableWordByWordLyric: true,
+              palette: classicPlayerScenePaletteFallback,
+              onSeek: null,
+              seekListenable: seek,
+              debugOnStructureBuild: built,
+            ),
+            'pendolo' => PendoloLyricRail(
               document: document,
               fontPreset: AppLyricFontPreset.medium,
               enableWordByWordLyric: true,
@@ -131,6 +142,7 @@ void main() {
             .painter!;
         Duration position() => switch (painter()) {
           MonetLyricPainter p => p.position.value,
+          PendoloLyricPainter p => p.positionListenable.value,
           TiltLyricPainter p => p.positionListenable!.value,
           CadenzaLyricPainter p => p.position.value,
           PartitaLyricPainter p => p.position.value,

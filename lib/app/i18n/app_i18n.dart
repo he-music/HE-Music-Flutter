@@ -548,6 +548,8 @@ abstract final class AppI18n {
       'player.style.monet_lyrics': '莫奈',
       'player.style.partita_lyrics': '云阶',
       'player.style.cadenza_lyrics': '心象',
+      'player.style.pendolo_lyrics': '时计',
+      'player.style.pendolo_lyrics.description': '沿弧形轮盘排列歌词，随换句机械拨动与回弹',
       'player.style.tilt_lyrics': '倾诉',
       'player.style.tilt_lyrics.description': '将当前歌词拆成错落的文字片段，随节奏逐字显现',
       'player.style.cadenza_lyrics.description': '按词与片段排布当前歌词，像思绪在画面中浮现',
@@ -1432,6 +1434,9 @@ abstract final class AppI18n {
       'player.style.monet_lyrics': 'Monet',
       'player.style.partita_lyrics': 'Partita',
       'player.style.cadenza_lyrics': 'Cadenza',
+      'player.style.pendolo_lyrics': 'Pendolo',
+      'player.style.pendolo_lyrics.description':
+          'An arc of lyrics advancing with a mechanical escapement',
       'player.style.tilt_lyrics': 'Tilt',
       'player.style.tilt_lyrics.description':
           'Current lyrics split into offset fragments that reveal with the beat',

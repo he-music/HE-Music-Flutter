@@ -143,6 +143,12 @@ void main() {
       optionId: 'cadenza_lyrics',
     );
     expect(harness.config.state.playerLyricsId, 'cadenza_lyrics');
+    await _selectStyleOption(
+      tester,
+      axis: 'lyrics',
+      optionId: 'pendolo_lyrics',
+    );
+    expect(harness.config.state.playerLyricsId, 'pendolo_lyrics');
 
     // 选择后面板保持打开，不自动关闭。
     expect(find.byType(PlayerStyleSelectionSheet), findsOneWidget);
@@ -263,9 +269,10 @@ Future<void> _selectStyleOption(
 }) async {
   await tester.tap(find.byKey(ValueKey<String>('player-style-axis-$axis')));
   await tester.pump(const Duration(milliseconds: 200));
-  await tester.tap(
-    find.byKey(ValueKey<String>('player-style-option-$optionId')),
-  );
+  final option = find.byKey(ValueKey<String>('player-style-option-$optionId'));
+  await tester.ensureVisible(option);
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.tap(option);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
 }

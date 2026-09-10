@@ -75,14 +75,14 @@ void main() {
     );
   });
 
-  test('lyrics registry exposes five unique lyric options', () {
+  test('lyrics registry exposes six unique lyric options', () {
     final registry = AppPlayerLyricsRegistry.builtIn();
 
     expect(
       registry.options.map((o) => o.metadata.id).toSet(),
       AppPlayerLyricsRegistry.builtInIds,
     );
-    expect(registry.options, hasLength(5));
+    expect(registry.options, hasLength(6));
     expect(registry.options.every((o) => o.isValid), isTrue);
     expect(
       registry.resolve(AppPlayerLyricsRegistry.legacyId).lyricsKind,
@@ -103,6 +103,10 @@ void main() {
     expect(
       registry.resolve(AppPlayerLyricsRegistry.tiltId).lyricsKind,
       AppPlayerLyricsKind.tilt,
+    );
+    expect(
+      registry.resolve(AppPlayerLyricsRegistry.pendoloId).lyricsKind,
+      AppPlayerLyricsKind.pendolo,
     );
     expect(registry.normalizeId(null), AppPlayerLyricsRegistry.legacyId);
     expect(registry.normalizeId(''), AppPlayerLyricsRegistry.legacyId);

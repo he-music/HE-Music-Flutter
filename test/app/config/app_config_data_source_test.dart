@@ -73,6 +73,17 @@ void main() {
     expect(state.authToken, 'token');
   });
 
+  test(
+    'Pendolo selection round trips while preserving existing lyric ids',
+    () async {
+      const source = AppConfigDataSource();
+      for (final id in AppPlayerLyricsRegistry.builtInIds) {
+        await source.save(AppConfigState.initial.copyWith(playerLyricsId: id));
+        expect((await source.load()).playerLyricsId, id);
+      }
+    },
+  );
+
   test('load should keep system locale preference', () async {
     const dataSource = AppConfigDataSource();
     await dataSource.save(

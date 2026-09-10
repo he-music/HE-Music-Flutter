@@ -49,6 +49,7 @@ import '../widgets/monet_lyric_page.dart';
 import '../widgets/cadenza_lyric_page.dart';
 import '../widgets/partita_lyric_page.dart';
 import '../widgets/tilt_lyric_page.dart';
+import '../widgets/pendolo_lyric_page.dart';
 import '../widgets/player_backdrop.dart';
 import '../widgets/player_compact_lyric_section.dart';
 import '../widgets/player_control_bar.dart';
@@ -386,6 +387,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           seekListenable: _seekRevision,
         ),
         AppPlayerLyricsKind.tilt => TiltLyricPage(
+          emptyText: AppI18n.tByLocaleCode(
+            config.localeCode,
+            'player.lyrics.empty',
+          ),
+          onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
+          palette: scenePalette,
+          seekListenable: _seekRevision,
+        ),
+        AppPlayerLyricsKind.pendolo => PendoloLyricPage(
           emptyText: AppI18n.tByLocaleCode(
             config.localeCode,
             'player.lyrics.empty',

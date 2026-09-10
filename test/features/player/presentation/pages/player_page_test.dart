@@ -32,6 +32,7 @@ import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_ly
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/partita_lyric_rail.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/tilt_lyric_painter.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/tilt_lyric_rail.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/pendolo_lyric_rail.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/favorite_song_status_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -53,6 +54,7 @@ import 'package:he_music_flutter/features/player/presentation/widgets/player_lyr
 import 'package:he_music_flutter/features/player/presentation/widgets/monet_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/partita_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/tilt_lyric_page.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/pendolo_lyric_page.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_style_live_preview.dart';
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
@@ -1527,6 +1529,51 @@ void main() {
     expect(_tiltPainter(tester).data.layout?.sourceLine.text, '信号房间');
     expect(playerPageBuilds, initialPlayerPageBuilds);
   });
+
+  testWidgets(
+    'Pendolo selection mounts the native wheel without page progress rebuilds',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var builds = 0;
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+          lyricDocument: _monetFixtureDocument,
+          onPlayerPageBuild: () => builds++,
+          config: AppConfigState.initial.copyWith(
+            localeCode: 'en',
+            playerLyricsId: AppPlayerLyricsRegistry.pendoloId,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      tester
+          .widget<PageView>(
+            find.byKey(const ValueKey<String>('player-mobile-pager')),
+          )
+          .controller!
+          .jumpToPage(1);
+      await tester.pumpAndSettle();
+      expect(find.byType(PendoloLyricPage), findsOneWidget);
+      expect(find.byType(PendoloLyricRail), findsOneWidget);
+      final initialBuilds = builds;
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(PlayerPage)),
+      );
+      container
+          .read(_playerTestLyricPositionProvider.notifier)
+          .update(const Duration(minutes: 1, seconds: 25));
+      await tester.pump();
+      expect(builds, initialBuilds);
+      container
+          .read(_playerTestLyricPositionProvider.notifier)
+          .update(const Duration(minutes: 1, seconds: 30));
+      await tester.pump();
+      expect(builds, initialBuilds);
+    },
+  );
 
   testWidgets('favorite heart stays red across all player styles', (
     tester,
