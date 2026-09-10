@@ -97,7 +97,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final config = ref.watch(appConfigProvider);
-    final qrState = ref.watch(qrLoginControllerProvider);
     final oauthStatusText = _oauthStatusText?.trim() ?? '';
     return Scaffold(
       appBar: AppBar(
@@ -115,10 +114,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   end: Alignment.bottomRight,
                   colors: <Color>[
                     theme.colorScheme.surface,
-                    theme.colorScheme.primaryContainer.withValues(alpha: 0.52),
-                    theme.colorScheme.surfaceContainerHighest.withValues(
-                      alpha: 0.92,
-                    ),
+                    theme.colorScheme.surfaceContainerLow,
                   ],
                 ),
               ),
@@ -139,9 +135,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           color: theme.colorScheme.surface.withValues(
                             alpha: 0.9,
                           ),
-                          borderRadius: BorderRadius.circular(30),
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
@@ -150,13 +146,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
                               currentTab: _loginTab,
                               onTabChanged: _switchLoginTab,
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 24),
                             if (_loginTab == _LoginTab.password)
                               ..._buildPasswordLoginSection(config, theme),
                             if (_loginTab == _LoginTab.qr)
                               _QrLoginSection(
                                 config: config,
-                                state: qrState,
                                 onRefresh: _refreshQrLogin,
                               ),
                           ],
@@ -254,11 +249,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
     }
   }
 
-
   void _switchLoginTab(_LoginTab nextTab) {
     if (_loginTab == nextTab) {
       return;
     }
+    FocusScope.of(context).unfocus();
     setState(() {
       _loginTab = nextTab;
     });
@@ -388,6 +383,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         enabled: !_oauthBusy,
         canRequestFocus: !_submitting && !_oauthBusy,
         decoration: InputDecoration(
+          fillColor: theme.colorScheme.surfaceContainerLow,
           labelText: AppI18n.t(config, 'auth.login.username'),
           prefixIcon: const Icon(Icons.person_outline_rounded),
         ),
@@ -400,6 +396,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         canRequestFocus: !_submitting && !_oauthBusy,
         onSubmitted: (_) => _submit(),
         decoration: InputDecoration(
+          fillColor: theme.colorScheme.surfaceContainerLow,
           labelText: AppI18n.t(config, 'auth.login.password'),
           prefixIcon: const Icon(Icons.lock_outline_rounded),
         ),
@@ -407,27 +404,38 @@ class _LoginPageState extends ConsumerState<LoginPage>
       const SizedBox(height: 18),
       SizedBox(
         width: double.infinity,
-        child: FilledButton.icon(
+        child: FilledButton(
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           onPressed: (_submitting || _oauthBusy) ? null : _submit,
-          icon: _submitting
-              ? const SizedBox(
+          child: _submitting
+              ? SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    semanticsLabel: AppI18n.t(config, 'auth.login.submitting'),
+                  ),
                 )
-              : const Icon(Icons.login_rounded),
-          label: Text(
-            _submitting
-                ? AppI18n.t(config, 'auth.login.submitting')
-                : AppI18n.t(config, 'auth.login.submit'),
-          ),
+              : Text(AppI18n.t(config, 'auth.login.submit')),
         ),
       ),
       if (_loadingAuthProviders ||
           _authProviders.isNotEmpty ||
           (_authProviderError?.trim().isNotEmpty ?? false)) ...<Widget>[
-        const SizedBox(height: 18),
-        Divider(height: 1, color: theme.dividerColor.withValues(alpha: 0.4)),
+        const SizedBox(height: 24),
+        Row(
+          children: <Widget>[
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                AppI18n.t(config, 'auth.oauth.other_methods'),
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+            const Expanded(child: Divider()),
+          ],
+        ),
         const SizedBox(height: 16),
         if (_loadingAuthProviders)
           const Center(
@@ -780,12 +788,12 @@ class _LoginTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final selectedColor = theme.colorScheme.primaryContainer;
-    final unselectedColor = theme.colorScheme.surfaceContainerHighest;
+    final selectedColor = theme.colorScheme.surface;
+    const unselectedColor = Colors.transparent;
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(22),
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
@@ -832,19 +840,30 @@ class _LoginTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: selected ? selectedColor : unselectedColor,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Center(
-            child: Text(
-              label,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w500,
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? selectedColor : unselectedColor,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              child: Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: selected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
               ),
             ),
           ),
@@ -854,22 +873,18 @@ class _LoginTabButton extends StatelessWidget {
   }
 }
 
-class _QrLoginSection extends StatelessWidget {
-  const _QrLoginSection({
-    required this.config,
-    required this.state,
-    required this.onRefresh,
-  });
+class _QrLoginSection extends ConsumerWidget {
+  const _QrLoginSection({required this.config, required this.onRefresh});
 
   final AppConfigState config;
-  final QrLoginState state;
   final Future<void> Function() onRefresh;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final overlayText = _resolveOverlayText();
-    final showRefresh = _shouldShowRefreshButton;
+    final state = ref.watch(qrLoginControllerProvider);
+    final overlayText = _resolveOverlayText(state);
+    final showRefresh = _shouldShowRefreshButton(state);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -923,6 +938,16 @@ class _QrLoginSection extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        Center(
+          child: Text(
+            AppI18n.t(config, 'auth.qr.login_hint'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
         if (showRefresh) ...<Widget>[
           const SizedBox(height: 12),
           Center(
@@ -937,13 +962,13 @@ class _QrLoginSection extends StatelessWidget {
     );
   }
 
-  bool get _shouldShowRefreshButton {
+  bool _shouldShowRefreshButton(QrLoginState state) {
     return state.status == QrLoginWorkflowStatus.expired ||
         state.status == QrLoginWorkflowStatus.cancelled ||
         state.status == QrLoginWorkflowStatus.failure;
   }
 
-  String? _resolveOverlayText() {
+  String? _resolveOverlayText(QrLoginState state) {
     switch (state.status) {
       case QrLoginWorkflowStatus.scanned:
       case QrLoginWorkflowStatus.confirmed:

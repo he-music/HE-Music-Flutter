@@ -15,6 +15,7 @@ abstract final class SettingsGroupIds {
   static const appearanceDisplay = 'appearance-display';
   static const playbackAudio = 'playback-audio';
   static const playbackCache = 'playback-cache';
+  static const lyricCache = 'lyric-cache';
   static const lyricsStyle = 'lyrics-style';
   static const lyricsBehavior = 'lyrics-behavior';
   static const lyricsDesktop = 'lyrics-desktop';
@@ -111,6 +112,11 @@ const List<SettingsGroupNode> settingsGroups = <SettingsGroupNode>[
     id: SettingsGroupIds.playbackCache,
     sectionId: SettingsSectionIds.playback,
     titleKey: 'settings.group.playback.cache',
+  ),
+  SettingsGroupNode(
+    id: SettingsGroupIds.lyricCache,
+    sectionId: SettingsSectionIds.playback,
+    titleKey: 'settings.group.playback.lyric_cache',
   ),
   SettingsGroupNode(
     id: SettingsGroupIds.lyricsStyle,
@@ -271,7 +277,7 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
   SettingsItemNode(
     id: SettingsItemIds.automaticLyricCache,
     sectionId: SettingsSectionIds.playback,
-    groupId: SettingsGroupIds.playbackCache,
+    groupId: SettingsGroupIds.lyricCache,
     titleKey: 'settings.lyric_cache.automatic',
     kind: SettingsItemKind.select,
     icon: Icons.cached,
@@ -280,7 +286,7 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
   SettingsItemNode(
     id: SettingsItemIds.manualLyrics,
     sectionId: SettingsSectionIds.playback,
-    groupId: SettingsGroupIds.playbackCache,
+    groupId: SettingsGroupIds.lyricCache,
     titleKey: 'settings.lyric_cache.manual',
     kind: SettingsItemKind.select,
     icon: Icons.lyrics_outlined,

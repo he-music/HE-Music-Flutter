@@ -33,7 +33,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('密码登录'), findsOneWidget);
-    expect(find.text('扫码登录'), findsOneWidget);
+    expect(find.text('二维码登录'), findsOneWidget);
     expect(find.byType(QrImageView), findsNothing);
   });
 
@@ -48,7 +48,7 @@ void main() {
 
     expect(client.createQrCallCount, 0);
 
-    await tester.tap(find.text('扫码登录'));
+    await tester.tap(find.text('二维码登录'));
     await tester.pump();
 
     expect(find.byType(QrImageView), findsOneWidget);
@@ -64,7 +64,7 @@ void main() {
       _buildApp(platform: TargetPlatform.macOS, client: client),
     );
     await tester.pump();
-    await tester.tap(find.text('扫码登录'));
+    await tester.tap(find.text('二维码登录'));
     await tester.pump();
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
@@ -104,7 +104,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.tap(find.text('扫码登录'));
+    await tester.tap(find.text('二维码登录'));
     await tester.pump();
 
     expect(client.createQrCallCount, 1);
@@ -130,7 +130,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.tap(find.text('扫码登录'));
+    await tester.tap(find.text('二维码登录'));
     await tester.pump();
 
     expect(client.createQrCallCount, 2);
@@ -154,7 +154,7 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.text('扫码登录'));
+      await tester.tap(find.text('二维码登录'));
       await tester.pump();
 
       expect(find.text('二维码已过期，请重新扫码'), findsOneWidget);
@@ -167,24 +167,56 @@ void main() {
   ) async {
     final client = _LoginPageTestClient.desktop();
     await tester.pumpWidget(
-      _buildApp(
-        platform: TargetPlatform.android,
-        client: client,
-      ),
+      _buildApp(platform: TargetPlatform.android, client: client),
     );
     await tester.pump();
 
     expect(find.text('扫一扫登录设备'), findsNothing);
-    expect(find.text('扫码登录'), findsOneWidget);
+    expect(find.text('二维码登录'), findsOneWidget);
     expect(find.byType(QrImageView), findsNothing);
     expect(client.createQrCallCount, 0);
 
-    await tester.tap(find.text('扫码登录'));
+    await tester.tap(find.text('二维码登录'));
     await tester.pump();
 
     expect(find.byType(QrImageView), findsOneWidget);
     expect(client.createQrCallCount, 1);
   });
+
+  testWidgets(
+    'mobile tab switch dismisses keyboard and preserves credentials',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        _buildApp(
+          platform: TargetPlatform.android,
+          client: _LoginPageTestClient.desktop(),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).first, 'tester');
+      await tester.enterText(find.byType(TextField).last, 'password');
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.tap(find.text('二维码登录'));
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(find.byType(QrImageView), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('密码登录'));
+      await tester.pump();
+      expect(find.text('tester'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+        'password',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('password login keeps keyboard hidden after challenge returns', (
     tester,
