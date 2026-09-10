@@ -255,30 +255,28 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('词'), findsOneWidget);
       expect(find.text('译'), findsNothing);
-      expect(find.text('原'), findsOneWidget);
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(FullLyricControls)),
-      );
-      final before = container.read(appConfigProvider).lyricAuxiliaryMode;
-      await tester.tap(find.text('原'));
-      await tester.pump();
-      expect(container.read(appConfigProvider).lyricAuxiliaryMode, before);
+      expect(find.text('原'), findsNothing);
       expect(
-        tester
-            .widget<InkResponse>(
-              find.descendant(
-                of: find.byKey(const ValueKey('lyric-auxiliary-control')),
-                matching: find.byType(InkResponse),
-              ),
-            )
-            .onTap,
-        isNull,
+        find.byKey(const ValueKey('lyric-auxiliary-control')),
+        findsNothing,
       );
-      expect(tester.widget<Text>(find.text('原')).style!.color, Colors.white54);
       expect(find.byTooltip('播放'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('original-only lyrics hide auxiliary control', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        document: const LyricDocument(
+          lines: [LyricLine(start: Duration.zero, text: '只有原文')],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('lyric-auxiliary-control')), findsNothing);
+    expect(find.text('词'), findsOneWidget);
+  });
 
   testWidgets(
     'small outlined controls group at left and larger playback sits at right',
@@ -298,11 +296,11 @@ void main() {
       expect(tester.widget<Text>(find.text('词')).style!.fontSize, 14);
       expect(rect('lyric-auxiliary-control').width, greaterThanOrEqualTo(48));
       expect(rect('lyric-options-control').width, greaterThanOrEqualTo(48));
-      expect(options.left - auxiliary.right, inInclusiveRange(12, 20));
-      expect(options.right, lessThan(130));
+      expect(auxiliary.left - options.right, inInclusiveRange(12, 20));
+      expect(auxiliary.right, lessThan(130));
       expect(play.width, 52);
       expect(play.right, 374);
-      expect(play.left - options.right, greaterThan(150));
+      expect(play.left - auxiliary.right, greaterThan(150));
       expect(auxiliary.center.dy, play.center.dy);
       expect(tester.takeException(), isNull);
     },

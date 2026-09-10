@@ -123,6 +123,19 @@ void main() {
       );
       expect(tabs.platforms.map((p) => p.id), ['A', 'B']);
       expect(tabs.selectedId, 'B');
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      final loadingArea = tester.getRect(
+        find.descendant(
+          of: find.byType(SliverFillRemaining),
+          matching: find.byType(Center),
+        ),
+      );
+      expect(
+        tester.getCenter(find.byType(CircularProgressIndicator)),
+        loadingArea.center,
+      );
+      expect(find.text('多位歌手用顿号或中英文逗号分隔'), findsOneWidget);
       expect(find.text('Platform A'), findsNothing);
       expect(find.byType(ChoiceChip), findsNothing);
       expect(
@@ -285,12 +298,15 @@ void main() {
     (tester) async {
       await open(tester);
       await tester.enterText(find.byType(TextField).first, 'New song');
-      await tester.enterText(find.byType(TextField).last, 'One、Two');
+      await tester.enterText(
+        find.byType(TextField).last,
+        'One、Two， Three, Four',
+      );
       expect(api.calls, ['B']);
       await tester.tap(find.text('QQ'));
       await tester.pump();
       expect(api.lastName, 'New song');
-      expect(api.lastArtists, ['One', 'Two']);
+      expect(api.lastArtists, ['One', 'Two', 'Three', 'Four']);
       api.pending['A']!.complete([_candidate]);
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('清空歌名'));
@@ -438,7 +454,7 @@ void main() {
       var request = Completer<List<OnlinePlatform>>();
       await open(tester, loadPlatforms: () => request.future);
       expect(api.calls, isEmpty);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
       request.completeError(StateError('platform failure'));
       await tester.pumpAndSettle();
       expect(find.text('平台加载失败，重试'), findsOneWidget);
@@ -563,8 +579,8 @@ void main() {
         );
         expect(decoration.filled, isFalse);
         expect(decoration.labelText, isNull);
-        expect(decoration.enabledBorder, InputBorder.none);
-        expect(decoration.focusedBorder, InputBorder.none);
+        expect(decoration.enabledBorder, isA<UnderlineInputBorder>());
+        expect(decoration.focusedBorder, isA<UnderlineInputBorder>());
       }
       if (scenario.$3 == 1) {
         expect(

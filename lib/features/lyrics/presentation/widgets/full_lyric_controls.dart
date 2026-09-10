@@ -34,7 +34,6 @@ class FullLyricControls extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Row(
           children: [
-            const _AuxiliaryButton(),
             _OutlinedLyricButton(
               controlId: 'options',
               glyph: '词',
@@ -43,6 +42,7 @@ class FullLyricControls extends ConsumerWidget {
                   ? null
                   : () => _openOptions(context, track),
             ),
+            const _AuxiliaryButton(),
             const Spacer(),
             if (kIsWeb ||
                 (defaultTargetPlatform != TargetPlatform.macOS &&
@@ -85,6 +85,7 @@ class _AuxiliaryButton extends ConsumerWidget {
           line.translation.trim().isNotEmpty ||
           line.romanization.trim().isNotEmpty,
     );
+    if (!hasAuxiliary) return const SizedBox.shrink();
     final effective = preference.effective(document);
     return _OutlinedLyricButton(
       controlId: 'auxiliary',
@@ -97,11 +98,9 @@ class _AuxiliaryButton extends ConsumerWidget {
           ? '仅显示原文'
           : effective.label,
       muted: effective == AppLyricAuxiliaryMode.off,
-      onPressed: !hasAuxiliary
-          ? null
-          : () => ref
-                .read(appConfigProvider.notifier)
-                .setLyricAuxiliaryMode(preference.next(document)),
+      onPressed: () => ref
+          .read(appConfigProvider.notifier)
+          .setLyricAuxiliaryMode(preference.next(document)),
     );
   }
 }

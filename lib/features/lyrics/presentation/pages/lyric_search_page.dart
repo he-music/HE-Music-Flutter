@@ -193,7 +193,13 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 12, right: 12),
-          child: Text(label, style: theme.textTheme.bodySmall),
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
         Expanded(
           child: Semantics(
@@ -203,31 +209,46 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
               enabled: _selecting == null,
               style: theme.textTheme.bodyMedium,
               textInputAction: TextInputAction.search,
-              // Explicitly reset the app theme's filled, padded outline input.
               decoration: InputDecoration(
-                hintText: label == '歌名' ? '请输入歌名' : '多位歌手用顿号分隔',
+                hintText: label == '歌名' ? '请输入歌名' : '请输入歌手',
                 filled: false,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                border: const UnderlineInputBorder(),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.outline.withValues(alpha: .5),
+                  ),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                disabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                ),
+                suffixIcon: IconButton(
+                  tooltip: '清空$label',
+                  onPressed: _selecting != null || controller.text.isEmpty
+                      ? null
+                      : () {
+                          controller.clear();
+                          _invalidate();
+                        },
+                  icon: const Icon(Icons.close, size: 18),
+                ),
               ),
               onChanged: (_) => _invalidate(),
               onSubmitted: (_) => _submit(),
             ),
           ),
-        ),
-        IconButton(
-          tooltip: '清空$label',
-          onPressed: _selecting != null || controller.text.isEmpty
-              ? null
-              : () {
-                  controller.clear();
-                  _invalidate();
-                },
-          icon: const Icon(Icons.close, size: 18),
         ),
       ],
     );
@@ -271,7 +292,7 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: platformsAsync.when(
-                  loading: () => const LinearProgressIndicator(),
+                  loading: () => const SizedBox.shrink(),
                   error: (_, _) => TextButton(
                     onPressed: () => ref.invalidate(onlinePlatformsProvider),
                     child: const Text('平台加载失败，重试'),
@@ -300,21 +321,31 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: AppSkinSurface(
-                  role: AppSkinSurfaceRole.search,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Column(
-                    children: [
-                      _inputRow('歌名', _name),
-                      const Divider(height: 1, indent: 12, endIndent: 12),
-                      _inputRow('歌手', _artist),
-                    ],
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _inputRow('歌名', _name),
+                    const SizedBox(height: 10),
+                    _inputRow('歌手', _artist),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                      child: Text(
+                        '多位歌手用顿号或中英文逗号分隔',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            if (_loading)
-              const SliverToBoxAdapter(child: LinearProgressIndicator()),
+            if (_loading ||
+                (platformsAsync.isLoading && !platformsAsync.hasValue))
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
             if (_message != null)
               SliverToBoxAdapter(
                 child: Padding(
@@ -327,6 +358,10 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
               itemBuilder: (context, index) {
                 final candidate = _results[index];
                 final seconds = candidate.duration;
+                final artistNames = candidate.artistNames
+                    .map((name) => name.trim())
+                    .where((name) => name.isNotEmpty)
+                    .join(' / ');
                 return AppSkinContentSurface(
                   child: ListTile(
                     title: Text(
@@ -335,7 +370,7 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      candidate.artistNames.join('、'),
+                      artistNames.isEmpty ? '-' : artistNames,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
