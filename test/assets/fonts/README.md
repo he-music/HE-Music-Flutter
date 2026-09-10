@@ -28,3 +28,11 @@ for compact lyric-search widget screenshots. Its exact glyph list is
 `lyric_search_cjk_glyphs.txt`; regenerate with the command above using those two
 filenames. It shares `LICENSE.txt` and does not change production app assets.
 The search fixture also applies these fonts to AppBar's independent title style.
+
+Lyric-search screenshots are generated manually after UI changes for visual
+review. Normal test runs check layout and interactions without comparing pixels.
+To regenerate the three screenshots, run:
+
+```sh
+flutter test --update-goldens test/features/lyrics/presentation/pages/lyric_search_page_test.dart
+```

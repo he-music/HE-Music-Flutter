@@ -49,7 +49,10 @@ void main() {
         .extension<AppPlayerStyleTheme>();
 
     expect(capturedTheme.brightness, Brightness.dark);
-    expect(lightPlayerStyleTheme?.systemOverlayStyle, appPlayerSystemOverlayStyle);
+    expect(
+      lightPlayerStyleTheme?.systemOverlayStyle,
+      appPlayerSystemOverlayStyle,
+    );
     expect(lightPlayerStyleTheme?.sheetBrightness, Brightness.light);
     expect(capturedTheme.extension<AppSkinTheme>(), isNull);
 
@@ -57,7 +60,10 @@ void main() {
     final darkPlayerStyleTheme = capturedTheme.extension<AppPlayerStyleTheme>();
     expect(capturedTheme.colorScheme.primary, lightOuterPlayerColor);
     expect(capturedTheme.colorScheme.primary, appPlayerForegroundColors.accent);
-    expect(darkPlayerStyleTheme?.systemOverlayStyle, appPlayerSystemOverlayStyle);
+    expect(
+      darkPlayerStyleTheme?.systemOverlayStyle,
+      appPlayerSystemOverlayStyle,
+    );
     expect(darkPlayerStyleTheme?.sheetBrightness, Brightness.dark);
   });
 }

@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// 封面（stage）轴：真实前景舞台。
-enum AppPlayerStageKind {
-  classic,
-  vinyl,
-  cassette,
-  radialSpectrum,
-}
+enum AppPlayerStageKind { classic, vinyl, cassette, radialSpectrum }
 
 /// 背景（backdrop）轴。
 enum AppPlayerBackdropKind {

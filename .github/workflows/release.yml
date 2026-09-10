@@ -56,6 +56,9 @@ jobs:
       - name: 设置 Rive Linux 运行库
         run: dart run rive_native:setup --verbose --clean --platform linux
 
+      - name: 检查格式
+        run: dart format --output=none --set-exit-if-changed lib test
+
       - name: 执行发布前检查
         run: make release-check
 

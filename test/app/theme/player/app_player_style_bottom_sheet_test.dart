@@ -14,13 +14,15 @@ void main() {
     'player sheet preserves result, colors, and system overlay style',
     (tester) async {
       final cases =
-          <({
-            ThemeMode mode,
-            String playerStageId,
-            String playerBackdropId,
-            String playerLyricsId,
-            AppPlayerSheetStyle sheet,
-          })>[
+          <
+            ({
+              ThemeMode mode,
+              String playerStageId,
+              String playerBackdropId,
+              String playerLyricsId,
+              AppPlayerSheetStyle sheet,
+            })
+          >[
             (
               mode: ThemeMode.light,
               playerStageId: AppPlayerStageRegistry.vinylId,
@@ -134,10 +136,7 @@ void main() {
                 const ValueKey<String>('player-system-ui-overlay-style-guard'),
               ),
             );
-        expect(
-          overlayStyleGuard.value,
-          appPlayerSystemOverlayStyle,
-        );
+        expect(overlayStyleGuard.value, appPlayerSystemOverlayStyle);
 
         await tester.tap(find.text('Close'));
         await tester.pumpAndSettle();

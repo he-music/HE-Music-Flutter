@@ -30,7 +30,9 @@ void main() {
       AppPlayerStageKind.radialSpectrum,
     );
     expect(
-      registry.resolve(AppPlayerStageRegistry.radialSpectrumId).usesRealtimeSpectrum,
+      registry
+          .resolve(AppPlayerStageRegistry.radialSpectrumId)
+          .usesRealtimeSpectrum,
       isTrue,
     );
     expect(registry.normalizeId(null), AppPlayerStageRegistry.classicId);
