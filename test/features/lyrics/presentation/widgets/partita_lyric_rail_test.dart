@@ -34,6 +34,64 @@ const _palette = PlayerScenePalette(
 );
 
 void main() {
+  testWidgets('interrupted line transitions release only detached paint data', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildRailApp(document: _timedDocument));
+    await tester.pump();
+    final first = _painter(tester).data.textPainters.first;
+    _container(tester)
+        .read(_testPositionProvider.notifier)
+        .update(const Duration(milliseconds: 4000));
+    await tester.pump();
+    final second = _painter(tester).data.textPainters.first;
+    expect(first.debugDisposed, isFalse);
+    _container(tester)
+        .read(_testPositionProvider.notifier)
+        .update(const Duration(milliseconds: 6000));
+    await tester.pump();
+    expect(first.debugDisposed, isTrue);
+    expect(second.debugDisposed, isFalse);
+    final current = _painter(tester).data.textPainters.first;
+    await tester.pumpWidget(const SizedBox());
+    expect(second.debugDisposed, isTrue);
+    expect(current.debugDisposed, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'next-line render preheat is reused at crossing and outgoing painters retire',
+    (tester) async {
+      var layouts = 0;
+      await tester.pumpWidget(
+        _buildRailApp(document: _timedDocument, onTextLayout: () => layouts++),
+      );
+      await tester.pump();
+      final outgoing = _painter(tester).data.textPainters.first;
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 3000));
+      await tester.pump();
+      final warmedLayouts = layouts;
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 3100));
+      await tester.pump();
+      expect(layouts, warmedLayouts);
+      _container(tester)
+          .read(_testPositionProvider.notifier)
+          .update(const Duration(milliseconds: 4000));
+      await tester.pump();
+      expect(layouts, warmedLayouts);
+      expect(outgoing.debugDisposed, isFalse);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      await tester.pump();
+      expect(outgoing.debugDisposed, isTrue);
+    },
+  );
+
   group('Partita painter state', () {
     test('resolves bounded waiting active and passed intervals', () {
       const start = Duration(seconds: 2);

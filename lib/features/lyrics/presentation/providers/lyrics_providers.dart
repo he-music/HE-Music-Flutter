@@ -150,3 +150,12 @@ final lyricStoreProvider = Provider<LyricStore>((ref) => LyricStore.shared);
 final lyricStorageStatisticsChangesProvider = StreamProvider.autoDispose<int>(
   (ref) => ref.watch(lyricStoreProvider).statisticsChanges,
 );
+
+/// Playback gating consumed by the local lyric animation listeners.
+final lyricPlaybackActiveProvider = Provider<bool>(
+  (ref) => ref.watch(
+    playerControllerProvider.select(
+      (state) => state.isPlaying && !state.isLoading,
+    ),
+  ),
+);

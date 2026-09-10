@@ -733,73 +733,77 @@ _MeasuredSegments _measureSegments(
       textScaler: TextScaler.linear(options.textScaleFactor),
       maxLines: 1,
     )..layout(maxWidth: math.max(maxWidth * 2, 1));
-    final graphemes = <TiltGraphemePlacement>[];
-    var localOffset = 0;
-    var visualIndex = 0;
-    for (final grapheme in segment.text.characters) {
-      final startOffset = segment.startOffset + localOffset;
-      localOffset += grapheme.length;
-      final boxes = painter.getBoxesForSelection(
-        TextSelection(
-          baseOffset: localOffset - grapheme.length,
-          extentOffset: localOffset,
+    try {
+      final graphemes = <TiltGraphemePlacement>[];
+      var localOffset = 0;
+      var visualIndex = 0;
+      for (final grapheme in segment.text.characters) {
+        final startOffset = segment.startOffset + localOffset;
+        localOffset += grapheme.length;
+        final boxes = painter.getBoxesForSelection(
+          TextSelection(
+            baseOffset: localOffset - grapheme.length,
+            extentOffset: localOffset,
+          ),
+        );
+        final localBounds = boxes.isEmpty
+            ? Rect.fromLTWH(0, 0, painter.width, painter.height)
+            : boxes
+                  .map((box) => box.toRect())
+                  .reduce((a, b) => a.expandToInclude(b));
+        final match = timing
+            .where(
+              (item) =>
+                  item.startOffset < segment.endOffset &&
+                  item.endOffset > startOffset,
+            )
+            .firstOrNull;
+        graphemes.add(
+          TiltGraphemePlacement(
+            text: grapheme,
+            startOffset: startOffset,
+            endOffset: segment.startOffset + localOffset,
+            localBounds: localBounds,
+            bounds: localBounds,
+            staggerSign: segment.isTilt && grapheme.trim().isNotEmpty
+                ? visualIndex.isEven
+                      ? -1
+                      : 1
+                : 0,
+            start: match?.start,
+            end: match?.end,
+          ),
+        );
+        if (grapheme.trim().isNotEmpty) visualIndex++;
+      }
+      final segmentTiming = timing.where(
+        (item) =>
+            item.startOffset < segment.endOffset &&
+            item.endOffset > segment.startOffset,
+      );
+      final reveal = segmentTiming.isEmpty
+          ? line.start
+          : segmentTiming
+                    .map((item) => item.start)
+                    .reduce((a, b) => a < b ? a : b) -
+                const Duration(milliseconds: 250);
+      final resolvedReveal = reveal < line.start ? line.start : reveal;
+      measured.add(
+        _MeasuredSegment(
+          text: segment.text,
+          startOffset: segment.startOffset,
+          endOffset: segment.endOffset,
+          isTilt: segment.isTilt,
+          isShortLast: segment.isShortLast,
+          revealAt: resolvedReveal,
+          graphemes: List<TiltGraphemePlacement>.unmodifiable(graphemes),
         ),
       );
-      final localBounds = boxes.isEmpty
-          ? Rect.fromLTWH(0, 0, painter.width, painter.height)
-          : boxes
-                .map((box) => box.toRect())
-                .reduce((a, b) => a.expandToInclude(b));
-      final match = timing
-          .where(
-            (item) =>
-                item.startOffset < segment.endOffset &&
-                item.endOffset > startOffset,
-          )
-          .firstOrNull;
-      graphemes.add(
-        TiltGraphemePlacement(
-          text: grapheme,
-          startOffset: startOffset,
-          endOffset: segment.startOffset + localOffset,
-          localBounds: localBounds,
-          bounds: localBounds,
-          staggerSign: segment.isTilt && grapheme.trim().isNotEmpty
-              ? visualIndex.isEven
-                    ? -1
-                    : 1
-              : 0,
-          start: match?.start,
-          end: match?.end,
-        ),
-      );
-      if (grapheme.trim().isNotEmpty) visualIndex++;
+      widths.add(painter.width);
+      heights.add(painter.height * (segment.isTilt ? 1.25 : 1.35));
+    } finally {
+      painter.dispose();
     }
-    final segmentTiming = timing.where(
-      (item) =>
-          item.startOffset < segment.endOffset &&
-          item.endOffset > segment.startOffset,
-    );
-    final reveal = segmentTiming.isEmpty
-        ? line.start
-        : segmentTiming
-                  .map((item) => item.start)
-                  .reduce((a, b) => a < b ? a : b) -
-              const Duration(milliseconds: 250);
-    final resolvedReveal = reveal < line.start ? line.start : reveal;
-    measured.add(
-      _MeasuredSegment(
-        text: segment.text,
-        startOffset: segment.startOffset,
-        endOffset: segment.endOffset,
-        isTilt: segment.isTilt,
-        isShortLast: segment.isShortLast,
-        revealAt: resolvedReveal,
-        graphemes: List<TiltGraphemePlacement>.unmodifiable(graphemes),
-      ),
-    );
-    widths.add(painter.width);
-    heights.add(painter.height * (segment.isTilt ? 1.25 : 1.35));
   }
   return _MeasuredSegments(
     segments: measured,
@@ -877,7 +881,11 @@ double _measureWidth(
     textScaler: TextScaler.linear(options.textScaleFactor),
     maxLines: 1,
   )..layout();
-  return painter.width;
+  try {
+    return painter.width;
+  } finally {
+    painter.dispose();
+  }
 }
 
 double _seeded(int seed, int salt) {

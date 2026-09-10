@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/player/app_player_scene_palette.dart';
+import '../helpers/lyric_painter_owner.dart';
 import '../helpers/partita_lyric_layout.dart';
 
 enum PartitaTimingState { waiting, active, passed }
@@ -33,7 +34,19 @@ class PartitaChunkPaintData {
 }
 
 @immutable
-class PartitaLyricRenderData {
+class PartitaLyricRenderData implements LyricPaintResources {
+  @override
+  Iterable<TextPainter> get textPainters sync* {
+    for (final chunk in chunks) {
+      for (final word in chunk.words) {
+        yield word.bodyPainter;
+        yield word.activePainter;
+        yield word.glowPainter;
+      }
+    }
+    if (auxiliaryPainter != null) yield auxiliaryPainter!;
+  }
+
   const PartitaLyricRenderData({
     required this.size,
     required this.layout,

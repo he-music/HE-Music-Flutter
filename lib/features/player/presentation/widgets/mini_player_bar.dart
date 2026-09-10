@@ -36,6 +36,64 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
   final _selectionProjector = _MiniPlayerSelectionProjector();
   Object? _lastCoverIdentity;
   var _coverKeyGeneration = 0;
+  Timer? _prewarmTimer;
+  List<ImageProvider<Object>> _adjacentArtworks = const [];
+  final Set<ImageProvider<Object>> _prewarmedArtworks = {};
+  bool _prewarmInFlight = false;
+  bool _pointerDown = false;
+  bool _scrolling = false;
+
+  void _updateAdjacentArtworks(List<ImageProvider<Object>> artworks) {
+    if (listEquals(_adjacentArtworks, artworks)) return;
+    _adjacentArtworks = artworks;
+    _prewarmedArtworks.retainWhere(artworks.contains);
+    _prewarmTimer?.cancel();
+    _prewarmTimer = null;
+    _schedulePrewarm();
+  }
+
+  void _schedulePrewarm() {
+    if (!mounted ||
+        _pointerDown ||
+        _scrolling ||
+        _prewarmInFlight ||
+        _prewarmTimer != null ||
+        _adjacentArtworks.every(_prewarmedArtworks.contains)) {
+      return;
+    }
+    // Leave the swipe and cover crossfade time to settle before speculative work.
+    _prewarmTimer = Timer(const Duration(milliseconds: 220), () {
+      _prewarmTimer = null;
+      unawaited(_prewarmNextArtwork());
+    });
+  }
+
+  Future<void> _prewarmNextArtwork() async {
+    if (!mounted || _pointerDown || _scrolling) return;
+    final artwork = _adjacentArtworks
+        .where((artwork) => !_prewarmedArtworks.contains(artwork))
+        .firstOrNull;
+    if (artwork == null) return;
+    _prewarmedArtworks.add(artwork);
+    _prewarmInFlight = true;
+    try {
+      await precacheImage(artwork, context, onError: (_, _) {});
+    } finally {
+      _prewarmInFlight = false;
+      if (mounted) _schedulePrewarm();
+    }
+  }
+
+  void _suspendPrewarm() {
+    _prewarmTimer?.cancel();
+    _prewarmTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _suspendPrewarm();
+    super.dispose();
+  }
 
   Object _coverKeyForTrack(_MiniPlayerTrack track) {
     final identity = (
@@ -89,8 +147,43 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
     final controller = ref.read(playerControllerProvider.notifier);
     final track = player.currentTrack;
     if (track == null) {
+      _updateAdjacentArtworks(const []);
       return const SizedBox.shrink();
     }
+    final previousTrack = _previewTrackAt(
+      queue: player.queue,
+      currentIndex: player.currentIndex,
+      previewIndex: player.previousPreviewIndex,
+      isPrevious: true,
+      allowLinearFallback: player.playMode != PlayerPlayMode.shuffle,
+    );
+    final nextTrack = _previewTrackAt(
+      queue: player.queue,
+      currentIndex: player.currentIndex,
+      previewIndex: player.nextPreviewIndex,
+      isPrevious: false,
+      allowLinearFallback: player.playMode != PlayerPlayMode.shuffle,
+    );
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final currentArtwork = miniPlayerArtworkProvider(
+      track.artworkUrl,
+      track.artworkBytes,
+      devicePixelRatio: devicePixelRatio,
+    );
+    _updateAdjacentArtworks(
+      {
+            for (final adjacent in [previousTrack, nextTrack])
+              if (adjacent != null)
+                miniPlayerArtworkProvider(
+                  adjacent.artworkUrl,
+                  adjacent.artworkBytes,
+                  devicePixelRatio: devicePixelRatio,
+                ),
+          }
+          .whereType<ImageProvider<Object>>()
+          .where((image) => image != currentArtwork)
+          .toList(growable: false),
+    );
     final bar = LayoutBuilder(
       builder: (context, constraints) {
         return Padding(
@@ -105,7 +198,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                   GestureDetector(
                     onTap: widget.onOpenFullPlayer,
                     child: SizedBox.square(
-                      dimension: 46,
+                      dimension: miniPlayerArtworkSize,
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 180),
                         switchInCurve: Curves.easeOut,
@@ -124,22 +217,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                       track: track,
                       queue: player.queue,
                       currentIndex: player.currentIndex,
-                      previousTrack: _previewTrackAt(
-                        queue: player.queue,
-                        currentIndex: player.currentIndex,
-                        previewIndex: player.previousPreviewIndex,
-                        isPrevious: true,
-                        allowLinearFallback:
-                            player.playMode != PlayerPlayMode.shuffle,
-                      ),
-                      nextTrack: _previewTrackAt(
-                        queue: player.queue,
-                        currentIndex: player.currentIndex,
-                        previewIndex: player.nextPreviewIndex,
-                        isPrevious: false,
-                        allowLinearFallback:
-                            player.playMode != PlayerPlayMode.shuffle,
-                      ),
+                      previousTrack: previousTrack,
+                      nextTrack: nextTrack,
                       usesLinearOrder:
                           player.playMode != PlayerPlayMode.shuffle,
                       isRadioMode: player.isRadioMode,
@@ -176,10 +255,34 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
         );
       },
     );
-    if (!widget.bottomSafeArea) {
-      return bar;
-    }
-    return SafeArea(top: false, child: bar);
+    return Listener(
+      onPointerDown: (_) {
+        _pointerDown = true;
+        _suspendPrewarm();
+      },
+      onPointerUp: (_) {
+        _pointerDown = false;
+        _schedulePrewarm();
+      },
+      onPointerCancel: (_) {
+        _pointerDown = false;
+        _schedulePrewarm();
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification.depth != 0) return false;
+          if (notification is ScrollStartNotification) {
+            _scrolling = true;
+            _suspendPrewarm();
+          } else if (notification is ScrollEndNotification) {
+            _scrolling = false;
+            _schedulePrewarm();
+          }
+          return false;
+        },
+        child: widget.bottomSafeArea ? SafeArea(top: false, child: bar) : bar,
+      ),
+    );
   }
 
   _MiniPlayerTrack? _previewTrackAt({
@@ -600,11 +703,15 @@ class _CoverImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageProvider = artworkProvider(url, bytes);
+    final imageProvider = miniPlayerArtworkProvider(
+      url,
+      bytes,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
     if (imageProvider == null) {
       return Container(
-        width: 46,
-        height: 46,
+        width: miniPlayerArtworkSize,
+        height: miniPlayerArtworkSize,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           color: Theme.of(context).colorScheme.surfaceContainerHigh,
@@ -613,8 +720,8 @@ class _CoverImage extends StatelessWidget {
       );
     }
     final fallback = Container(
-      width: 46,
-      height: 46,
+      width: miniPlayerArtworkSize,
+      height: miniPlayerArtworkSize,
       color: Theme.of(context).colorScheme.primaryContainer,
       child: const Icon(Icons.music_note_rounded),
     );
@@ -622,8 +729,8 @@ class _CoverImage extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Image(
         image: imageProvider,
-        width: 46,
-        height: 46,
+        width: miniPlayerArtworkSize,
+        height: miniPlayerArtworkSize,
         fit: BoxFit.cover,
         gaplessPlayback: true,
         errorBuilder: (_, error, stackTrace) => fallback,

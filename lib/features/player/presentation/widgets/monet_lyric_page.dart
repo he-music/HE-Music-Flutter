@@ -14,12 +14,14 @@ class MonetLyricPage extends StatelessWidget {
     required this.emptyText,
     required this.onSeek,
     required this.palette,
+    this.seekListenable,
     super.key,
   });
 
   final String emptyText;
   final ValueChanged<Duration>? onSeek;
   final PlayerScenePalette? palette;
+  final Listenable? seekListenable;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,7 @@ class MonetLyricPage extends StatelessWidget {
         emptyText: emptyText,
         onSeek: onSeek,
         palette: effectivePalette,
+        seekListenable: seekListenable,
       ),
     );
   }
@@ -45,11 +48,13 @@ class _MonetLyricDataHost extends ConsumerWidget {
     required this.emptyText,
     required this.onSeek,
     required this.palette,
+    this.seekListenable,
   });
 
   final String emptyText;
   final ValueChanged<Duration>? onSeek;
   final PlayerScenePalette palette;
+  final Listenable? seekListenable;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -86,6 +91,7 @@ class _MonetLyricDataHost extends ConsumerWidget {
                 autoColor: palette.accent,
               ),
               onSeek: onSeek,
+              seekListenable: seekListenable,
             ),
       loading: () => Center(
         child: SizedBox.square(

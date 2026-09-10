@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/player/app_player_scene_palette.dart';
+import '../helpers/lyric_painter_owner.dart';
 import '../helpers/tilt_lyric_layout.dart';
 
 @immutable
@@ -32,7 +33,17 @@ class TiltSegmentPaintData {
 }
 
 @immutable
-class TiltLyricRenderData {
+class TiltLyricRenderData implements LyricPaintResources {
+  @override
+  Iterable<TextPainter> get textPainters sync* {
+    for (final segment in segments) {
+      for (final grapheme in segment.graphemes) {
+        yield grapheme.bodyPainter;
+        if (grapheme.activePainter != null) yield grapheme.activePainter!;
+      }
+    }
+  }
+
   const TiltLyricRenderData({
     required this.layout,
     required this.segments,

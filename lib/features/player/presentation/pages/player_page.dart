@@ -368,6 +368,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           ),
           onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
           palette: scenePalette,
+          seekListenable: _seekRevision,
         ),
         AppPlayerLyricsKind.partita => PartitaLyricPage(
           emptyText: AppI18n.tByLocaleCode(

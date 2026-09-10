@@ -338,6 +338,7 @@ class MonetLyricLayoutOptions {
     required this.inactiveTextStyle,
     required this.translationTextStyle,
     this.textDirection = TextDirection.ltr,
+    this.locale,
     this.textAlign = TextAlign.left,
     this.textScaleFactor = 1,
     this.showTranslation = true,
@@ -358,6 +359,7 @@ class MonetLyricLayoutOptions {
   final TextStyle translationTextStyle;
   final TextDirection textDirection;
   final TextAlign textAlign;
+  final Locale? locale;
   final double textScaleFactor;
   final bool showTranslation;
   final bool useRomanizationFallback;
@@ -463,6 +465,7 @@ String buildMonetLyricLayoutCacheKey({
     _textStyleMetricsKey(mainStyle),
     _textStyleMetricsKey(options.translationTextStyle),
     options.textDirection.name,
+    options.locale,
     options.textAlign.name,
     options.textScaleFactor,
     options.showTranslation,
@@ -607,52 +610,64 @@ MonetMeasuredLyricLine _measureLine(
       style: isActive ? options.activeTextStyle : options.inactiveTextStyle,
     ),
     textDirection: options.textDirection,
+    locale: options.locale,
     textAlign: options.textAlign,
     textScaler: TextScaler.linear(options.textScaleFactor),
     maxLines: isActive ? null : math.max(options.inactiveMaxLines, 1),
     ellipsis: isActive ? null : '\u2026',
   )..layout(maxWidth: contentWidth);
-  final mainMetrics = mainPainter.computeLineMetrics();
-
-  final translationText = _resolveTranslationText(entry, options);
   TextPainter? translationPainter;
-  if (translationText != null) {
-    translationPainter = TextPainter(
-      text: TextSpan(
-        text: translationText,
-        style: options.translationTextStyle,
-      ),
-      textDirection: options.textDirection,
-      textAlign: options.textAlign,
-      textScaler: TextScaler.linear(options.textScaleFactor),
-    )..layout(maxWidth: contentWidth);
-  }
-  final translationMetrics = translationPainter?.computeLineMetrics();
-  final translationHeight = translationPainter?.height ?? 0;
-  final hasTranslation = translationPainter != null;
-  final mainOffset = Offset(options.horizontalPadding, options.verticalPadding);
-  final translationOffset = hasTranslation
-      ? Offset(
-          options.horizontalPadding,
-          options.verticalPadding + mainPainter.height + options.translationGap,
-        )
-      : null;
-  final visualHeight =
-      options.verticalPadding * 2 +
-      mainPainter.height +
-      (hasTranslation ? options.translationGap + translationHeight : 0);
+  try {
+    final mainMetrics = mainPainter.computeLineMetrics();
 
-  return MonetMeasuredLyricLine(
-    mainTextSize: mainPainter.size,
-    mainLineCount: mainMetrics.length,
-    mainTextClipped: mainPainter.didExceedMaxLines,
-    translationText: translationText,
-    translationSize: translationPainter?.size ?? Size.zero,
-    translationLineCount: translationMetrics?.length ?? 0,
-    visualSize: Size(math.max(options.railSize.width, 0.0), visualHeight),
-    mainTextOffset: mainOffset,
-    translationOffset: translationOffset,
-  );
+    final translationText = _resolveTranslationText(entry, options);
+    if (translationText != null) {
+      translationPainter = TextPainter(
+        text: TextSpan(
+          text: translationText,
+          style: options.translationTextStyle,
+        ),
+        textDirection: options.textDirection,
+        locale: options.locale,
+        textAlign: options.textAlign,
+        textScaler: TextScaler.linear(options.textScaleFactor),
+      )..layout(maxWidth: contentWidth);
+    }
+    final translationMetrics = translationPainter?.computeLineMetrics();
+    final translationHeight = translationPainter?.height ?? 0;
+    final hasTranslation = translationPainter != null;
+    final mainOffset = Offset(
+      options.horizontalPadding,
+      options.verticalPadding,
+    );
+    final translationOffset = hasTranslation
+        ? Offset(
+            options.horizontalPadding,
+            options.verticalPadding +
+                mainPainter.height +
+                options.translationGap,
+          )
+        : null;
+    final visualHeight =
+        options.verticalPadding * 2 +
+        mainPainter.height +
+        (hasTranslation ? options.translationGap + translationHeight : 0);
+
+    return MonetMeasuredLyricLine(
+      mainTextSize: mainPainter.size,
+      mainLineCount: mainMetrics.length,
+      mainTextClipped: mainPainter.didExceedMaxLines,
+      translationText: translationText,
+      translationSize: translationPainter?.size ?? Size.zero,
+      translationLineCount: translationMetrics?.length ?? 0,
+      visualSize: Size(math.max(options.railSize.width, 0.0), visualHeight),
+      mainTextOffset: mainOffset,
+      translationOffset: translationOffset,
+    );
+  } finally {
+    mainPainter.dispose();
+    translationPainter?.dispose();
+  }
 }
 
 String? _resolveTranslationText(

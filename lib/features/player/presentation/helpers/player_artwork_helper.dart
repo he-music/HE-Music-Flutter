@@ -4,6 +4,25 @@ import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+const miniPlayerArtworkSize = 46.0;
+
+/// Shares the same physical-pixel cache key for display and adjacent prewarming.
+ImageProvider<Object>? miniPlayerArtworkProvider(
+  String? artworkUrl,
+  Uint8List? artworkBytes, {
+  required double devicePixelRatio,
+}) {
+  final provider = artworkProvider(artworkUrl, artworkBytes);
+  if (provider == null) return null;
+  final pixels = (miniPlayerArtworkSize * devicePixelRatio).ceil();
+  return ResizeImage(
+    provider,
+    width: pixels,
+    height: pixels,
+    policy: ResizeImagePolicy.fit,
+  );
+}
+
 /// 根据 artworkUrl 或 artworkBytes 构建图片 Provider。
 ///
 /// artworkUrl 优先判断是否为本地文件路径（以 '/' 开头），

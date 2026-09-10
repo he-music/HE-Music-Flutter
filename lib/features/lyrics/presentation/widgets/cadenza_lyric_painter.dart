@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/player/app_player_scene_palette.dart';
+import '../helpers/lyric_painter_owner.dart';
 import '../helpers/cadenza_lyric_layout.dart';
 
 enum CadenzaTimingState { waiting, active, passed }
@@ -23,7 +24,16 @@ class CadenzaFragmentPaintData {
 }
 
 @immutable
-class CadenzaLyricRenderData {
+class CadenzaLyricRenderData implements LyricPaintResources {
+  @override
+  Iterable<TextPainter> get textPainters sync* {
+    for (final fragment in fragments) {
+      yield fragment.bodyPainter;
+      yield fragment.activePainter;
+    }
+    if (auxiliaryPainter != null) yield auxiliaryPainter!;
+  }
+
   const CadenzaLyricRenderData({
     required this.size,
     required this.layout,

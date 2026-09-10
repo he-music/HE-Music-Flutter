@@ -666,87 +666,92 @@ CadenzaLineLayout layoutCadenzaLine({
     locale: options.locale,
     textScaler: TextScaler.linear(options.textScaleFactor),
   )..layout(maxWidth: math.max(maxWidth, 1));
-  final lineMetrics = fullPainter.computeLineMetrics();
-  final drafts = _buildFragmentDrafts(
-    words: displayWords,
-    fullPainter: fullPainter,
-    lineMetrics: lineMetrics,
-    style: effectiveTextStyle,
-    options: options,
-  );
-  final heroWordIndex = _selectHeroWordIndex(drafts, isInterlude);
-  final placed = _placeFragments(
-    drafts: drafts,
-    heroWordIndex: heroWordIndex,
-    fontPx: fontPx,
-    lineHeight: fontPx * (_containsCjk(line.text) ? 1.22 : 1.1),
-    maxWidth: maxWidth,
-    seed: line.start.inMicroseconds / Duration.microsecondsPerSecond.toDouble(),
-    isInterlude: isInterlude,
-  );
+  try {
+    final lineMetrics = fullPainter.computeLineMetrics();
+    final drafts = _buildFragmentDrafts(
+      words: displayWords,
+      fullPainter: fullPainter,
+      lineMetrics: lineMetrics,
+      style: effectiveTextStyle,
+      options: options,
+    );
+    final heroWordIndex = _selectHeroWordIndex(drafts, isInterlude);
+    final placed = _placeFragments(
+      drafts: drafts,
+      heroWordIndex: heroWordIndex,
+      fontPx: fontPx,
+      lineHeight: fontPx * (_containsCjk(line.text) ? 1.22 : 1.1),
+      maxWidth: maxWidth,
+      seed:
+          line.start.inMicroseconds / Duration.microsecondsPerSecond.toDouble(),
+      isInterlude: isInterlude,
+    );
 
-  final sourceVisualBounds = _unionRects(
-    placed.map((fragment) => fragment.maximumVisualBounds),
-  );
-  final widthScale = sourceVisualBounds.width <= 0
-      ? 1.0
-      : safeBounds.width / sourceVisualBounds.width;
-  final heightScale = sourceVisualBounds.height <= 0
-      ? 1.0
-      : safeBounds.height / sourceVisualBounds.height;
-  final fitScale = math.min(1.0, math.min(widthScale, heightScale));
-  final desiredFocus = Offset(
-    safeBounds.center.dx,
-    safeBounds.top + safeBounds.height * 0.42,
-  );
-  var translation = desiredFocus - sourceVisualBounds.center * fitScale;
-  final minDx = safeBounds.right - sourceVisualBounds.right * fitScale;
-  final maxDx = safeBounds.left - sourceVisualBounds.left * fitScale;
-  final minDy = safeBounds.bottom - sourceVisualBounds.bottom * fitScale;
-  final maxDy = safeBounds.top - sourceVisualBounds.top * fitScale;
-  translation = Offset(
-    _clampBetween(translation.dx, minDx, maxDx),
-    _clampBetween(translation.dy, minDy, maxDy),
-  );
-  Offset mapPoint(Offset point) => point * fitScale + translation;
+    final sourceVisualBounds = _unionRects(
+      placed.map((fragment) => fragment.maximumVisualBounds),
+    );
+    final widthScale = sourceVisualBounds.width <= 0
+        ? 1.0
+        : safeBounds.width / sourceVisualBounds.width;
+    final heightScale = sourceVisualBounds.height <= 0
+        ? 1.0
+        : safeBounds.height / sourceVisualBounds.height;
+    final fitScale = math.min(1.0, math.min(widthScale, heightScale));
+    final desiredFocus = Offset(
+      safeBounds.center.dx,
+      safeBounds.top + safeBounds.height * 0.42,
+    );
+    var translation = desiredFocus - sourceVisualBounds.center * fitScale;
+    final minDx = safeBounds.right - sourceVisualBounds.right * fitScale;
+    final maxDx = safeBounds.left - sourceVisualBounds.left * fitScale;
+    final minDy = safeBounds.bottom - sourceVisualBounds.bottom * fitScale;
+    final maxDy = safeBounds.top - sourceVisualBounds.top * fitScale;
+    translation = Offset(
+      _clampBetween(translation.dx, minDx, maxDx),
+      _clampBetween(translation.dy, minDy, maxDy),
+    );
+    Offset mapPoint(Offset point) => point * fitScale + translation;
 
-  final fragments = placed
-      .map(
-        (fragment) => fragment.toLayout(
-          fitScale: fitScale,
-          mapPoint: mapPoint,
-          stageBounds: stageBounds,
-          hitSlop: options.hitSlop,
-        ),
-      )
-      .toList(growable: false);
-  final contentBounds = _boundedRect(
-    _unionRects(fragments.map((fragment) => fragment.bounds)),
-    stageBounds,
-  );
-  final visualBounds = _boundedRect(
-    _unionRects(fragments.map((fragment) => fragment.visualBounds)),
-    stageBounds,
-  );
+    final fragments = placed
+        .map(
+          (fragment) => fragment.toLayout(
+            fitScale: fitScale,
+            mapPoint: mapPoint,
+            stageBounds: stageBounds,
+            hitSlop: options.hitSlop,
+          ),
+        )
+        .toList(growable: false);
+    final contentBounds = _boundedRect(
+      _unionRects(fragments.map((fragment) => fragment.bounds)),
+      stageBounds,
+    );
+    final visualBounds = _boundedRect(
+      _unionRects(fragments.map((fragment) => fragment.visualBounds)),
+      stageBounds,
+    );
 
-  return CadenzaLineLayout(
-    sourceLine: line,
-    sourceLineIndex: sourceLineIndex,
-    isInterlude: isInterlude,
-    hasFineTiming: hasValidCadenzaTokenTiming(line),
-    timingClass: timingClass,
-    displayWords: displayWords,
-    fragments: List<CadenzaWordFragment>.unmodifiable(fragments),
-    heroWordIndex: heroWordIndex,
-    totalGraphemes: totalGraphemes,
-    effectiveTextStyle: effectiveTextStyle,
-    contentBounds: contentBounds,
-    visualBounds: visualBounds,
-    stageBounds: stageBounds,
-    fitScale: fitScale,
-    auxiliaryText: auxiliaryText,
-    cacheKey: cacheKey,
-  );
+    return CadenzaLineLayout(
+      sourceLine: line,
+      sourceLineIndex: sourceLineIndex,
+      isInterlude: isInterlude,
+      hasFineTiming: hasValidCadenzaTokenTiming(line),
+      timingClass: timingClass,
+      displayWords: displayWords,
+      fragments: List<CadenzaWordFragment>.unmodifiable(fragments),
+      heroWordIndex: heroWordIndex,
+      totalGraphemes: totalGraphemes,
+      effectiveTextStyle: effectiveTextStyle,
+      contentBounds: contentBounds,
+      visualBounds: visualBounds,
+      stageBounds: stageBounds,
+      fitScale: fitScale,
+      auxiliaryText: auxiliaryText,
+      cacheKey: cacheKey,
+    );
+  } finally {
+    fullPainter.dispose();
+  }
 }
 
 TextStyle _effectiveTextStyle({
@@ -858,42 +863,46 @@ List<_FragmentDraft> _buildFragmentDrafts({
         textScaler: TextScaler.linear(options.textScaleFactor),
         maxLines: 1,
       )..layout();
-      var localOffset = 0;
-      final localBounds = <Rect>[];
-      for (final value in group) {
-        final nextOffset = localOffset + value.slice.grapheme.length;
-        localBounds.add(
-          _selectionBounds(
-            painter: painter,
-            start: localOffset,
-            end: nextOffset,
+      try {
+        var localOffset = 0;
+        final localBounds = <Rect>[];
+        for (final value in group) {
+          final nextOffset = localOffset + value.slice.grapheme.length;
+          localBounds.add(
+            _selectionBounds(
+              painter: painter,
+              start: localOffset,
+              end: nextOffset,
+            ),
+          );
+          localOffset = nextOffset;
+        }
+        final paragraphBounds = _unionRects(group.map((value) => value.bounds));
+        drafts.add(
+          _FragmentDraft(
+            word: word,
+            wordIndex: wordIndex,
+            text: text,
+            lineIndex: _lineIndexForBounds(
+              painter: fullPainter,
+              lineMetrics: lineMetrics,
+              bounds: paragraphBounds,
+              textOffset: group.first.slice.textStartOffset,
+            ),
+            fragmentStartInWord: group.first.slice.indexInWord,
+            fragmentEndInWord: group.last.slice.indexInWord + 1,
+            paragraphBounds: paragraphBounds,
+            textSize: Size(
+              math.max(painter.width, paragraphBounds.width),
+              math.max(painter.height, paragraphBounds.height),
+            ),
+            localGraphemeBounds: localBounds,
+            slices: group.map((value) => value.slice).toList(growable: false),
           ),
         );
-        localOffset = nextOffset;
+      } finally {
+        painter.dispose();
       }
-      final paragraphBounds = _unionRects(group.map((value) => value.bounds));
-      drafts.add(
-        _FragmentDraft(
-          word: word,
-          wordIndex: wordIndex,
-          text: text,
-          lineIndex: _lineIndexForBounds(
-            painter: fullPainter,
-            lineMetrics: lineMetrics,
-            bounds: paragraphBounds,
-            textOffset: group.first.slice.textStartOffset,
-          ),
-          fragmentStartInWord: group.first.slice.indexInWord,
-          fragmentEndInWord: group.last.slice.indexInWord + 1,
-          paragraphBounds: paragraphBounds,
-          textSize: Size(
-            math.max(painter.width, paragraphBounds.width),
-            math.max(painter.height, paragraphBounds.height),
-          ),
-          localGraphemeBounds: localBounds,
-          slices: group.map((value) => value.slice).toList(growable: false),
-        ),
-      );
     }
   }
   final counts = <int, int>{};

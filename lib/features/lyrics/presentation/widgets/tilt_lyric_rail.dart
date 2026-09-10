@@ -9,6 +9,8 @@ import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../helpers/tilt_lyric_layout.dart';
 import '../providers/lyrics_providers.dart';
+import '../helpers/lyric_painter_owner.dart';
+import '../helpers/lyric_position_smoother.dart';
 import 'tilt_lyric_painter.dart';
 
 class TiltLyricRail extends ConsumerStatefulWidget {
@@ -47,11 +49,16 @@ class TiltLyricRail extends ConsumerStatefulWidget {
   ConsumerState<TiltLyricRail> createState() => _TiltLyricRailState();
 }
 
-class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
+class _TiltLyricRailState extends ConsumerState<TiltLyricRail>
+    with TickerProviderStateMixin {
   static const _manualResetDelay = Duration(milliseconds: 1800);
 
+  final _painterOwner = LyricPainterOwner();
   late TiltLyricLayoutEngine _engine;
-  late final ValueNotifier<Duration> _positionNotifier;
+  late final LyricPositionSmoother _positionNotifier;
+  late final ProviderSubscription<bool> _playbackSubscription;
+  bool _playbackActive = false;
+  bool _smoothingAllowed = true;
   late final ProviderSubscription<Duration> _positionSubscription;
   Timer? _manualResetTimer;
   int? _activeIndex;
@@ -65,26 +72,45 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
     super.initState();
     _engine = TiltLyricLayoutEngine.fromDocument(widget.document);
     final position = ref.read(lyricPositionProvider);
-    _positionNotifier = ValueNotifier<Duration>(position);
+    _positionNotifier = LyricPositionSmoother(vsync: this, position: position);
+    _playbackSubscription = ref.listenManual(lyricPlaybackActiveProvider, (
+      previous,
+      next,
+    ) {
+      _playbackActive = next;
+      _positionNotifier.enabled = next && _smoothingAllowed;
+    }, fireImmediately: true);
     _activeIndex = _engine.resolvePosition(position).activeIndex;
     _positionSubscription = ref.listenManual<Duration>(
       lyricPositionProvider,
       (previous, next) => _handlePosition(next),
     );
-    widget.seekListenable?.addListener(_resetManualBrowse);
+    widget.seekListenable?.addListener(_handleSeek);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _smoothingAllowed =
+        !MediaQuery.disableAnimationsOf(context) &&
+        TickerMode.valuesOf(context).enabled;
+    _positionNotifier.enabled = _playbackActive && _smoothingAllowed;
   }
 
   @override
   void didUpdateWidget(covariant TiltLyricRail oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.seekListenable != widget.seekListenable) {
-      oldWidget.seekListenable?.removeListener(_resetManualBrowse);
-      widget.seekListenable?.addListener(_resetManualBrowse);
+      oldWidget.seekListenable?.removeListener(_handleSeek);
+      widget.seekListenable?.addListener(_handleSeek);
     }
-    final nextEngine = TiltLyricLayoutEngine.fromDocument(widget.document);
+    final nextEngine = identical(oldWidget.document, widget.document)
+        ? _engine
+        : TiltLyricLayoutEngine.fromDocument(widget.document);
     if (oldWidget.documentIdentity != widget.documentIdentity ||
         nextEngine.documentSignature != _engine.documentSignature) {
       _engine = nextEngine;
+      _positionNotifier.snap(ref.read(lyricPositionProvider));
       _activeIndex = _engine
           .resolvePosition(_positionNotifier.value)
           .activeIndex;
@@ -107,19 +133,29 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
   @override
   void dispose() {
     _manualResetTimer?.cancel();
-    widget.seekListenable?.removeListener(_resetManualBrowse);
+    widget.seekListenable?.removeListener(_handleSeek);
     _positionSubscription.close();
+    _playbackSubscription.close();
     _positionNotifier.dispose();
+    _painterOwner.dispose();
     super.dispose();
   }
 
   void _handlePosition(Duration position) {
     if (!mounted) return;
-    _positionNotifier.value = position;
     final nextIndex = _engine.resolvePosition(position).activeIndex;
+    _positionNotifier.update(
+      position,
+      discontinuity: nextIndex != _activeIndex,
+    );
     if (_manualAnchorIndex == null && nextIndex != _activeIndex) {
       setState(() => _activeIndex = nextIndex);
     }
+  }
+
+  void _handleSeek() {
+    _positionNotifier.seek();
+    _resetManualBrowse();
   }
 
   void _resetManualBrowse() {
@@ -283,7 +319,10 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
       options.textScaleFactor,
     ]);
     final cached = _renderData;
-    if (cached != null && signature == _renderSignature) return cached;
+    if (cached != null && signature == _renderSignature) {
+      _painterOwner.retain([cached]);
+      return cached;
+    }
 
     final next = buildTiltLyricRenderData(
       layout: layout,
@@ -296,9 +335,11 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail> {
       textScaleFactor: options.textScaleFactor,
       debugOnTextLayout: widget.debugOnTextLayout,
     );
+    _painterOwner.own(next);
     _renderData = next;
     _renderSignature = signature;
     widget.debugOnStructureBuild?.call();
+    _painterOwner.retain([next]);
     return next;
   }
 

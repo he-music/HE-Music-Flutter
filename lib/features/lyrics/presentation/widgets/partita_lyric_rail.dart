@@ -10,6 +10,8 @@ import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../helpers/partita_lyric_layout.dart';
 import '../providers/lyrics_providers.dart';
+import '../helpers/lyric_painter_owner.dart';
+import '../helpers/lyric_position_smoother.dart';
 import 'partita_lyric_painter.dart';
 
 class PartitaLyricRail extends ConsumerStatefulWidget {
@@ -60,9 +62,13 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
   static const _preheatMinimumLead = Duration(milliseconds: 180);
   static const _preheatMaximumLead = Duration(milliseconds: 1200);
 
+  final _painterOwner = LyricPainterOwner();
   late PartitaLyricLayoutEngine _engine;
   late PartitaLyricPosition _structurePosition;
-  late final ValueNotifier<Duration> _positionNotifier;
+  late final LyricPositionSmoother _positionNotifier;
+  late final ProviderSubscription<bool> _playbackSubscription;
+  bool _playbackActive = false;
+  bool _smoothingAllowed = true;
   late final AnimationController _transitionController;
   late final AnimationController _breathingController;
   late final ProviderSubscription<Duration> _positionSubscription;
@@ -71,6 +77,10 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
   Timer? _manualResetTimer;
   PartitaLyricRenderData? _renderData;
   PartitaLyricRenderData? _previousRenderData;
+  PartitaLyricRenderData? _preheatedRenderData;
+  int? _preheatedSignature;
+  int? _preheatedContext;
+  void Function(int)? _preheatRenderData;
   PartitaLyricLayoutOptions? _lastLayoutOptions;
   int? _renderSignature;
   int? _manualAnchorIndex;
@@ -87,7 +97,17 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     super.initState();
     _engine = PartitaLyricLayoutEngine.fromDocument(widget.document);
     final initialPosition = ref.read(lyricPositionProvider);
-    _positionNotifier = ValueNotifier<Duration>(initialPosition);
+    _positionNotifier = LyricPositionSmoother(
+      vsync: this,
+      position: initialPosition,
+    );
+    _playbackSubscription = ref.listenManual(lyricPlaybackActiveProvider, (
+      previous,
+      next,
+    ) {
+      _playbackActive = next;
+      _positionNotifier.enabled = next && _smoothingAllowed;
+    }, fireImmediately: true);
     _structurePosition = _engine.resolvePosition(initialPosition);
     _transitionController = AnimationController(
       vsync: this,
@@ -98,6 +118,7 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       vsync: this,
       duration: _breathingDuration,
     );
+    _transitionController.addStatusListener(_handleTransitionStatus);
     _positionSubscription = ref.listenManual<Duration>(
       lyricPositionProvider,
       (previous, next) => _handlePosition(next),
@@ -112,6 +133,10 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     _animationsAllowed =
         !MediaQuery.disableAnimationsOf(context) &&
         TickerMode.valuesOf(context).enabled;
+    _smoothingAllowed =
+        !MediaQuery.disableAnimationsOf(context) &&
+        TickerMode.valuesOf(context).enabled;
+    _positionNotifier.enabled = _playbackActive && _smoothingAllowed;
     _syncBreathing();
   }
 
@@ -122,7 +147,9 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       oldWidget.seekListenable?.removeListener(_handleSeek);
       widget.seekListenable?.addListener(_handleSeek);
     }
-    final nextEngine = PartitaLyricLayoutEngine.fromDocument(widget.document);
+    final nextEngine = identical(oldWidget.document, widget.document)
+        ? _engine
+        : PartitaLyricLayoutEngine.fromDocument(widget.document);
     if (oldWidget.documentIdentity != widget.documentIdentity ||
         nextEngine.documentSignature != _engine.documentSignature) {
       _manualResetTimer?.cancel();
@@ -131,6 +158,7 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       _resetInputAccumulators();
       _layoutCache.clear();
       _engine = nextEngine;
+      _positionNotifier.snap(ref.read(lyricPositionProvider));
       _structurePosition = _engine.resolvePosition(_positionNotifier.value);
       _lastLayoutOptions = null;
       _resetRenderData();
@@ -146,6 +174,9 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
   }
 
   void _resetRenderData() {
+    _preheatedRenderData = null;
+    _preheatedSignature = null;
+    _preheatRenderData = null;
     _previousRenderData = null;
     _renderData = null;
     _renderSignature = null;
@@ -154,21 +185,40 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       ..value = 1;
   }
 
+  void _handleTransitionStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && _previousRenderData != null) {
+      // Rebuild before releasing outgoing painters; the render object still owns them.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !_transitionController.isCompleted ||
+            _previousRenderData == null) {
+          return;
+        }
+        setState(() => _previousRenderData = null);
+      });
+    }
+  }
+
   @override
   void dispose() {
     _manualResetTimer?.cancel();
     widget.seekListenable?.removeListener(_handleSeek);
     _positionSubscription.close();
+    _playbackSubscription.close();
     _positionNotifier.dispose();
     _transitionController.dispose();
     _breathingController.dispose();
+    _painterOwner.dispose();
     super.dispose();
   }
 
   void _handlePosition(Duration position) {
     if (!mounted) return;
-    _positionNotifier.value = position;
     final next = _engine.resolvePosition(position);
+    _positionNotifier.update(
+      position,
+      discontinuity: !_hasSameStructurePosition(_structurePosition, next),
+    );
     _preheatUpcoming(next);
     if (_hasSameStructurePosition(_structurePosition, next)) return;
     if (_manualAnchorIndex != null) {
@@ -186,6 +236,11 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     if (upcoming == null) return;
     final lead = upcoming.start - position.timelinePosition;
     if (lead < _preheatMinimumLead || lead > _preheatMaximumLead) return;
+    final preheat = _preheatRenderData;
+    if (preheat != null) {
+      preheat(upcomingIndex);
+      return;
+    }
     _engine.layoutLine(
       sourceLineIndex: upcomingIndex,
       options: options,
@@ -194,6 +249,7 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
   }
 
   void _handleSeek() {
+    _positionNotifier.seek();
     if (!mounted || _manualAnchorIndex == null) return;
     _manualResetTimer?.cancel();
     _manualResetTimer = null;
@@ -318,7 +374,6 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
           guideOverhang: fontSpec.guideOverhang,
         );
         _lastLayoutOptions = options;
-        _preheatUpcoming(_structurePosition);
         final auxiliaryStyle = lyricTextStyle.copyWith(
           fontSize: fontSpec.auxiliary,
           fontWeight: FontWeight.w500,
@@ -330,6 +385,7 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
           options: options,
           auxiliaryStyle: auxiliaryStyle,
         );
+        _preheatUpcoming(_structurePosition);
         final selectedRenderIndex = _selectedSourceLineIndex;
         final selectedIsInterlude =
             selectedRenderIndex != null &&
@@ -407,17 +463,16 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
     required Size size,
     required PartitaLyricLayoutOptions options,
     required TextStyle auxiliaryStyle,
+    int? preheatIndex,
   }) {
-    final selectedIndex = _selectedSourceLineIndex;
+    final selectedIndex = preheatIndex ?? _selectedSourceLineIndex;
     final palette = widget.highlightColor == null
         ? widget.palette
         : widget.palette.copyWith(accent: widget.highlightColor);
-    final signature = Object.hashAll(<Object?>[
+    final contextSignature = Object.hashAll(<Object?>[
       _engine.documentSignature,
       widget.documentIdentity,
-      selectedIndex,
       _manualAnchorIndex,
-      options.stageSize,
       options.textStyle,
       auxiliaryStyle,
       options.textScaleFactor,
@@ -428,8 +483,76 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
       palette,
       size,
     ]);
-    final cached = _renderData;
-    if (cached != null && signature == _renderSignature) return cached;
+    if (_preheatedContext != contextSignature) {
+      _preheatedRenderData = null;
+      _preheatedSignature = null;
+      _preheatedContext = contextSignature;
+    }
+    final signature = Object.hash(
+      contextSignature,
+      options.stageSize,
+      selectedIndex,
+    );
+    if (preheatIndex == null) {
+      int? warmedIndex;
+      _preheatRenderData = (index) {
+        // The closure is replaced whenever the visible render context updates.
+        if (warmedIndex == index) return;
+        final line = _engine.lineAt(index);
+        final hasAuxiliary =
+            line != null &&
+            (line.translation.trim().isNotEmpty ||
+                line.romanization.trim().isNotEmpty);
+        final reservedHeight = hasAuxiliary
+            ? math.min(
+                (auxiliaryStyle.fontSize ?? 0) *
+                        1.3 *
+                        options.textScaleFactor *
+                        2 +
+                    28,
+                math.max(size.height - 1, 0),
+              )
+            : 0.0;
+        final nextOptions = PartitaLyricLayoutOptions(
+          stageSize: Size(
+            size.width,
+            math.max(size.height - reservedHeight, 1),
+          ),
+          textStyle: options.textStyle,
+          textDirection: options.textDirection,
+          locale: options.locale,
+          textScaleFactor: options.textScaleFactor,
+          horizontalInset: options.horizontalInset,
+          verticalInset: options.verticalInset,
+          hitSlop: options.hitSlop,
+          wordGap: options.wordGap,
+          chunkMarginBottom: options.chunkMarginBottom,
+          staggerMin: options.staggerMin,
+          staggerMax: options.staggerMax,
+          guideLength: options.guideLength,
+          guideOverhang: options.guideOverhang,
+        );
+        _resolveRenderData(
+          size: size,
+          options: nextOptions,
+          auxiliaryStyle: auxiliaryStyle,
+          preheatIndex: index,
+        );
+        warmedIndex = index;
+      };
+    }
+    final cached = preheatIndex == null ? _renderData : _preheatedRenderData;
+    final cachedSignature = preheatIndex == null
+        ? _renderSignature
+        : _preheatedSignature;
+    if (cached != null && signature == cachedSignature) {
+      _painterOwner.retain([
+        _renderData,
+        _previousRenderData,
+        _preheatedRenderData,
+      ]);
+      return cached;
+    }
 
     final layout = selectedIndex == null
         ? null
@@ -438,20 +561,38 @@ class _PartitaLyricRailState extends ConsumerState<PartitaLyricRail>
             options: options,
             cache: _layoutCache,
           );
-    final next = buildPartitaLyricRenderData(
-      size: size,
-      layout: layout,
-      options: options,
-      auxiliaryTextStyle: auxiliaryStyle,
-      palette: palette,
-      enableWordByWordLyric: widget.enableWordByWordLyric,
-      forceLineActive: _manualAnchorIndex != null,
-      timelineOffset: Duration(milliseconds: widget.document.offset),
-      debugOnTextLayout: widget.debugOnTextLayout,
-    );
-    _renderData = next;
-    _renderSignature = signature;
-    widget.debugOnStructureBuild?.call();
+    final next =
+        signature == _preheatedSignature && _preheatedRenderData != null
+        ? _preheatedRenderData!
+        : buildPartitaLyricRenderData(
+            size: size,
+            layout: layout,
+            options: options,
+            auxiliaryTextStyle: auxiliaryStyle,
+            palette: palette,
+            enableWordByWordLyric: widget.enableWordByWordLyric,
+            forceLineActive: _manualAnchorIndex != null,
+            timelineOffset: Duration(milliseconds: widget.document.offset),
+            debugOnTextLayout: widget.debugOnTextLayout,
+          );
+    _painterOwner.own(next);
+    if (preheatIndex != null) {
+      _preheatedRenderData = next;
+      _preheatedSignature = signature;
+    } else {
+      _renderData = next;
+      _renderSignature = signature;
+      if (identical(next, _preheatedRenderData)) {
+        _preheatedRenderData = null;
+        _preheatedSignature = null;
+      }
+      widget.debugOnStructureBuild?.call();
+    }
+    _painterOwner.retain([
+      _renderData,
+      _previousRenderData,
+      _preheatedRenderData,
+    ]);
     return next;
   }
 

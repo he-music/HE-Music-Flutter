@@ -9,6 +9,8 @@ import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../helpers/monet_lyric_layout.dart';
 import '../providers/lyrics_providers.dart';
+import '../helpers/lyric_painter_owner.dart';
+import '../helpers/lyric_position_smoother.dart';
 import 'monet_lyric_painter.dart';
 
 class MonetLyricRail extends ConsumerStatefulWidget {
@@ -20,6 +22,7 @@ class MonetLyricRail extends ConsumerStatefulWidget {
     required this.onSeek,
     this.highlightColor,
     this.documentIdentity,
+    this.seekListenable,
     this.debugOnStructureBuild,
     this.debugOnPaint,
     super.key,
@@ -34,6 +37,7 @@ class MonetLyricRail extends ConsumerStatefulWidget {
 
   /// Stable track/request identity, even when two tracks share identical lyrics.
   final String? documentIdentity;
+  final Listenable? seekListenable;
   @visibleForTesting
   final VoidCallback? debugOnStructureBuild;
 
@@ -45,15 +49,19 @@ class MonetLyricRail extends ConsumerStatefulWidget {
 }
 
 class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _manualResetDelay = Duration(milliseconds: 1800);
   static const _wheelStep = 64.0;
   static const _dragStep = 48.0;
   static const _transitionDuration = Duration(milliseconds: 360);
 
+  final _painterOwner = LyricPainterOwner();
   late MonetLyricLayoutEngine _engine;
   late MonetLyricPosition _structurePosition;
-  late final ValueNotifier<Duration> _positionNotifier;
+  late final LyricPositionSmoother _positionNotifier;
+  late final ProviderSubscription<bool> _playbackSubscription;
+  bool _playbackActive = false;
+  bool _smoothingAllowed = true;
   late final AnimationController _transitionController;
   late final ProviderSubscription<Duration> _positionSubscription;
   final MonetLyricMeasurementCache _measurementCache =
@@ -76,13 +84,25 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
     super.initState();
     _engine = MonetLyricLayoutEngine(widget.document);
     final initialPosition = ref.read(lyricPositionProvider);
-    _positionNotifier = ValueNotifier<Duration>(initialPosition);
+    _positionNotifier = LyricPositionSmoother(
+      vsync: this,
+      position: initialPosition,
+    );
+    _playbackSubscription = ref.listenManual(lyricPlaybackActiveProvider, (
+      previous,
+      next,
+    ) {
+      _playbackActive = next;
+      _positionNotifier.enabled = next && _smoothingAllowed;
+    }, fireImmediately: true);
     _structurePosition = _engine.resolvePosition(initialPosition);
     _transitionController = AnimationController(
       vsync: this,
       duration: _transitionDuration,
       value: 1,
     );
+    widget.seekListenable?.addListener(_handleSeek);
+    _transitionController.addStatusListener(_handleTransitionStatus);
     _positionSubscription = ref.listenManual<Duration>(
       lyricPositionProvider,
       (previous, next) => _handlePosition(next),
@@ -91,9 +111,24 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _smoothingAllowed =
+        !MediaQuery.disableAnimationsOf(context) &&
+        TickerMode.valuesOf(context).enabled;
+    _positionNotifier.enabled = _playbackActive && _smoothingAllowed;
+  }
+
+  @override
   void didUpdateWidget(covariant MonetLyricRail oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final nextEngine = MonetLyricLayoutEngine(widget.document);
+    if (oldWidget.seekListenable != widget.seekListenable) {
+      oldWidget.seekListenable?.removeListener(_handleSeek);
+      widget.seekListenable?.addListener(_handleSeek);
+    }
+    final nextEngine = identical(oldWidget.document, widget.document)
+        ? _engine
+        : MonetLyricLayoutEngine(widget.document);
     if (oldWidget.documentIdentity != widget.documentIdentity ||
         nextEngine.documentSignature != _engine.documentSignature) {
       _manualResetTimer?.cancel();
@@ -102,6 +137,7 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
       _resetInputAccumulators();
       _measurementCache.clear();
       _engine = nextEngine;
+      _positionNotifier.snap(ref.read(lyricPositionProvider));
       _structurePosition = _engine.resolvePosition(_positionNotifier.value);
       _previousRenderData = null;
       _renderData = null;
@@ -124,21 +160,49 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
     }
   }
 
+  void _handleTransitionStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && _previousRenderData != null) {
+      // Rebuild before releasing outgoing painters; the render object still owns them.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !_transitionController.isCompleted ||
+            _previousRenderData == null) {
+          return;
+        }
+        setState(() => _previousRenderData = null);
+      });
+    }
+  }
+
   @override
   void dispose() {
     _manualResetTimer?.cancel();
+    widget.seekListenable?.removeListener(_handleSeek);
     _positionSubscription.close();
+    _playbackSubscription.close();
     _positionNotifier.dispose();
     _transitionController.dispose();
+    _painterOwner.dispose();
     super.dispose();
+  }
+
+  void _handleSeek() {
+    _positionNotifier.seek();
+    _manualResetTimer?.cancel();
+    if (_manualAnchorIndex != null) {
+      _beginStructureChange(() => _manualAnchorIndex = null, animate: false);
+    }
   }
 
   void _handlePosition(Duration position) {
     if (!mounted) {
       return;
     }
-    _positionNotifier.value = position;
     final next = _engine.resolvePosition(position);
+    _positionNotifier.update(
+      position,
+      discontinuity: !_hasSameStructurePosition(_structurePosition, next),
+    );
     if (_hasSameStructurePosition(_structurePosition, next)) {
       return;
     }
@@ -224,6 +288,7 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
             letterSpacing: 0,
           ),
           textDirection: textDirection,
+          locale: Localizations.maybeLocaleOf(context),
           textAlign: TextAlign.left,
           textScaleFactor: textScaleFactor,
           inactiveMaxLines: fontSpec.inactiveMaxLines,
@@ -316,17 +381,19 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
       _manualAnchorIndex,
       options.railSize.width,
       options.railSize.height,
-      options.activeTextStyle.fontSize,
-      options.inactiveTextStyle.fontSize,
-      options.translationTextStyle.fontSize,
+      options.activeTextStyle,
+      options.inactiveTextStyle,
+      options.translationTextStyle,
       options.textScaleFactor,
       options.textDirection,
+      options.locale,
       widget.fontPreset,
       widget.enableWordByWordLyric,
       palette,
     ].join('|');
     final cached = _renderData;
     if (cached != null && signature == _renderSignature) {
+      _painterOwner.retain([cached, _previousRenderData]);
       return cached;
     }
 
@@ -344,14 +411,17 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
     );
     final next = buildMonetLyricRenderData(
       positionedLines: positioned,
+      reusableData: _renderData ?? _previousRenderData,
       options: options,
       palette: palette,
       enableWordByWordLyric: widget.enableWordByWordLyric,
       timelineOffset: Duration(milliseconds: widget.document.offset),
     );
+    _painterOwner.own(next);
     _renderData = next;
     _renderSignature = signature;
     widget.debugOnStructureBuild?.call();
+    _painterOwner.retain([next, _previousRenderData]);
     return next;
   }
 

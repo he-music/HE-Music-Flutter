@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
+import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../../player/domain/entities/player_track.dart';
@@ -28,6 +31,60 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
   List<LyricCandidate> _results = [];
   String? _message;
   final Map<String, Future<List<LyricCandidate>>> _pending = {};
+
+  bool _platformSyncScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.listenManual(onlinePlatformsProvider, (_, _) {
+      if (_platformSyncScheduled) return;
+      _platformSyncScheduled = true;
+      // Platform providers may resolve during build; dispatch after the frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _platformSyncScheduled = false;
+        _syncPlatform();
+      });
+    }, fireImmediately: true);
+  }
+
+  void _syncPlatform() {
+    if (!mounted || _selecting != null) return;
+    final all = ref.read(onlinePlatformsProvider).asData?.value;
+    if (all == null) return;
+    final platforms = _eligiblePlatforms(all);
+    final selected =
+        platforms.where((p) => p.id == _platform).firstOrNull ??
+        platforms.where((p) => p.id == widget.target.platform).firstOrNull ??
+        platforms.firstOrNull;
+    if (_platform == selected?.id) return;
+    _platform = selected?.id;
+    _invalidate();
+    if (_platform != null) _search(_platform!);
+  }
+
+  List<OnlinePlatform> _eligiblePlatforms(List<OnlinePlatform> all) => all
+      .where(
+        (p) =>
+            p.available && p.supports(PlatformFeatureSupportFlag.searchLyric),
+      )
+      .toList();
+
+  void _changePlatform(String platform) {
+    if (_selecting != null || platform == _platform) return;
+    _platform = platform;
+    _invalidate();
+    _search(platform);
+  }
+
+  void _submit() {
+    if (_selecting != null || _platform == null) return;
+    final all = ref.read(onlinePlatformsProvider).asData?.value;
+    if (all == null || !_eligiblePlatforms(all).any((p) => p.id == _platform)) {
+      return;
+    }
+    _search(_platform!);
+  }
 
   void _invalidate() {
     setState(() {
@@ -124,140 +181,177 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
       if (mounted) {
         AppMessageService.showError('更换歌词失败：$error');
         setState(() => _selecting = null);
+        // Reconcile refreshes deferred while the candidate was being saved.
+        _syncPlatform();
       }
     }
+  }
+
+  Widget _inputRow(String label, TextEditingController controller) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 12, right: 12),
+          child: Text(label, style: theme.textTheme.bodySmall),
+        ),
+        Expanded(
+          child: Semantics(
+            label: label,
+            child: TextField(
+              controller: controller,
+              enabled: _selecting == null,
+              style: theme.textTheme.bodyMedium,
+              textInputAction: TextInputAction.search,
+              // Explicitly reset the app theme's filled, padded outline input.
+              decoration: InputDecoration(
+                hintText: label == '歌名' ? '请输入歌名' : '多位歌手用顿号分隔',
+                filled: false,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+              ),
+              onChanged: (_) => _invalidate(),
+              onSubmitted: (_) => _submit(),
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: '清空$label',
+          onPressed: _selecting != null || controller.text.isEmpty
+              ? null
+              : () {
+                  controller.clear();
+                  _invalidate();
+                },
+          icon: const Icon(Icons.close, size: 18),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final platformsAsync = ref.watch(onlinePlatformsProvider);
+    final platforms = _eligiblePlatforms(platformsAsync.asData?.value ?? []);
+    final canSearch =
+        _selecting == null && platforms.any((p) => p.id == _platform);
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('搜索歌词')),
+      appBar: AppBar(
+        leading: AppBackButton(onPressed: () => Navigator.of(context).pop()),
+        title: const Text('搜索歌词', maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          TextButton(
+            onPressed: canSearch ? _submit : null,
+            child: const Text('搜索'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
-        child: ListView(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Text(
-                '为「${widget.target.title}」选择歌词',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _name,
-                    enabled: _selecting == null,
-                    decoration: const InputDecoration(labelText: '歌名'),
-                    onChanged: (_) => _invalidate(),
-                  ),
-                  TextField(
-                    controller: _artist,
-                    enabled: _selecting == null,
-                    decoration: const InputDecoration(
-                      labelText: '歌手',
-                      hintText: '多位歌手用顿号分隔',
-                    ),
-                    onChanged: (_) => _invalidate(),
-                  ),
-                ],
-              ),
-            ),
-            platformsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => Center(
-                child: TextButton(
-                  onPressed: () => ref.invalidate(onlinePlatformsProvider),
-                  child: const Text('平台加载失败，重试'),
+        child: CustomScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  '为「${widget.target.title}」选择歌词',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
                 ),
               ),
-              data: (all) {
-                final platforms = all
-                    .where(
-                      (p) =>
-                          p.available &&
-                          p.supports(PlatformFeatureSupportFlag.searchLyric),
-                    )
-                    .toList();
-                if (platforms.isEmpty) {
-                  return const Center(child: Text('暂无可用的歌词搜索平台'));
-                }
-                final selected =
-                    platforms.where((p) => p.id == _platform).firstOrNull ??
-                    platforms
-                        .where((p) => p.id == widget.target.platform)
-                        .firstOrNull ??
-                    platforms.first;
-                return Column(
-                  children: [
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          for (final platform in platforms)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(platform.name),
-                                selected: platform.id == selected.id,
-                                onSelected: _selecting != null
-                                    ? null
-                                    : (_) {
-                                        _platform = platform.id;
-                                        _invalidate();
-                                      },
-                              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: platformsAsync.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, _) => TextButton(
+                    onPressed: () => ref.invalidate(onlinePlatformsProvider),
+                    child: const Text('平台加载失败，重试'),
+                  ),
+                  data: (_) => platforms.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('暂无可用的歌词搜索平台'),
+                        )
+                      : ExcludeFocus(
+                          excluding: _selecting != null,
+                          child: AbsorbPointer(
+                            absorbing: _selecting != null,
+                            child: OnlinePlatformTabs(
+                              platforms: platforms,
+                              selectedId: _platform,
+                              requiredFeatureFlag:
+                                  PlatformFeatureSupportFlag.searchLyric,
+                              onSelected: _changePlatform,
                             ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: FilledButton.icon(
-                        onPressed: _loading || _selecting != null
-                            ? null
-                            : () => _search(selected.id),
-                        icon: const Icon(Icons.search),
-                        label: const Text('搜索'),
-                      ),
-                    ),
-                    if (_loading) const LinearProgressIndicator(),
-                    if (_message != null)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(_message!),
-                      ),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _results.length,
-                      itemBuilder: (context, index) {
-                        final candidate = _results[index];
-                        final seconds = candidate.duration;
-                        return ListTile(
-                          title: Text(candidate.name),
-                          subtitle: Text(
-                            '${candidate.artistNames.join('、')} · ${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}',
                           ),
-                          trailing: identical(candidate, _selecting)
-                              ? const SizedBox.square(
-                                  dimension: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.chevron_right),
-                          onTap: _selecting == null
-                              ? () => _select(candidate)
-                              : null,
-                        );
-                      },
+                        ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: AppSkinSurface(
+                  role: AppSkinSurfaceRole.search,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                    children: [
+                      _inputRow('歌名', _name),
+                      const Divider(height: 1, indent: 12, endIndent: 12),
+                      _inputRow('歌手', _artist),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (_loading)
+              const SliverToBoxAdapter(child: LinearProgressIndicator()),
+            if (_message != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(_message!, style: theme.textTheme.bodyMedium),
+                ),
+              ),
+            SliverList.builder(
+              itemCount: _results.length,
+              itemBuilder: (context, index) {
+                final candidate = _results[index];
+                final seconds = candidate.duration;
+                return AppSkinContentSurface(
+                  child: ListTile(
+                    title: Text(
+                      candidate.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
+                    subtitle: Text(
+                      candidate.artistNames.join('、'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: identical(candidate, _selecting)
+                        ? const SizedBox.square(
+                            dimension: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : seconds > 0
+                        ? Text(
+                            '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}',
+                            style: theme.textTheme.bodySmall,
+                          )
+                        : null,
+                    onTap: _selecting == null ? () => _select(candidate) : null,
+                  ),
                 );
               },
             ),

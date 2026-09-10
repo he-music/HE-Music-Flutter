@@ -10,6 +10,7 @@ import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../helpers/cadenza_lyric_layout.dart';
 import '../providers/lyrics_providers.dart';
+import '../helpers/lyric_painter_owner.dart';
 import 'cadenza_lyric_painter.dart';
 
 class CadenzaLyricRail extends ConsumerStatefulWidget {
@@ -59,6 +60,7 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
   static const _positionSmoothingDuration = Duration(milliseconds: 33);
   static const _positionSmoothingMaxDelta = Duration(milliseconds: 100);
 
+  final _painterOwner = LyricPainterOwner();
   late CadenzaLyricLayoutEngine _engine;
   late CadenzaLyricPosition _structurePosition;
   late final ValueNotifier<Duration> _positionNotifier;
@@ -73,6 +75,10 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
   Timer? _manualResetTimer;
   CadenzaLyricRenderData? _renderData;
   CadenzaLyricRenderData? _previousRenderData;
+  CadenzaLyricRenderData? _preheatedRenderData;
+  int? _preheatedSignature;
+  int? _preheatedContext;
+  void Function(int)? _preheatRenderData;
   CadenzaLyricLayoutOptions? _lastLayoutOptions;
   int? _renderSignature;
   int? _manualAnchorIndex;
@@ -82,6 +88,8 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
   int _dragDirection = 0;
   bool _transitionScheduled = false;
   bool _animationsAllowed = true;
+  bool _playbackActive = false;
+  late final ProviderSubscription<bool> _playbackSubscription;
 
   bool _snapNextSourcePosition = false;
   @override
@@ -104,6 +112,14 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
       duration: _positionSmoothingDuration,
       value: 1,
     )..addListener(_updateSmoothedPosition);
+    _playbackSubscription = ref.listenManual(lyricPlaybackActiveProvider, (
+      previous,
+      next,
+    ) {
+      _playbackActive = next;
+      if (!next) _snapPosition(_latestSourcePosition);
+    }, fireImmediately: true);
+    _transitionController.addStatusListener(_handleTransitionStatus);
     _positionSubscription = ref.listenManual<Duration>(
       lyricPositionProvider,
       (previous, next) => _handlePosition(next),
@@ -135,7 +151,9 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
       oldWidget.seekListenable?.removeListener(_handleSeek);
       widget.seekListenable?.addListener(_handleSeek);
     }
-    final nextEngine = CadenzaLyricLayoutEngine.fromDocument(widget.document);
+    final nextEngine = identical(oldWidget.document, widget.document)
+        ? _engine
+        : CadenzaLyricLayoutEngine.fromDocument(widget.document);
     if (oldWidget.documentIdentity != widget.documentIdentity ||
         nextEngine.documentSignature != _engine.documentSignature) {
       _manualResetTimer?.cancel();
@@ -161,6 +179,9 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
   }
 
   void _resetRenderData() {
+    _preheatedRenderData = null;
+    _preheatedSignature = null;
+    _preheatRenderData = null;
     _previousRenderData = null;
     _renderData = null;
     _renderSignature = null;
@@ -169,14 +190,30 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
       ..value = 1;
   }
 
+  void _handleTransitionStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && _previousRenderData != null) {
+      // Rebuild before releasing outgoing painters; the render object still owns them.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !_transitionController.isCompleted ||
+            _previousRenderData == null) {
+          return;
+        }
+        setState(() => _previousRenderData = null);
+      });
+    }
+  }
+
   @override
   void dispose() {
     _manualResetTimer?.cancel();
     widget.seekListenable?.removeListener(_handleSeek);
     _positionSubscription.close();
+    _playbackSubscription.close();
     _positionSmoothingController.dispose();
     _positionNotifier.dispose();
     _transitionController.dispose();
+    _painterOwner.dispose();
     super.dispose();
   }
 
@@ -207,6 +244,7 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
     }
     final sourceDelta = position - _latestSourcePosition;
     if (!_animationsAllowed ||
+        !_playbackActive ||
         sourceDelta <= Duration.zero ||
         sourceDelta > _positionSmoothingMaxDelta) {
       _snapPosition(position);
@@ -245,6 +283,11 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
     if (upcoming == null) return;
     final lead = upcoming.start - position.timelinePosition;
     if (lead < _preheatMinimumLead || lead > _preheatMaximumLead) return;
+    final preheat = _preheatRenderData;
+    if (preheat != null) {
+      preheat(upcomingIndex);
+      return;
+    }
     _engine.layoutLine(
       renderLineIndex: upcomingIndex,
       options: options,
@@ -371,7 +414,6 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
           verticalInset: fontSpec.verticalInset,
         );
         _lastLayoutOptions = options;
-        _preheatUpcoming(_structurePosition);
         final auxiliaryStyle = baseStyle.copyWith(
           fontSize: fontSpec.auxiliary,
           fontWeight: FontWeight.w500,
@@ -383,6 +425,7 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
           options: options,
           auxiliaryStyle: auxiliaryStyle,
         );
+        _preheatUpcoming(_structurePosition);
         final selectedIndex = _selectedRenderLineIndex;
         final selectedIsInterlude =
             selectedIndex != null && _engine.isInterludeAt(selectedIndex);
@@ -458,17 +501,16 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
     required Size size,
     required CadenzaLyricLayoutOptions options,
     required TextStyle auxiliaryStyle,
+    int? preheatIndex,
   }) {
-    final selectedIndex = _selectedRenderLineIndex;
+    final selectedIndex = preheatIndex ?? _selectedRenderLineIndex;
     final palette = widget.highlightColor == null
         ? widget.palette
         : widget.palette.copyWith(accent: widget.highlightColor);
-    final signature = Object.hashAll(<Object?>[
+    final contextSignature = Object.hashAll(<Object?>[
       _engine.documentSignature,
       widget.documentIdentity,
-      selectedIndex,
       _manualAnchorIndex,
-      options.stageSize,
       options.textStyle,
       auxiliaryStyle,
       options.textScaleFactor,
@@ -479,8 +521,72 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
       palette,
       size,
     ]);
-    final cached = _renderData;
-    if (cached != null && signature == _renderSignature) return cached;
+    if (_preheatedContext != contextSignature) {
+      _preheatedRenderData = null;
+      _preheatedSignature = null;
+      _preheatedContext = contextSignature;
+    }
+    final signature = Object.hash(
+      contextSignature,
+      options.stageSize,
+      selectedIndex,
+    );
+    if (preheatIndex == null) {
+      int? warmedIndex;
+      _preheatRenderData = (index) {
+        // The closure is replaced whenever the visible render context updates.
+        if (warmedIndex == index) return;
+        final line = _engine.lineAt(index);
+        final hasAuxiliary =
+            line != null &&
+            (line.translation.trim().isNotEmpty ||
+                line.romanization.trim().isNotEmpty);
+        final reservedHeight = hasAuxiliary
+            ? math.min(
+                (auxiliaryStyle.fontSize ?? 0) *
+                        1.3 *
+                        options.textScaleFactor *
+                        2 +
+                    28,
+                math.max(size.height - 1, 0),
+              )
+            : 0.0;
+        final nextOptions = CadenzaLyricLayoutOptions(
+          stageSize: Size(
+            size.width,
+            math.max(size.height - reservedHeight, 1),
+          ),
+          textStyle: options.textStyle,
+          textDirection: options.textDirection,
+          locale: options.locale,
+          textScaleFactor: options.textScaleFactor,
+          horizontalInset: options.horizontalInset,
+          verticalInset: options.verticalInset,
+          hitSlop: options.hitSlop,
+          fontScale: options.fontScale,
+          widthRatio: options.widthRatio,
+        );
+        _resolveRenderData(
+          size: size,
+          options: nextOptions,
+          auxiliaryStyle: auxiliaryStyle,
+          preheatIndex: index,
+        );
+        warmedIndex = index;
+      };
+    }
+    final cached = preheatIndex == null ? _renderData : _preheatedRenderData;
+    final cachedSignature = preheatIndex == null
+        ? _renderSignature
+        : _preheatedSignature;
+    if (cached != null && signature == cachedSignature) {
+      _painterOwner.retain([
+        _renderData,
+        _previousRenderData,
+        _preheatedRenderData,
+      ]);
+      return cached;
+    }
 
     final layout = selectedIndex == null
         ? null
@@ -489,20 +595,38 @@ class _CadenzaLyricRailState extends ConsumerState<CadenzaLyricRail>
             options: options,
             cache: _layoutCache,
           );
-    final next = buildCadenzaLyricRenderData(
-      size: size,
-      layout: layout,
-      options: options,
-      auxiliaryTextStyle: auxiliaryStyle,
-      palette: palette,
-      enableWordByWordLyric: widget.enableWordByWordLyric,
-      forceLineActive: _manualAnchorIndex != null,
-      timelineOffset: Duration(milliseconds: widget.document.offset),
-      debugOnTextLayout: widget.debugOnTextLayout,
-    );
-    _renderData = next;
-    _renderSignature = signature;
-    widget.debugOnStructureBuild?.call();
+    final next =
+        signature == _preheatedSignature && _preheatedRenderData != null
+        ? _preheatedRenderData!
+        : buildCadenzaLyricRenderData(
+            size: size,
+            layout: layout,
+            options: options,
+            auxiliaryTextStyle: auxiliaryStyle,
+            palette: palette,
+            enableWordByWordLyric: widget.enableWordByWordLyric,
+            forceLineActive: _manualAnchorIndex != null,
+            timelineOffset: Duration(milliseconds: widget.document.offset),
+            debugOnTextLayout: widget.debugOnTextLayout,
+          );
+    _painterOwner.own(next);
+    if (preheatIndex != null) {
+      _preheatedRenderData = next;
+      _preheatedSignature = signature;
+    } else {
+      _renderData = next;
+      _renderSignature = signature;
+      if (identical(next, _preheatedRenderData)) {
+        _preheatedRenderData = null;
+        _preheatedSignature = null;
+      }
+      widget.debugOnStructureBuild?.call();
+    }
+    _painterOwner.retain([
+      _renderData,
+      _previousRenderData,
+      _preheatedRenderData,
+    ]);
     return next;
   }
 

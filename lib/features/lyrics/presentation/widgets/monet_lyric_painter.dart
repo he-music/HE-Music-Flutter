@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/player/app_player_scene_palette.dart';
+import '../helpers/lyric_painter_owner.dart';
 import '../helpers/monet_lyric_layout.dart';
 
 @immutable
@@ -34,15 +35,27 @@ class MonetLyricPaintLine {
 }
 
 @immutable
-class MonetLyricRenderData {
+class MonetLyricRenderData implements LyricPaintResources {
+  @override
+  Iterable<TextPainter> get textPainters sync* {
+    for (final line in lines) {
+      yield line.mainPainter;
+      if (line.accentPainter != null) yield line.accentPainter!;
+      if (line.glowPainter != null) yield line.glowPainter!;
+      if (line.translationPainter != null) yield line.translationPainter!;
+    }
+  }
+
   const MonetLyricRenderData({
     required this.size,
+    required this.contentWidth,
     required this.lines,
     required this.timelineOffset,
     required this.textDirection,
   });
 
   final Size size;
+  final double contentWidth;
   final List<MonetLyricPaintLine> lines;
   final Duration timelineOffset;
   final TextDirection textDirection;
@@ -54,9 +67,45 @@ MonetLyricRenderData buildMonetLyricRenderData({
   required PlayerScenePalette palette,
   required bool enableWordByWordLyric,
   required Duration timelineOffset,
+  MonetLyricRenderData? reusableData,
 }) {
   final contentWidth = (options.railSize.width - options.horizontalPadding * 2)
       .clamp(0.0, double.infinity);
+  // Reuse only fully identical text layout/style inputs from the prior window.
+  final reusablePainters = reusableData?.contentWidth == contentWidth
+      ? reusableData!.textPainters.toList(growable: false)
+      : const <TextPainter>[];
+  TextPainter layoutPainter({
+    required String text,
+    required TextStyle style,
+    required MonetLyricLayoutOptions options,
+    required double maxWidth,
+    int? maxLines,
+    String? ellipsis,
+  }) {
+    final span = TextSpan(text: text, style: style);
+    final scaler = TextScaler.linear(options.textScaleFactor);
+    for (final painter in reusablePainters) {
+      if (painter.text == span &&
+          painter.textDirection == options.textDirection &&
+          painter.locale == options.locale &&
+          painter.textAlign == options.textAlign &&
+          painter.textScaler == scaler &&
+          painter.maxLines == maxLines &&
+          painter.ellipsis == ellipsis) {
+        return painter;
+      }
+    }
+    return _layoutPainter(
+      text: text,
+      style: style,
+      options: options,
+      maxWidth: maxWidth,
+      maxLines: maxLines,
+      ellipsis: ellipsis,
+    );
+  }
+
   final lines = positionedLines
       .map((positioned) {
         final entry = positioned.entry;
@@ -78,7 +127,7 @@ MonetLyricRenderData buildMonetLyricRenderData({
             ? buildMonetDisplayTokens(entry.line)
             : const <MonetDisplayToken>[];
         final hasTimedTokens = displayTokens.any((token) => token.hasTiming);
-        final mainPainter = _layoutPainter(
+        final mainPainter = layoutPainter(
           text: entry.line.text,
           style: hasTimedTokens
               ? baseStyle.copyWith(
@@ -91,7 +140,7 @@ MonetLyricRenderData buildMonetLyricRenderData({
           ellipsis: isActive ? null : '\u2026',
         );
         final accentPainter = hasTimedTokens
-            ? _layoutPainter(
+            ? layoutPainter(
                 text: entry.line.text,
                 style: baseStyle.copyWith(
                   color: palette.accent,
@@ -102,7 +151,7 @@ MonetLyricRenderData buildMonetLyricRenderData({
               )
             : null;
         final glowPainter = hasTimedTokens
-            ? _layoutPainter(
+            ? layoutPainter(
                 text: entry.line.text,
                 style: baseStyle.copyWith(
                   color: Color.lerp(
@@ -148,7 +197,7 @@ MonetLyricRenderData buildMonetLyricRenderData({
         final translationText = positioned.measurement.translationText;
         final translationPainter = translationText == null
             ? null
-            : _layoutPainter(
+            : layoutPainter(
                 text: translationText,
                 style: options.translationTextStyle.copyWith(
                   color: palette.secondaryForeground.withValues(alpha: 0.78),
@@ -169,6 +218,7 @@ MonetLyricRenderData buildMonetLyricRenderData({
 
   return MonetLyricRenderData(
     size: options.railSize,
+    contentWidth: contentWidth,
     lines: List<MonetLyricPaintLine>.unmodifiable(lines),
     timelineOffset: timelineOffset,
     textDirection: options.textDirection,
@@ -186,6 +236,7 @@ TextPainter _layoutPainter({
   return TextPainter(
     text: TextSpan(text: text, style: style),
     textDirection: options.textDirection,
+    locale: options.locale,
     textAlign: options.textAlign,
     textScaler: TextScaler.linear(options.textScaleFactor),
     maxLines: maxLines,

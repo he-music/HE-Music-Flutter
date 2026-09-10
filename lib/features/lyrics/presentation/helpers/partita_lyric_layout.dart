@@ -1429,26 +1429,30 @@ _DraftChunk _measureDraftChunk({
       textScaler: TextScaler.linear(options.textScaleFactor),
       maxLines: 1,
     )..layout();
-    final graphemeRects = word.graphemes
-        .map((slice) {
-          final boxes = painter.getBoxesForSelection(
-            TextSelection(
-              baseOffset: slice.textStartOffset,
-              extentOffset: slice.textEndOffset,
-            ),
-          );
-          if (boxes.isNotEmpty) {
-            return boxes
-                .map((box) => box.toRect())
-                .reduce((first, second) => first.expandToInclude(second));
-          }
-          final width = word.graphemes.isEmpty
-              ? painter.width
-              : painter.width / word.graphemes.length;
-          return Rect.fromLTWH(width * slice.index, 0, width, painter.height);
-        })
-        .toList(growable: false);
-    measured.add((word: word, size: painter.size, boxes: graphemeRects));
+    try {
+      final graphemeRects = word.graphemes
+          .map((slice) {
+            final boxes = painter.getBoxesForSelection(
+              TextSelection(
+                baseOffset: slice.textStartOffset,
+                extentOffset: slice.textEndOffset,
+              ),
+            );
+            if (boxes.isNotEmpty) {
+              return boxes
+                  .map((box) => box.toRect())
+                  .reduce((first, second) => first.expandToInclude(second));
+            }
+            final width = word.graphemes.isEmpty
+                ? painter.width
+                : painter.width / word.graphemes.length;
+            return Rect.fromLTWH(width * slice.index, 0, width, painter.height);
+          })
+          .toList(growable: false);
+      measured.add((word: word, size: painter.size, boxes: graphemeRects));
+    } finally {
+      painter.dispose();
+    }
   }
 
   var cursor = 0.0;

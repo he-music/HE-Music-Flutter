@@ -22,3 +22,9 @@ pyftsubset "$ANDROID_HOME/platforms/android-22/data/fonts/DroidSansFallback.ttf"
 `DroidSansFallback-LyricSubset.ttf` uses the same AOSP source and license, with
 `lyric_cjk_glyphs.txt` as its glyph list. Regenerate with the command above,
 substituting the lyric glyph list and output filename.
+
+`DroidSansFallback-LyricSearchSubset.ttf` is a separate AOSP/Apache-2.0 subset
+for compact lyric-search widget screenshots. Its exact glyph list is
+`lyric_search_cjk_glyphs.txt`; regenerate with the command above using those two
+filenames. It shares `LICENSE.txt` and does not change production app assets.
+The search fixture also applies these fonts to AppBar's independent title style.
