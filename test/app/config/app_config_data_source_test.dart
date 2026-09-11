@@ -74,7 +74,7 @@ void main() {
   });
 
   test(
-    'Pendolo selection round trips while preserving existing lyric ids',
+    'Claddagh selection round trips while preserving existing lyric ids',
     () async {
       const source = AppConfigDataSource();
       for (final id in AppPlayerLyricsRegistry.builtInIds) {

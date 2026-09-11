@@ -17,7 +17,15 @@ enum AppPlayerBackdropKind {
 }
 
 /// 歌词（lyric）轴。
-enum AppPlayerLyricsKind { legacy, monet, partita, cadenza, tilt, pendolo }
+enum AppPlayerLyricsKind {
+  legacy,
+  monet,
+  partita,
+  cadenza,
+  tilt,
+  pendolo,
+  claddagh,
+}
 
 @immutable
 class AppPlayerStyleMetadata {

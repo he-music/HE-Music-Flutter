@@ -149,6 +149,12 @@ void main() {
       optionId: 'pendolo_lyrics',
     );
     expect(harness.config.state.playerLyricsId, 'pendolo_lyrics');
+    await _selectStyleOption(
+      tester,
+      axis: 'lyrics',
+      optionId: 'claddagh_lyrics',
+    );
+    expect(harness.config.state.playerLyricsId, 'claddagh_lyrics');
 
     // 选择后面板保持打开，不自动关闭。
     expect(find.byType(PlayerStyleSelectionSheet), findsOneWidget);

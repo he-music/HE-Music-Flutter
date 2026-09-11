@@ -10,6 +10,7 @@ import 'styles/monet_lyrics_player_style.dart';
 import 'styles/partita_lyrics_player_style.dart';
 import 'styles/tilt_lyrics_player_style.dart';
 import 'styles/pendolo_lyrics_player_style.dart';
+import 'styles/claddagh_lyrics_player_style.dart';
 import 'styles/radial_spectrum_player_style.dart';
 import 'styles/vinyl_player_style.dart';
 
@@ -117,6 +118,7 @@ class AppPlayerLyricsRegistry {
       cadenzaLyricsOption,
       tiltLyricsOption,
       pendoloLyricsOption,
+      claddaghLyricsOption,
     ]);
   }
 
@@ -126,6 +128,7 @@ class AppPlayerLyricsRegistry {
   static const String cadenzaId = 'cadenza_lyrics';
   static const String tiltId = 'tilt_lyrics';
   static const String pendoloId = 'pendolo_lyrics';
+  static const String claddaghId = 'claddagh_lyrics';
 
   static const Set<String> builtInIds = <String>{
     legacyId,
@@ -134,6 +137,7 @@ class AppPlayerLyricsRegistry {
     cadenzaId,
     tiltId,
     pendoloId,
+    claddaghId,
   };
 
   static final AppPlayerLyricsRegistry instance =

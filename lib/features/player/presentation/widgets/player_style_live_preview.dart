@@ -23,6 +23,7 @@ import 'monet_lyric_page.dart';
 import 'partita_lyric_page.dart';
 import 'tilt_lyric_page.dart';
 import 'pendolo_lyric_page.dart';
+import 'claddagh_lyric_page.dart';
 import 'player_backdrop.dart';
 import 'player_lyric_page.dart';
 
@@ -299,6 +300,11 @@ class _LyricStagePreview extends StatelessWidget {
         palette: null,
       ),
       AppPlayerLyricsKind.pendolo => PendoloLyricPage(
+        emptyText: emptyText,
+        onSeek: null,
+        palette: null,
+      ),
+      AppPlayerLyricsKind.claddagh => CladdaghLyricPage(
         emptyText: emptyText,
         onSeek: null,
         palette: null,

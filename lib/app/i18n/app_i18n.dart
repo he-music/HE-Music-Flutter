@@ -549,6 +549,8 @@ abstract final class AppI18n {
       'player.style.partita_lyrics': '云阶',
       'player.style.cadenza_lyrics': '心象',
       'player.style.pendolo_lyrics': '时计',
+      'player.style.claddagh_lyrics': '回环',
+      'player.style.claddagh_lyrics.description': '文字沿倾斜椭圆回环流动，逐字放大聚焦',
       'player.style.pendolo_lyrics.description': '沿弧形轮盘排列歌词，随换句机械拨动与回弹',
       'player.style.tilt_lyrics': '倾诉',
       'player.style.tilt_lyrics.description': '将当前歌词拆成错落的文字片段，随节奏逐字显现',
@@ -1435,6 +1437,9 @@ abstract final class AppI18n {
       'player.style.partita_lyrics': 'Partita',
       'player.style.cadenza_lyrics': 'Cadenza',
       'player.style.pendolo_lyrics': 'Pendolo',
+      'player.style.claddagh_lyrics': 'Claddagh',
+      'player.style.claddagh_lyrics.description':
+          'Lyrics orbit a tilted ellipse with word-by-word focus',
       'player.style.pendolo_lyrics.description':
           'An arc of lyrics advancing with a mechanical escapement',
       'player.style.tilt_lyrics': 'Tilt',
