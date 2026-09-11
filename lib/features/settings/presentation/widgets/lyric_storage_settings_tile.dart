@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
 
 import '../../../../app/app_message_service.dart';
+import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/i18n/app_i18n.dart';
 import '../../../lyrics/data/storage/lyric_store.dart';
 import 'audio_cache_settings_tile.dart';
 
@@ -22,20 +24,21 @@ class _LyricStorageSettingsTileState
   bool _busy = false;
 
   Future<void> _clear() async {
+    final config = ref.read(appConfigProvider);
     if (widget.manual) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('删除全部手动选择歌词？'),
-          content: const Text('所有歌曲将恢复默认歌词。此操作无法撤销。'),
+          title: Text(AppI18n.t(config, 'settings.lyric_cache.confirm_title')),
+          content: Text(AppI18n.t(config, 'settings.lyric_cache.confirm_body')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+              child: Text(AppI18n.t(config, 'common.cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('全部删除'),
+              child: Text(AppI18n.t(config, 'settings.lyric_cache.delete_all')),
             ),
           ],
         ),
@@ -49,9 +52,18 @@ class _LyricStorageSettingsTileState
       } else {
         await ref.read(lyricStoreProvider).clearAutomatic();
       }
-      AppMessageService.showSuccess(widget.manual ? '手动选择歌词已删除' : '自动歌词缓存已清除');
+      AppMessageService.showSuccess(
+        AppI18n.t(
+          config,
+          widget.manual
+              ? 'settings.lyric_cache.manual_cleared'
+              : 'settings.lyric_cache.automatic_cleared',
+        ),
+      );
     } catch (_) {
-      AppMessageService.showError('部分歌词未能删除，请重试');
+      AppMessageService.showError(
+        AppI18n.t(config, 'settings.lyric_cache.clear_failed'),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -64,6 +76,10 @@ class _LyricStorageSettingsTileState
 
   @override
   Widget build(BuildContext context) {
+    final locale = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
+    String t(String key) => AppI18n.tByLocaleCode(locale, key);
     ref.listen(lyricStorageStatisticsChangesProvider, (_, next) {
       if (next.hasValue) {
         setState(() {
@@ -77,15 +93,29 @@ class _LyricStorageSettingsTileState
         final stats = snapshot.data;
         return ListTile(
           leading: Icon(widget.manual ? Icons.lyrics_outlined : Icons.cached),
-          title: Text(widget.manual ? '手动选择歌词' : '自动歌词缓存'),
+          title: Text(
+            t(
+              widget.manual
+                  ? 'settings.lyric_cache.manual'
+                  : 'settings.lyric_cache.automatic',
+            ),
+          ),
           subtitle: Text(
             snapshot.hasError
-                ? '无法读取占用，点击重试'
+                ? t('settings.lyric_cache.read_failed')
                 : stats == null
-                ? '正在统计…'
+                ? t('settings.lyric_cache.calculating')
                 : widget.manual
-                ? '${stats.manualCount} 首 · ${lyricStorageSizeLabel(stats.manualBytes)} · 全部删除'
-                : '${lyricStorageSizeLabel(stats.automaticBytes)} / 50 MiB · 清除缓存',
+                ? t('settings.lyric_cache.manual_usage')
+                      .replaceAll('{count}', '${stats.manualCount}')
+                      .replaceAll(
+                        '{size}',
+                        lyricStorageSizeLabel(stats.manualBytes),
+                      )
+                : t('settings.lyric_cache.automatic_usage').replaceAll(
+                    '{size}',
+                    lyricStorageSizeLabel(stats.automaticBytes),
+                  ),
           ),
           trailing: _busy
               ? const SizedBox.square(

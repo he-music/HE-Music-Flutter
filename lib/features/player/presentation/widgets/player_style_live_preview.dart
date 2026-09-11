@@ -251,6 +251,9 @@ class _LyricStagePreview extends StatelessWidget {
         currentLyricDocumentProvider.overrideWithValue(
           const AsyncData<LyricDocument>(_demoLyricDocument),
         ),
+        displayedLyricDocumentProvider.overrideWithValue(
+          const AsyncData<LyricDocument>(_demoLyricDocument),
+        ),
         currentLyricRequestProvider.overrideWithValue(_demoLyricRequest),
         lyricPositionProvider.overrideWithValue(_demoLyricPosition),
       ],
@@ -399,6 +402,53 @@ class _PreviewPhoneFrame extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Full-size production composition used to export the style picker assets.
+class PlayerStyleComponentPreview extends StatelessWidget {
+  const PlayerStyleComponentPreview({
+    required this.axis,
+    required this.optionId,
+    super.key,
+  });
+
+  final String axis;
+  final String optionId;
+
+  @override
+  Widget build(BuildContext context) {
+    return ProviderScope(
+      overrides: [
+        playerControllerProvider.overrideWith(
+          () => _PreviewPlayerController(_demoTrack),
+        ),
+        realtimeSpectrumControllerProvider.overrideWith(
+          _PreviewSpectrumController.new,
+        ),
+      ],
+      child: switch (axis) {
+        'stage' => _CoverStagePreview(
+          track: _demoTrack,
+          stageId: optionId,
+          backdropId: AppPlayerBackdropRegistry.coverGradientId,
+        ),
+        'backdrop' => PlayerBackdrop(
+          backdropKind: AppPlayerBackdropRegistry.instance
+              .resolve(optionId)
+              .backdropKind,
+          imageProvider: null,
+          track: _demoTrack,
+          isPortrait: true,
+        ),
+        _ => _LyricStagePreview(
+          track: _demoTrack,
+          backdropId: AppPlayerBackdropRegistry.coverGradientId,
+          lyricsId: optionId,
+          localeCode: 'zh',
+        ),
+      },
     );
   }
 }

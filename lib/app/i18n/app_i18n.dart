@@ -6,6 +6,38 @@ abstract final class AppI18n {
   static const _fallbackLocale = 'zh';
   static const _localized = <String, Map<String, String>>{
     'zh': {
+      'player.lyric.glyph': '词',
+      'player.lyric.translation_glyph': '译',
+      'player.lyric.romanization_glyph': '音',
+      'player.lyric.original_glyph': '原',
+      'player.lyric.translation': '翻译',
+      'player.lyric.romanization': '罗马音',
+      'player.lyric.original': '仅显示原文',
+      'player.play': '播放',
+      'player.pause': '暂停',
+
+      'player.lyric.options': '歌词选项',
+      'player.lyric.search': '搜索歌词',
+      'player.lyric.replace': '更换歌词',
+      'player.lyric.restore': '恢复默认歌词',
+      'player.lyric.restore_failed': '恢复默认歌词失败，请重试',
+      'player.lyric.style': '歌词样式',
+      'settings.lyric_cache.confirm_title': '删除全部手动选择歌词？',
+      'settings.lyric_cache.confirm_body': '所有歌曲将恢复默认歌词。此操作无法撤销。',
+      'settings.lyric_cache.delete_all': '全部删除',
+      'settings.lyric_cache.manual_cleared': '手动选择歌词已删除',
+      'settings.lyric_cache.automatic_cleared': '自动歌词缓存已清除',
+      'settings.lyric_cache.clear_failed': '部分歌词未能删除，请重试',
+      'settings.lyric_cache.read_failed': '无法读取占用，点击重试',
+      'settings.lyric_cache.calculating': '正在统计…',
+      'settings.lyric_cache.manual_usage': '{count} 首 · {size} · 全部删除',
+      'settings.lyric_cache.automatic_usage': '{size} / 50 MiB · 清除缓存',
+      'settings.lyric_highlight_color.option.white': '月白',
+      'settings.lyric_highlight_color.option.cyan': '青蓝',
+      'settings.lyric_highlight_color.option.lime': '青柠',
+      'settings.lyric_highlight_color.option.orange': '橙色',
+      'settings.lyric_highlight_color.option.pink': '樱粉',
+
       'app.title': 'HE Music',
       'common.back': '返回',
       'common.more': '更多',
@@ -836,6 +868,44 @@ abstract final class AppI18n {
       'parse.view_detail': '查看详情',
     },
     'en': {
+      'player.lyric.glyph': 'L',
+      'player.lyric.translation_glyph': 'T',
+      'player.lyric.romanization_glyph': 'R',
+      'player.lyric.original_glyph': 'O',
+      'player.lyric.translation': 'Translation',
+      'player.lyric.romanization': 'Romanization',
+      'player.lyric.original': 'Original lyrics only',
+      'player.play': 'Play',
+      'player.pause': 'Pause',
+
+      'player.lyric.options': 'Lyric options',
+      'player.lyric.search': 'Search lyrics',
+      'player.lyric.replace': 'Replace lyrics',
+      'player.lyric.restore': 'Restore default lyrics',
+      'player.lyric.restore_failed':
+          'Could not restore default lyrics. Please retry.',
+      'player.lyric.style': 'Lyric style',
+      'settings.lyric_cache.confirm_title':
+          'Delete all manually selected lyrics?',
+      'settings.lyric_cache.confirm_body':
+          'All songs will use default lyrics. This cannot be undone.',
+      'settings.lyric_cache.delete_all': 'Delete all',
+      'settings.lyric_cache.manual_cleared': 'Manually selected lyrics deleted',
+      'settings.lyric_cache.automatic_cleared': 'Automatic lyric cache cleared',
+      'settings.lyric_cache.clear_failed':
+          'Some lyrics could not be deleted. Please retry.',
+      'settings.lyric_cache.read_failed':
+          'Could not read storage usage. Tap to retry.',
+      'settings.lyric_cache.calculating': 'Calculating…',
+      'settings.lyric_cache.manual_usage':
+          '{count} songs · {size} · Delete all',
+      'settings.lyric_cache.automatic_usage': '{size} / 50 MiB · Clear cache',
+      'settings.lyric_highlight_color.option.white': 'Moon White',
+      'settings.lyric_highlight_color.option.cyan': 'Cyan',
+      'settings.lyric_highlight_color.option.lime': 'Lime',
+      'settings.lyric_highlight_color.option.orange': 'Orange',
+      'settings.lyric_highlight_color.option.pink': 'Pink',
+
       'app.title': 'HE Music',
       'common.back': 'Back',
       'common.more': 'More',

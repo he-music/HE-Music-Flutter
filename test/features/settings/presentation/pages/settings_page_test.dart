@@ -49,7 +49,18 @@ void main() {
       AppLyricHighlightColor.values
           .map((item) => settingsLyricHighlightColorLabel(item, config))
           .toList(),
-      <String>['Sky Blue', 'Emerald', 'Amber', 'Coral', 'Violet'],
+      <String>[
+        'Sky Blue',
+        'Emerald',
+        'Amber',
+        'Coral',
+        'Violet',
+        'Moon White',
+        'Cyan',
+        'Lime',
+        'Orange',
+        'Pink',
+      ],
     );
     expect(
       AppLyricFontPreset.values

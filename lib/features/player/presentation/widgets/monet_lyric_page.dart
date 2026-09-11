@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/config/app_lyric_highlight_mode.dart';
+import '../providers/player_providers.dart';
 import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/theme/player/styles/classic_player_palette.dart';
 import '../../../lyrics/presentation/helpers/lyric_highlight_color_helper.dart';
@@ -69,6 +71,9 @@ class _MonetLyricDataHost extends ConsumerWidget {
         ),
       ),
     );
+    final autoColor = config.highlightMode == AppLyricHighlightMode.auto
+        ? ref.watch(playerAutoLyricHighlightColorProvider).value
+        : null;
     final documentAsync = ref.watch(displayedLyricDocumentProvider);
     final request = ref.watch(currentLyricRequestProvider);
     return documentAsync.when(
@@ -88,7 +93,7 @@ class _MonetLyricDataHost extends ConsumerWidget {
                 mode: config.highlightMode,
                 preset: config.highlightPreset,
                 customColorValue: config.highlightCustomColor,
-                autoColor: palette.accent,
+                autoColor: autoColor,
               ),
               onSeek: onSeek,
               seekListenable: seekListenable,

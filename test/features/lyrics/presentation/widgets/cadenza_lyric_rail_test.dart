@@ -1027,7 +1027,7 @@ void main() {
               mode: AppLyricHighlightMode.auto,
               preset: AppLyricHighlightColor.sky,
               customValue: null,
-              expected: _palette.accent,
+              expected: AppLyricHighlightColor.sky.color,
             ),
             (
               mode: AppLyricHighlightMode.preset,

@@ -5,7 +5,7 @@ ifneq ($(strip $(API_BASE_URL)),)
 DART_DEFINE_ARGS += "--dart-define=API_BASE_URL=$(API_BASE_URL)"
 endif
 
-.PHONY: help get upgrade run analyze test format fix gen skin-previews clean build-apk build-aab release-check release
+.PHONY: help get upgrade run analyze test format fix gen skin-previews player-previews player-cover-previews player-background-previews player-lyric-previews clean build-apk build-aab release-check release
 
 help:
 	@printf "\n常用命令:\n"
@@ -18,6 +18,8 @@ help:
 	@printf "  make fix            自动应用 Dart 可修复项\n"
 	@printf "  make gen            执行代码生成\n"
 	@printf "  make skin-previews  更新内置皮肤真实 UI 预览\n"
+	@printf "  make player-previews  更新播放器封面、背景、歌词预览\n"
+	@printf "  make player-cover-previews / player-background-previews / player-lyric-previews  按类别更新\n"
 	@printf "  make clean          清理构建产物\n"
 	@printf "  make build-apk      构建 Android release APK（按 ABI 拆分）\n"
 	@printf "  make build-aab      构建 Android release AAB\n"
@@ -50,6 +52,18 @@ gen:
 
 skin-previews:
 	$(FLUTTER) test --update-goldens test/app/theme/skin_preview_golden_test.dart
+
+player-previews:
+	$(FLUTTER) test --dart-define=GENERATE_PLAYER_PREVIEWS=true test/app/theme/player_component_preview_test.dart
+
+player-cover-previews:
+	$(FLUTTER) test --dart-define=GENERATE_PLAYER_PREVIEWS=true --dart-define=PREVIEW_AXIS=stage test/app/theme/player_component_preview_test.dart
+
+player-background-previews:
+	$(FLUTTER) test --dart-define=GENERATE_PLAYER_PREVIEWS=true --dart-define=PREVIEW_AXIS=backdrop test/app/theme/player_component_preview_test.dart
+
+player-lyric-previews:
+	$(FLUTTER) test --dart-define=GENERATE_PLAYER_PREVIEWS=true --dart-define=PREVIEW_AXIS=lyrics test/app/theme/player_component_preview_test.dart
 
 clean:
 	$(FLUTTER) clean

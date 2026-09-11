@@ -467,7 +467,7 @@ void main() {
           .read(appConfigProvider.notifier)
           .setLyricHighlightMode(AppLyricHighlightMode.auto);
       await tester.pump();
-      expect(rail().highlightColor, _palette.accent);
+      expect(rail().highlightColor, AppLyricHighlightColor.sky.color);
 
       const customColor = Color(0xff123456);
       container

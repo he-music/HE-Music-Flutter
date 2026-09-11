@@ -752,7 +752,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       SettingsChoiceOption<String>(
         value: AppLyricHighlightMode.auto.value,
         title: AppI18n.t(config, 'settings.choice.auto'),
-        leading: SettingsColorDot(color: AppLyricHighlightColor.sky.color),
+        leading: const Icon(Icons.auto_awesome_rounded),
       ),
       ...AppLyricHighlightColor.values.map(
         (item) => SettingsChoiceOption<String>(

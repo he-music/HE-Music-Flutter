@@ -137,6 +137,29 @@ void main() {
     });
   }
 
+  testWidgets('English lyric options and automatic color icon are localized', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(store: _Store()));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(FullLyricControls)),
+    );
+    final config = container.read(appConfigProvider.notifier) as _Config;
+    config.setLocaleCode('en');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('lyric-options-control')));
+    await tester.pumpAndSettle();
+    expect(find.text('Search lyrics'), findsOneWidget);
+    expect(find.text('Lyric style'), findsOneWidget);
+    await tester.tap(find.text('Lyric Highlight Color'));
+    await tester.pumpAndSettle();
+    expect(find.text('Auto'), findsOneWidget);
+    expect(find.byIcon(Icons.auto_awesome_rounded), findsOneWidget);
+    expect(find.textContaining('settings.'), findsNothing);
+    expect(find.textContaining('player.'), findsNothing);
+  });
+
   for (final brightness in Brightness.values) {
     testWidgets(
       'options opens within player route and $brightness theme boundary',
@@ -168,9 +191,23 @@ void main() {
           );
           expect(tiles, findsWidgets);
           expect(Theme.of(tester.element(tiles.first)).brightness, brightness);
-          await tester.ensureVisible(tiles.last);
+          final target = find.text(switch (title) {
+            '歌词大小' => '大',
+            '歌词颜色' => '樱粉',
+            _ => '回环',
+          });
+          await tester.scrollUntilVisible(
+            target,
+            100,
+            scrollable: find
+                .descendant(
+                  of: find.byType(PlayerSheetSurface).last,
+                  matching: find.byType(Scrollable),
+                )
+                .last,
+          );
           await tester.pumpAndSettle();
-          await tester.tap(tiles.last);
+          await tester.tap(target);
           await tester.pumpAndSettle();
           expect(find.byType(PlayerSheetSurface), findsOneWidget);
         }
@@ -495,6 +532,11 @@ Widget _app({
 );
 
 class _Config extends AppConfigController {
+  @override
+  void setLocaleCode(String locale) {
+    state = state.copyWith(localeCode: locale);
+  }
+
   @override
   void setLyricFontPreset(AppLyricFontPreset preset) {
     state = state.copyWith(lyricFontPreset: preset);

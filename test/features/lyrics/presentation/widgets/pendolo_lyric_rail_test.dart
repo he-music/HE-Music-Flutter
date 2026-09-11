@@ -1,10 +1,5 @@
-import 'dart:io';
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
@@ -296,39 +291,4 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
-
-  testWidgets(
-    'generate Pendolo preview from actual rail',
-    (tester) async {
-      await tester.runAsync(() async {
-        await (FontLoader('PendoloPreview')
-              ..addFont(
-                File(
-                  'test/assets/fonts/Roboto-Regular.ttf',
-                ).readAsBytes().then(ByteData.sublistView),
-              )
-              ..addFont(
-                File(
-                  'test/assets/fonts/Roboto-Bold.ttf',
-                ).readAsBytes().then(ByteData.sublistView),
-              ))
-            .load();
-      });
-      await tester.pumpWidget(_app());
-      _clock(tester).set(const Duration(seconds: 17));
-      await tester.pumpAndSettle();
-      final boundary = tester.renderObject<RenderRepaintBoundary>(
-        find.byKey(const ValueKey('pendolo-lyric-repaint-boundary')),
-      );
-      await tester.runAsync(() async {
-        final image = await boundary.toImage(pixelRatio: 1);
-        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-        image.dispose();
-        await File(
-          'assets/player_styles/pendolo_lyrics/preview.png',
-        ).writeAsBytes(bytes!.buffer.asUint8List());
-      });
-    },
-    skip: !const bool.fromEnvironment('GENERATE_PENDOLO_PREVIEW'),
-  );
 }

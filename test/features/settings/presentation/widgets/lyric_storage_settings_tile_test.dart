@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ void main() {
   const target = LyricRequest(trackId: 'song', platform: 'qq');
   const bundle = RawLyricBundle(lyric: '[00:00.00]original');
   setUp(() async {
+    SharedPreferences.setMockInitialValues({'app_config.locale_code': 'zh'});
     root = await Directory.systemTemp.createTemp('lyric-settings-test');
     store = LyricStore(
       manualDirectory: () async => Directory('${root.path}/manual'),

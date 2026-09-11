@@ -25,6 +25,9 @@ class FullLyricControls extends ConsumerWidget {
   const FullLyricControls({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
     final track = ref.watch(
       playerControllerProvider.select((state) => state.currentTrack),
     );
@@ -36,8 +39,8 @@ class FullLyricControls extends ConsumerWidget {
           children: [
             _OutlinedLyricButton(
               controlId: 'options',
-              glyph: '词',
-              tooltip: '歌词选项',
+              glyph: AppI18n.tByLocaleCode(locale, 'player.lyric.glyph'),
+              tooltip: AppI18n.tByLocaleCode(locale, 'player.lyric.options'),
               onPressed: track == null
                   ? null
                   : () => _openOptions(context, ref, track),
@@ -90,6 +93,9 @@ class _AuxiliaryButton extends ConsumerWidget {
   const _AuxiliaryButton();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
     final document =
         ref.watch(currentLyricDocumentProvider).value ??
         const LyricDocument.empty();
@@ -106,13 +112,24 @@ class _AuxiliaryButton extends ConsumerWidget {
     return _OutlinedLyricButton(
       controlId: 'auxiliary',
       glyph: switch (effective) {
-        AppLyricAuxiliaryMode.translation => '译',
-        AppLyricAuxiliaryMode.romanization => '音',
-        AppLyricAuxiliaryMode.off => '原',
+        AppLyricAuxiliaryMode.translation => AppI18n.tByLocaleCode(
+          locale,
+          'player.lyric.translation_glyph',
+        ),
+        AppLyricAuxiliaryMode.romanization => AppI18n.tByLocaleCode(
+          locale,
+          'player.lyric.romanization_glyph',
+        ),
+        AppLyricAuxiliaryMode.off => AppI18n.tByLocaleCode(
+          locale,
+          'player.lyric.original_glyph',
+        ),
       },
-      tooltip: effective == AppLyricAuxiliaryMode.off
-          ? '仅显示原文'
-          : effective.label,
+      tooltip: AppI18n.tByLocaleCode(locale, switch (effective) {
+        AppLyricAuxiliaryMode.translation => 'player.lyric.translation',
+        AppLyricAuxiliaryMode.romanization => 'player.lyric.romanization',
+        AppLyricAuxiliaryMode.off => 'player.lyric.original',
+      }),
       muted: effective == AppLyricAuxiliaryMode.off,
       onPressed: () => ref
           .read(appConfigProvider.notifier)
@@ -125,6 +142,9 @@ class _LyricPlayButton extends ConsumerWidget {
   const _LyricPlayButton();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
     final playing = ref.watch(
       playerControllerProvider.select((state) => state.isPlaying),
     );
@@ -132,7 +152,10 @@ class _LyricPlayButton extends ConsumerWidget {
       key: const ValueKey('lyric-play-control'),
       dimension: 52,
       child: IconButton.filled(
-        tooltip: playing ? '暂停' : '播放',
+        tooltip: AppI18n.tByLocaleCode(
+          locale,
+          playing ? 'player.pause' : 'player.play',
+        ),
         style: IconButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: const Color(0xff182532),
@@ -232,7 +255,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: const Text('歌词'),
+              subtitle: Text(AppI18n.t(config, 'player.lyrics')),
             ),
             FutureBuilder<bool>(
               future: _hasManual,
@@ -240,7 +263,14 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.search),
-                    title: Text(snapshot.data == true ? '更换歌词' : '搜索歌词'),
+                    title: Text(
+                      AppI18n.t(
+                        config,
+                        snapshot.data == true
+                            ? 'player.lyric.replace'
+                            : 'player.lyric.search',
+                      ),
+                    ),
                     onTap: _restoring
                         ? null
                         : () => Navigator.pop(context, true),
@@ -248,7 +278,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                   if (snapshot.data == true)
                     ListTile(
                       leading: const Icon(Icons.restore),
-                      title: const Text('恢复默认歌词'),
+                      title: Text(AppI18n.t(config, 'player.lyric.restore')),
                       trailing: _restoring
                           ? const SizedBox.square(
                               dimension: 24,
@@ -265,7 +295,12 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                                     .restoreDefault(_request);
                                 if (context.mounted) Navigator.pop(context);
                               } catch (_) {
-                                AppMessageService.showError('恢复默认歌词失败，请重试');
+                                AppMessageService.showError(
+                                  AppI18n.t(
+                                    config,
+                                    'player.lyric.restore_failed',
+                                  ),
+                                );
                                 if (mounted) setState(() => _restoring = false);
                               }
                             },
@@ -276,11 +311,11 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.style_outlined),
-              title: const Text('歌词样式'),
+              title: Text(AppI18n.t(config, 'player.lyric.style')),
               onTap: () => showSettingsSingleChoiceSheet<String>(
                 context: context,
                 playerStyled: true,
-                title: '歌词样式',
+                title: AppI18n.t(config, 'player.lyric.style'),
                 currentValue: config.playerLyricsId,
                 options: [
                   for (final option in AppPlayerLyricsRegistry.instance.options)
@@ -294,14 +329,14 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
             ),
             ListTile(
               leading: const Icon(Icons.text_fields),
-              title: const Text('歌词大小'),
+              title: Text(AppI18n.t(config, 'settings.lyric_font_preset')),
               subtitle: Text(
                 settingsLyricFontPresetLabel(config.lyricFontPreset, config),
               ),
               onTap: () => showSettingsSingleChoiceSheet<AppLyricFontPreset>(
                 context: context,
                 playerStyled: true,
-                title: '歌词大小',
+                title: AppI18n.t(config, 'settings.lyric_font_preset'),
                 currentValue: config.lyricFontPreset,
                 options: [
                   for (final preset in AppLyricFontPreset.values)
@@ -315,11 +350,11 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
             ),
             ListTile(
               leading: const Icon(Icons.palette_outlined),
-              title: const Text('歌词颜色'),
+              title: Text(AppI18n.t(config, 'settings.lyric_highlight_color')),
               onTap: () => showSettingsSingleChoiceSheet<String>(
                 context: context,
                 playerStyled: true,
-                title: '歌词颜色',
+                title: AppI18n.t(config, 'settings.lyric_highlight_color'),
                 currentValue:
                     config.lyricHighlightMode == AppLyricHighlightMode.auto
                     ? 'auto'
@@ -328,6 +363,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                   SettingsChoiceOption(
                     value: 'auto',
                     title: AppI18n.t(config, 'settings.choice.auto'),
+                    leading: const Icon(Icons.auto_awesome_rounded),
                   ),
                   for (final color in AppLyricHighlightColor.values)
                     SettingsChoiceOption(
@@ -351,7 +387,9 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
             ),
             SwitchListTile(
               secondary: const Icon(Icons.lyrics_outlined),
-              title: const Text('逐字歌词'),
+              title: Text(
+                AppI18n.t(config, 'settings.enable_word_by_word_lyric'),
+              ),
               value: config.enableWordByWordLyric,
               onChanged: controller.setEnableWordByWordLyric,
             ),
