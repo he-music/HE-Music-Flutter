@@ -6,6 +6,7 @@ DART_DEFINE_ARGS += "--dart-define=API_BASE_URL=$(API_BASE_URL)"
 endif
 
 .PHONY: help get upgrade run analyze test format fix gen skin-previews player-previews player-cover-previews player-background-previews player-lyric-previews clean build-apk build-aab release-check release
+.PHONY: ios-launch-logo
 
 help:
 	@printf "\n常用命令:\n"
@@ -17,6 +18,7 @@ help:
 	@printf "  make format         格式化 Dart 代码\n"
 	@printf "  make fix            自动应用 Dart 可修复项\n"
 	@printf "  make gen            执行代码生成\n"
+	@printf "  make ios-launch-logo  从当前 Logo 更新 iOS 原生启动图（macOS）\n"
 	@printf "  make skin-previews  更新内置皮肤真实 UI 预览\n"
 	@printf "  make player-previews  更新播放器封面、背景、歌词预览\n"
 	@printf "  make player-cover-previews / player-background-previews / player-lyric-previews  按类别更新\n"
@@ -49,6 +51,9 @@ fix:
 
 gen:
 	$(DART) run build_runner build
+
+ios-launch-logo:
+	bash scripts/sync_ios_launch_logo.sh
 
 skin-previews:
 	$(FLUTTER) test --update-goldens test/app/theme/skin_preview_golden_test.dart

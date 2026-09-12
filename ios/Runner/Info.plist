@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>用于扫描二维码登录设备。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>用于将封面图片保存到系统图库。</string>
 	<key>NSAppleMusicUsageDescription</key>
