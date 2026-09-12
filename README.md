@@ -118,7 +118,7 @@ make release VERSION=1.0.4  检查、提交并发布指定版本
 make release VERSION=1.0.4
 ```
 
-发布相同版本时，脚本会递增 `pubspec.yaml` 的构建号；发布更高版本时，构建号从 `+1` 重新开始。脚本随后执行 `make release-check`，提交并推送版本变更，最后创建并推送对应的 Git Tag。
+每次发布时，脚本都会在 `pubspec.yaml` 当前构建号上递增 1，发布更高版本时也不会重置，以保证 Android 的 `versionCode` 持续递增。例如 `1.0.11+2` 升级到 `1.0.12` 后为 `1.0.12+3`。脚本随后执行 `make release-check`，提交并推送版本变更，最后创建并推送对应的 Git Tag。
 
 目标版本不能低于当前 `pubspec.yaml` 版本或远端最高正式 Tag。例如远端已有 `v1.0.3` 时，即使不存在 `v1.0.2`，也不能发布 `v1.0.2`。
 

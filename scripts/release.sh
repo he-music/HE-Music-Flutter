@@ -13,7 +13,7 @@ usage() {
   ./scripts/release.sh 1.0.4
   ./scripts/release.sh v1.0.4 --yes
 
-同版本发布会递增 pubspec.yaml 的构建号，新版本从 +1 开始。
+每次发布都会在 pubspec.yaml 当前构建号上递增 1，升级应用版本时也不会重置。
 脚本随后执行发布检查、提交并推送 main，再创建和推送对应的 Tag。
 EOF
 }
@@ -128,11 +128,8 @@ if [[ -n "${LATEST_REMOTE_VERSION}" ]] &&
   fail "目标版本 ${TARGET_VERSION} 不能低于远端最高版本 ${LATEST_REMOTE_VERSION}"
 fi
 
-if [[ "${TARGET_VERSION}" == "${CURRENT_APP_VERSION}" ]]; then
-  NEXT_BUILD_NUMBER="$((10#${CURRENT_BUILD_NUMBER} + 1))"
-else
-  NEXT_BUILD_NUMBER=1
-fi
+# Android 使用构建号判断升级，应用版本变化时也必须保持递增。
+NEXT_BUILD_NUMBER="$((10#${CURRENT_BUILD_NUMBER} + 1))"
 
 readonly NEXT_BUILD_NUMBER
 readonly TARGET_PUBSPEC_VERSION="${TARGET_VERSION}+${NEXT_BUILD_NUMBER}"
