@@ -526,7 +526,6 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }) async {
     final transitionId = _beginTransition();
     _playIntent = false;
-    final previousIndex = _committedIndex;
     final previousCurrent = _safeTrack(_committedIndex);
     final stagedTracks = List<AudioTrack>.unmodifiable(tracks);
     final targetIndex = tracks.isEmpty
@@ -564,8 +563,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final nextCurrent = stagedTracks[targetIndex];
     final sameCurrentTrack =
         previousCurrent != null && _isSameTrack(previousCurrent, nextCurrent);
+    // 队列编辑可能改变当前索引，但同一曲目仍应继续使用已装载的音源。
     if (sameCurrentTrack &&
-        previousIndex == targetIndex &&
         !forceReloadCurrent &&
         _committedPlaybackSource?.needsReload != true &&
         _player.audioSource != null &&
