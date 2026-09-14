@@ -100,7 +100,7 @@ class _VinylPlayerStageState extends ConsumerState<VinylPlayerStage>
                         painter: const VinylRecordPainter(),
                         child: Center(
                           child: _VinylCenterLabel(
-                            size: recordSize * 0.31,
+                            size: recordSize * 0.68,
                             trackId: _displayedTrack?.id ?? 'empty',
                             imageProvider: imageProvider,
                           ),
