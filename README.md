@@ -4,6 +4,12 @@ HE Music Flutter 是一个基于 Flutter 的跨平台音乐应用项目，延续
 
 项目代码采用 feature-first 结构组织，当前已经包含播放器、在线内容浏览、本地音乐、下载管理、登录、个人中心、设置和更新检查等核心能力，适合作为 Flutter 音乐应用的学习与工程实践参考。
 
+
+## 第三方登录说明
+
+新用户注册：
+- `LinuxDo` level >= 3
+
 ## 项目状态
 
 本项目处于持续开发阶段，功能、接口和页面体验仍可能调整。欢迎通过 Issue 或 PR 一起完善功能、体验与文档。
@@ -322,3 +328,7 @@ CI 会把 `ANDROID_KEYSTORE_BASE64` 解码为 `android/keystore/release.jks`，�
 感谢 Flutter 及其生态为本项目提供跨平台应用基础，也感谢 Riverpod、GoRouter、Dio、Retrofit、just_audio、audio_service、Drift、background_downloader、flutter_lyric、media-kit、local_audio_scan、audiotags、mobile_scanner、qr_flutter 等开源项目为本项目提供基础能力。
 
 同时特别感谢 [Folia](https://github.com/chthollyphile/folia-major)（作者 chthollyphile）的歌词可视化设计。本项目中的 Monet、Partita、Cadenza、Tilt、Pendolo、Claddagh 等歌词视觉样式参考并移植自 Folia 的 lyrics visualizer 实现。Folia 基于 [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html) 开源，相关移植与衍生代码请遵循其许可条款。
+
+## 友情链接
+
+- [LINUX DO](https://linux.do/) - 真诚、友善、团结、专业，共建你我引以为荣之社区。
