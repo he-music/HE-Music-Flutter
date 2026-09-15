@@ -73,6 +73,37 @@ void main() {
     });
 
     group('searchMusic', () {
+      test(
+        'audiobook uses its search endpoint and preserves album fields and pagination',
+        () async {
+          RequestOptions? request;
+          final client = _createClient({
+            'list': [
+              {'id': 'book-1', 'name': '故事', 'is_finished': true},
+            ],
+            'page_index': 3,
+            'page_size': 30,
+            'total_count': 100,
+            'has_more': true,
+          }, captureRequest: (value) => request = value);
+          final result = await client.searchMusic(
+            keyword: '故事',
+            platform: 'qq',
+            type: 'audiobook',
+            pageIndex: 3,
+          );
+          expect(request?.path, '/v1/audiobook/search');
+          expect(request?.queryParameters, {
+            'key': '故事',
+            'platform': 'qq',
+            'page_index': 3,
+            'page_size': 30,
+          });
+          expect(result.items.single['is_finished'], isTrue);
+          expect(result.pageIndex, 3);
+          expect(result.hasMore, isTrue);
+        },
+      );
       test('应正确解析普通资源及分页信息', () async {
         final client = _createClient({
           'platform': 'qq',

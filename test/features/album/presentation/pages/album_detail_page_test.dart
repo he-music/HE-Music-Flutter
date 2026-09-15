@@ -45,6 +45,7 @@ void main() {
     await tester.pump();
 
     expect(repository.fetchDetailCallCount, 1);
+    expect(find.text('已完结'), findsOneWidget);
     expect(find.text('专辑首屏歌曲'), findsOneWidget);
   });
 

@@ -9,6 +9,7 @@ class SearchAlbumListItem extends StatelessWidget {
     required this.subtitle,
     required this.coverUrl,
     required this.onTap,
+    this.finishedLabel,
     super.key,
   });
 
@@ -16,6 +17,7 @@ class SearchAlbumListItem extends StatelessWidget {
   final String subtitle;
   final String coverUrl;
   final VoidCallback onTap;
+  final String? finishedLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -35,13 +37,31 @@ class SearchAlbumListItem extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        children: [
+                          if (finishedLabel != null) ...[
+                            Tooltip(
+                              message: finishedLabel!,
+                              child: Icon(
+                                Icons.check_circle_rounded,
+                                size: 16,
+                                color: theme.colorScheme.primary,
+                                semanticLabel: finishedLabel,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(

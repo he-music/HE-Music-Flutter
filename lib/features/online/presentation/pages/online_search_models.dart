@@ -1,7 +1,16 @@
 import '../../../../shared/models/he_music_models.dart';
 import '../../domain/entities/online_platform.dart';
 
-enum SearchType { comprehensive, song, playlist, album, artist, video, lyric }
+enum SearchType {
+  comprehensive,
+  song,
+  playlist,
+  album,
+  audiobook,
+  artist,
+  video,
+  lyric,
+}
 
 extension SearchTypeApi on SearchType {
   String get apiType {
@@ -10,6 +19,7 @@ extension SearchTypeApi on SearchType {
       SearchType.song => 'song',
       SearchType.playlist => 'playlist',
       SearchType.album => 'album',
+      SearchType.audiobook => 'audiobook',
       SearchType.artist => 'artist',
       SearchType.video => 'mv',
       SearchType.lyric => 'lyric',
@@ -25,6 +35,7 @@ extension SearchTypePlatformFeature on SearchType {
       SearchType.song => PlatformFeatureSupportFlag.searchSong,
       SearchType.playlist => PlatformFeatureSupportFlag.searchPlaylist,
       SearchType.album => PlatformFeatureSupportFlag.searchAlbum,
+      SearchType.audiobook => PlatformFeatureSupportFlag.searchAudiobook,
       SearchType.artist => PlatformFeatureSupportFlag.searchSinger,
       SearchType.video => PlatformFeatureSupportFlag.searchMv,
       SearchType.lyric => PlatformFeatureSupportFlag.searchLyricSong,
@@ -39,6 +50,7 @@ extension SearchTypeI18n on SearchType {
       SearchType.song => 'search.type.song',
       SearchType.playlist => 'search.type.playlist',
       SearchType.album => 'search.type.album',
+      SearchType.audiobook => 'search.type.audiobook',
       SearchType.artist => 'search.type.artist',
       SearchType.video => 'search.type.video',
       SearchType.lyric => 'search.type.lyric',
@@ -136,7 +148,7 @@ String displayTitle(SearchType type, Map<String, dynamic> item) {
   return switch (type) {
     SearchType.comprehensive => '-',
     SearchType.playlist => searchPlaylistInfo(item).name,
-    SearchType.album => searchAlbumInfo(item).name,
+    SearchType.album || SearchType.audiobook => searchAlbumInfo(item).name,
     SearchType.artist => searchArtistInfo(item).name,
     SearchType.video => searchVideoInfo(item).name,
     SearchType.song || SearchType.lyric => '-',
@@ -150,7 +162,8 @@ String displaySubtitle(SearchType type, Map<String, dynamic> item) {
       searchPlaylistInfo(item).creator.isEmpty
           ? '-'
           : searchPlaylistInfo(item).creator,
-    SearchType.album => _artistNames(searchAlbumInfo(item).artists),
+    SearchType.album ||
+    SearchType.audiobook => _artistNames(searchAlbumInfo(item).artists),
     SearchType.artist => _artistSearchSubtitle(searchArtistInfo(item)),
     SearchType.video => _videoSearchSubtitle(searchVideoInfo(item)),
     SearchType.song || SearchType.lyric => '-',

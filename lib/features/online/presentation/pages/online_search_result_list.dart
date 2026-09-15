@@ -169,10 +169,13 @@ class _OnlineSearchResultListState
             ),
             onTap: () => widget.onTapItem(item),
           ),
-          SearchType.album => SearchAlbumListItem(
+          SearchType.album || SearchType.audiobook => SearchAlbumListItem(
             title: title,
             subtitle: subtitle,
             coverUrl: image,
+            finishedLabel: searchAlbumInfo(item).isFinished
+                ? AppI18n.tByLocaleCode(localeCode, 'detail.album.finished')
+                : null,
             onTap: () => widget.onTapItem(item),
           ),
           SearchType.artist => SearchArtistListItem(
@@ -257,7 +260,8 @@ class _SearchResultSkeletonList extends StatelessWidget {
         return AppSkinContentSurface(
           child: switch (type) {
             SearchType.playlist => const _PlaylistSkeletonItem(),
-            SearchType.album => const _AlbumSkeletonItem(),
+            SearchType.album ||
+            SearchType.audiobook => const _AlbumSkeletonItem(),
             SearchType.artist => const _ArtistSkeletonItem(),
             _ => const SizedBox.shrink(),
           },

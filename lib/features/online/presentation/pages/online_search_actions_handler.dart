@@ -29,6 +29,7 @@ void openSearchDetail({
       context.pushPlaylistDetail(id: id, platform: platform, title: title);
       return;
     case SearchType.album:
+    case SearchType.audiobook:
       context.pushAlbumDetail(id: id, platform: platform, title: title);
       return;
     case SearchType.comprehensive:
@@ -200,7 +201,7 @@ String _detailRouteForSearchType(SearchType type) {
   return switch (type) {
     SearchType.comprehensive => AppRoutes.onlineSearch,
     SearchType.playlist => AppRoutes.playlistDetail,
-    SearchType.album => AppRoutes.albumDetail,
+    SearchType.album || SearchType.audiobook => AppRoutes.albumDetail,
     SearchType.artist => AppRoutes.artistDetail,
     SearchType.video => AppRoutes.videoDetail,
     SearchType.song => AppRoutes.songDetail,

@@ -121,6 +121,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       'all' => SearchType.comprehensive,
       'playlist' => SearchType.playlist,
       'album' => SearchType.album,
+      'audiobook' => SearchType.audiobook,
       'artist' => SearchType.artist,
       'video' => SearchType.video,
       'mv' => SearchType.video,
@@ -1270,6 +1271,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       SearchType.song,
       SearchType.playlist,
       SearchType.album,
+      SearchType.audiobook,
       SearchType.artist,
       SearchType.video,
       SearchType.lyric,
@@ -1278,7 +1280,9 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       return ordered
           .where(
             (type) =>
-                type != SearchType.comprehensive && type != SearchType.lyric,
+                type != SearchType.comprehensive &&
+                type != SearchType.lyric &&
+                type != SearchType.audiobook,
           )
           .toList(growable: false);
     }

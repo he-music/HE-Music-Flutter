@@ -22,6 +22,38 @@ import 'package:he_music_flutter/shared/widgets/video_item.dart';
 
 void main() {
   testWidgets(
+    'audiobook results show completion only when finished and handle taps',
+    (tester) async {
+      Map<String, dynamic>? tappedItem;
+      await tester.pumpWidget(
+        _buildResultList(
+          type: SearchType.audiobook,
+          results: [
+            {
+              'id': 'book-1',
+              'platform': 'qq',
+              'name': 'Finished book',
+              'is_finished': true,
+            },
+            {
+              'id': 'book-2',
+              'platform': 'qq',
+              'name': 'Unfinished book',
+              'is_finished': false,
+            },
+          ],
+          onTapItem: (item) => tappedItem = item,
+        ),
+      );
+      expect(find.text('Finished book'), findsOneWidget);
+      expect(find.text('Unfinished book'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      await tester.tap(find.text('Finished book'));
+      expect(tappedItem?['id'], 'book-1');
+    },
+  );
+
+  testWidgets(
     'video search result list shows video skeleton on initial loading',
     (tester) async {
       await tester.pumpWidget(

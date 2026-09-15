@@ -325,6 +325,7 @@ void main() {
 
     final bar = tester.widget<SearchTypeBar>(find.byType(SearchTypeBar));
     expect(bar.types, isNot(contains(SearchType.lyric)));
+    expect(bar.types, isNot(contains(SearchType.audiobook)));
     expect(
       find.descendant(
         of: find.byType(SearchTypeBar),
@@ -332,6 +333,37 @@ void main() {
       ),
       findsNothing,
     );
+  });
+
+  testWidgets('audiobook capability enables album-shaped search', (
+    tester,
+  ) async {
+    final client = _SearchPageOnlineApiClient();
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(
+        initialKeyword: '故事',
+        initialType: 'audiobook',
+        client: client,
+        platformsFuture: Future.value([
+          OnlinePlatform(
+            id: 'qq',
+            name: 'QQ音乐',
+            shortName: 'QQ',
+            status: 1,
+            featureSupportFlag: PlatformFeatureSupportFlag.searchAudiobook,
+          ),
+        ]),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    final bar = tester.widget<SearchTypeBar>(find.byType(SearchTypeBar));
+    expect(bar.types, [SearchType.audiobook]);
+    expect(bar.selectedType, SearchType.audiobook);
+    expect(find.text('Audiobooks'), findsOneWidget);
+    expect(client.searchedTypes, ['audiobook']);
   });
 
   testWidgets(
@@ -551,6 +583,7 @@ class _SearchPageOnlineApiClient extends OnlineApiClient {
 
   int comprehensiveSearchCallCount = 0;
   int lyricSearchCallCount = 0;
+  final searchedTypes = <String>[];
 
   @override
   Future<List<String>> fetchHotKeywords({String? platform}) async {
@@ -602,6 +635,7 @@ class _SearchPageOnlineApiClient extends OnlineApiClient {
     int pageIndex = 1,
     int pageSize = 30,
   }) async {
+    searchedTypes.add(type);
     return OnlineSearchPageResult<Map<String, dynamic>>(
       platform: platform,
       keyword: keyword,

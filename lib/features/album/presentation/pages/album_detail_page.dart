@@ -273,6 +273,17 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
         ),
       ),
     ];
+    if (content.info.isFinished) {
+      items.add(
+        MusicDetailMetaItem(
+          icon: Icons.check_circle_rounded,
+          label: AppI18n.t(
+            ref.read(appConfigProvider),
+            'detail.album.finished',
+          ),
+        ),
+      );
+    }
     final publishDate = _formatPublishDate(content.publishTime);
     if (publishDate.isNotEmpty) {
       items.add(
