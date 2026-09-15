@@ -51,12 +51,20 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
   void didUpdateWidget(covariant PlayerQueueList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if ((!oldWidget.highlightCurrent && widget.highlightCurrent) ||
-        oldWidget.currentIndex != widget.currentIndex ||
-        oldWidget.queue.length != widget.queue.length) {
+        _currentTrackIdentity(oldWidget) != _currentTrackIdentity(widget)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToCurrent();
       });
     }
+  }
+
+  // 删除或重排歌曲会改变索引，仅在当前歌曲真正变化时重新定位。
+  (String?, String, String?)? _currentTrackIdentity(PlayerQueueList list) {
+    if (list.queue.isEmpty) {
+      return null;
+    }
+    final track = list.queue[list.currentIndex.clamp(0, list.queue.length - 1)];
+    return (track.platform, track.id, track.path);
   }
 
   @override
