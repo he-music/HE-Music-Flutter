@@ -1,6 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter_lyric/flutter_lyric.dart' as fl;
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/lyric_candidate_preview.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -56,6 +61,7 @@ void main() {
     bool dark = false,
   }) => ProviderScope(
     overrides: [
+      playerControllerProvider.overrideWith(() => _Player(target)),
       appConfigProvider.overrideWith(_Config.new),
       onlineApiClientProvider.overrideWithValue(api),
       lyricStoreProvider.overrideWithValue(store),
@@ -94,6 +100,11 @@ void main() {
     double textScale = 1,
     bool dark = false,
   }) async {
+    if (tester.view.physicalSize / tester.view.devicePixelRatio ==
+        const Size(800, 600)) {
+      tester.view.physicalSize = Size(800, 1000) * tester.view.devicePixelRatio;
+      addTearDown(tester.view.resetPhysicalSize);
+    }
     await tester.pumpWidget(
       app(
         target: target,
@@ -107,6 +118,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
+  }
+
+  Future<void> selectCandidate(WidgetTester tester) async {
+    final button = find.widgetWithText(FilledButton, '使用此歌词').first;
+    await tester.ensureVisible(button);
+    await tester.pump();
+    await tester.tap(button);
   }
 
   Future<void> search(WidgetTester tester) async {
@@ -231,7 +249,7 @@ void main() {
       await search(tester);
       api.pending['B']!.complete([_candidate]);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Candidate'));
+      await selectCandidate(tester);
       await tester.pump();
       await tester.runAsync(() async {
         await store.clearManual();
@@ -258,7 +276,7 @@ void main() {
       await search(tester);
       api.pending['B']!.complete([_candidate]);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Candidate'));
+      await selectCandidate(tester);
       await tester.pump();
       api.candidate.complete(
         const RawLyricBundle(
@@ -378,7 +396,7 @@ void main() {
       await open(tester);
       api.pending['B']!.complete([_candidate]);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Candidate'));
+      await selectCandidate(tester);
       await tester.pump();
       expect(find.text('为「Song」选择歌词'), findsOneWidget);
       expect(
@@ -395,7 +413,7 @@ void main() {
       );
       expect(
         find.descendant(
-          of: find.byType(ListTile),
+          of: find.byType(FilledButton),
           matching: find.byType(CircularProgressIndicator),
         ),
         findsOneWidget,
@@ -424,7 +442,7 @@ void main() {
         await open(tester, loadPlatforms: () async => platforms);
         api.pending['B']!.complete([_candidate]);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Candidate'));
+        await selectCandidate(tester);
         await tester.pump();
         final container = ProviderScope.containerOf(
           tester.element(find.byType(LyricSearchPage)),
@@ -535,6 +553,125 @@ void main() {
     expect(find.text('歌词搜索失败，请重试'), findsNothing);
   });
 
+  testWidgets(
+    'previews share playback position, preserve timing, and load lazily',
+    (tester) async {
+      await open(tester);
+      for (var i = 0; i < 20; i++) {
+        api.bundles['$i'] = RawLyricBundle(
+          lyric: i == 1
+              ? '[00:00.00]First\n[00:08.00]Second'
+              : '[00:00.00]<0,2000>First\n[00:04.00]Second',
+          translation: '[00:00.00]Translation',
+          romanization: '[00:00.00]Reading',
+        );
+      }
+      api.pending['B']!.complete([
+        for (var i = 0; i < 20; i++)
+          LyricCandidate(
+            platform: 'B',
+            id: '$i',
+            name: 'Candidate $i',
+            artistNames: ['Artist'],
+            duration: 246,
+          ),
+      ]);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      final views = tester
+          .widgetList<fl.LyricView>(find.byType(fl.LyricView))
+          .toList();
+      expect(views.length, greaterThanOrEqualTo(2));
+      final firstLine = views[0].controller.lyricNotifier.value!.lines.first;
+      expect(firstLine.translation, 'Translation\nReading');
+      expect(firstLine.words, isNotEmpty);
+      expect(
+        views[1].controller.lyricNotifier.value!.lines.first.words,
+        isNull,
+      );
+      expect(api.fetched.length, lessThan(6));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(LyricSearchPage)),
+      );
+      final player =
+          container.read(playerControllerProvider.notifier) as _Player;
+      final cardsBefore = tester
+          .widgetList<LyricCandidatePreview>(find.byType(LyricCandidatePreview))
+          .toList();
+      expect(find.byType(Slider), findsNothing);
+      expect(find.byTooltip('播放'), findsNothing);
+      expect(find.byTooltip('暂停'), findsNothing);
+      await player.seek(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(views[0].controller.activeIndexNotifiter.value, 1);
+      expect(views[1].controller.activeIndexNotifiter.value, 0);
+      expect(
+        tester
+            .widgetList<LyricCandidatePreview>(
+              find.byType(LyricCandidatePreview),
+            )
+            .toList(),
+        cardsBefore,
+      );
+      expect(
+        tester.widgetList<fl.LyricView>(find.byType(fl.LyricView)).toList(),
+        views,
+      );
+      await player.seek(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(views[0].controller.activeIndexNotifiter.value, 0);
+      await player.togglePlayPause();
+      await tester.pumpAndSettle();
+      await player.togglePlayPause();
+      await tester.pumpAndSettle();
+      expect(
+        container.read(playerControllerProvider).position,
+        const Duration(seconds: 1),
+      );
+      final horizontal = find.byType(ListView);
+      await tester.drag(horizontal, const Offset(-700, 0));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      expect(api.fetched.length, greaterThan(3));
+      await tester.drag(horizontal, const Offset(700, 0));
+      await tester.pumpAndSettle();
+      expect(api.fetched.where((id) => id == '0').length, 1);
+      player.changeTrack();
+      await tester.pumpAndSettle();
+      expect(container.read(lyricPreviewPositionProvider(_track)), isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'failed preview retries and plain lyrics remain readable without selecting',
+    (tester) async {
+      api = _Api();
+      await open(tester);
+      api.pending['B']!.complete([_candidate]);
+      await tester.pumpAndSettle();
+      api.candidate.completeError(StateError('offline'));
+      await tester.pumpAndSettle();
+      expect(find.text('歌词加载失败，重试'), findsOneWidget);
+      api.bundles[_candidate.id] = const RawLyricBundle(
+        lyric: 'Plain lyrics without timestamps',
+      );
+      await tester.tap(find.text('歌词加载失败，重试'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      expect(find.text('Plain lyrics without timestamps'), findsOneWidget);
+      expect(find.byType(fl.LyricView), findsNothing);
+      await tester.tap(find.text('Plain lyrics without timestamps'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LyricSearchPage), findsOneWidget);
+      expect(api.fetched, [_candidate.id, _candidate.id]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final scenario in [
     ('mobile', const Size(390, 780), 1.0, false),
     ('desktop', const Size(1100, 760), 1.0, false),
@@ -559,6 +696,17 @@ void main() {
         textScale: scenario.$3,
         dark: scenario.$4,
       );
+      await tester.runAsync(() async {
+        api.candidate.complete(
+          const RawLyricBundle(
+            lyric:
+                '[00:00.00]<0,2000>城市<2000,2000>回声\n'
+                '[00:04.00]音乐在夜里响起\n[00:08.00]我们一起向前走\n[00:12.00]让回声留在心中',
+            translation: '[00:00.00]City echoes',
+            romanization: '[00:00.00]cheng shi hui sheng',
+          ),
+        );
+      });
       api.pending['B']!.complete([
         for (var i = 0; i < 40; i++)
           LyricCandidate(
@@ -584,16 +732,30 @@ void main() {
           ),
       ]);
       await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('0:00'), findsNothing);
-      expect(find.text('-1:59'), findsNothing);
-      final unknownRow = find.ancestor(
-        of: find.text('城市回声 · 钢琴版').first,
-        matching: find.byType(ListTile),
-      );
-      expect(tester.widget<ListTile>(unknownRow).trailing, isNull);
-      expect(find.byType(ListView), findsNothing);
-      expect(find.byType(ListTile).evaluate().length, lessThan(40));
+      expect(find.byType(fl.LyricView), findsWidgets);
+      expect(find.byType(ListTile), findsNothing);
+      if (scenario.$2.width < 600) {
+        expect(find.byType(PageView), findsOneWidget);
+        expect(
+          tester
+              .widget<PageView>(find.byType(PageView))
+              .controller!
+              .viewportFraction,
+          .9,
+        );
+      } else {
+        expect(find.byType(PageView), findsNothing);
+        expect(
+          tester.widget<ListView>(find.byType(ListView)).scrollDirection,
+          Axis.horizontal,
+        );
+      }
+      expect(find.byType(LyricCandidatePreview).evaluate().length, lessThan(6));
       for (final field in tester.widgetList<TextField>(
         find.byType(TextField),
       )) {
@@ -606,13 +768,18 @@ void main() {
         expect(decoration.focusedBorder, isA<UnderlineInputBorder>());
       }
       if (scenario.$3 == 1) {
+        expect(find.byType(Card), findsNothing);
+        expect(
+          tester.getBottomLeft(find.byType(FilledButton).first).dy,
+          closeTo(scenario.$2.height - 16, 1),
+        );
         expect(
           tester.getSize(find.byType(TextField).first).height,
           lessThanOrEqualTo(50),
         );
         expect(
-          tester.getTopLeft(find.byType(ListTile).first).dy,
-          lessThan(270),
+          tester.getTopLeft(find.byType(LyricCandidatePreview).first).dy,
+          lessThan(340),
         );
       }
       // Screenshots are generated on demand for visual review. CI checks the
@@ -625,9 +792,53 @@ void main() {
       }
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
       await tester.pumpAndSettle();
+      if (scenario.$2.width < 600) {
+        final pager = tester.widget<PageView>(find.byType(PageView));
+        await tester.drag(
+          find.byType(PageView),
+          Offset(-scenario.$2.width * .6, 0),
+        );
+        await tester.pumpAndSettle();
+        expect(pager.controller!.page, closeTo(1, .001));
+        final centered = find.ancestor(
+          of: find.text('城市回声 (Live at the Glass Rooftop)'),
+          matching: find.byType(LyricCandidatePreview),
+        );
+        expect(
+          tester.getCenter(centered).dx,
+          closeTo(scenario.$2.width / 2, 1),
+        );
+        await tester.drag(
+          find.byType(PageView),
+          Offset(scenario.$2.width * .6, 0),
+        );
+        await tester.pumpAndSettle();
+        expect(pager.controller!.page, closeTo(0, .001));
+        expect(api.fetched.where((id) => id == '0').length, 1);
+      }
       expect(tester.takeException(), isNull);
     });
   }
+}
+
+class _Player extends PlayerController {
+  _Player(this.target);
+  final PlayerTrack target;
+  @override
+  PlayerPlaybackState build() => PlayerPlaybackState.initial([target]).copyWith(
+    position: const Duration(milliseconds: 1500),
+    duration: const Duration(seconds: 246),
+  );
+  void changeTrack() => state = state.copyWith(
+    queue: [const PlayerTrack(id: 'different', title: 'Different')],
+  );
+
+  @override
+  Future<void> seek(Duration position) async =>
+      state = state.copyWith(position: position);
+  @override
+  Future<void> togglePlayPause() async =>
+      state = state.copyWith(isPlaying: !state.isPlaying);
 }
 
 class _Platforms extends OnlinePlatformsController {
@@ -666,6 +877,8 @@ class _Api extends OnlineApiClient {
   _Api() : super(Dio());
   final calls = <String>[];
   final pending = <String, Completer<List<LyricCandidate>>>{};
+  final fetched = <String>[];
+  final bundles = <String, RawLyricBundle>{};
   final candidate = Completer<RawLyricBundle>();
   int? lastDuration;
   String? lastName;
@@ -686,8 +899,11 @@ class _Api extends OnlineApiClient {
   }
 
   @override
-  Future<RawLyricBundle> fetchLyricCandidate(LyricCandidate candidate) =>
-      this.candidate.future;
+  Future<RawLyricBundle> fetchLyricCandidate(LyricCandidate candidate) {
+    fetched.add(candidate.id);
+    final bundle = bundles[candidate.id];
+    return bundle == null ? this.candidate.future : Future.value(bundle);
+  }
 }
 
 class _Config extends AppConfigController {

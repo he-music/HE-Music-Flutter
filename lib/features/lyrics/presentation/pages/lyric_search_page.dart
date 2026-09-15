@@ -1,8 +1,9 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
-import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../online/domain/entities/online_platform.dart';
@@ -10,6 +11,8 @@ import '../../../online/presentation/providers/online_providers.dart';
 import '../../../player/domain/entities/player_track.dart';
 import '../providers/lyrics_providers.dart';
 import '../../domain/entities/lyric_candidate.dart';
+import '../../domain/entities/raw_lyric_bundle.dart';
+import '../widgets/lyric_candidate_preview.dart';
 import '../../domain/entities/lyric_request.dart';
 
 class LyricSearchPage extends ConsumerStatefulWidget {
@@ -31,6 +34,22 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
   List<LyricCandidate> _results = [];
   String? _message;
   final Map<String, Future<List<LyricCandidate>>> _pending = {};
+
+  final Map<(String, String), Future<RawLyricBundle>> _bundles = {};
+
+  Future<RawLyricBundle> _loadBundle(LyricCandidate candidate) {
+    final key = (candidate.platform, candidate.id);
+    return _bundles.putIfAbsent(key, () async {
+      try {
+        return await ref
+            .read(onlineApiClientProvider)
+            .fetchLyricCandidate(candidate);
+      } catch (_) {
+        _bundles.remove(key);
+        rethrow;
+      }
+    });
+  }
 
   bool _platformSyncScheduled = false;
 
@@ -161,9 +180,7 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
     final store = ref.read(lyricStoreProvider);
     final token = store.beginSelection(target);
     try {
-      final bundle = await ref
-          .read(onlineApiClientProvider)
-          .fetchLyricCandidate(candidate);
+      final bundle = await _loadBundle(candidate);
       if (!mounted) return;
       await store.saveManual(
         target,
@@ -353,46 +370,112 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
                   child: Text(_message!, style: theme.textTheme.bodyMedium),
                 ),
               ),
-            SliverList.builder(
-              itemCount: _results.length,
-              itemBuilder: (context, index) {
-                final candidate = _results[index];
-                final seconds = candidate.duration;
-                final artistNames = candidate.artistNames
-                    .map((name) => name.trim())
-                    .where((name) => name.isNotEmpty)
-                    .join(' / ');
-                return AppSkinContentSurface(
-                  child: ListTile(
-                    title: Text(
-                      candidate.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+            if (_results.isNotEmpty) ...[
+              SliverLayoutBuilder(
+                builder: (context, sliverConstraints) => SliverToBoxAdapter(
+                  child: SizedBox(
+                    // Reclaim all space below the form; small viewports can scroll.
+                    height:
+                        (sliverConstraints.viewportMainAxisExtent -
+                                sliverConstraints.precedingScrollExtent)
+                            .clamp(380.0, double.infinity),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        Widget buildPreview(BuildContext context, int index) {
+                          final candidate = _results[index];
+                          return LyricCandidatePreview(
+                            key: ValueKey((candidate.platform, candidate.id)),
+                            candidate: candidate,
+                            target: widget.target,
+                            loadBundle: () => _loadBundle(candidate),
+                            selecting: identical(candidate, _selecting),
+                            onSelect: _selecting == null
+                                ? () => _select(candidate)
+                                : null,
+                          );
+                        }
+
+                        final width = (constraints.maxWidth / 3).clamp(
+                          300.0,
+                          420.0,
+                        );
+                        return ScrollConfiguration(
+                          behavior: ScrollConfiguration.of(context).copyWith(
+                            dragDevices: {
+                              PointerDeviceKind.touch,
+                              PointerDeviceKind.mouse,
+                              PointerDeviceKind.trackpad,
+                              PointerDeviceKind.stylus,
+                            },
+                          ),
+                          child: constraints.maxWidth < 600
+                              ? _LyricCandidatePager(
+                                  key: ValueKey(_generation),
+                                  itemCount: _results.length,
+                                  itemBuilder: buildPreview,
+                                )
+                              : ListView.separated(
+                                  key: ValueKey(_generation),
+                                  scrollDirection: Axis.horizontal,
+                                  cacheExtent: 0,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    16,
+                                  ),
+                                  itemCount: _results.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(width: 12),
+                                  itemBuilder: (context, index) => SizedBox(
+                                    width: width,
+                                    child: buildPreview(context, index),
+                                  ),
+                                ),
+                        );
+                      },
                     ),
-                    subtitle: Text(
-                      artistNames.isEmpty ? '-' : artistNames,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: identical(candidate, _selecting)
-                        ? const SizedBox.square(
-                            dimension: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : seconds > 0
-                        ? Text(
-                            '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}',
-                            style: theme.textTheme.bodySmall,
-                          )
-                        : null,
-                    onTap: _selecting == null ? () => _select(candidate) : null,
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+class _LyricCandidatePager extends StatefulWidget {
+  const _LyricCandidatePager({
+    required this.itemCount,
+    required this.itemBuilder,
+    super.key,
+  });
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+
+  @override
+  State<_LyricCandidatePager> createState() => _LyricCandidatePagerState();
+}
+
+class _LyricCandidatePagerState extends State<_LyricCandidatePager> {
+  final _controller = PageController(viewportFraction: .9);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PageView.builder(
+    controller: _controller,
+    itemCount: widget.itemCount,
+    itemBuilder: (context, index) => Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      child: widget.itemBuilder(context, index),
+    ),
+  );
 }
