@@ -55,25 +55,3 @@
 
 ## 配置提示
 不要在源码中硬编码环境相关值。执行 `flutter run` 时必须传入参数 `--dart-define-from-file=.env`。新增资源后要同步更新 `pubspec.yaml` 中的 assets 声明。涉及 Retrofit 或 JSON 模型生成代码的改动，通常都需要执行 `make gen`。生成图片时，使用 `openai-image-api` 这个 skill。
-
-<!-- TRELLIS:START -->
-# Trellis Instructions
-
-These instructions are for AI assistants working in this project.
-
-This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
-
-- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
-- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
-- `.trellis/workspace/` — per-developer journals and session traces
-- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
-
-If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
-
-If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
-- `.agents/skills/` — reusable Trellis skills
-- `.codex/agents/` — optional custom subagents
-
-Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
-
-<!-- TRELLIS:END -->
