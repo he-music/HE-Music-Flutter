@@ -20,6 +20,7 @@ import '../../../online/presentation/widgets/search_playlist_list_item.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/my_overview_state.dart';
 import '../../domain/entities/my_favorite_item.dart';
+import '../providers/my_collection_providers.dart';
 import '../providers/my_overview_providers.dart';
 import '../providers/my_playlist_shelf_providers.dart';
 
@@ -132,6 +133,12 @@ class _MyPageState extends ConsumerState<MyPage> {
             configLocaleCode: config.localeCode,
             selectedIndex: _playlistTabIndex,
             onTabSelected: (index) {
+              if (index == _playlistTabIndex) {
+                return;
+              }
+              if (index == 1) {
+                ref.read(myCollectionControllerProvider.notifier).refreshAll();
+              }
               setState(() {
                 _playlistTabIndex = index;
               });
@@ -597,11 +604,13 @@ class _PlaylistShelfSection extends ConsumerWidget {
               'my.playlist.load_failed',
             ),
             retryLabel: AppI18n.tByLocaleCode(configLocaleCode, 'common.retry'),
-            onRetry: () => ref.invalidate(
-              selectedIndex == 0
-                  ? myCreatedPlaylistsProvider
-                  : myFavoritePlaylistsProvider,
-            ),
+            onRetry: () {
+              if (selectedIndex == 0) {
+                ref.invalidate(myCreatedPlaylistsProvider);
+              } else {
+                ref.read(myCollectionControllerProvider.notifier).refreshAll();
+              }
+            },
           )
         else if (items.isEmpty)
           _EmptyShelfCard(

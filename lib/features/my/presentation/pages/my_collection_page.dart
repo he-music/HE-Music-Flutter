@@ -34,7 +34,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage> {
       if (!mounted) {
         return;
       }
-      ref.read(myCollectionControllerProvider.notifier).initialize();
+      ref.read(myCollectionControllerProvider.notifier).refreshAll();
     });
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/config/app_config_controller.dart';
 import '../../domain/entities/my_collection_state.dart';
 import '../../domain/entities/my_favorite_item.dart';
 import '../../domain/entities/my_favorite_type.dart';
@@ -10,18 +11,27 @@ import '../providers/my_overview_providers.dart';
 
 class MyCollectionController extends Notifier<MyCollectionState> {
   bool _initialized = false;
+  Future<void>? _refreshRequest;
+  int _generation = 0;
 
   @override
   MyCollectionState build() {
+    ref.watch(appConfigProvider.select((config) => config.authToken?.trim()));
+    _generation++;
+    _initialized = false;
+    _refreshRequest = null;
     return MyCollectionState.initial;
   }
 
   Future<void> initialize() async {
+    if (_refreshRequest != null) {
+      await _refreshRequest;
+      return;
+    }
     if (_initialized) {
       return;
     }
     await refreshAll();
-    _initialized = true;
   }
 
   void selectType(MyFavoriteType type) {
@@ -31,7 +41,21 @@ class MyCollectionController extends Notifier<MyCollectionState> {
     state = state.copyWith(selectedType: type, clearError: true);
   }
 
-  Future<void> refreshAll() async {
+  Future<void> refreshAll() {
+    if (_refreshRequest != null) {
+      return _refreshRequest!;
+    }
+    final generation = _generation;
+    return _refreshRequest = _refreshAll().whenComplete(() {
+      if (ref.mounted && generation == _generation) {
+        _refreshRequest = null;
+      }
+    });
+  }
+
+  Future<void> _refreshAll() async {
+    final generation = _generation;
+    _initialized = true;
     state = state.copyWith(loading: true, clearError: true);
     try {
       final results = await Future.wait<List<MyFavoriteItem>>(
@@ -41,6 +65,9 @@ class MyCollectionController extends Notifier<MyCollectionState> {
           _repository.fetchFavorites(MyFavoriteType.albums),
         ],
       );
+      if (!ref.mounted || generation != _generation) {
+        return;
+      }
       final playlists = results[0];
       final artists = results[1];
       final albums = results[2];
@@ -59,6 +86,9 @@ class MyCollectionController extends Notifier<MyCollectionState> {
         clearError: true,
       );
     } catch (error) {
+      if (!ref.mounted || generation != _generation) {
+        return;
+      }
       state = state.copyWith(loading: false, errorMessage: '$error');
     }
   }

@@ -137,7 +137,7 @@ Widget _buildTestApp() {
         (ref) async => const <MyFavoriteItem>[],
       ),
       myFavoritePlaylistsProvider.overrideWith(
-        (ref) async => const <MyFavoriteItem>[],
+        (ref) => const AsyncData(<MyFavoriteItem>[]),
       ),
       favoriteSongStatusProvider.overrideWith(_TestFavoriteSongStatus.new),
       favoriteCollectionStatusProvider.overrideWith(

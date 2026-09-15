@@ -119,5 +119,5 @@ class _TestMyCollectionController extends MyCollectionController {
   }
 
   @override
-  Future<void> initialize() async {}
+  Future<void> refreshAll() async {}
 }

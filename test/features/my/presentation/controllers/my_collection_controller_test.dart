@@ -12,6 +12,7 @@ import 'package:he_music_flutter/features/my/presentation/controllers/my_overvie
 import 'package:he_music_flutter/features/my/presentation/providers/favorite_collection_status_providers.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_collection_providers.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_overview_providers.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/my_playlist_shelf_providers.dart';
 import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
 
 void main() {
@@ -55,6 +56,91 @@ void main() {
       contains(buildIdPlatformKey(id: 'album-1', platform: 'kuwo')),
     );
   });
+
+  test('shelf and collection share refreshed and removed playlists', () async {
+    final repository = _FakeMyCollectionRepository();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        myOverviewControllerProvider.overrideWith(
+          _TestMyOverviewController.new,
+        ),
+        myCollectionRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(myFavoritePlaylistsProvider, (_, _) {});
+    final controller = container.read(myCollectionControllerProvider.notifier);
+    await controller.initialize();
+    await container.pump();
+    final firstList = container.read(myCollectionControllerProvider).playlists;
+    expect(container.read(myFavoritePlaylistsProvider).value, same(firstList));
+    expect(repository.playlistFetches, 1);
+
+    const remotePlaylist = MyFavoriteItem(
+      id: 'remote-playlist',
+      platform: 'qq',
+      type: MyFavoriteType.playlists,
+      title: '另一台设备收藏的歌单',
+      subtitle: 'qq',
+      coverUrl: '',
+    );
+    repository._itemsByType[MyFavoriteType.playlists]!.add(remotePlaylist);
+    await controller.refreshAll();
+    await container.pump();
+
+    final refreshed = container.read(myCollectionControllerProvider).playlists;
+    expect(refreshed, contains(remotePlaylist));
+    expect(container.read(myFavoritePlaylistsProvider).value, same(refreshed));
+    expect(repository.playlistFetches, 2);
+
+    await controller.removeFavorite(remotePlaylist);
+    await container.pump();
+    final remaining = container.read(myCollectionControllerProvider).playlists;
+    expect(remaining, isNot(contains(remotePlaylist)));
+    expect(container.read(myFavoritePlaylistsProvider).value, same(remaining));
+    expect(repository.playlistFetches, 3);
+  });
+
+  test(
+    'account change clears shared playlists and ignores old responses',
+    () async {
+      final oldRepository = _ControlledMyCollectionRepository();
+      final newRepository = _FakeMyCollectionRepository();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          myCollectionRepositoryProvider.overrideWith((ref) {
+            final token = ref.watch(appConfigProvider).authToken;
+            return token == 'token' ? oldRepository : newRepository;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(myFavoritePlaylistsProvider, (_, _) {});
+      final oldRefresh = container
+          .read(myCollectionControllerProvider.notifier)
+          .initialize();
+      container.read(appConfigProvider.notifier).setAuthToken('next-token');
+      await container.pump();
+      await container
+          .read(myCollectionControllerProvider.notifier)
+          .initialize();
+      oldRepository.completeAll();
+      await oldRefresh;
+      await container.pump();
+
+      expect(container.read(myFavoritePlaylistsProvider).value, hasLength(1));
+      expect(
+        container.read(myCollectionControllerProvider).playlists,
+        hasLength(1),
+      );
+      container.read(appConfigProvider.notifier).clearAuthToken();
+      await container.pump();
+      expect(container.read(myFavoritePlaylistsProvider).value, isEmpty);
+      expect(container.read(myCollectionControllerProvider).playlists, isEmpty);
+    },
+  );
 
   test('selectType should expose empty items for songs tab', () async {
     final container = ProviderContainer(
@@ -146,7 +232,17 @@ void main() {
 class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() {
-    return AppConfigState.initial;
+    return AppConfigState.initial.copyWith(authToken: 'token');
+  }
+
+  @override
+  void setAuthToken(String token) {
+    state = state.copyWith(authToken: token);
+  }
+
+  @override
+  void clearAuthToken() {
+    state = state.copyWith(clearToken: true);
   }
 }
 
@@ -196,8 +292,13 @@ class _FakeMyCollectionRepository implements MyCollectionRepository {
         ],
       };
 
+  int playlistFetches = 0;
+
   @override
   Future<List<MyFavoriteItem>> fetchFavorites(MyFavoriteType type) async {
+    if (type == MyFavoriteType.playlists) {
+      playlistFetches++;
+    }
     return _itemsByType[type]!.toList(growable: false);
   }
 

@@ -11,6 +11,9 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.dart';
+import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
+import 'package:he_music_flutter/features/my/domain/repositories/my_collection_repository.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/my_collection_providers.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_overview.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_overview_state.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_profile.dart';
@@ -78,6 +81,49 @@ void main() {
     expect(find.text('当前没有歌单内容'), findsOneWidget);
     expect(find.byTooltip('新建歌单'), findsOneWidget);
   });
+
+  testWidgets(
+    'favorites tab refreshes the shared collection after remote changes',
+    (tester) async {
+      final repository = _TestCollectionRepository();
+      await tester.binding.setSurfaceSize(const Size(430, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildTestApp(localeCode: 'zh', collectionRepository: repository),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.playlistFetches, 1);
+
+      const playlist = MyFavoriteItem(
+        id: 'remote',
+        platform: 'qq',
+        type: MyFavoriteType.playlists,
+        title: '远端收藏歌单',
+        subtitle: '',
+        coverUrl: '',
+      );
+      repository.playlists = const [playlist];
+      await tester.tap(find.text('收藏'));
+      await tester.pumpAndSettle();
+      expect(find.text('远端收藏歌单'), findsOneWidget);
+      expect(repository.playlistFetches, 2);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MyPage)),
+      );
+      expect(container.read(myCollectionControllerProvider).playlists, [
+        playlist,
+      ]);
+
+      repository.playlists = const [];
+      await container
+          .read(myCollectionControllerProvider.notifier)
+          .refreshAll();
+      await tester.pumpAndSettle();
+      expect(find.text('远端收藏歌单'), findsNothing);
+      expect(find.text('当前没有歌单内容'), findsOneWidget);
+      expect(repository.playlistFetches, 3);
+    },
+  );
 
   testWidgets('my collection entry does not show favorite song count', (
     tester,
@@ -249,6 +295,7 @@ Widget _buildTestApp({
   Future<List<MyFavoriteItem>>? playlistsFuture,
   bool useCitySkin = false,
   CacheSurfaceFixture? cache,
+  MyCollectionRepository? collectionRepository,
 }) {
   return ProviderScope(
     overrides: [
@@ -269,9 +316,14 @@ Widget _buildTestApp({
       myCreatedPlaylistsProvider.overrideWith(
         (ref) => playlistsFuture ?? Future.value(const <MyFavoriteItem>[]),
       ),
-      myFavoritePlaylistsProvider.overrideWith(
-        (ref) => playlistsFuture ?? Future.value(const <MyFavoriteItem>[]),
-      ),
+      if (collectionRepository != null)
+        myCollectionRepositoryProvider.overrideWithValue(collectionRepository)
+      else
+        myFavoritePlaylistsProvider.overrideWith(
+          (ref) => playlistsFuture == null
+              ? const AsyncData(<MyFavoriteItem>[])
+              : const AsyncLoading<List<MyFavoriteItem>>(),
+        ),
       if (onlineApiClient != null)
         onlineApiClientProvider.overrideWithValue(onlineApiClient),
     ],
@@ -288,6 +340,27 @@ Finder _findSkinIcon(AppSkinIconRole role) {
   return find.byWidgetPredicate(
     (widget) => widget is AppSkinIcon && widget.role == role,
   );
+}
+
+class _TestCollectionRepository implements MyCollectionRepository {
+  List<MyFavoriteItem> playlists = const [];
+  int playlistFetches = 0;
+
+  @override
+  Future<List<MyFavoriteItem>> fetchFavorites(MyFavoriteType type) async {
+    if (type == MyFavoriteType.playlists) {
+      playlistFetches++;
+      return playlists;
+    }
+    return const [];
+  }
+
+  @override
+  Future<void> removeFavorite({
+    required MyFavoriteType type,
+    required String id,
+    required String platform,
+  }) async {}
 }
 
 class _TestOnlineApiClient extends OnlineApiClient {
