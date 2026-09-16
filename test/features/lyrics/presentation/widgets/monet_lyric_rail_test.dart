@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'lyric_test_player.dart';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -89,7 +91,7 @@ void main() {
       expect(active.tokens, isEmpty);
       expect(
         (active.mainPainter.text as TextSpan).style?.color,
-        _palette.foreground.withValues(alpha: 0.98),
+        _palette.accent,
       );
     });
 
@@ -104,6 +106,10 @@ void main() {
       final active = _activePaintLine(_painter(tester).data);
       expect(active.accentPainter, isNull);
       expect(active.tokens, isEmpty);
+      expect(
+        (active.mainPainter.text as TextSpan).style?.color,
+        _palette.accent,
+      );
     });
 
     testWidgets(
@@ -501,7 +507,7 @@ void main() {
         find.byKey(const ValueKey<String>('monet-lyric-empty')),
         findsOneWidget,
       );
-      expect(find.text('No lyrics'), findsOneWidget);
+      expect(find.text('搜索歌词'), findsOneWidget);
 
       await tester.pumpWidget(
         _buildPageApp(
@@ -537,7 +543,7 @@ void main() {
       expect(_paintedTexts(tester), isNot(contains('plain active')));
       expect(
         (active.mainPainter.text as TextSpan).style?.color,
-        _alternatePalette.foreground.withValues(alpha: 0.98),
+        _alternatePalette.accent,
       );
     });
 
@@ -643,6 +649,7 @@ Widget _buildPageApp(
 }) {
   return ProviderScope(
     overrides: [
+      playerControllerProvider.overrideWith(EmptyLyricTestPlayer.new),
       appConfigProvider.overrideWith(_TestConfigController.new),
       currentLyricDocumentProvider.overrideWithValue(document),
       lyricPositionProvider.overrideWithValue(

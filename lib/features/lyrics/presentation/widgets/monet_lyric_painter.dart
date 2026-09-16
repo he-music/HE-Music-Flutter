@@ -133,6 +133,8 @@ MonetLyricRenderData buildMonetLyricRenderData({
               ? baseStyle.copyWith(
                   color: palette.foreground.withValues(alpha: 0.34),
                 )
+              : isActive
+              ? baseStyle.copyWith(color: palette.accent)
               : baseStyle,
           options: options,
           maxWidth: contentWidth,

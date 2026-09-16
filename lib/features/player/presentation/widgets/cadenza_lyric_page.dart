@@ -8,6 +8,7 @@ import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/theme/player/styles/classic_player_palette.dart';
 import '../../../lyrics/presentation/helpers/lyric_highlight_color_helper.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
+import '../../../lyrics/presentation/widgets/lyric_search_empty.dart';
 import '../../../lyrics/presentation/widgets/cadenza_lyric_rail.dart';
 
 /// Player host for the Folia Cadenza active-line mindscape.
@@ -75,10 +76,9 @@ class _CadenzaLyricDataHost extends ConsumerWidget {
     final request = ref.watch(currentLyricRequestProvider);
     return documentAsync.when(
       data: (document) => document.isEmpty
-          ? _CadenzaLyricFallback(
+          ? LyricSearchEmpty(
               key: const ValueKey<String>('cadenza-lyric-empty'),
-              text: emptyText,
-              palette: palette,
+              color: palette.secondaryForeground,
             )
           : CadenzaLyricRail(
               document: document,

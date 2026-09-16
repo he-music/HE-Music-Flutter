@@ -629,6 +629,14 @@ void main() {
         container.read(playerControllerProvider).position,
         const Duration(seconds: 1),
       );
+      final preview = find.byType(fl.LyricView).first;
+      final gesture = await tester.startGesture(tester.getCenter(preview));
+      await gesture.moveBy(const Offset(0, -100));
+      await tester.pump();
+      expect(views.first.controller.isSelectingNotifier.value, isTrue);
+      await gesture.up();
+      views.first.controller.stopSelection();
+      await tester.pumpAndSettle();
       final horizontal = find.byType(ListView);
       await tester.drag(horizontal, const Offset(-700, 0));
       await tester.pumpAndSettle();

@@ -259,6 +259,16 @@ class LyricStore {
     });
   }
 
+  /// Remove only this track's disposable lyrics and reload its default source.
+  Future<void> refreshAutomatic(LyricRequest target) {
+    automaticEpoch++;
+    return _serial(() async {
+      final file = await _file(target, false);
+      if (await file.exists()) await _delete(file);
+      _changes.add(lyricStorageKey(target));
+    });
+  }
+
   Future<void> clearAutomatic() {
     automaticEpoch++;
     return _serial(() async {

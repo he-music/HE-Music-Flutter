@@ -10,6 +10,7 @@ import '../../../../app/config/app_lyric_font_preset.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_line.dart' as domain;
 import '../helpers/lyric_highlight_color_helper.dart';
+import 'lyric_search_empty.dart';
 import '../providers/lyrics_providers.dart';
 
 @visibleForTesting
@@ -181,14 +182,7 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
     if (widget.compact) {
       return const SizedBox.shrink();
     }
-    return Center(
-      child: Text(
-        widget.emptyText,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Colors.white.withValues(alpha: 0.76),
-        ),
-      ),
-    );
+    return LyricSearchEmpty(color: Colors.white.withValues(alpha: 0.76));
   }
 
   void _bindTapToSeekIfNeeded() {

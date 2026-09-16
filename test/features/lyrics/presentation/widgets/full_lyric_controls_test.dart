@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_auxiliary_mode.dart';
+import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_request.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
@@ -353,6 +354,14 @@ void main() {
         findsNothing,
       );
       expect(find.byTooltip('播放'), findsOneWidget);
+      expect(find.text('搜索歌词'), findsOneWidget);
+      await tester.tap(find.text('搜索歌词'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LyricSearchPage), findsOneWidget);
+      expect(
+        tester.widget<LyricSearchPage>(find.byType(LyricSearchPage)).target.id,
+        'song',
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -397,6 +406,28 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('cached lyrics show source and offer a targeted refresh', (
+    tester,
+  ) async {
+    final store = _Store();
+    await tester.pumpWidget(
+      _app(
+        document: _document.withSource(LyricSource.cache),
+        request: const LyricRequest(trackId: 'song'),
+        store: store,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('词'));
+    await tester.pumpAndSettle();
+    expect(find.text('歌词来源：缓存'), findsOneWidget);
+    expect(find.text('恢复默认歌词'), findsNothing);
+    await tester.tap(find.text('清除缓存并重新获取'));
+    await tester.pumpAndSettle();
+    expect(store.refreshed, isTrue);
+    expect(find.text('歌词来源：缓存'), findsNothing);
+  });
 
   testWidgets(
     'player boundary footer and open options visual evidence',
@@ -463,6 +494,7 @@ Widget _app({
   bool playerBoundary = false,
   Brightness brightness = Brightness.light,
   LyricStore? store,
+  LyricRequest? request,
 }) => ProviderScope(
   overrides: [
     if (store != null) lyricStoreProvider.overrideWithValue(store),
@@ -476,7 +508,7 @@ Widget _app({
             : document,
       ),
     ),
-    currentLyricRequestProvider.overrideWithValue(null),
+    currentLyricRequestProvider.overrideWithValue(request),
     lyricPositionProvider.overrideWithValue(Duration.zero),
   ],
   child: MaterialApp(
@@ -639,6 +671,12 @@ class _Store extends LyricStore {
         manualDirectory: () async => Directory('/unused'),
         automaticDirectory: () async => Directory('/unused'),
       );
+  bool refreshed = false;
+  @override
+  Future<void> refreshAutomatic(LyricRequest target) async {
+    refreshed = true;
+  }
+
   @override
   Future<bool> hasManual(target) async => false;
 }

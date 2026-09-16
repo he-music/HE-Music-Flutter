@@ -4,6 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'lyric_test_player.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
@@ -599,7 +601,7 @@ void main() {
         find.byKey(const ValueKey<String>('partita-lyric-empty')),
         findsOneWidget,
       );
-      expect(find.text('No lyrics'), findsOneWidget);
+      expect(find.text('搜索歌词'), findsOneWidget);
 
       await tester.pumpWidget(
         _buildPageApp(
@@ -695,6 +697,7 @@ Widget _buildPageApp(
 }) {
   return ProviderScope(
     overrides: [
+      playerControllerProvider.overrideWith(EmptyLyricTestPlayer.new),
       appConfigProvider.overrideWith(_TestConfigController.new),
       currentLyricDocumentProvider.overrideWithValue(document),
       lyricPositionProvider.overrideWithValue(

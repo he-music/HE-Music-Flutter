@@ -270,6 +270,7 @@ class _TiltLyricRailState extends ConsumerState<TiltLyricRail>
                         data: renderData,
                         timelinePosition: _positionNotifier.value,
                         revealAnimation: widget.enableWordByWordLyric,
+                        wordHighlight: widget.enableWordByWordLyric,
                         positionListenable: _positionNotifier,
                         onPaint: widget.debugOnPaint,
                       ),

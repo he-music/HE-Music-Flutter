@@ -8,6 +8,7 @@ import 'package:he_music_flutter/features/lyrics/data/datasources/demo_lyric_dat
 import 'package:he_music_flutter/features/lyrics/data/datasources/online_lyric_data_source.dart';
 import 'package:he_music_flutter/features/lyrics/data/repositories/lyric_repository_impl.dart';
 import 'package:he_music_flutter/features/lyrics/data/storage/lyric_store.dart';
+import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_request.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/raw_lyric_bundle.dart';
 import 'package:he_music_flutter/features/online/data/online_api_client.dart';
@@ -44,6 +45,25 @@ void main() {
     title: 'song',
     artist: 'artist',
     token: store.beginSelection(request),
+  );
+
+  test(
+    'reports the actual source across cache, replacement and refresh',
+    () async {
+      Future<LyricDocument> load() => repository.fetchLyrics(
+        trackId: target.trackId,
+        platform: target.platform,
+      );
+      expect((await load()).source, LyricSource.online);
+      expect((await load()).source, LyricSource.cache);
+      await choose(target);
+      expect((await load()).source, LyricSource.manual);
+      await store.restoreDefault(target);
+      expect((await load()).source, LyricSource.cache);
+      await store.refreshAutomatic(target);
+      expect((await load()).source, LyricSource.online);
+      expect(source.calls, 2);
+    },
   );
 
   test(

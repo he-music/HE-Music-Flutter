@@ -120,6 +120,8 @@ class CladdaghLyricPainter extends CustomPainter {
     // Two passes keep receding glyphs behind the enlarged front of the orbit.
     for (final front in [false, true]) {
       for (final row in rows) {
+        final lineHighlight =
+            !wordHighlight || !row.tokens.any((token) => token.hasTiming);
         final offset = row.wordOffset(_timeline);
         final lineAngle = (row.entry.index - anchor) * math.pi + angleOffset;
         final distance = (lineAngle / math.pi).abs();
@@ -146,11 +148,13 @@ class CladdaghLyricPainter extends CustomPainter {
           final glyph = row.glyphs[i];
           final origin = Offset(-glyph.width / 2, -glyph.height / 2);
           glyph.paint(canvas, origin);
-          if (row.entry.index == activeIndex && wordHighlight) {
-            final p = resolveMonetTokenProgress(
-              timelinePosition: _timeline,
-              token: row.tokens[i],
-            );
+          if (row.entry.index == activeIndex) {
+            final p = lineHighlight
+                ? 1.0
+                : resolveMonetTokenProgress(
+                    timelinePosition: _timeline,
+                    token: row.tokens[i],
+                  );
             if (p > 0) {
               canvas.save();
               canvas.clipRect(

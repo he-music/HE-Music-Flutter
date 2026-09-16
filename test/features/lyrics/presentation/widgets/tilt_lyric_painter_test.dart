@@ -117,58 +117,69 @@ void main() {
         ],
         scaleCenterY: bodyPainter.height / 2,
       );
-      for (final position in const <Duration>[
-        Duration.zero,
-        Duration(milliseconds: 500),
-        Duration(seconds: 1),
-      ]) {
-        final actual = await _rasterize((canvas) {
-          TiltLyricPainter(
-            data: renderData,
-            timelinePosition: position,
-            revealAnimation: false,
-          ).paint(canvas, const Size(100, 100));
-        });
+      for (final wordHighlight in [true, false]) {
+        for (final position in const <Duration>[
+          Duration.zero,
+          Duration(milliseconds: 500),
+          Duration(seconds: 1),
+        ]) {
+          final actual = await _rasterize((canvas) {
+            TiltLyricPainter(
+              data: renderData,
+              timelinePosition: position,
+              revealAnimation: false,
+              wordHighlight: wordHighlight,
+            ).paint(canvas, const Size(100, 100));
+          });
 
-        final rawProgress =
-            position.inMicroseconds / const Duration(seconds: 1).inMicroseconds;
-        final easedProgress = Curves.easeOutCubic.transform(rawProgress);
-        final expectedPainter = _textPainter(
-          'M',
-          baseStyle.copyWith(
-            color: Color.lerp(bodyColor, activeColor, easedProgress),
-          ),
-        );
-        final expected = await _rasterize((canvas) {
-          final center = Offset(bodyPainter.width / 2, bodyPainter.height / 2);
-          canvas.save();
-          canvas.translate(20, 20);
-          canvas.translate(center.dx, center.dy);
-          canvas.scale(
-            resolveTiltGraphemeScale(
-              position,
-              Duration.zero,
-              const Duration(seconds: 1),
+          final rawProgress =
+              position.inMicroseconds /
+              const Duration(seconds: 1).inMicroseconds;
+          final easedProgress = Curves.easeOutCubic.transform(rawProgress);
+          final expectedPainter = _textPainter(
+            'M',
+            baseStyle.copyWith(
+              color: wordHighlight
+                  ? Color.lerp(bodyColor, activeColor, easedProgress)
+                  : activeColor,
             ),
           );
-          canvas.translate(-center.dx, -center.dy);
-          expectedPainter.paint(canvas, Offset.zero);
-          canvas.restore();
-        });
+          final expected = await _rasterize((canvas) {
+            final center = Offset(
+              bodyPainter.width / 2,
+              bodyPainter.height / 2,
+            );
+            canvas.save();
+            canvas.translate(20, 20);
+            canvas.translate(center.dx, center.dy);
+            canvas.scale(
+              wordHighlight
+                  ? resolveTiltGraphemeScale(
+                      position,
+                      Duration.zero,
+                      const Duration(seconds: 1),
+                    )
+                  : 1.12,
+            );
+            canvas.translate(-center.dx, -center.dy);
+            expectedPainter.paint(canvas, Offset.zero);
+            canvas.restore();
+          });
 
-        var maxChannelDelta = 0;
-        for (var index = 0; index < actual.length; index += 1) {
-          maxChannelDelta = math.max(
+          var maxChannelDelta = 0;
+          for (var index = 0; index < actual.length; index += 1) {
+            maxChannelDelta = math.max(
+              maxChannelDelta,
+              (actual[index] - expected[index]).abs(),
+            );
+          }
+          expect(actual.any((channel) => channel != 0), isTrue);
+          expect(
             maxChannelDelta,
-            (actual[index] - expected[index]).abs(),
+            lessThanOrEqualTo(1),
+            reason: 'position: $position, wordHighlight: $wordHighlight',
           );
         }
-        expect(actual.any((channel) => channel != 0), isTrue);
-        expect(
-          maxChannelDelta,
-          lessThanOrEqualTo(1),
-          reason: 'position: $position',
-        );
       }
     },
   );

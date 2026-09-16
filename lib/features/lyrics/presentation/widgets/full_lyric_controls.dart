@@ -17,7 +17,7 @@ import '../../../settings/presentation/pages/settings_item_presentation_registry
 import '../../../settings/presentation/widgets/settings_single_choice_sheet.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_request.dart';
-import '../pages/lyric_search_page.dart';
+import 'lyric_search_empty.dart';
 import '../providers/lyrics_providers.dart';
 
 /// A fixed sibling of the scrollable full lyric content, never a progress owner.
@@ -70,21 +70,7 @@ class FullLyricControls extends ConsumerWidget {
       builder: (_) => _LyricOptions(target: track),
     );
     if (search == true && context.mounted) {
-      final playback = ref.read(playerControllerProvider);
-      final currentTrack = playback.currentTrack;
-      final isCurrentTrack =
-          currentTrack != null &&
-          currentTrack.id == track.id &&
-          currentTrack.platform == track.platform &&
-          currentTrack.path == track.path;
-      final target = isCurrentTrack && playback.duration > Duration.zero
-          ? track.copyWith(duration: playback.duration)
-          : track;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => LyricSearchPage(target: target),
-        ),
-      );
+      await openLyricSearch(context, ref, track);
     }
   }
 }
@@ -241,6 +227,9 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final controller = ref.read(appConfigProvider.notifier);
+    final currentRequest = ref.watch(currentLyricRequestProvider);
+    final document = ref.watch(currentLyricDocumentProvider);
+    final source = currentRequest == _request ? document.value?.source : null;
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -255,7 +244,11 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: Text(AppI18n.t(config, 'player.lyrics')),
+              subtitle: Text(
+                source == null
+                    ? AppI18n.t(config, 'player.lyrics')
+                    : AppI18n.t(config, 'player.lyric.source.${source.name}'),
+              ),
             ),
             FutureBuilder<bool>(
               future: _hasManual,
@@ -275,6 +268,41 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                         ? null
                         : () => Navigator.pop(context, true),
                   ),
+                  if (snapshot.data == false &&
+                      (source == LyricSource.cache ||
+                          source == LyricSource.online))
+                    ListTile(
+                      leading: const Icon(Icons.refresh),
+                      title: Text(AppI18n.t(config, 'player.lyric.refresh')),
+                      subtitle: Text(
+                        AppI18n.t(config, 'player.lyric.cache_hint'),
+                      ),
+                      trailing: _restoring
+                          ? const SizedBox.square(
+                              dimension: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : null,
+                      onTap: _restoring
+                          ? null
+                          : () async {
+                              setState(() => _restoring = true);
+                              try {
+                                await ref
+                                    .read(lyricStoreProvider)
+                                    .refreshAutomatic(_request);
+                                if (context.mounted) Navigator.pop(context);
+                              } catch (_) {
+                                AppMessageService.showError(
+                                  AppI18n.t(
+                                    config,
+                                    'player.lyric.refresh_failed',
+                                  ),
+                                );
+                                if (mounted) setState(() => _restoring = false);
+                              }
+                            },
+                    ),
                   if (snapshot.data == true)
                     ListTile(
                       leading: const Icon(Icons.restore),

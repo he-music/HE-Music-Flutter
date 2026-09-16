@@ -104,16 +104,12 @@ TiltLyricRenderData buildTiltLyricRenderData({
                   grapheme.text,
                   style.copyWith(color: bodyColor),
                 ),
-                activePainter: usesActiveColor
-                    ? layoutPainter(
-                        grapheme.text,
-                        style.copyWith(color: highlightColor ?? palette.accent),
-                      )
-                    : null,
+                activePainter: layoutPainter(
+                  grapheme.text,
+                  style.copyWith(color: highlightColor ?? palette.accent),
+                ),
                 bodyColor: bodyColor,
-                activeColor: usesActiveColor
-                    ? highlightColor ?? palette.accent
-                    : null,
+                activeColor: highlightColor ?? palette.accent,
               ),
             )
             .toList(growable: false);
@@ -136,6 +132,7 @@ class TiltLyricPainter extends CustomPainter {
     required this.data,
     required this.timelinePosition,
     this.revealAnimation = true,
+    this.wordHighlight = true,
     this.positionListenable,
     this.onPaint,
     Listenable? repaint,
@@ -144,6 +141,7 @@ class TiltLyricPainter extends CustomPainter {
   final TiltLyricRenderData data;
   final Duration timelinePosition;
   final bool revealAnimation;
+  final bool wordHighlight;
   final ValueListenable<Duration>? positionListenable;
   final VoidCallback? onPaint;
 
@@ -190,10 +188,20 @@ class TiltLyricPainter extends CustomPainter {
   ) {
     for (final grapheme in segment.graphemes) {
       final placement = grapheme.layout;
-      final progress = placement.isTimed
-          ? _graphemeProgress(currentPosition, placement.start!, placement.end!)
+      final wordTimed = wordHighlight && placement.isTimed;
+      final progress = wordTimed
+          ? (segment.layout.isTilt ||
+                    data.layout!.sourceLine.text == tiltInterludeText
+                ? _graphemeProgress(
+                    currentPosition,
+                    placement.start!,
+                    placement.end!,
+                  )
+                : 0.0)
+          : lineActive
+          ? 1.0
           : 0.0;
-      final activeScale = placement.isTimed
+      final activeScale = wordTimed
           ? resolveTiltGraphemeScale(
               currentPosition,
               placement.start!,
@@ -261,7 +269,8 @@ class TiltLyricPainter extends CustomPainter {
   bool shouldRepaint(covariant TiltLyricPainter oldDelegate) {
     return !identical(oldDelegate.data, data) ||
         oldDelegate.timelinePosition != timelinePosition ||
-        oldDelegate.revealAnimation != revealAnimation;
+        oldDelegate.revealAnimation != revealAnimation ||
+        oldDelegate.wordHighlight != wordHighlight;
   }
 }
 

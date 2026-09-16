@@ -1,9 +1,19 @@
 import 'lyric_line.dart';
 
-class LyricDocument {
-  const LyricDocument({required this.lines, this.offset = 0});
+enum LyricSource { online, cache, manual, local }
 
-  const LyricDocument.empty() : lines = const <LyricLine>[], offset = 0;
+class LyricDocument {
+  const LyricDocument({required this.lines, this.offset = 0, this.source});
+
+  const LyricDocument.empty()
+    : lines = const <LyricLine>[],
+      offset = 0,
+      source = null;
+
+  final LyricSource? source;
+
+  LyricDocument withSource(LyricSource source) =>
+      LyricDocument(lines: lines, offset: offset, source: source);
 
   final List<LyricLine> lines;
   final int offset;

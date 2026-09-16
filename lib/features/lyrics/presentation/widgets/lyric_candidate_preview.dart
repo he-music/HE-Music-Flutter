@@ -3,6 +3,9 @@ import 'package:flutter_lyric/core/lyric_model.dart' as model;
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/config/app_lyric_highlight_mode.dart';
+import '../helpers/lyric_highlight_color_helper.dart';
 import '../../../player/domain/entities/player_track.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/lyric_candidate.dart';
@@ -227,43 +230,58 @@ class _SynchronizedLyricState extends ConsumerState<_SynchronizedLyric> {
       );
     }
     final scale = MediaQuery.textScalerOf(context);
+    final highlight = ref.watch(
+      appConfigProvider.select(
+        (config) => (
+          mode: config.lyricHighlightMode,
+          preset: config.lyricHighlightPreset,
+          customColor: config.lyricHighlightCustomColor,
+        ),
+      ),
+    );
+    final autoColor = highlight.mode == AppLyricHighlightMode.auto
+        ? ref.watch(playerAutoLyricHighlightColorProvider).value
+        : null;
+    final highlightColor = resolveLyricHighlightColorValues(
+      mode: highlight.mode,
+      preset: highlight.preset,
+      customColorValue: highlight.customColor,
+      autoColor: autoColor,
+    );
+    final textStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: scale.scale(15),
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     return RepaintBoundary(
       child: ClipRect(
-        child: IgnorePointer(
-          child: LayoutBuilder(
-            builder: (context, constraints) => fl.LyricView(
-              controller: _controller,
-              style: fl.LyricStyles.default1.copyWith(
-                anchorPosition: .42,
-                activeAnchorPosition: .42,
-                activeAlignment: MainAxisAlignment.center,
-                fadeRange: fl.FadeRange(top: 20, bottom: 20),
-                textAlign: TextAlign.center,
-                contentAlignment: CrossAxisAlignment.center,
-                // Allow the first and last lines to reach the shared visual anchor.
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: constraints.maxHeight,
-                ),
-                textStyle: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: scale.scale(15),
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                activeStyle: theme.textTheme.titleMedium?.copyWith(
-                  fontSize: scale.scale(18),
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-                translationStyle: theme.textTheme.bodySmall?.copyWith(
-                  fontSize: scale.scale(12),
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                translationActiveColor: theme.colorScheme.onSurfaceVariant,
-                activeHighlightColor: theme.colorScheme.primary,
-                activeHighlightGradient: null,
-                lineGap: 10,
-                translationLineGap: 3,
+        child: LayoutBuilder(
+          builder: (context, constraints) => fl.LyricView(
+            controller: _controller,
+            style: fl.LyricStyles.default1.copyWith(
+              anchorPosition: .42,
+              activeAnchorPosition: .42,
+              activeAlignment: MainAxisAlignment.center,
+              fadeRange: fl.FadeRange(top: 20, bottom: 20),
+              textAlign: TextAlign.center,
+              contentAlignment: CrossAxisAlignment.center,
+              // Allow the first and last lines to reach the shared visual anchor.
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: constraints.maxHeight,
               ),
+              textStyle: textStyle,
+              activeStyle: textStyle,
+              translationStyle: theme.textTheme.bodySmall?.copyWith(
+                fontSize: scale.scale(12),
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              translationActiveColor: theme.colorScheme.onSurfaceVariant,
+              activeHighlightColor: highlightColor,
+              selectedColor: highlightColor,
+              selectedTranslationColor: theme.colorScheme.onSurfaceVariant,
+              activeHighlightGradient: null,
+              lineGap: 10,
+              translationLineGap: 3,
             ),
           ),
         ),

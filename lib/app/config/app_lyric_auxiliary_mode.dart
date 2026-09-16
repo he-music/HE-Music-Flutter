@@ -45,6 +45,7 @@ enum AppLyricAuxiliaryMode {
     final mode = effective(document);
     return LyricDocument(
       offset: document.offset,
+      source: document.source,
       lines: [
         for (final line in document.lines)
           LyricLine(

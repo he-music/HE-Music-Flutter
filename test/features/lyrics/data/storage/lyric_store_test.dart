@@ -42,6 +42,25 @@ void main() {
   });
 
   test(
+    'refresh removes only the target cache and rejects stale writes',
+    () async {
+      await save(target);
+      final epoch = store.automaticEpoch;
+      await store.saveAutomatic(target, bundle, epoch);
+      await store.saveAutomatic(other, bundle, epoch);
+      final changes = <String?>[];
+      final subscription = store.changes.listen(changes.add);
+      await store.refreshAutomatic(target);
+      await store.saveAutomatic(target, bundle, epoch);
+      expect(await store.read(target, manual: false), isNull);
+      expect(await store.read(other, manual: false), isNotNull);
+      expect(await store.read(target, manual: true), isNotNull);
+      expect(changes, [lyricStorageKey(target)]);
+      await subscription.cancel();
+    },
+  );
+
+  test(
     'complete manual bundle survives restart and automatic clearing',
     () async {
       await save(target);

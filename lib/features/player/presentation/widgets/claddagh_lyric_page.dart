@@ -8,6 +8,7 @@ import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/theme/player/styles/classic_player_palette.dart';
 import '../../../lyrics/presentation/helpers/lyric_highlight_color_helper.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
+import '../../../lyrics/presentation/widgets/lyric_search_empty.dart';
 import '../../../lyrics/presentation/widgets/claddagh_lyric_rail.dart';
 
 /// Player host for the Folia Claddagh tilted glyph orbit lyric visualizer.
@@ -74,7 +75,7 @@ class _CladdaghLyricDataHost extends ConsumerWidget {
     final request = ref.watch(currentLyricRequestProvider);
     return documentAsync.when(
       data: (document) => document.isEmpty
-          ? _CladdaghLyricFallback(text: emptyText, palette: palette)
+          ? LyricSearchEmpty(color: palette.secondaryForeground)
           : CladdaghLyricRail(
               document: document,
               documentIdentity: request?.cacheKey,

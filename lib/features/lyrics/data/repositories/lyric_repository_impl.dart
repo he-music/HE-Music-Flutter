@@ -40,7 +40,7 @@ class LyricRepositoryImpl implements LyricRepository {
     final epoch = _store.automaticEpoch;
     try {
       final manual = await _store.read(target, manual: true);
-      if (manual != null) return _parse(manual);
+      if (manual != null) return _parse(manual).withSource(LyricSource.manual);
     } catch (_) {
       onWarning?.call('手动歌词读取失败，已临时使用默认歌词；原选择仍保留');
     }
@@ -49,7 +49,7 @@ class LyricRepositoryImpl implements LyricRepository {
     if (normalizedPlatform == 'local' && normalizedPath.isNotEmpty) {
       final localDocument = await _readLocalLyrics(normalizedPath);
       if (!localDocument.isEmpty) {
-        return localDocument;
+        return localDocument.withSource(LyricSource.local);
       }
       return const LyricDocument.empty();
     }
@@ -57,7 +57,7 @@ class LyricRepositoryImpl implements LyricRepository {
       try {
         final cached = await _store.read(target, manual: false);
         if (cached != null && epoch == _store.automaticEpoch) {
-          return _parse(cached);
+          return _parse(cached).withSource(LyricSource.cache);
         }
       } catch (_) {
         /* Cache failure must not block default retrieval. */
@@ -73,7 +73,7 @@ class LyricRepositoryImpl implements LyricRepository {
           } catch (_) {
             /* Display remains available when disk is full. */
           }
-          return _parse(onlineRaw);
+          return _parse(onlineRaw).withSource(LyricSource.online);
         }
       } catch (_) {
         return const LyricDocument.empty();

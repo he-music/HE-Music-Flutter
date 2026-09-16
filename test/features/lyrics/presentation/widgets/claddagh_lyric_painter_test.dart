@@ -38,6 +38,55 @@ CladdaghPaintRow makeRow(LyricLine line, {Color base = Colors.white}) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final timed in [false, true]) {
+    test(
+      'active line highlights with ${timed ? 'word mode off' : 'no timing'}',
+      () async {
+        final row = makeRow(
+          LyricLine(
+            start: Duration.zero,
+            end: const Duration(seconds: 2),
+            text: 'A',
+            tokens: timed
+                ? const [
+                    LyricToken(
+                      text: 'A',
+                      startOffset: Duration.zero,
+                      duration: Duration(seconds: 2),
+                    ),
+                  ]
+                : const [],
+          ),
+          base: Colors.transparent,
+        );
+        final position = ValueNotifier(Duration.zero);
+        final recorder = ui.PictureRecorder();
+        CladdaghLyricPainter(
+          rows: [row],
+          anchor: 0,
+          activeIndex: 0,
+          geometry: CladdaghOrbitGeometry(const Size(320, 500)),
+          angles: const [0],
+          positionListenable: position,
+          motion: const AlwaysStoppedAnimation(1),
+          fromAngle: 0,
+          documentOffset: 0,
+          wordHighlight: !timed,
+          color: Colors.transparent,
+        ).paint(Canvas(recorder), const Size(320, 500));
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(320, 500);
+        final bytes = (await image.toByteData())!;
+        expect(bytes.buffer.asUint8List().any((value) => value > 0), isTrue);
+        image.dispose();
+        picture.dispose();
+        position.dispose();
+        for (final painter in row.textPainters) {
+          painter.dispose();
+        }
+      },
+    );
+  }
   for (final separator in [' ', '   ']) {
     test('orbit is continuous across zero-duration "$separator"', () {
       final row = makeRow(
