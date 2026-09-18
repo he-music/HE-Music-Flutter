@@ -11,7 +11,6 @@ import 'config/app_config_controller.dart';
 import 'config/app_theme_mode.dart';
 import '../features/lyrics/presentation/providers/lyrics_providers.dart';
 import '../features/lyrics_overlay/presentation/providers/overlay_lyrics_provider.dart';
-import '../features/online/presentation/providers/online_providers.dart';
 import 'i18n/app_i18n.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
@@ -158,6 +157,7 @@ class _AppStartupGate extends ConsumerWidget {
       appConfigProvider.select((state) => state.localeCode),
     );
     return startup.when(
+      skipLoadingOnRefresh: false,
       data: (_) => child,
       loading: () {
         if (bypassStartupGate) return child;
@@ -185,14 +185,7 @@ class _AppStartupGate extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               FilledButton(
-                onPressed: () async {
-                  try {
-                    await ref.read(onlinePlatformsProvider.notifier).refresh();
-                    ref.invalidate(appStartupProvider);
-                  } catch (_) {
-                    // 平台 Provider 已保存最新错误，失败页保持可重试状态。
-                  }
-                },
+                onPressed: () => ref.invalidate(appStartupProvider),
                 child: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),
               ),
             ],

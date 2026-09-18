@@ -186,7 +186,7 @@ void main() {
     expect(secondSnippetLine.overflow, TextOverflow.ellipsis);
     expect(
       find.byKey(const ValueKey('search-lyric-badge-song-1|qq')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.ancestor(of: find.byKey(snippetKey), matching: find.byType(InkWell)),

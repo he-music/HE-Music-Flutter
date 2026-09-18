@@ -353,7 +353,7 @@ void main() {
     expect(snippet.overflow, TextOverflow.ellipsis);
     expect(
       find.byKey(const ValueKey('search-lyric-badge-song-1|qq')),
-      findsOneWidget,
+      findsNothing,
     );
   });
 }

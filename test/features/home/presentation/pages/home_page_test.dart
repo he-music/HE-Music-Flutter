@@ -89,23 +89,37 @@ void main() {
     expect(listViewTopLeft.dx, 0);
   });
 
-  testWidgets('home page quick entries allow multiline english labels', (
+  testWidgets('discover entries stay on one line on narrow English screens', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
     await tester.pumpWidget(_buildTestApp());
     await tester.pump();
-
     await tester.tap(find.text('Discover'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    final playlistLabel = tester.widget<Text>(find.text('Playlist'));
-
-    expect(playlistLabel.maxLines, 2);
-    expect(playlistLabel.textAlign, TextAlign.center);
+    final ranking = find.text('Ranking');
+    expect(ranking, findsOneWidget);
+    final label = tester.widget<Text>(ranking);
+    expect(label.maxLines, 1);
+    expect(label.softWrap, isFalse);
+    final rankingRect = tester.getRect(ranking);
+    final playlistRect = tester.getRect(find.text('Playlist'));
+    expect(rankingRect.right, lessThan(playlistRect.left));
+    expect(rankingRect.top, closeTo(playlistRect.top, 2));
+    expect(tester.takeException(), isNull);
+    for (final indicator in tester.widgetList<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    )) {
+      expect(indicator.elevation, 0);
+    }
   });
 
   testWidgets('home page keeps mobile navigation on wide layout', (

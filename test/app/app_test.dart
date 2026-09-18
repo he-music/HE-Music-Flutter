@@ -260,6 +260,15 @@ void main() {
     expect(apiClient.fetchPlatformsCallCount, 1);
 
     await tester.tap(find.text('重试'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('正在启动'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('重试'), findsNothing);
+    expect(apiClient.fetchPlatformsCallCount, 2);
+
+    apiClient.retryResult.complete();
     await tester.pumpAndSettle();
 
     expect(find.text('首页'), findsOneWidget);
@@ -486,6 +495,7 @@ class _RetryOnlineApiClient extends OnlineApiClient {
   _RetryOnlineApiClient() : super(Dio());
 
   int fetchPlatformsCallCount = 0;
+  final retryResult = Completer<void>();
 
   @override
   Future<List<Map<String, dynamic>>> fetchPlatforms({
@@ -498,6 +508,7 @@ class _RetryOnlineApiClient extends OnlineApiClient {
         type: DioExceptionType.connectionError,
       );
     }
+    await retryResult.future;
     return <Map<String, dynamic>>[
       <String, dynamic>{
         'id': 'qq',

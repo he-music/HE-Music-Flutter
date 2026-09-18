@@ -267,21 +267,31 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
         final textDirection = Directionality.of(context);
         final textScaleFactor = _resolveTextScaleFactor(context);
         final fontSpec = _resolveFontSpec(size, widget.fontPreset);
+        final fontFamily = Theme.of(context).textTheme.bodyLarge?.fontFamily;
+        final fontFamilyFallback = Theme.of(
+          context,
+        ).textTheme.bodyLarge?.fontFamilyFallback;
         final options = MonetLyricLayoutOptions(
           railSize: size,
           activeTextStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontFamilyFallback: fontFamilyFallback,
             fontSize: fontSpec.active,
             fontWeight: FontWeight.w700,
             height: 1.16,
             letterSpacing: 0,
           ),
           inactiveTextStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontFamilyFallback: fontFamilyFallback,
             fontSize: fontSpec.inactive,
             fontWeight: FontWeight.w500,
             height: 1.2,
             letterSpacing: 0,
           ),
           translationTextStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontFamilyFallback: fontFamilyFallback,
             fontSize: fontSpec.translation,
             fontWeight: FontWeight.w500,
             height: 1.3,

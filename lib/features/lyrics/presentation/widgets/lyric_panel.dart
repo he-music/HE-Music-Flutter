@@ -37,23 +37,31 @@ fl.LyricStyle buildLyricStyle({
   required AppLyricFontPreset fontPreset,
   required Color activeHighlightColor,
   bool center = false,
+  String? fontFamily,
+  List<String>? fontFamilyFallback,
 }) {
   final sizes = _resolveLyricFontSizes(fontPreset, compact: compact);
   if (compact) {
     return fl.LyricStyles.single.copyWith(
       textAlign: center ? TextAlign.center : TextAlign.left,
       textStyle: TextStyle(
+        fontFamily: fontFamily,
+        fontFamilyFallback: fontFamilyFallback,
         fontSize: sizes.inactive,
         color: Colors.white70,
         height: 1.0,
       ),
       activeStyle: TextStyle(
+        fontFamily: fontFamily,
+        fontFamilyFallback: fontFamilyFallback,
         fontSize: sizes.active,
         height: 1.0,
         color: Colors.white,
         fontWeight: FontWeight.w500,
       ),
       translationStyle: TextStyle(
+        fontFamily: fontFamily,
+        fontFamilyFallback: fontFamilyFallback,
         fontSize: sizes.translation,
         color: Colors.white70,
       ),
@@ -67,13 +75,22 @@ fl.LyricStyle buildLyricStyle({
     contentAlignment: center
         ? CrossAxisAlignment.center
         : CrossAxisAlignment.start,
-    textStyle: TextStyle(fontSize: sizes.inactive, color: Colors.white60),
+    textStyle: TextStyle(
+      fontFamily: fontFamily,
+      fontFamilyFallback: fontFamilyFallback,
+      fontSize: sizes.inactive,
+      color: Colors.white60,
+    ),
     activeStyle: TextStyle(
+      fontFamily: fontFamily,
+      fontFamilyFallback: fontFamilyFallback,
       fontSize: sizes.active,
       color: Colors.white,
       fontWeight: FontWeight.w500,
     ),
     translationStyle: TextStyle(
+      fontFamily: fontFamily,
+      fontFamilyFallback: fontFamilyFallback,
       fontSize: sizes.translation,
       color: Colors.white60,
     ),
@@ -149,6 +166,10 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
         return fl.LyricView(
           controller: _controller,
           style: buildLyricStyle(
+            fontFamily: Theme.of(context).textTheme.bodyLarge?.fontFamily,
+            fontFamilyFallback: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.fontFamilyFallback,
             compact: widget.compact,
             fontPreset: config.lyricFontPreset,
             center: widget.center,

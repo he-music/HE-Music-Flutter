@@ -152,25 +152,7 @@ class _OnlineSearchSongResultItemState
               return Text.rich(
                 TextSpan(
                   text: line.isEmpty ? ' ' : null,
-                  children: <InlineSpan>[
-                    if (index == 0 && !widget.allowFullLyric)
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 4),
-                          child: _LyricSnippetBadge(
-                            key: ValueKey<String>(
-                              'search-lyric-badge-$songKey',
-                            ),
-                            label: AppI18n.tByLocaleCode(
-                              config.localeCode,
-                              'search.lyric.badge',
-                            ),
-                          ),
-                        ),
-                      ),
-                    ..._highlightSpans(line, item),
-                  ],
+                  children: _highlightSpans(line, item),
                 ),
                 key: ValueKey<String>(
                   index == 0
@@ -288,33 +270,5 @@ class _OnlineSearchSongResultItemState
         .replaceAll(r'\r', '\n')
         .replaceAll('\r\n', '\n')
         .replaceAll('\r', '\n');
-  }
-}
-
-class _LyricSnippetBadge extends StatelessWidget {
-  const _LyricSnippetBadge({required this.label, super.key});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: color.withValues(alpha: 0.72)),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: color,
-          fontSize: 9.5,
-          height: 1,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
   }
 }

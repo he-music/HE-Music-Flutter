@@ -334,6 +334,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
               maxWidth: gridWidth,
             );
             return RefreshIndicator(
+              elevation: 0,
               onRefresh: () async {
                 final error = await homeController.refresh();
                 if (error != null && mounted) {
@@ -1688,13 +1689,16 @@ class _EntryTile extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w500,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
