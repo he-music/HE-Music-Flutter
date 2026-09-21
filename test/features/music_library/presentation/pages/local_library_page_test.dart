@@ -229,7 +229,7 @@ Future<void> _disposePage(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 200));
 }
 
-class _SortingLocalLibraryController extends _EmptyLocalLibraryController {
+class _SortingLocalLibraryController extends _PopulatedLocalLibraryController {
   @override
   void changeSortBy(SongSortBy newSortBy) {
     sortBy = newSortBy;
