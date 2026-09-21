@@ -16,15 +16,18 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
     required this.noTrackText,
     required this.onOpenMore,
     required this.onOpenQueue,
+    @visibleForTesting this.debugOnBuild,
   });
 
   final PlayerController controller;
   final String noTrackText;
   final VoidCallback onOpenMore;
   final VoidCallback onOpenQueue;
+  final VoidCallback? debugOnBuild;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    debugOnBuild?.call();
     final track = ref.watch(
       playerControllerProvider.select((state) => state.displayTrack),
     );
@@ -40,15 +43,6 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
     final isRadioMode = ref.watch(
       playerControllerProvider.select((state) => state.isRadioMode),
     );
-    final position = ref.watch(
-      playerControllerProvider.select((state) => state.position),
-    );
-    final duration = ref.watch(
-      playerControllerProvider.select((state) => state.duration),
-    );
-    final bufferedPosition = ref.watch(
-      playerControllerProvider.select((state) => state.bufferedPosition),
-    );
     final title = track?.title ?? noTrackText;
     final artist = track?.artist ?? '';
     final imageProvider = artworkProvider(
@@ -60,12 +54,7 @@ class PlayerFullscreenLyricsBar extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          PlayerProgressBar(
-            position: position,
-            bufferedPosition: bufferedPosition,
-            duration: duration,
-            onSeek: controller.seek,
-          ),
+          _FullscreenProgressBarSection(onSeek: controller.seek),
           Row(
             children: <Widget>[
               _buildCoverImage(context, imageProvider),
@@ -180,6 +169,31 @@ class _PlayerUtilityButton extends StatelessWidget {
         height: 40,
         child: Icon(icon, color: color, size: 22),
       ),
+    );
+  }
+}
+
+class _FullscreenProgressBarSection extends ConsumerWidget {
+  const _FullscreenProgressBarSection({required this.onSeek});
+
+  final Future<void> Function(Duration) onSeek;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final position = ref.watch(
+      playerControllerProvider.select((state) => state.position),
+    );
+    final duration = ref.watch(
+      playerControllerProvider.select((state) => state.duration),
+    );
+    final bufferedPosition = ref.watch(
+      playerControllerProvider.select((state) => state.bufferedPosition),
+    );
+    return PlayerProgressBar(
+      position: position,
+      bufferedPosition: bufferedPosition,
+      duration: duration,
+      onSeek: onSeek,
     );
   }
 }
