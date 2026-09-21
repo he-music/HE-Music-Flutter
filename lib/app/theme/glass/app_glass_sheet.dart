@@ -80,71 +80,63 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    return _ContentHeightScope(
-      enabled: fitContent,
-      maxHeightFactor: heightFactor,
-      showDragHandle: showDragHandle,
-      builder: (context, fittedHeightFactor, measure) => Builder(
-        builder: (context) {
-          final theme = _theme(context);
-          return Theme(
-            data: theme,
-            child: Builder(
-              builder: (context) {
-                final settings = AppGlassMaterial.sheetFor(context);
-                return GlassModalSheetScaffold(
-                  controller: _controller,
-                  quality: AppGlassScope.qualityOf(context),
-                  // Menus rest at one height. Content scrolls immediately;
-                  // upward gestures never expand the surface first.
-                  initialState: GlassSheetState.half,
-                  detents: const {GlassSheetDetent.medium},
-                  halfSize: fittedHeightFactor,
-                  bottomMargin: _sheetBottomMargin,
-                  topBorderRadius: 56,
-                  fullTopBorderRadius: 46,
-                  settings: settings,
-                  // The library still interpolates fill against its full-height
-                  // threshold during overdrag, even without a large detent.
-                  // Explicit identical materials keep the single surface glass.
-                  halfSettings: settings,
-                  fullSettings: settings,
-                  maintainContentGlass: false,
-                  expandedColor: theme.colorScheme.surface.withValues(alpha: 1),
-                  showDragIndicator: showDragHandle,
-                  dragIndicatorColor: theme.colorScheme.onSurfaceVariant,
-                  onStateChanged: (state) {
-                    if (state == GlassSheetState.hidden &&
-                        !_closing &&
-                        isCurrent) {
-                      _closing = true;
-                      navigator?.pop();
-                    }
-                  },
-                  body: const SizedBox.shrink(),
-                  sheet: measure(
-                    Material(
-                      type: MaterialType.transparency,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          bottom: MediaQuery.viewInsetsOf(context).bottom,
-                        ),
-                        child: SafeArea(
-                          top: useSafeArea,
-                          bottom: useSafeArea,
-                          left: useSafeArea,
-                          right: useSafeArea,
-                          child: Builder(builder: builder),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+    return Builder(
+      builder: (context) {
+        final theme = _theme(context);
+        return Theme(
+          data: theme,
+          child: _MeasuredGlassSheetPage(
+            enabled: fitContent,
+            maxHeightFactor: heightFactor,
+            showDragHandle: showDragHandle,
+            contentBuilder: (sheetContext) => Material(
+              type: MaterialType.transparency,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+                ),
+                child: SafeArea(
+                  top: useSafeArea,
+                  bottom: useSafeArea,
+                  left: useSafeArea,
+                  right: useSafeArea,
+                  child: Builder(builder: builder),
+                ),
+              ),
             ),
-          );
-        },
-      ),
+            pageBuilder: (sheetContext, fittedHeightFactor, sheet) {
+              final settings = AppGlassMaterial.sheetFor(sheetContext);
+              return GlassModalSheetScaffold(
+                controller: _controller,
+                quality: AppGlassScope.qualityOf(sheetContext),
+                initialState: GlassSheetState.half,
+                detents: const {GlassSheetDetent.medium},
+                halfSize: fittedHeightFactor,
+                bottomMargin: _sheetBottomMargin,
+                topBorderRadius: 56,
+                fullTopBorderRadius: 46,
+                settings: settings,
+                halfSettings: settings,
+                fullSettings: settings,
+                maintainContentGlass: false,
+                expandedColor: theme.colorScheme.surface.withValues(alpha: 1),
+                showDragIndicator: showDragHandle,
+                dragIndicatorColor: theme.colorScheme.onSurfaceVariant,
+                onStateChanged: (state) {
+                  if (state == GlassSheetState.hidden &&
+                      !_closing &&
+                      isCurrent) {
+                    _closing = true;
+                    navigator?.pop();
+                  }
+                },
+                body: const SizedBox.shrink(),
+                sheet: sheet,
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -165,57 +157,79 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
   }
 }
 
-/// Measure the existing subtree once at its maximum available height. Keeping
-/// the measurement constraint independent of the current detent avoids a
-/// shrink-only feedback loop and allows rotation/text scaling to grow it again.
-class _ContentHeightScope extends StatefulWidget {
-  const _ContentHeightScope({
+/// Measures fit-content sheets before creating the glass scaffold. This keeps
+/// the route entrance animation on the final content height instead of first
+/// opening at the maximum and shrinking on the next frame.
+class _MeasuredGlassSheetPage extends StatefulWidget {
+  const _MeasuredGlassSheetPage({
     required this.enabled,
     required this.maxHeightFactor,
     required this.showDragHandle,
-    required this.builder,
+    required this.contentBuilder,
+    required this.pageBuilder,
   });
+
   final bool enabled;
   final double maxHeightFactor;
   final bool showDragHandle;
-  final Widget Function(BuildContext, double, Widget Function(Widget)) builder;
+  final WidgetBuilder contentBuilder;
+  final Widget Function(BuildContext, double, Widget) pageBuilder;
 
   @override
-  State<_ContentHeightScope> createState() => _ContentHeightScopeState();
+  State<_MeasuredGlassSheetPage> createState() =>
+      _MeasuredGlassSheetPageState();
 }
 
-class _ContentHeightScopeState extends State<_ContentHeightScope> {
-  double? _height;
+class _MeasuredGlassSheetPageState extends State<_MeasuredGlassSheetPage> {
+  double? _contentHeight;
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.enabled) {
+      return widget.pageBuilder(
+        context,
+        widget.maxHeightFactor,
+        widget.contentBuilder(context),
+      );
+    }
+
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final cap = screenHeight * widget.maxHeightFactor;
-    // GlassModalSheetScaffold's floating bottom margin is 8 logical pixels.
-    final factor = widget.enabled && _height != null
-        ? ((_height! + _sheetBottomMargin) / screenHeight).clamp(
-            0.01,
-            widget.maxHeightFactor,
-          )
-        : widget.maxHeightFactor;
-    return widget.builder(
+    final maxHeight =
+        (screenHeight * widget.maxHeightFactor - _sheetBottomMargin).clamp(
+          0.0,
+          double.infinity,
+        );
+    if (_contentHeight == null) {
+      return Offstage(
+        child: _MeasureSheetHeight(
+          maxHeight: maxHeight,
+          onHeight: (height) {
+            if (mounted &&
+                (_contentHeight == null ||
+                    (_contentHeight! - height).abs() > 0.5)) {
+              setState(() => _contentHeight = height);
+            }
+          },
+          child: Padding(
+            padding: EdgeInsets.only(top: widget.showDragHandle ? 20 : 0),
+            child: widget.contentBuilder(context),
+          ),
+        ),
+      );
+    }
+
+    final fittedHeightFactor =
+        ((_contentHeight! + _sheetBottomMargin) / screenHeight).clamp(
+          0.01,
+          widget.maxHeightFactor,
+        );
+    return widget.pageBuilder(
       context,
-      factor,
-      (child) => widget.enabled
-          ? _MeasureSheetHeight(
-              maxHeight: (cap - _sheetBottomMargin).clamp(0, double.infinity),
-              onHeight: (height) {
-                if (mounted &&
-                    (_height == null || (_height! - height).abs() > 0.5)) {
-                  setState(() => _height = height);
-                }
-              },
-              child: Padding(
-                padding: EdgeInsets.only(top: widget.showDragHandle ? 20 : 0),
-                child: child,
-              ),
-            )
-          : child,
+      fittedHeightFactor,
+      Padding(
+        padding: EdgeInsets.only(top: widget.showDragHandle ? 20 : 0),
+        child: widget.contentBuilder(context),
+      ),
     );
   }
 }
