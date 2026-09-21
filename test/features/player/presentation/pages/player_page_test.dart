@@ -1694,6 +1694,42 @@ void main() {
     await tester.pump(Duration.zero);
   });
 
+  for (final size in [const Size(430, 900), const Size(1440, 900)]) {
+    testWidgets('cassette with artist photo keeps track metadata at $size', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+          config: AppConfigState.initial.copyWith(
+            localeCode: 'en',
+            playerStageId: AppPlayerStageRegistry.cassetteId,
+            playerBackdropId: AppPlayerBackdropRegistry.artistPhotoId,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('player-track-header')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('player-cassette-track-header')),
+        findsNothing,
+      );
+      expect(find.text('在线歌曲'), findsOneWidget);
+      expect(find.text('测试歌手'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('cassette-player-stage')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('player page displays cassette stage from config', (
     tester,
   ) async {

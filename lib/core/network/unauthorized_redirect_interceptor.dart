@@ -18,6 +18,7 @@ class UnauthorizedRedirectInterceptor extends Interceptor {
     final statusCode = err.response?.statusCode;
     if (statusCode == 401 &&
         !_isLoginRequest(err.requestOptions.path) &&
+        err.requestOptions.extra['skipUnauthorizedRedirect'] != true &&
         err.requestOptions.extra['tokenRefreshed'] != true) {
       onUnauthorized(readCurrentLocation());
     }

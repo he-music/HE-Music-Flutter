@@ -1979,7 +1979,9 @@ class _PlayerMetaControlPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gap = layoutSpec.verticalGap;
-    final usesCassetteLabel = stageKind == AppPlayerStageKind.cassette;
+    final usesCassetteLabel =
+        stageKind == AppPlayerStageKind.cassette &&
+        backdropKind != AppPlayerBackdropKind.artistPhoto;
     final trackHeader = PlayerTrackHeader(
       noTrackText: noTrackText,
       artistSlotWidth: layoutSpec.artistSlotWidth,

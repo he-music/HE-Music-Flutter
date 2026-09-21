@@ -22,14 +22,24 @@ typedef TokensRefreshedCallback =
 
 typedef DeviceInfoGetter = FutureOr<Map<String, dynamic>> Function();
 
+class TokenRefreshResult {
+  const TokenRefreshResult({
+    this.accessToken,
+    this.invalidRefreshToken = false,
+  });
+
+  final String? accessToken;
+  final bool invalidRefreshToken;
+}
+
 /// 负责跨 Dio 实例合并并发 refresh，并同步最新 token。
 class TokenRefreshCoordinator {
   TokenRefreshCoordinator(this.tokenHolder);
 
   final TokenHolder tokenHolder;
-  Future<String?>? _ongoingRefresh;
+  Future<TokenRefreshResult>? _ongoingRefresh;
 
-  Future<String?> refresh({
+  Future<TokenRefreshResult> refresh({
     required String baseUrl,
     required TokensRefreshedCallback onTokensRefreshed,
     required DeviceInfoGetter getDeviceInfo,
@@ -41,7 +51,7 @@ class TokenRefreshCoordinator {
 
     final refreshToken = tokenHolder.refreshToken;
     if (refreshToken == null || refreshToken.isEmpty) {
-      return Future<String?>.value();
+      return Future<TokenRefreshResult>.value(const TokenRefreshResult());
     }
 
     final refreshFuture = _doRefresh(
@@ -61,7 +71,7 @@ class TokenRefreshCoordinator {
     return refreshFuture;
   }
 
-  Future<String?> _doRefresh({
+  Future<TokenRefreshResult> _doRefresh({
     required String baseUrl,
     required String refreshToken,
     required TokensRefreshedCallback onTokensRefreshed,
@@ -89,14 +99,14 @@ class TokenRefreshCoordinator {
       );
       final data = response.data;
       if (data is! Map) {
-        return null;
+        return const TokenRefreshResult();
       }
 
       final newAccessToken = '${data['access_token'] ?? ''}'.trim();
       final newRefreshToken = '${data['refresh_token'] ?? ''}'.trim();
       final expiresAt = data['expires_at'];
       if (newAccessToken.isEmpty) {
-        return null;
+        return const TokenRefreshResult();
       }
 
       final effectiveRefresh = newRefreshToken.isNotEmpty
@@ -105,7 +115,7 @@ class TokenRefreshCoordinator {
       final effectiveExpiresAt = expiresAt is int ? expiresAt : 0;
       // 登出或重新登录会替换 refresh token，旧请求不得恢复已经失效的会话。
       if (tokenHolder.refreshToken != refreshToken) {
-        return null;
+        return const TokenRefreshResult();
       }
       tokenHolder.accessToken = newAccessToken;
       tokenHolder.refreshToken = effectiveRefresh;
@@ -115,12 +125,21 @@ class TokenRefreshCoordinator {
         effectiveRefresh,
         effectiveExpiresAt,
       );
-      return newAccessToken;
+      return TokenRefreshResult(accessToken: newAccessToken);
+    } on DioException catch (error) {
+      final invalidRefreshToken =
+          tokenHolder.refreshToken == refreshToken &&
+          _isInvalidRefreshTokenError(error.response?.data);
+      return TokenRefreshResult(invalidRefreshToken: invalidRefreshToken);
     } catch (_) {
-      return null;
+      return const TokenRefreshResult();
     } finally {
       refreshDio.close(force: true);
     }
+  }
+
+  bool _isInvalidRefreshTokenError(Object? data) {
+    return data is Map && data['reason'] == 'INVALID_REFRESH_TOKEN';
   }
 }
 
@@ -131,7 +150,7 @@ final globalTokenRefreshCoordinator = TokenRefreshCoordinator(
 );
 
 /// 拦截 401 响应，自动使用 refresh_token 换取新的 token 对。
-/// 刷新失败时将错误传递给下游（UnauthorizedRedirectInterceptor 处理登出）。
+/// 只有后端明确拒绝 refresh token 时才交给下游处理登出；临时失败保留会话。
 class TokenRefreshInterceptor extends Interceptor {
   TokenRefreshInterceptor({
     required this.tokenHolder,
@@ -185,8 +204,11 @@ class TokenRefreshInterceptor extends Interceptor {
           onTokensRefreshed: onTokensRefreshed,
           getDeviceInfo: getDeviceInfo,
         )
-        .then((newToken) {
+        .then((result) {
+          final newToken = result.accessToken;
           if (newToken == null || newToken.isEmpty) {
+            err.requestOptions.extra['skipUnauthorizedRedirect'] =
+                !result.invalidRefreshToken;
             handler.next(err);
             return;
           }
@@ -199,6 +221,7 @@ class TokenRefreshInterceptor extends Interceptor {
               });
         })
         .catchError((Object _) {
+          err.requestOptions.extra['skipUnauthorizedRedirect'] = true;
           handler.next(err);
         });
   }
