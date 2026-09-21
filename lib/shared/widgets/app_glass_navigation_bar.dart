@@ -7,9 +7,20 @@ import '../../app/theme/skin/app_skin_surface.dart';
 
 /// Official glass tab control, retaining the application's destinations.
 class AppGlassNavigationBar extends StatelessWidget {
-  const AppGlassNavigationBar({required this.child, super.key});
+  const AppGlassNavigationBar({
+    required this.child,
+    this.accessory,
+    this.minimizeController,
+    this.onExpandFromUser,
+    super.key,
+  });
 
   final NavigationBar child;
+  final Widget? accessory;
+  final GlassTabBarMinimizeController? minimizeController;
+
+  /// Whether the current page should also return to its top.
+  final ValueChanged<bool>? onExpandFromUser;
 
   @override
   Widget build(BuildContext context) {
@@ -19,11 +30,29 @@ class AppGlassNavigationBar extends StatelessWidget {
     if (MediaQuery.highContrastOf(context)) {
       return Material(
         color: Theme.of(context).colorScheme.surface,
-        child: child,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (accessory != null) ...[accessory!, const SizedBox(height: 8)],
+            SizedBox(height: 60, child: child),
+          ],
+        ),
       );
     }
     final colors = Theme.of(context).colorScheme;
-    return GlassTabBar.bottom(
+    return GlassTabBar.minimizable(
+      minimizeController: minimizeController,
+      onMinimizedTabTap: () {
+        if (onExpandFromUser != null) {
+          onExpandFromUser!(true);
+        } else {
+          minimizeController?.expand();
+        }
+      },
+      bottomAccessory: accessory,
+      bottomAccessoryHeight: accessory == null ? null : 52,
+      bottomAccessorySpacing: 8,
+      minimizedBarHeight: 60,
       quality: AppGlassScope.qualityOf(context),
       tabs: [
         for (final destination
@@ -35,7 +64,14 @@ class AppGlassNavigationBar extends StatelessWidget {
           ),
       ],
       selectedIndex: child.selectedIndex,
-      onTabSelected: (index) => child.onDestinationSelected?.call(index),
+      onTabSelected: (index) {
+        if (onExpandFromUser != null) {
+          onExpandFromUser!(index == child.selectedIndex);
+        } else {
+          minimizeController?.expand();
+        }
+        child.onDestinationSelected?.call(index);
+      },
       // Parent owns spacing and safe area; retain the existing compact height.
       horizontalPadding: 0,
       verticalPadding: 0,

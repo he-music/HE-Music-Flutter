@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/widgets/app_glass_surface.dart';
@@ -25,11 +26,13 @@ class MiniPlayerBar extends ConsumerStatefulWidget {
   const MiniPlayerBar({
     required this.onOpenFullPlayer,
     this.bottomSafeArea = false,
+    this.embedded = false,
     super.key,
   });
 
   final VoidCallback onOpenFullPlayer;
   final bool bottomSafeArea;
+  final bool embedded;
 
   @override
   ConsumerState<MiniPlayerBar> createState() => _MiniPlayerBarState();
@@ -188,11 +191,17 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
           .toList(growable: false),
     );
     final glassEnabled = AppGlassScope.isEnabled(context);
+    final inline =
+        widget.embedded &&
+        GlassTabBarAccessoryPlacementScope.of(context) ==
+            GlassTabBarAccessoryPlacement.inline;
     final colors = Theme.of(context).colorScheme;
     final bar = LayoutBuilder(
       builder: (context, constraints) {
         return Padding(
-          padding: glassEnabled
+          padding: widget.embedded
+              ? EdgeInsets.zero
+              : glassEnabled
               ? const EdgeInsets.fromLTRB(16, 0, 16, 8)
               : const EdgeInsets.fromLTRB(12, 2, 12, 2),
           child: AppGlassSurface(
@@ -254,7 +263,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                       player.isPlaying ? 'player.pause' : 'player.play',
                     ),
                   ),
-                  if (!player.isRadioMode)
+                  if (!inline && !player.isRadioMode)
                     IconButton(
                       onPressed: () => _openQueueSheet(context),
                       icon: const AppSkinIcon(

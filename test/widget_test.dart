@@ -1,3 +1,8 @@
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/shared/widgets/app_glass_player_scaffold.dart';
+import 'package:he_music_flutter/shared/widgets/app_glass_navigation_bar.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +28,75 @@ import 'package:he_music_flutter/shared/widgets/media_grid_card.dart';
 import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 
 void main() {
+  testWidgets(
+    'real home nested scrolling collapses and restores the player accessory',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _buildScrollableHomeTestApp(glassNavigation: true),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(DiscoverHomeTab)),
+      );
+      (container.read(playerControllerProvider.notifier)
+              as _TestPlayerController)
+          .replaceCurrentTrack(
+            const PlayerTrack(id: 'playing', title: 'Playing'),
+          );
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widget<GlassTabBar>(find.byType(GlassTabBar))
+          .minimizeController!;
+      final scroll = find.descendant(
+        of: find.byKey(const PageStorageKey<String>('home-recommend')),
+        matching: find.byType(CustomScrollView),
+      );
+      await tester.timedDrag(
+        scroll,
+        const Offset(0, -220),
+        const Duration(milliseconds: 500),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.minimized, isTrue);
+      expect(
+        GlassTabBarAccessoryPlacementScope.of(
+          tester.element(find.byType(MiniPlayerBar)),
+        ),
+        GlassTabBarAccessoryPlacement.inline,
+      );
+      await tester.timedDrag(
+        scroll,
+        const Offset(0, 100),
+        const Duration(milliseconds: 500),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        controller.minimized,
+        isTrue,
+        reason:
+            'Reversing direction in the middle of the list does not expand navigation.',
+      );
+      await tester.timedDrag(
+        scroll,
+        const Offset(0, 200),
+        const Duration(milliseconds: 500),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.minimized, isFalse);
+      await tester.drag(find.byType(PageView).first, const Offset(-350, 0));
+      await tester.pumpAndSettle();
+      expect(
+        controller.minimized,
+        isFalse,
+        reason: 'Horizontal home paging must not collapse the navigation.',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('home shell renders with two tabs', (WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -543,7 +617,7 @@ Widget _buildDiscoverTabTestApp({
   );
 }
 
-Widget _buildScrollableHomeTestApp() {
+Widget _buildScrollableHomeTestApp({bool glassNavigation = false}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
@@ -556,7 +630,42 @@ Widget _buildScrollableHomeTestApp() {
         _TestScrollableHomePageController.new,
       ),
     ],
-    child: const MaterialApp(home: Scaffold(body: DiscoverHomeTab())),
+    child: AppGlassScope(
+      enabled: glassNavigation,
+      child: GlassAdaptiveScope(
+        minQuality: GlassQuality.minimal,
+        maxQuality: GlassQuality.minimal,
+        child: MaterialApp(
+          home: glassNavigation
+              ? AppGlassPlayerScaffold(
+                  body: const DiscoverHomeTab(),
+                  miniPlayer: MiniPlayerBar(
+                    embedded: true,
+                    onOpenFullPlayer: () {},
+                  ),
+                  navigationBuilder: (accessory, controller, expandFromUser) =>
+                      AppGlassNavigationBar(
+                        accessory: accessory,
+                        minimizeController: controller,
+                        onExpandFromUser: expandFromUser,
+                        child: NavigationBar(
+                          destinations: const [
+                            NavigationDestination(
+                              icon: Icon(Icons.home),
+                              label: 'Home',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(Icons.person),
+                              label: 'My',
+                            ),
+                          ],
+                        ),
+                      ),
+                )
+              : const Scaffold(body: DiscoverHomeTab()),
+        ),
+      ),
+    ),
   );
 }
 

@@ -23,6 +23,309 @@ import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/app_glass_player_scaffold.dart';
 
 void main() {
+  testWidgets('short content keeps stable expanded chrome', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = _createRouter(
+      home: Builder(
+        builder: (context) => ListView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.paddingOf(context).bottom,
+          ),
+          children: const [SizedBox(height: 784)],
+        ),
+      ),
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(_ImmersiveAppConfigController.new),
+          playerControllerProvider.overrideWith(_TestPlayerController.new),
+        ],
+        child: _GlassTestApp(router: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final controller = tester
+        .widget<GlassTabBar>(find.byType(GlassTabBar))
+        .minimizeController!;
+    var transitions = 0;
+    controller.addListener(() {
+      transitions++;
+    });
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position;
+    expect(position.maxScrollExtent, greaterThan(50));
+    expect(position.maxScrollExtent, lessThan(110));
+    await tester.timedDrag(
+      find.byType(ListView),
+      const Offset(0, -100),
+      const Duration(milliseconds: 400),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.minimized, isFalse);
+    expect(
+      transitions,
+      0,
+      reason:
+          'Changing clearance must not alternate collapse and expansion on short content.',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final waitForIdle in [true, false]) {
+    testWidgets(
+      'manual navigation expansion wins over the current fling, waitForIdle=$waitForIdle',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final router = _createRouter(home: const _ChromeAwareList());
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWith(_ImmersiveAppConfigController.new),
+              playerControllerProvider.overrideWith(_TestPlayerController.new),
+            ],
+            child: _GlassTestApp(router: router),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final list = find.byKey(const ValueKey('home-scroll'));
+        final position = tester
+            .state<ScrollableState>(
+              find.descendant(of: list, matching: find.byType(Scrollable)),
+            )
+            .position;
+        final controller = tester
+            .widget<GlassTabBar>(find.byType(GlassTabBar))
+            .minimizeController!;
+        for (final (offset, collapsed) in <(double, bool)>[
+          (40, false),
+          (60, true),
+          (49, true),
+          (80, true),
+          (30, true),
+          (20, false),
+          (0, false),
+        ]) {
+          position.jumpTo(offset);
+          await tester.pumpAndSettle();
+          expect(
+            controller.minimized,
+            collapsed,
+            reason: 'Offset $offset should respect the 50/20 hysteresis.',
+          );
+        }
+        await tester.fling(list, const Offset(0, -300), 3000);
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(controller.minimized, isTrue);
+        expect(position.isScrollingNotifier.value, isTrue);
+        final before = position.pixels;
+        await tester.tap(
+          find
+              .byWidgetPredicate(
+                (w) =>
+                    w is AppSkinIcon &&
+                    w.role == AppSkinIconRole.navigationHomeSelected,
+              )
+              .hitTestable()
+              .first,
+        );
+        for (var frame = 0; frame < 20; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(
+            controller.minimized,
+            isFalse,
+            reason: 'The existing fling must not undo an explicit expansion.',
+          );
+        }
+        expect(
+          position.pixels,
+          lessThan(before),
+          reason:
+              'The navigation tap takes over the fling and returns to the top.',
+        );
+        if (waitForIdle) {
+          await tester.pumpAndSettle();
+          expect(position.pixels, closeTo(position.minScrollExtent, 0.1));
+        } else {
+          expect(position.isScrollingNotifier.value, isTrue);
+        }
+        expect(controller.minimized, isFalse);
+        await tester.timedDrag(
+          list,
+          const Offset(0, -150),
+          const Duration(milliseconds: 400),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          controller.minimized,
+          isTrue,
+          reason: 'A fresh drag restores automatic minimizing.',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final scenario in [
+    'narrow',
+    'highContrast',
+    'reduceMotion',
+    'noTrack',
+  ]) {
+    testWidgets('bottom chrome remains expanded for $scenario', (tester) async {
+      tester.view.physicalSize = Size(scenario == 'narrow' ? 320 : 390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          FakeAccessibilityFeatures(
+            highContrast: scenario == 'highContrast',
+            disableAnimations: scenario == 'reduceMotion',
+          );
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final router = _createRouter(home: const _ChromeAwareList());
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_ImmersiveAppConfigController.new),
+            playerControllerProvider.overrideWith(
+              scenario == 'noTrack'
+                  ? _EmptyPlayerController.new
+                  : _TestPlayerController.new,
+            ),
+          ],
+          child: _GlassTestApp(router: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final height = tester.getSize(find.byType(GlassScaffold)).height;
+      await tester.drag(
+        find.byKey(const ValueKey('home-scroll')),
+        const Offset(0, -250),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(GlassScaffold)).height, height);
+      if (scenario != 'highContrast') {
+        final bar = tester.widget<GlassTabBar>(find.byType(GlassTabBar));
+        expect(bar.minimizeController, isNull);
+        expect(
+          tester.getSize(find.byType(GlassTabBar)).height,
+          scenario == 'noTrack' ? 60 : 120,
+        );
+      } else {
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(find.byType(MiniPlayerBar), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'scroll folds the player into navigation without losing playback or page state',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var builds = 0;
+      final router = _createRouter(
+        home: Builder(
+          builder: (context) {
+            builds++;
+            return const _ChromeAwareList();
+          },
+        ),
+      );
+      addTearDown(router.dispose);
+      final player = _InteractionPlayerController();
+      final skin = AppSkinRegistry.builtIn(
+        AppThemeAccent.forest,
+      ).resolve(AppSkinRegistry.classicId);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_ImmersiveAppConfigController.new),
+            playerControllerProvider.overrideWith(() => player),
+          ],
+          child: _GlassTestApp(router: router, theme: AppTheme.light(skin)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final mini = find.byType(MiniPlayerBar);
+      final originalState = tester.state(mini);
+      final beforeBuilds = builds;
+      final bar = tester.widget<GlassTabBar>(find.byType(GlassTabBar));
+      final controller = bar.minimizeController!;
+      final list = find.byKey(const ValueKey('home-scroll'));
+      await tester.drag(list, const Offset(0, -250));
+      await tester.pumpAndSettle();
+      expect(controller.minimized, isTrue);
+      expect(tester.getSize(find.byType(GlassTabBar)).height, 60);
+      expect(tester.getRect(mini).left, greaterThan(70));
+      expect(tester.state(mini), same(originalState));
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is AppSkinIcon && w.role == AppSkinIconRole.miniPlayerQueue,
+        ),
+        findsNothing,
+      );
+      final play = find.byWidgetPredicate(
+        (w) => w is AppSkinIcon && w.role == AppSkinIconRole.miniPlayerPlay,
+      );
+      await tester.tap(play);
+      await tester.pumpAndSettle();
+      expect(player.playing, isTrue);
+      expect(controller.minimized, isTrue);
+      expect(builds, beforeBuilds);
+      final position = tester
+          .state<ScrollableState>(
+            find.descendant(of: list, matching: find.byType(Scrollable)),
+          )
+          .position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getBottomLeft(find.text('Row 59')).dy,
+        lessThanOrEqualTo(tester.getTopLeft(mini).dy),
+      );
+      position.jumpTo(300);
+      await tester.pumpAndSettle();
+      // Restore tabs by tapping the collapsed current destination.
+      await tester.tap(
+        find
+            .byWidgetPredicate(
+              (w) =>
+                  w is AppSkinIcon &&
+                  w.role == AppSkinIconRole.navigationHomeSelected,
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expect(controller.minimized, isFalse);
+      expect(tester.getSize(find.byType(GlassTabBar)).height, 120);
+      expect(tester.state(mini), same(originalState));
+      await tester.drag(list, const Offset(0, -180));
+      await tester.pumpAndSettle();
+      expect(controller.minimized, isTrue);
+      await tester.drag(list, const Offset(0, 160));
+      await tester.pumpAndSettle();
+      expect(controller.minimized, isFalse);
+      await tester.tap(find.text(bar.tabs[1].label!).first);
+      await tester.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, AppRoutes.my);
+      expect(tester.state(mini), same(originalState));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('immersive shell uses one themed selection indicator', (
     tester,
   ) async {
@@ -121,8 +424,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(tester.getSize(find.byType(MiniPlayerBar)).height, 60);
-    expect(tester.getSize(find.byType(GlassTabBar)).height, 60);
+    expect(tester.getSize(find.byType(MiniPlayerBar)).height, 52);
+    expect(tester.getSize(find.byType(GlassTabBar)).height, 120);
   });
   for (final batchMode in [false, true]) {
     testWidgets(
@@ -250,6 +553,17 @@ void main() {
   }
 }
 
+class _ChromeAwareList extends StatelessWidget {
+  const _ChromeAwareList();
+  @override
+  Widget build(BuildContext context) => ListView.builder(
+    key: const ValueKey('home-scroll'),
+    padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+    itemCount: 60,
+    itemBuilder: (_, index) => ListTile(title: Text('Row $index')),
+  );
+}
+
 class _GlassTestApp extends StatelessWidget {
   const _GlassTestApp({required this.router, this.theme});
 
@@ -268,7 +582,7 @@ class _GlassTestApp extends StatelessWidget {
   );
 }
 
-GoRouter _createRouter() {
+GoRouter _createRouter({Widget? home}) {
   return GoRouter(
     initialLocation: AppRoutes.home,
     routes: <RouteBase>[
@@ -281,7 +595,7 @@ GoRouter _createRouter() {
             routes: <RouteBase>[
               GoRoute(
                 path: AppRoutes.home,
-                builder: (context, state) => const SizedBox.shrink(),
+                builder: (context, state) => home ?? const SizedBox.shrink(),
               ),
             ],
           ),
@@ -312,6 +626,14 @@ class _EmptyPlayerController extends PlayerController {
   @override
   PlayerPlaybackState build() {
     return PlayerPlaybackState.initial(const <PlayerTrack>[]);
+  }
+}
+
+class _InteractionPlayerController extends _TestPlayerController {
+  bool get playing => state.isPlaying;
+  @override
+  Future<void> togglePlayPause() async {
+    state = state.copyWith(isPlaying: !state.isPlaying);
   }
 }
 

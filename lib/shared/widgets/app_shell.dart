@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../../app/config/app_config_controller.dart';
 import '../../../app/i18n/app_i18n.dart';
@@ -40,9 +41,14 @@ class _MobileLayout extends ConsumerWidget {
     );
     final glassEnabled = AppGlassScope.isEnabled(context);
     final miniPlayer = MiniPlayerBar(
+      embedded: glassEnabled,
       onOpenFullPlayer: () => context.push(AppRoutes.player),
     );
-    final navigation = SafeArea(
+    Widget buildNavigation(
+      Widget? accessory,
+      GlassTabBarMinimizeController? controller,
+      ValueChanged<bool> expandFromUser,
+    ) => SafeArea(
       top: false,
       bottom: !glassEnabled,
       maintainBottomViewPadding: !glassEnabled,
@@ -54,6 +60,9 @@ class _MobileLayout extends ConsumerWidget {
           4,
         ),
         child: AppGlassNavigationBar(
+          accessory: accessory,
+          minimizeController: controller,
+          onExpandFromUser: expandFromUser,
           child: NavigationBar(
             selectedIndex: navigationShell.currentIndex == _myIndex ? 1 : 0,
             backgroundColor: Colors.transparent,
@@ -99,7 +108,7 @@ class _MobileLayout extends ConsumerWidget {
       return AppGlassPlayerScaffold(
         body: navigationShell,
         miniPlayer: miniPlayer,
-        navigation: navigation,
+        navigationBuilder: buildNavigation,
       );
     }
     return Scaffold(
@@ -110,7 +119,7 @@ class _MobileLayout extends ConsumerWidget {
           miniPlayer,
         ],
       ),
-      bottomNavigationBar: navigation,
+      bottomNavigationBar: buildNavigation(null, null, (_) {}),
     );
   }
 }
