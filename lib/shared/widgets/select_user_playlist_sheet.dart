@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/i18n/app_i18n.dart';
+import '../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../constants/layout_tokens.dart';
 import '../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../app/theme/player/app_player_style_theme.dart';
 import '../../features/my/domain/entities/my_favorite_item.dart';
@@ -32,14 +34,14 @@ Future<SelectedUserPlaylist?> showSelectUserPlaylistSheet(
   if (Theme.of(context).extension<AppPlayerStyleTheme>() != null) {
     return showPlayerStyledBottomSheet<SelectedUserPlaylist>(
       context: context,
+      fixedHeightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
       isScrollControlled: true,
       builder: buildSheet,
     );
   }
-  return showModalBottomSheet<SelectedUserPlaylist>(
+  return showAppThemedBottomSheet<SelectedUserPlaylist>(
     context: context,
-    useRootNavigator: true,
-    showDragHandle: true,
+    fixedHeightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
     isScrollControlled: true,
     builder: buildSheet,
   );
@@ -59,28 +61,23 @@ class SelectUserPlaylistSheet extends ConsumerWidget {
     final localeCode = Localizations.localeOf(context).languageCode;
     final asyncValue = ref.watch(myCreatedPlaylistsProvider);
     return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.72,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: asyncValue.when(
-            data: (items) => _PlaylistListView(
-              items: items,
-              excludedPlaylistId: excludedPlaylistId,
-              localeCode: localeCode,
-              onCreatePlaylist: onCreatePlaylist,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: asyncValue.when(
+          data: (items) => _PlaylistListView(
+            items: items,
+            excludedPlaylistId: excludedPlaylistId,
+            localeCode: localeCode,
+            onCreatePlaylist: onCreatePlaylist,
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stackTrace) => _SheetHint(
+            title: AppI18n.tByLocaleCode(
+              localeCode,
+              'detail.batch.playlist_load_failed',
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stackTrace) => _SheetHint(
-              title: AppI18n.tByLocaleCode(
-                localeCode,
-                'detail.batch.playlist_load_failed',
-              ),
-              actionLabel: AppI18n.tByLocaleCode(localeCode, 'common.retry'),
-              onAction: () => ref.invalidate(myCreatedPlaylistsProvider),
-            ),
+            actionLabel: AppI18n.tByLocaleCode(localeCode, 'common.retry'),
+            onAction: () => ref.invalidate(myCreatedPlaylistsProvider),
           ),
         ),
       ),

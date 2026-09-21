@@ -31,12 +31,12 @@ const _dark = _WallpaperContract(
 
 const _lightPreview = _PreviewContract(
   path: 'assets/skins/city_sound_creator/preview_light.png',
-  hash: 'bd2c9c599117077065bb0da139756e90b2a5e255988a1170a7a0a9556c336771',
+  hash: 'f56a3d60f21b9a758994804a34755ca1887b9a7e85336c44b1d31731572c36b0',
 );
 
 const _darkPreview = _PreviewContract(
   path: 'assets/skins/city_sound_creator/preview_dark.png',
-  hash: 'c0c62190d93ff0918e29381143d046fd5b14d9b860b32209a675aecc187fdcad',
+  hash: '353e73940c7c9268bee751f93d26f3ce9f07f09d2909781a323e8eafbf707bfc',
 );
 
 const _iconDirectory = 'assets/skins/city_sound_creator/icons';

@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -127,7 +128,7 @@ class _ClearAudioCacheTileState extends ConsumerState<_ClearAudioCacheTile> {
     final config = ref.read(appConfigProvider);
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppAlertDialog(
         title: Text(AppI18n.t(config, 'settings.audio_cache.clear')),
         content: Text(AppI18n.t(config, 'settings.audio_cache.confirm')),
         actions: [

@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../glass/app_glass_scope.dart';
 import 'app_skin_theme.dart';
 
 enum AppSkinSurfaceRole {
@@ -48,6 +49,9 @@ class AppSkinSurface extends StatelessWidget {
         config.colors.scrollingContentSurface,
       AppSkinSurfaceRole.bottomSheet => config.colors.bottomSheetBackground,
     };
+    final forceOpaque =
+        AppGlassScope.preferOpaqueSurfaces(context) &&
+        role != AppSkinSurfaceRole.scrollingContent;
     final opacity = switch (role) {
       AppSkinSurfaceRole.search => config.surfaces.searchOpacity,
       AppSkinSurfaceRole.miniPlayer => config.surfaces.miniPlayerOpacity,
@@ -67,7 +71,9 @@ class AppSkinSurface extends StatelessWidget {
     };
     final content = DecoratedBox(
       decoration: BoxDecoration(
-        color: baseColor.withValues(alpha: baseColor.a * opacity),
+        color: baseColor.withValues(
+          alpha: forceOpaque ? 1 : baseColor.a * opacity,
+        ),
         borderRadius: radius,
         border: geometry.borderWidth == 0
             ? null
@@ -89,7 +95,7 @@ class AppSkinSurface extends StatelessWidget {
       ),
       child: child,
     );
-    if (blurSigma == 0) {
+    if (forceOpaque || blurSigma == 0) {
       return ClipRRect(borderRadius: radius, child: content);
     }
     return ClipRRect(

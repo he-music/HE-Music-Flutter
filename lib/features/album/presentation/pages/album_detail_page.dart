@@ -163,7 +163,7 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
             description: description,
             metaItems: metaItems,
             actions: <Widget>[
-              IconButton(
+              MusicDetailActionButton(
                 onPressed: () => unawaited(
                   _toggleAlbumFavorite(isFavorited, content: content),
                 ),

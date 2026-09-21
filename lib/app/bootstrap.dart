@@ -17,6 +17,7 @@ import 'audio_cache_simulator_guard.dart';
 import '../core/audio/cache/audio_cache_provider.dart';
 import '../core/audio/he_audio_handler.dart';
 import 'app.dart';
+import 'theme/glass/app_glass_scope.dart';
 
 Future<void> bootstrap({
   AppConfigDataSource dataSource = const AppConfigDataSource(),
@@ -27,6 +28,7 @@ Future<void> bootstrap({
   bool debugIosSimulatorCache = false,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
+  final glassEnabled = await AppGlassScope.initialize();
   if (debugIosSimulatorCache) await requireAudioCacheDebugSimulator();
   MediaKit.ensureInitialized();
   await AppEnvironment.initialize();
@@ -48,7 +50,16 @@ Future<void> bootstrap({
         bootstrapAppConfigProvider.overrideWithValue(audio.config),
         audioCacheRuntimeProvider.overrideWithValue(audio.runtime),
       ],
-      child: createApp?.call(audio.config, audio.runtime) ?? const HeMusicApp(),
+      child: AppGlassScope.wrap(
+        enabled: glassEnabled,
+        adaptiveQuality: false,
+        child: AppGlassPreferences(
+          available: glassEnabled,
+          child:
+              createApp?.call(audio.config, audio.runtime) ??
+              const HeMusicApp(),
+        ),
+      ),
     ),
   );
 }

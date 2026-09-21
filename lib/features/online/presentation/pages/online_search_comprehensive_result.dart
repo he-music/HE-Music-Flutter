@@ -204,8 +204,9 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
             return sections[index];
           },
         ),
-        // 底部留白
-        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+        SliverToBoxAdapter(
+          child: SizedBox(height: 12 + MediaQuery.paddingOf(context).bottom),
+        ),
       ],
     );
   }

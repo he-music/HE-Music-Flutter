@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -153,7 +154,7 @@ class _PlayerStyleSelectionSheetState
       }
       final shouldContinue = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
+        builder: (dialogContext) => AppAlertDialog(
           title: Text(
             AppI18n.t(
               ref.read(appConfigProvider),
@@ -227,7 +228,7 @@ class _PlayerStyleSelectionSheetState
     final config = ref.read(appConfigProvider);
     final shouldOpen = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => AppAlertDialog(
         title: Text(
           AppI18n.t(config, 'player.spectrum.permission.settings_title'),
         ),

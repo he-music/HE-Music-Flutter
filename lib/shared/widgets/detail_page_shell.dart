@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+
+import '../../app/theme/glass/app_glass_scope.dart';
 
 import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
@@ -42,17 +45,46 @@ class DetailPageShell extends StatelessWidget {
             }
             context.appPopOrGo();
           },
-          child: Scaffold(
-            resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-            body: Column(
-              children: <Widget>[
-                Expanded(child: child),
-                ...<Widget?>[bottomBar].nonNulls,
-              ],
-            ),
-          ),
+          child: _buildScaffold(context),
         );
       },
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
+    final clearance = AppGlassScope.isEnabled(context) && bottomBar != null
+        ? MediaQuery.paddingOf(context).bottom
+        : 0.0;
+    final body = Padding(
+      padding: EdgeInsets.only(bottom: clearance),
+      child: MediaQuery.removePadding(
+        context: context,
+        removeBottom: clearance > 0,
+        child: Column(
+          children: <Widget>[
+            Expanded(child: child),
+            ...<Widget?>[bottomBar].nonNulls,
+          ],
+        ),
+      ),
+    );
+    if (AppGlassScope.isEnabled(context)) {
+      // The pinned sliver owns the collapsing hero and toolbar geometry.
+      // Keep its safe areas intact; the outer shell owns the mini-player.
+      return Material(
+        type: MaterialType.transparency,
+        child: GlassScaffold(
+          edgeToEdge: true,
+          extendBody: false,
+          resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: body,
+        ),
+      );
+    }
+    return Scaffold(
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+      body: body,
     );
   }
 }

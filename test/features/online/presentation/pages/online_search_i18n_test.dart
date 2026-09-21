@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
@@ -18,6 +20,63 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/features/online/presentation/widgets/search_artist_list_item.dart';
 
 void main() {
+  testWidgets(
+    'search has no focus ring and keeps submit clear and focus with glass enabled',
+    (tester) async {
+      final controller = TextEditingController();
+      final focus = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focus.dispose);
+      String? changed;
+      var submitted = 0;
+      await tester.pumpWidget(
+        AppGlassScope(
+          enabled: true,
+          child: GlassAdaptiveScope(
+            minQuality: GlassQuality.minimal,
+            maxQuality: GlassQuality.minimal,
+            initialQuality: GlassQuality.minimal,
+            child: MaterialApp(
+              home: Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: 200,
+                    child: SearchTopBox(
+                      controller: controller,
+                      focusNode: focus,
+                      placeholderPrimary: 'Search songs',
+                      placeholderSecondary: 'and artists',
+                      onChanged: (value) => changed = value,
+                      onSubmit: () async {
+                        submitted++;
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(GlassTextField), findsNothing);
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.decoration!.focusedBorder!.borderSide, BorderSide.none);
+      await tester.enterText(find.byType(TextField), 'Adele');
+      await tester.pumpAndSettle();
+      expect(changed, 'Adele');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(submitted, 1);
+      await tester.tap(find.byTooltip('Delete'));
+      await tester.pumpAndSettle();
+      expect(controller.text, isEmpty);
+      expect(changed, '');
+      expect(focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('search type bar shows english labels when locale is en', (
     tester,
   ) async {

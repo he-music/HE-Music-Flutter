@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../shared/constants/layout_tokens.dart';
+import '../glass/app_glass_sheet.dart';
+import '../glass/app_glass_scope.dart';
 
 import 'app_player_style_models.dart';
 import 'app_player_style_theme.dart';
@@ -11,6 +14,9 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   bool useSafeArea = true,
   bool isScrollControlled = false,
   bool showDragHandle = true,
+  double? fixedHeightFactor,
+  double? heightFactor,
+  bool fitContent = false,
 }) {
   final inheritedTheme = Theme.of(context);
   final playerStyleTheme = inheritedTheme.extension<AppPlayerStyleTheme>();
@@ -42,25 +48,70 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   if (overlayEntry != null) {
     Overlay.of(context, rootOverlay: true).insert(overlayEntry);
   }
-  final sheetFuture = showModalBottomSheet<T>(
-    // 播放器局部 Theme 固定为深色，使用 Navigator context 才能跟随实时 App Theme。
-    context: modalContext,
-    useRootNavigator: useRootNavigator,
-    useSafeArea: useSafeArea,
-    isScrollControlled: isScrollControlled,
-    showDragHandle: false,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.54),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(
-        top: Radius.circular(sheet.topRadius),
-      ),
-    ),
-    builder: (sheetContext) => _PlayerStyledBottomSheetBody(
-      builder: builder,
-      showDragHandle: showDragHandle,
-    ),
-  );
+  final glassEnabled =
+      AppGlassScope.isEnabled(context) &&
+      !AppGlassScope.preferOpaqueSurfaces(context);
+  final sheetFuture = glassEnabled
+      ? showLiveGlassSheet<T>(
+          context: modalContext,
+          useRootNavigator: useRootNavigator,
+          useSafeArea: useSafeArea,
+          // Player sheets share one glass material regardless of height.
+          // A single detent preserves immediate content scrolling.
+          heightFactor:
+              fixedHeightFactor ??
+              heightFactor ??
+              (isScrollControlled
+                  ? LayoutTokens.playerActionSheetHeightFactor
+                  : 0.45),
+          showDragHandle: showDragHandle,
+          fitContent: fitContent,
+          resolveTheme: (theme) => buildAppPlayerSheetTheme(
+            AppPlayerSheetStyle.forBrightness(theme.brightness),
+            theme.brightness,
+          ),
+          builder: builder,
+        )
+      : showModalBottomSheet<T>(
+          // 播放器局部 Theme 固定为深色，使用 Navigator context 才能跟随实时 App Theme。
+          context: modalContext,
+          useRootNavigator: useRootNavigator,
+          useSafeArea: useSafeArea,
+          isScrollControlled:
+              fitContent || fixedHeightFactor != null || isScrollControlled,
+          constraints:
+              fixedHeightFactor == null && (fitContent || isScrollControlled)
+              ? BoxConstraints(
+                  maxHeight:
+                      MediaQuery.sizeOf(context).height *
+                      (heightFactor ??
+                          (isScrollControlled
+                              ? LayoutTokens.playerActionSheetHeightFactor
+                              : 0.45)),
+                )
+              : null,
+          showDragHandle: false,
+          backgroundColor: Colors.transparent,
+          barrierColor: Colors.black.withValues(alpha: 0.54),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(sheet.topRadius),
+            ),
+          ),
+          builder: (sheetContext) {
+            final body = _PlayerStyledBottomSheetBody(
+              builder: builder,
+              showDragHandle: showDragHandle,
+              opaque: fixedHeightFactor != null,
+            );
+            return fixedHeightFactor == null
+                ? body
+                : FractionallySizedBox(
+                    heightFactor: fixedHeightFactor,
+                    child: body,
+                  );
+          },
+        );
   if (overlayEntry == null) {
     return sheetFuture;
   }
@@ -75,10 +126,12 @@ class _PlayerStyledBottomSheetBody extends StatefulWidget {
   const _PlayerStyledBottomSheetBody({
     required this.builder,
     required this.showDragHandle,
+    required this.opaque,
   });
 
   final WidgetBuilder builder;
   final bool showDragHandle;
+  final bool opaque;
 
   @override
   State<_PlayerStyledBottomSheetBody> createState() =>
@@ -101,6 +154,7 @@ class _PlayerStyledBottomSheetBodyState
       child: PlayerSheetSurface(
         style: style,
         showDragHandle: widget.showDragHandle,
+        opaque: widget.opaque,
         child: _child,
       ),
     );
@@ -112,12 +166,14 @@ class PlayerSheetSurface extends StatelessWidget {
     required this.style,
     required this.showDragHandle,
     required this.child,
+    this.opaque = false,
     super.key,
   });
 
   final AppPlayerSheetStyle style;
   final bool showDragHandle;
   final Widget child;
+  final bool opaque;
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +183,9 @@ class PlayerSheetSurface extends StatelessWidget {
         top: Radius.circular(style.topRadius),
       ),
       child: ColoredBox(
-        color: style.backgroundColor,
+        color: opaque || AppGlassScope.preferOpaqueSurfaces(context)
+            ? style.backgroundColor.withValues(alpha: 1)
+            : style.backgroundColor,
         child: IconTheme(
           data: IconThemeData(color: style.foregroundColor),
           child: DefaultTextStyle.merge(

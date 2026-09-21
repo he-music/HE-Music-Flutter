@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
@@ -17,6 +19,37 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
+
+  testWidgets(
+    'local sort menu uses glass and preserves the selection callback',
+    (tester) async {
+      final controller = _SortingLocalLibraryController();
+      await tester.pumpWidget(
+        AppGlassScope(
+          enabled: true,
+          child: GlassAdaptiveScope(
+            minQuality: GlassQuality.minimal,
+            maxQuality: GlassQuality.minimal,
+            child: _buildTestApp(controllerFactory: () => controller),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await tester.pumpAndSettle();
+      expect(find.byType(GlassMenu), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(GlassMenuItem),
+          matching: find.text(SongSortBy.album.label),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.sortBy, SongSortBy.album);
+      expect(tester.takeException(), isNull);
+      await _disposePage(tester);
+    },
+  );
 
   testWidgets('local library app bar requests skin icon roles', (tester) async {
     await tester.pumpWidget(_buildTestApp());
@@ -194,6 +227,14 @@ Future<void> _disposePage(WidgetTester tester) async {
   // 销毁 widget 树，触发 drift 流取消，再 pump 掉残留 timer。
   await tester.pumpWidget(const SizedBox());
   await tester.pump(const Duration(milliseconds: 200));
+}
+
+class _SortingLocalLibraryController extends _EmptyLocalLibraryController {
+  @override
+  void changeSortBy(SongSortBy newSortBy) {
+    sortBy = newSortBy;
+    ref.notifyListeners();
+  }
 }
 
 class _EmptyLocalLibraryController extends LocalLibraryController {

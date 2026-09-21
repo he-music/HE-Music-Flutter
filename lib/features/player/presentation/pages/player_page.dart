@@ -435,16 +435,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         body: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: PlayerBackdrop(
-                backdropKind: backdrop.backdropKind,
-                imageProvider: backdropImageProvider,
-                track: displayedTrack,
-                isPortrait: usePortraitArtistPhoto,
-                artistPhotoImageProviderBuilder:
-                    widget.artistPhotoImageProviderBuilder,
-                onClassicPaletteChanged: scenePalette == null
-                    ? null
-                    : _handleClassicPaletteChanged,
+              child: Consumer(
+                builder: (context, ref, _) => PlayerBackdrop(
+                  motionActive:
+                      backdrop.backdropKind != AppPlayerBackdropKind.fluid ||
+                      ref.watch(
+                        playerControllerProvider.select(
+                          (state) => state.isPlaying,
+                        ),
+                      ),
+                  backdropKind: backdrop.backdropKind,
+                  imageProvider: backdropImageProvider,
+                  track: displayedTrack,
+                  isPortrait: usePortraitArtistPhoto,
+                  artistPhotoImageProviderBuilder:
+                      widget.artistPhotoImageProviderBuilder,
+                  onClassicPaletteChanged: scenePalette == null
+                      ? null
+                      : _handleClassicPaletteChanged,
+                ),
               ),
             ),
             Positioned.fill(
@@ -757,6 +766,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      fixedHeightFactor: LayoutTokens.queueSheetHeightFactor,
       builder: (context) => const PlayerQueueSheet(),
     );
   }
@@ -1418,6 +1428,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   ) {
     showPlayerStyledBottomSheet<void>(
       context: context,
+      fitContent: true,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) {
@@ -1516,13 +1527,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
     showPlayerStyledBottomSheet<void>(
       context: context,
+      fitContent: true,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) {
         return _buildConstrainedPlayerSheetList(
           context: sheetContext,
           listKey: const ValueKey<String>('player-artist-selection-sheet-list'),
-          maxHeightFactor: LayoutTokens.artistSelectionSheetMaxHeightFactor,
           children: <Widget>[
             for (final artist in available)
               ListTile(
@@ -1616,18 +1627,13 @@ Widget _buildConstrainedPlayerSheetList({
   required List<Widget> children,
   Key? listKey,
   EdgeInsetsGeometry? padding,
-  double maxHeightFactor = LayoutTokens.actionSheetMaxHeightFactor,
 }) {
-  final maxHeight = MediaQuery.of(context).size.height * maxHeightFactor;
   return SafeArea(
-    child: ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: ListView(
-        key: listKey,
-        shrinkWrap: true,
-        padding: padding,
-        children: children,
-      ),
+    child: ListView(
+      key: listKey,
+      shrinkWrap: true,
+      padding: padding,
+      children: children,
     ),
   );
 }

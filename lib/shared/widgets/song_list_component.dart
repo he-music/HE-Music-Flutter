@@ -68,7 +68,7 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
     );
     if (widget.initialLoading) {
       return ListView.separated(
-        padding: EdgeInsets.zero,
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
         itemCount: widget.skeletonCount,
         separatorBuilder: (context, index) => const SizedBox(height: 2),
         itemBuilder: (context, index) => const _SongSkeletonItem(),
@@ -88,7 +88,7 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
             widget.loadMoreErrorMessage != null ||
             !widget.hasMore);
     final list = ListView.separated(
-      padding: EdgeInsets.zero,
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
       itemCount: widget.itemCount + (showFooter ? 1 : 0),
       separatorBuilder: (context, index) {
         if (showFooter && index == widget.itemCount - 1) {

@@ -39,7 +39,7 @@ class HomeSearchField extends StatelessWidget {
                 children: <Widget>[
                   AppSkinIcon(
                     role: AppSkinIconRole.search,
-                    color: theme.colorScheme.primary,
+                    color: theme.colorScheme.onSurfaceVariant,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -52,10 +52,8 @@ class HomeSearchField extends StatelessWidget {
                           TextSpan(
                             text: placeholderPrimary,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.8,
-                              ),
-                              fontWeight: FontWeight.w500,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
                           if (secondary.isNotEmpty)

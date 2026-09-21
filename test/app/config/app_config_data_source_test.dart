@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
@@ -16,6 +17,21 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+
+  test(
+    'glass preference round trips and unknown values fall back to automatic',
+    () async {
+      const source = AppConfigDataSource();
+      expect((await source.load()).glassMode, AppGlassMode.automatic);
+      for (final mode in AppGlassMode.values) {
+        await source.save(AppConfigState.initial.copyWith(glassMode: mode));
+        expect((await source.load()).glassMode, mode);
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('app_config.glass_mode', 'future-mode');
+      expect((await source.load()).glassMode, AppGlassMode.automatic);
+    },
+  );
 
   test('load should return saved config values', () async {
     const dataSource = AppConfigDataSource();

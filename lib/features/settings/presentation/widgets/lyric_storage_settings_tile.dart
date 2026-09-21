@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
@@ -28,7 +29,7 @@ class _LyricStorageSettingsTileState
     if (widget.manual) {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => AppAlertDialog(
           title: Text(AppI18n.t(config, 'settings.lyric_cache.confirm_title')),
           content: Text(AppI18n.t(config, 'settings.lyric_cache.confirm_body')),
           actions: [

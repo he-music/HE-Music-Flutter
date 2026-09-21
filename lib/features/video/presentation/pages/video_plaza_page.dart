@@ -234,7 +234,12 @@ class _VideoPlazaBody extends StatelessWidget {
       controller: scrollController,
       slivers: <Widget>[
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            8,
+            12,
+            18 + MediaQuery.paddingOf(context).bottom,
+          ),
           sliver: SliverGrid.builder(
             itemCount: state.items.length,
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(

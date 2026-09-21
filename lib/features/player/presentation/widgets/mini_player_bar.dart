@@ -4,9 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/constants/layout_tokens.dart';
+import '../../../../shared/widgets/app_glass_surface.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/glass/app_glass_scope.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
@@ -184,11 +187,15 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
           .where((image) => image != currentArtwork)
           .toList(growable: false),
     );
+    final glassEnabled = AppGlassScope.isEnabled(context);
+    final colors = Theme.of(context).colorScheme;
     final bar = LayoutBuilder(
       builder: (context, constraints) {
         return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
-          child: AppSkinSurface(
+          padding: glassEnabled
+              ? const EdgeInsets.fromLTRB(16, 0, 16, 8)
+              : const EdgeInsets.fromLTRB(12, 2, 12, 2),
+          child: AppGlassSurface(
             role: AppSkinSurfaceRole.miniPlayer,
             child: SizedBox(
               height: 52,
@@ -228,13 +235,24 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
                     ),
                   ),
                   IconButton(
+                    style: glassEnabled
+                        ? IconButton.styleFrom(
+                            foregroundColor: colors.primary,
+                            backgroundColor: colors.primary.withValues(
+                              alpha: 0.10,
+                            ),
+                          )
+                        : null,
                     onPressed: controller.togglePlayPause,
                     icon: AppSkinIcon(
                       role: player.isPlaying
                           ? AppSkinIconRole.miniPlayerPause
                           : AppSkinIconRole.miniPlayerPlay,
                     ),
-                    tooltip: AppI18n.tByLocaleCode(localeCode, 'player.full'),
+                    tooltip: AppI18n.tByLocaleCode(
+                      localeCode,
+                      player.isPlaying ? 'player.pause' : 'player.play',
+                    ),
                   ),
                   if (!player.isRadioMode)
                     IconButton(
@@ -314,6 +332,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
     showAppThemedBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      fixedHeightFactor: LayoutTokens.queueSheetHeightFactor,
       builder: (context) => const PlayerQueueSheet(),
     );
   }

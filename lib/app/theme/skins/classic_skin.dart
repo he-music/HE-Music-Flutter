@@ -194,7 +194,7 @@ IconData classicIconForRole(AppSkinIconRole role) {
     AppSkinIconRole.songDownload => Icons.download_rounded,
     AppSkinIconRole.songShare => Icons.share_outlined,
     AppSkinIconRole.songDetails => Icons.info_outline_rounded,
-    AppSkinIconRole.songAddToPlaylist => Icons.playlist_add_rounded,
+    AppSkinIconRole.songAddToPlaylist => Icons.library_add_outlined,
     AppSkinIconRole.songRemove => Icons.remove_circle_outline_rounded,
     AppSkinIconRole.songDelete => Icons.delete_outline_rounded,
     AppSkinIconRole.songWatchVideo => Icons.ondemand_video_rounded,

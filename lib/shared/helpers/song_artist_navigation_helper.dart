@@ -1,3 +1,4 @@
+import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -37,7 +38,9 @@ Future<void> openSongArtistSelection({
     return;
   }
 
-  await showModalBottomSheet<void>(
+  await showAppThemedBottomSheet<void>(
+    heightFactor: LayoutTokens.artistSelectionSheetMaxHeightFactor,
+    fitContent: true,
     context: context,
     useRootNavigator: true,
     showDragHandle: true,

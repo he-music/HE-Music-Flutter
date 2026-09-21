@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -133,7 +134,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AppAlertDialog(
         title: Text(AppI18n.t(config, 'settings.device_management.delete')),
         content: Text(
           AppI18n.t(config, 'settings.device_management.delete_confirm'),
@@ -166,7 +167,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AppAlertDialog(
         title: Text(
           AppI18n.t(config, 'settings.device_management.batch_delete'),
         ),

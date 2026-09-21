@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../domain/entities/player_play_mode.dart';
 
@@ -132,7 +133,9 @@ class _PrimaryControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = Colors.white;
+    final palette = PlayerScenePalette.maybeOf(context);
+    final background = palette?.foreground ?? Colors.white;
+    final foreground = palette?.surfaceDeep ?? Colors.black87;
     return IconButton(
       onPressed: onPressed,
       icon: isTrackTransitioning
@@ -157,8 +160,11 @@ class _PrimaryControlButton extends StatelessWidget {
           : Icon(icon, size: compact ? 34 : 42),
       color: foreground,
       style: IconButton.styleFrom(
-        backgroundColor: Colors.transparent,
+        backgroundColor: background,
+        disabledBackgroundColor: background.withValues(alpha: 0.65),
         foregroundColor: foreground,
+        disabledForegroundColor: foreground,
+        shape: const CircleBorder(),
         shadowColor: Colors.transparent,
         padding: EdgeInsets.all(compact ? 8 : 12),
       ),
@@ -184,7 +190,7 @@ class _RoundControlButton extends StatelessWidget {
     return IconButton(
       onPressed: onPressed,
       icon: Icon(icon, size: iconSize),
-      color: Colors.white,
+      color: PlayerScenePalette.maybeOf(context)?.foreground ?? Colors.white,
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,
         shadowColor: Colors.transparent,
@@ -215,7 +221,9 @@ class _SideControlButton extends StatelessWidget {
       tooltip: tooltip,
       icon: Icon(icon),
       iconSize: compact ? 18 : 22,
-      color: Colors.white.withValues(alpha: 0.84),
+      color:
+          PlayerScenePalette.maybeOf(context)?.secondaryForeground ??
+          Colors.white.withValues(alpha: 0.72),
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,
         shadowColor: Colors.transparent,

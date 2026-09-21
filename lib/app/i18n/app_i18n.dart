@@ -362,6 +362,21 @@ abstract final class AppI18n {
       'settings.audio_quality.auto_priority': '自动按优先级选择：{fallback}',
       'settings.audio_quality.auto_last_selected':
           '优先使用上次手动选择的 {selected}，否则按 {fallback}',
+      'settings.glass': '玻璃效果',
+      'settings.glass.quality': '玻璃质量',
+      'settings.glass.optimization': '应用优化',
+      'settings.glass.automatic': '自动',
+      'settings.glass.automatic.desc': '根据设备表现自动调整所有玻璃控件和弹窗的质量',
+      'settings.glass.high': '高',
+      'settings.glass.high.desc': '使用高质量折射效果，可能增加耗电',
+      'settings.glass.standard': '标准',
+      'settings.glass.standard.desc': '固定使用标准玻璃效果',
+      'settings.glass.low': '低',
+      'settings.glass.low.desc': '使用轻量模糊材质，不使用自定义玻璃着色器',
+      'settings.glass.powerSaving': '省电',
+      'settings.glass.powerSaving.desc': '导航和迷你播放器使用标准玻璃，其他控件与弹窗使用实色',
+      'settings.glass.off': '关闭',
+      'settings.glass.off.desc': '关闭玻璃效果，控制区使用实色背景',
       'settings.theme': '主题',
       'settings.theme_accent': '主题色',
       'settings.theme_accent.current': '当前为 {value}',
@@ -1266,6 +1281,26 @@ abstract final class AppI18n {
           'Select automatically by priority: {fallback}',
       'settings.audio_quality.auto_last_selected':
           'Prefer the last manual selection, {selected}; otherwise use {fallback}',
+      'settings.glass': 'Glass effects',
+      'settings.glass.quality': 'Glass quality',
+      'settings.glass.optimization': 'App optimization',
+      'settings.glass.automatic': 'Automatic',
+      'settings.glass.automatic.desc':
+          'Automatically adjust glass quality for all controls and popups',
+      'settings.glass.high': 'High',
+      'settings.glass.high.desc':
+          'Use premium refraction; may increase power use',
+      'settings.glass.standard': 'Standard',
+      'settings.glass.standard.desc': 'Use standard glass quality',
+      'settings.glass.low': 'Low',
+      'settings.glass.low.desc':
+          'Use lightweight frosted materials without custom glass shaders',
+      'settings.glass.powerSaving': 'Power saving',
+      'settings.glass.powerSaving.desc':
+          'Use standard glass for navigation and the mini player; solid surfaces elsewhere',
+      'settings.glass.off': 'Off',
+      'settings.glass.off.desc':
+          'Disable glass effects and use solid control surfaces',
       'settings.theme': 'Theme',
       'settings.theme_accent': 'Accent',
       'settings.theme_accent.current': 'Current: {value}',

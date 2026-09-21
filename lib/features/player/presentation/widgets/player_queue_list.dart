@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../shared/widgets/glass_panel.dart';
 import '../../domain/entities/player_track.dart';
 
 class PlayerQueueList extends StatefulWidget {
@@ -114,12 +113,9 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     if (widget.queue.isEmpty) {
       return Center(
-        child: GlassPanel(
-          borderRadius: BorderRadius.circular(24),
-          tintColor: theme.colorScheme.surface.withValues(alpha: 0.52),
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Text(
             widget.emptyText ?? AppI18n.t(widget.config, 'player.queue.empty'),

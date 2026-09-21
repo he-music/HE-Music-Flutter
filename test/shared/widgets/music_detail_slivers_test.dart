@@ -1,9 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/music_detail_slivers.dart';
 
 void main() {
+  testWidgets('glass detail navigation remains interactive after collapsing', (
+    tester,
+  ) async {
+    var backed = false;
+    var favorited = false;
+    await tester.pumpWidget(
+      AppGlassScope(
+        enabled: true,
+        child: GlassAdaptiveScope(
+          minQuality: GlassQuality.minimal,
+          maxQuality: GlassQuality.minimal,
+          initialQuality: GlassQuality.minimal,
+          child: MaterialApp(
+            home: DetailPageShell(
+              child: CustomScrollView(
+                slivers: [
+                  MusicDetailSliverAppBar(
+                    title: 'Album',
+                    subtitle: 'Artist',
+                    coverUrl: '',
+                    description: '',
+                    onBack: () => backed = true,
+                    onShowDescription: () {},
+                    actions: [
+                      MusicDetailActionButton(
+                        icon: const Icon(Icons.favorite_border),
+                        tooltip: 'Favorite',
+                        onPressed: () => favorited = true,
+                      ),
+                    ],
+                  ),
+                  SliverList.builder(
+                    itemCount: 40,
+                    itemBuilder: (_, index) =>
+                        SizedBox(height: 60, child: Text('Track $index')),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(GlassScaffold), findsOneWidget);
+    expect(find.byType(GlassAppBar), findsOneWidget);
+    expect(find.byType(GlassIconButton), findsNWidgets(2));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Favorite'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(favorited, isTrue);
+    expect(backed, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('play all header shows batch actions in batch mode', (
     tester,
   ) async {

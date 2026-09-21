@@ -180,7 +180,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             description: description,
             metaItems: metaItems,
             actions: <Widget>[
-              IconButton(
+              MusicDetailActionButton(
                 onPressed: () => unawaited(
                   _togglePlaylistFavorite(
                     isFavorited,

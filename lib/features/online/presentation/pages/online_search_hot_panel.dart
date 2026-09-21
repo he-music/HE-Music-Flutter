@@ -28,7 +28,12 @@ class OnlineSearchHotPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      padding: EdgeInsets.fromLTRB(
+        2,
+        2,
+        2,
+        2 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: <Widget>[
         // 没有搜索历史且不在加载中时，隐藏整个历史栏目
         if (loadingHistory) ...<Widget>[

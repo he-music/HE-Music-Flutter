@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -989,7 +990,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
 
     // Modal route 位于视频页之上，弹层存续期间需要持续提供视频页的系统栏样式。
     Overlay.of(context, rootOverlay: true).insert(overlayEntry);
-    final sheetFuture = showModalBottomSheet<void>(
+    final sheetFuture = showAppThemedBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {

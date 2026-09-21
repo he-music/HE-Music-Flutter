@@ -6,6 +6,7 @@ class UnderlineTab extends StatelessWidget {
     required this.selected,
     required this.enabled,
     required this.onTap,
+    this.prominent = false,
     super.key,
   });
 
@@ -13,6 +14,7 @@ class UnderlineTab extends StatelessWidget {
   final bool selected;
   final bool enabled;
   final VoidCallback onTap;
+  final bool prominent;
 
   @override
   Widget build(BuildContext context) {
@@ -29,11 +31,20 @@ class UnderlineTab extends StatelessWidget {
           children: <Widget>[
             Text(
               label,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: !enabled
-                    ? theme.hintColor.withValues(alpha: 0.55)
-                    : (selected ? primary : normal),
-              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  (prominent
+                          ? theme.textTheme.titleLarge
+                          : theme.textTheme.titleSmall)
+                      ?.copyWith(
+                        fontWeight: prominent
+                            ? (selected ? FontWeight.w700 : FontWeight.w500)
+                            : null,
+                        color: !enabled
+                            ? theme.hintColor.withValues(alpha: 0.55)
+                            : (selected ? primary : normal),
+                      ),
             ),
             const SizedBox(height: 3),
             AnimatedContainer(

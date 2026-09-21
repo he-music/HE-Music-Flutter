@@ -1,5 +1,7 @@
+import '../../../../shared/constants/layout_tokens.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 
 class SettingsChoiceOption<T> {
@@ -8,12 +10,14 @@ class SettingsChoiceOption<T> {
     required this.title,
     this.subtitle,
     this.leading,
+    this.section,
   });
 
   final T value;
   final String title;
   final String? subtitle;
   final Widget? leading;
+  final String? section;
 }
 
 Future<void> showSettingsSingleChoiceSheet<T>({
@@ -40,7 +44,15 @@ Future<void> showSettingsSingleChoiceSheet<T>({
             child: ListView(
               shrinkWrap: true,
               children: <Widget>[
-                for (final option in options)
+                for (final option in options) ...[
+                  if (option.section != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                      child: Text(
+                        option.section!,
+                        style: Theme.of(sheetContext).textTheme.labelLarge,
+                      ),
+                    ),
                   ListTile(
                     leading: option.leading,
                     title: Text(option.title),
@@ -55,6 +67,7 @@ Future<void> showSettingsSingleChoiceSheet<T>({
                       Navigator.of(sheetContext).pop();
                     },
                   ),
+                ],
                 const SizedBox(height: 6),
               ],
             ),
@@ -65,9 +78,16 @@ Future<void> showSettingsSingleChoiceSheet<T>({
   }
 
   return playerStyled
-      ? showPlayerStyledBottomSheet<void>(context: context, builder: builder)
-      : showModalBottomSheet<void>(
+      ? showPlayerStyledBottomSheet<void>(
           context: context,
+          builder: builder,
+          fitContent: true,
+          heightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
+        )
+      : showAppThemedBottomSheet<void>(
+          context: context,
+          fitContent: true,
+          heightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
           showDragHandle: true,
           builder: builder,
         );

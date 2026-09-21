@@ -2,11 +2,13 @@ import '../widgets/lyric_storage_settings_tile.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/config/app_glass_mode.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/config/app_lyric_font_preset.dart';
 import '../../../../app/config/app_lyric_highlight_color.dart';
@@ -85,7 +87,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Widget _buildMobileHome(AppConfigState config) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: <Widget>[
         _buildSearchField(config),
         const SizedBox(height: 16),
@@ -173,7 +180,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _ensureHighlightedItemVisible();
     });
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: <Widget>[
         if (showSectionHeader) ...<Widget>[
           Text(
@@ -243,6 +255,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       SettingsItemIds.audioCacheLimit ||
       SettingsItemIds.clearAudioCache => AudioCacheSettingsTile(
         item: item,
+        highlighted: _highlightedItemId == item.id,
+      ),
+      SettingsItemIds.glassMode => SettingsSelectTile(
+        icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
+        title: AppI18n.t(config, item.titleKey),
+        subtitle: settingsItemSubtitle(item.id, config),
+        trailingText: AppI18n.t(
+          config,
+          'settings.glass.${config.glassMode.name}',
+        ),
+        onTap: _openGlassModeSheet,
         highlighted: _highlightedItemId == item.id,
       ),
       SettingsItemIds.themeMode => SettingsSelectTile(
@@ -626,7 +650,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final config = ref.read(appConfigProvider);
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => AppAlertDialog(
         title: Text(AppI18n.t(config, 'settings.logout.confirm.title')),
         content: Text(AppI18n.t(config, 'settings.logout.confirm.message')),
         actions: <Widget>[
@@ -653,6 +677,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
     AppMessageService.showSuccess(AppI18n.t(config, 'settings.logout.done'));
     context.go(AppRoutes.home);
+  }
+
+  Future<void> _openGlassModeSheet() {
+    final config = ref.read(appConfigProvider);
+    return showSettingsSingleChoiceSheet<AppGlassMode>(
+      context: context,
+      title: AppI18n.t(config, 'settings.glass'),
+      currentValue: config.glassMode,
+      options: [
+        for (final mode in AppGlassMode.values)
+          SettingsChoiceOption(
+            value: mode,
+            section: switch (mode) {
+              AppGlassMode.automatic => AppI18n.t(
+                config,
+                'settings.glass.quality',
+              ),
+              AppGlassMode.powerSaving => AppI18n.t(
+                config,
+                'settings.glass.optimization',
+              ),
+              _ => null,
+            },
+            title: AppI18n.t(config, 'settings.glass.${mode.name}'),
+            subtitle: AppI18n.t(config, 'settings.glass.${mode.name}.desc'),
+          ),
+      ],
+      onSelected: (mode) =>
+          ref.read(appConfigProvider.notifier).setGlassMode(mode),
+    );
   }
 
   Future<void> _openThemeModeSheet() {

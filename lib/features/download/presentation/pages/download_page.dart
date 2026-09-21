@@ -1,3 +1,4 @@
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -478,7 +479,7 @@ class _MoreButton extends StatelessWidget {
     String localeCode,
     TargetPlatform platform,
   ) async {
-    final selected = await showModalBottomSheet<String>(
+    final selected = await showAppThemedBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

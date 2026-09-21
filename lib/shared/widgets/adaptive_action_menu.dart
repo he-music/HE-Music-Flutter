@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+
+import '../../app/theme/glass/app_glass_scope.dart';
+import '../../app/theme/glass/app_glass_material.dart';
 
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
@@ -131,6 +135,9 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
       anchorContext: context,
       anchorPosition: _lastGlobalPosition,
     );
+    if (AppGlassScope.controlsEnabled(context)) {
+      return _showGlassContextMenu(context, position, widget.items);
+    }
     return showMenu<T>(
       context: context,
       position: position,
@@ -210,6 +217,9 @@ Future<T?> showAdaptiveActionMenu<T>({
       anchorContext: resolvedAnchorContext,
       anchorPosition: resolvedAnchorPosition,
     );
+    if (AppGlassScope.controlsEnabled(context)) {
+      return _showGlassContextMenu(context, position, items);
+    }
     return showMenu<T>(
       context: context,
       position: position,
@@ -237,6 +247,92 @@ Future<T?> showAdaptiveActionMenu<T>({
       density: mobileDensity,
     ),
   );
+}
+
+Future<T?> _showGlassContextMenu<T>(
+  BuildContext context,
+  RelativeRect position,
+  List<AdaptiveActionMenuItem<T>> items,
+) => showGeneralDialog<T>(
+  context: context,
+  useRootNavigator: false,
+  barrierColor: Colors.transparent,
+  barrierDismissible: true,
+  barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+  transitionDuration: Duration.zero,
+  pageBuilder: (context, animation, secondaryAnimation) =>
+      _GlassContextMenu<T>(position: position, items: items),
+);
+
+class _GlassContextMenu<T> extends StatefulWidget {
+  const _GlassContextMenu({required this.position, required this.items});
+
+  final RelativeRect position;
+  final List<AdaptiveActionMenuItem<T>> items;
+
+  @override
+  State<_GlassContextMenu<T>> createState() => _GlassContextMenuState<T>();
+}
+
+class _GlassContextMenuState<T> extends State<_GlassContextMenu<T>> {
+  final _controller = GlassMenuController();
+  bool _finished = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _controller.open();
+    });
+  }
+
+  void _finish([T? value]) {
+    if (_finished || !mounted) return;
+    _finished = true;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          Positioned(
+            left: widget.position.left,
+            top: widget.position.top,
+            child: GlassMenu(
+              controller: _controller,
+              trigger: const SizedBox(width: 1, height: 1),
+              morphFromZero: true,
+              menuPadding:
+                  MediaQuery.paddingOf(context) + const EdgeInsets.all(8),
+              settings: AppGlassMaterial.sheetFor(context),
+              quality: AppGlassScope.qualityOf(context),
+              onClose: _finish,
+              items: [
+                for (final item in widget.items) ...[
+                  if (item.startsNewSection) const GlassMenuDivider(),
+                  GlassMenuItem(
+                    key: item.key,
+                    title: item.label,
+                    enabled: item.enabled,
+                    isDestructive: item.destructive,
+                    icon: item.iconRole != null
+                        ? AppSkinIcon(role: item.iconRole!)
+                        : item.icon == null
+                        ? null
+                        : Icon(item.icon),
+                    onTap: () => _finish(item.value),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ActionMenuLabel<T> extends StatelessWidget {

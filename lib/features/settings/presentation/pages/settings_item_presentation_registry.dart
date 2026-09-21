@@ -19,6 +19,10 @@ class SettingsItemPresentation {
 
 final Map<String, SettingsItemPresentation> settingsItemPresentations =
     <String, SettingsItemPresentation>{
+      SettingsItemIds.glassMode: SettingsItemPresentation(
+        subtitleBuilder: (config) =>
+            AppI18n.t(config, 'settings.glass.${config.glassMode.name}.desc'),
+      ),
       SettingsItemIds.themeMode: SettingsItemPresentation(
         subtitleBuilder: (config) => _themeModeLabel(config.themeMode, config),
       ),

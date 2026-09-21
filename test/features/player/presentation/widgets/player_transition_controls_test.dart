@@ -86,7 +86,7 @@ void main() {
     );
   });
 
-  testWidgets('primary playback control stays borderless under scene palette', (
+  testWidgets('playback controls use scene contrast and primary emphasis', (
     tester,
   ) async {
     const palette = PlayerScenePalette(
@@ -128,23 +128,26 @@ void main() {
 
     expect(
       _button(tester, Icons.repeat_rounded).color,
-      Colors.white.withValues(alpha: 0.84),
+      palette.secondaryForeground,
     );
     expect(
       _button(tester, Icons.queue_music_rounded).color,
-      Colors.white.withValues(alpha: 0.84),
+      palette.secondaryForeground,
     );
-    expect(_button(tester, Icons.skip_previous_rounded).color, Colors.white);
-    expect(_button(tester, Icons.skip_next_rounded).color, Colors.white);
+    expect(
+      _button(tester, Icons.skip_previous_rounded).color,
+      palette.foreground,
+    );
+    expect(_button(tester, Icons.skip_next_rounded).color, palette.foreground);
 
     final playButton = _button(tester, Icons.play_arrow_rounded);
     expect(
       playButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
-      Colors.white,
+      palette.surfaceDeep,
     );
     expect(
       playButton.style?.backgroundColor?.resolve(const <WidgetState>{}),
-      Colors.transparent,
+      palette.foreground,
     );
   });
 

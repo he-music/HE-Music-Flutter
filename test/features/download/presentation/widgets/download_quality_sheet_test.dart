@@ -195,9 +195,22 @@ void main() {
     );
     final mediaHeight = MediaQuery.sizeOf(tester.element(listFinder)).height;
     expect(
-      tester.getSize(listFinder).height,
+      tester.getSize(find.byType(BottomSheet)).height,
       closeTo(mediaHeight * LayoutTokens.actionSheetMaxHeightFactor, 0.1),
     );
+    expect(
+      tester.getSize(listFinder).height,
+      lessThan(mediaHeight * LayoutTokens.actionSheetMaxHeightFactor),
+    );
+    await tester.scrollUntilVisible(
+      find.text('Q13'),
+      160,
+      scrollable: find.descendant(
+        of: listFinder,
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.text('Q13').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

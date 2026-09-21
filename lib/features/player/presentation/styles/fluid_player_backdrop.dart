@@ -7,16 +7,21 @@ import '../../../../shared/image/image_color_extractor.dart';
 
 /// 使用封面原始色调生成持续流动的播放器背景。
 class FluidPlayerBackdrop extends StatefulWidget {
-  const FluidPlayerBackdrop({required this.imageProvider, super.key});
+  const FluidPlayerBackdrop({
+    required this.imageProvider,
+    this.active = true,
+    super.key,
+  });
 
   final ImageProvider<Object>? imageProvider;
+  final bool active;
 
   @override
   State<FluidPlayerBackdrop> createState() => _FluidPlayerBackdropState();
 }
 
 class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const Duration _paletteTransitionDuration = Duration(
     milliseconds: 900,
   );
@@ -32,6 +37,11 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
     value: 0.17,
   );
 
+  final _motionProgress = ValueNotifier<double>(0.17);
+  Duration? _lastMotionFrame;
+  bool _foreground = true;
+  bool _tickerEnabled = true;
+
   int _paletteGeneration = 0;
   int _paletteVersion = 0;
   bool? _animationsDisabled;
@@ -41,25 +51,55 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+    _motionController.addListener(_publishMotionFrame);
     _refreshPalette();
+  }
+
+  void _publishMotionFrame() {
+    final elapsed = _motionController.lastElapsedDuration ?? Duration.zero;
+    if (_lastMotionFrame != null &&
+        elapsed - _lastMotionFrame! < const Duration(milliseconds: 33)) {
+      return;
+    }
+    _lastMotionFrame = elapsed;
+    _motionProgress.value = _motionController.value;
+  }
+
+  void _syncMotion() {
+    final animate =
+        widget.active &&
+        _foreground &&
+        _tickerEnabled &&
+        !(_animationsDisabled ?? false);
+    if (animate && !_motionController.isAnimating) {
+      _lastMotionFrame = null;
+      _motionController.repeat();
+    } else if (!animate) {
+      _motionController.stop();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _syncMotion();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animationsDisabled = MediaQuery.disableAnimationsOf(context);
-    if (_animationsDisabled == animationsDisabled) return;
-    _animationsDisabled = animationsDisabled;
-    if (animationsDisabled) {
-      _motionController.stop();
-    } else {
-      _motionController.repeat();
-    }
+    _animationsDisabled = MediaQuery.disableAnimationsOf(context);
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _syncMotion();
   }
 
   @override
   void didUpdateWidget(covariant FluidPlayerBackdrop oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _syncMotion();
     if (oldWidget.imageProvider != widget.imageProvider) {
       _refreshPalette();
     }
@@ -67,7 +107,9 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _motionController.dispose();
+    _motionProgress.dispose();
     super.dispose();
   }
 
@@ -125,7 +167,7 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
             IgnorePointer(
               child: RepaintBoundary(
                 child: AnimatedBuilder(
-                  animation: _motionController,
+                  animation: _motionProgress,
                   builder: (context, child) {
                     return MeshGradient(
                       key: ValueKey<String>(
@@ -134,7 +176,7 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
                       ),
                       points: _buildFluidMeshPoints(
                         palette,
-                        _motionController.value,
+                        _motionProgress.value,
                       ),
                       options: _meshOptions,
                       child: child,

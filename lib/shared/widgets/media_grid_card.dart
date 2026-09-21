@@ -51,6 +51,9 @@ class MediaGridCard extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(
+            _mediaGridCardRadius + _mediaGridCardPadding,
+          ),
           color: selected ? selectedBackground : Colors.transparent,
           border: selected
               ? Border.all(color: selectedBorder)
@@ -59,6 +62,9 @@ class MediaGridCard extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            borderRadius: BorderRadius.circular(
+              _mediaGridCardRadius + _mediaGridCardPadding,
+            ),
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.all(_mediaGridCardPadding),

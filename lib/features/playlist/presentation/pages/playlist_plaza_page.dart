@@ -1,3 +1,4 @@
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -202,15 +203,12 @@ class _PlaylistPlazaPageState extends ConsumerState<PlaylistPlazaPage> {
         ref.read(playlistPlazaControllerProvider.notifier).selectCategory(id);
       },
     );
-    return showModalBottomSheet<void>(
+    return showAppThemedBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      fixedHeightFactor: 0.82,
       showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: FractionallySizedBox(heightFactor: 0.82, child: content),
-        );
-      },
+      builder: (context) => SafeArea(child: content),
     );
   }
 }
@@ -391,7 +389,12 @@ class _PlaylistPlazaBody extends StatelessWidget {
         );
         return GridView.builder(
           controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            12,
+            12,
+            18 + MediaQuery.paddingOf(context).bottom,
+          ),
           gridDelegate: spec.sliverDelegate,
           itemCount: state.playlists.length + (showTail ? 1 : 0),
           itemBuilder: (context, index) {

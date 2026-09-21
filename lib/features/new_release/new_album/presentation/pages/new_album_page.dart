@@ -149,7 +149,12 @@ class _NewAlbumBody extends ConsumerWidget {
         final showFooter = state.loadingMore || !state.hasMore;
         return GridView.builder(
           controller: scrollController,
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            12,
+            12,
+            12 + MediaQuery.paddingOf(context).bottom,
+          ),
           gridDelegate: spec.sliverDelegate,
           itemCount: state.albums.length + (showFooter ? 1 : 0),
           itemBuilder: (context, index) {

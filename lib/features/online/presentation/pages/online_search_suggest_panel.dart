@@ -34,7 +34,12 @@ class OnlineSearchSuggestPanel extends StatelessWidget {
     }
     final displayed = suggestions.take(18).toList(growable: false);
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+      padding: EdgeInsets.fromLTRB(
+        2,
+        0,
+        2,
+        MediaQuery.paddingOf(context).bottom,
+      ),
       itemCount: displayed.length,
       itemBuilder: (context, index) {
         final keyword = displayed[index];

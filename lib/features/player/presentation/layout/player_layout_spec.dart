@@ -81,8 +81,10 @@ class PlayerLayoutSpec {
           ? 24
           : mode == PlayerLayoutMode.mobileLandscape
           ? 4
-          : 12,
-      verticalGap: isShort ? 4 : 8,
+          : width <= 340
+          ? 12
+          : 20,
+      verticalGap: isShort ? 4 : 12,
       artistSlotWidth: mode == PlayerLayoutMode.desktop
           ? 220
           : mode == PlayerLayoutMode.mobileLandscape

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/constants/layout_tokens.dart';
 import 'player_queue_panel_content.dart';
 
 class PlayerQueueSheet extends StatelessWidget {
@@ -9,13 +8,9 @@ class PlayerQueueSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SizedBox(
-        height:
-            MediaQuery.of(context).size.height *
-            LayoutTokens.actionSheetMaxHeightFactor,
-        child: PlayerQueuePanelContent(
-          onRequestDismiss: () => Navigator.of(context).pop(),
-        ),
+      // The route owns height so the list fills both glass and solid sheets.
+      child: PlayerQueuePanelContent(
+        onRequestDismiss: () => Navigator.of(context).pop(),
       ),
     );
   }

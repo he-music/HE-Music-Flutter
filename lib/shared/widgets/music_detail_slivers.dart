@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+
+import '../../app/theme/glass/app_glass_material.dart';
+import '../../app/theme/glass/app_glass_scope.dart';
 
 import 'app_network_image.dart';
 import 'package:flutter/services.dart';
@@ -40,6 +44,7 @@ class MusicDetailSliverAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final glassEnabled = AppGlassScope.controlsEnabled(context);
     return SliverAppBar(
       pinned: true,
       expandedHeight: expandedHeight,
@@ -107,58 +112,126 @@ class MusicDetailSliverAppBar extends StatelessWidget {
                   top: 0,
                   left: 0,
                   right: 0,
-                  child: Container(
-                    color: toolbarBg,
-                    child: SafeArea(
-                      bottom: false,
-                      child: SizedBox(
-                        height: kToolbarHeight,
-                        child: Row(
-                          children: <Widget>[
-                            AppBackButton(
-                              onPressed: onBack,
-                              iconColor: iconColor,
+                  child: glassEnabled
+                      ? GlassAppBar(
+                          toolbarHeight: kToolbarHeight,
+                          centerTitle: false,
+                          backgroundColor: toolbarBg,
+                          buttonSettings: AppGlassMaterial.settings(
+                            context,
+                            navigation: true,
+                          ),
+                          leading: MusicDetailActionButton(
+                            onPressed: onBack,
+                            tooltip: AppI18n.tByLocaleCode(
+                              Localizations.localeOf(context).languageCode,
+                              'common.back',
                             ),
-                            Expanded(
-                              child: IgnorePointer(
-                                ignoring: collapsedTitleOpacity <= 0,
-                                child: Opacity(
-                                  opacity: collapsedTitleOpacity,
-                                  child: Text(
-                                    key: const ValueKey<String>(
-                                      'music-detail-collapsed-title',
-                                    ),
-                                    title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w500,
-                                          color: titleColor,
-                                        ),
+                            icon: const AppSkinIcon(role: AppSkinIconRole.back),
+                          ),
+                          title: IgnorePointer(
+                            ignoring: collapsedTitleOpacity <= 0,
+                            child: Opacity(
+                              opacity: collapsedTitleOpacity,
+                              child: Text(
+                                key: const ValueKey<String>(
+                                  'music-detail-collapsed-title',
+                                ),
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: titleColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                          actions: actions,
+                        )
+                      : Container(
+                          color: toolbarBg,
+                          child: SafeArea(
+                            bottom: false,
+                            child: SizedBox(
+                              height: kToolbarHeight,
+                              child: Row(
+                                children: <Widget>[
+                                  AppBackButton(
+                                    onPressed: onBack,
+                                    iconColor: iconColor,
                                   ),
-                                ),
+                                  Expanded(
+                                    child: IgnorePointer(
+                                      ignoring: collapsedTitleOpacity <= 0,
+                                      child: Opacity(
+                                        opacity: collapsedTitleOpacity,
+                                        child: Text(
+                                          key: const ValueKey<String>(
+                                            'music-detail-collapsed-title',
+                                          ),
+                                          title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w500,
+                                                color: titleColor,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (actions != null)
+                                    IconTheme.merge(
+                                      data: IconThemeData(color: iconColor),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: actions!,
+                                      ),
+                                    ),
+                                  const SizedBox(width: 6),
+                                ],
                               ),
                             ),
-                            if (actions != null)
-                              IconTheme.merge(
-                                data: IconThemeData(color: iconColor),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: actions!,
-                                ),
-                              ),
-                            const SizedBox(width: 6),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
                 ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Native navigation control on glass pages, retaining the skin fallback.
+/// The app bar is a layout container, so each control owns just one glass layer.
+class MusicDetailActionButton extends StatelessWidget {
+  const MusicDetailActionButton({
+    required this.icon,
+    required this.onPressed,
+    required this.tooltip,
+    super.key,
+  });
+
+  final Widget icon;
+  final VoidCallback? onPressed;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AppGlassScope.controlsEnabled(context)) {
+      return IconButton(icon: icon, onPressed: onPressed, tooltip: tooltip);
+    }
+    return Tooltip(
+      message: tooltip,
+      child: GlassIconButton(
+        icon: icon,
+        onPressed: onPressed,
+        semanticLabel: tooltip,
+        quality: AppGlassScope.qualityOf(context),
       ),
     );
   }

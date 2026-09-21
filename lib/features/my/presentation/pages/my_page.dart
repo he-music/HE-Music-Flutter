@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -173,7 +174,7 @@ class _MyPageState extends ConsumerState<MyPage> {
             LayoutTokens.compactPageGutter,
             topInset + 8,
             LayoutTokens.compactPageGutter,
-            24,
+            24 + MediaQuery.paddingOf(context).bottom,
           ),
           children: <Widget>[
             header,
@@ -230,7 +231,7 @@ class _MyPageState extends ConsumerState<MyPage> {
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
+        return AppAlertDialog(
           title: Text(AppI18n.t(config, 'my.playlist.create.title')),
           content: TextField(
             autofocus: true,

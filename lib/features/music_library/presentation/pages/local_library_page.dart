@@ -3,6 +3,11 @@ import 'dart:io' show File, FileSystemException, Platform;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import '../../../../app/theme/glass/app_glass_scope.dart';
+import '../../../../app/theme/glass/app_glass_material.dart';
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -206,7 +211,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppAlertDialog(
         title: Text(
           AppI18n.tByLocaleCode(localeCode, 'local.clear_dialog.title'),
         ),
@@ -241,7 +246,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     String localeCode,
     WidgetRef ref,
   ) {
-    showModalBottomSheet<void>(
+    showAppThemedBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -643,6 +648,32 @@ class _SongList extends StatelessWidget {
   }
 
   Widget _buildSortButton(BuildContext context) {
+    if (AppGlassScope.controlsEnabled(context)) {
+      return GlassMenu(
+        settings: AppGlassMaterial.sheetFor(context),
+        quality: AppGlassScope.qualityOf(context),
+        triggerBuilder: (context, toggle) => IconButton(
+          tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+          onPressed: toggle,
+          icon: Icon(
+            sortAscending
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded,
+            size: 20,
+          ),
+        ),
+        items: [
+          for (final sort in SongSortBy.values)
+            GlassMenuItem(
+              title: sort.label,
+              trailing: sortBy == sort
+                  ? const Icon(Icons.check_rounded, size: 18)
+                  : null,
+              onTap: () => onSortChanged(sort),
+            ),
+        ],
+      );
+    }
     return PopupMenuButton<SongSortBy>(
       icon: Icon(
         sortAscending
@@ -1163,7 +1194,7 @@ class _FolderManagerViewState extends ConsumerState<_FolderManagerView> {
         context: context,
         builder: (context) {
           final controller = TextEditingController();
-          return AlertDialog(
+          return AppAlertDialog(
             title: Text(
               AppI18n.tByLocaleCode(widget.localeCode, 'local.folder.add'),
             ),
@@ -1211,7 +1242,7 @@ class _FolderManagerViewState extends ConsumerState<_FolderManagerView> {
   Future<void> _confirmDelete(ScanFolder folder) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppAlertDialog(
         title: Text(
           AppI18n.tByLocaleCode(widget.localeCode, 'local.folder.delete'),
         ),

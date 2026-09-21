@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
@@ -10,6 +13,106 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 
 void main() {
+  for (final mode in [AppGlassMode.powerSaving, AppGlassMode.off]) {
+    testWidgets(
+      '$mode player sheet uses an opaque surface and preserves result',
+      (tester) async {
+        int? result;
+        await tester.pumpWidget(
+          AppGlassScope(
+            enabled: mode != AppGlassMode.off,
+            mode: mode,
+            child: MaterialApp(
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () async {
+                      result = await showPlayerStyledBottomSheet<int>(
+                        context: context,
+                        builder: (context) => TextButton(
+                          onPressed: () => Navigator.pop(context, 7),
+                          child: const Text('Select solid'),
+                        ),
+                      );
+                    },
+                    child: const Text('Open solid'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open solid'));
+        await tester.pumpAndSettle();
+        expect(find.byType(GlassModalSheet), findsNothing);
+        expect(find.byType(BackdropFilter), findsNothing);
+        final surface = tester.widget<ColoredBox>(
+          find.descendant(
+            of: find.byType(PlayerSheetSurface),
+            matching: find.byType(ColoredBox),
+          ),
+        );
+        expect(surface.color.a, 1);
+        await tester.tap(find.text('Select solid'));
+        await tester.pumpAndSettle();
+        expect(result, 7);
+      },
+    );
+  }
+
+  testWidgets('glass player sheet preserves result and avoids opaque nesting', (
+    tester,
+  ) async {
+    int? result;
+    await tester.pumpWidget(
+      AppGlassScope(
+        enabled: true,
+        child: GlassAdaptiveScope(
+          minQuality: GlassQuality.minimal,
+          maxQuality: GlassQuality.minimal,
+          initialQuality: GlassQuality.minimal,
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () async {
+                    result = await showPlayerStyledBottomSheet<int>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (context) => ListView(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, 7),
+                            child: const Text('Select'),
+                          ),
+                          for (var i = 0; i < 40; i++)
+                            ListTile(title: Text('Track $i')),
+                        ],
+                      ),
+                    );
+                  },
+                  child: const Text('Open glass'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open glass'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GlassModalSheet), findsOneWidget);
+    expect(find.byType(PlayerSheetSurface), findsNothing);
+    final sheet = tester.widget<GlassModalSheet>(find.byType(GlassModalSheet));
+    expect(sheet.detents, {GlassSheetDetent.medium});
+    expect(sheet.halfSize, 0.72);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    expect(result, 7);
+    expect(find.byType(GlassModalSheet), findsNothing);
+  });
+
   testWidgets(
     'player sheet preserves result, colors, and system overlay style',
     (tester) async {

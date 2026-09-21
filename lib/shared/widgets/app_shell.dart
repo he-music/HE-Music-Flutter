@@ -7,8 +7,10 @@ import '../../../app/i18n/app_i18n.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/skin/app_skin_icon.dart';
 import '../../../app/theme/skin/app_skin_models.dart';
-import '../../../app/theme/skin/app_skin_surface.dart';
+import '../../../app/theme/glass/app_glass_scope.dart';
 import '../../../app/theme/skin/app_skin_theme.dart';
+import 'app_glass_navigation_bar.dart';
+import 'app_glass_player_scaffold.dart';
 import '../../../features/player/presentation/widgets/mini_player_bar.dart';
 
 /// 应用级 Shell：所有窗口尺寸统一使用手机端布局。
@@ -36,62 +38,79 @@ class _MobileLayout extends ConsumerWidget {
     final localeCode = ref.watch(
       appConfigProvider.select((state) => state.localeCode),
     );
-    // 固定全局底栏；需要避让键盘的页面由内部 Scaffold 自行处理。
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: Column(
-        children: <Widget>[
-          Expanded(child: navigationShell),
-          MiniPlayerBar(onOpenFullPlayer: () => context.push(AppRoutes.player)),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-          child: AppSkinSurface(
-            role: AppSkinSurfaceRole.navigation,
-            child: NavigationBar(
-              selectedIndex: navigationShell.currentIndex == _myIndex ? 1 : 0,
-              backgroundColor: Colors.transparent,
-              onDestinationSelected: (index) {
-                final branchIndex = index == 0 ? _homeIndex : _myIndex;
-                navigationShell.goBranch(
-                  branchIndex,
-                  initialLocation: branchIndex == navigationShell.currentIndex,
-                );
-                GoRouter.of(
-                  context,
-                ).go(branchIndex == _homeIndex ? AppRoutes.home : AppRoutes.my);
-              },
-              destinations: <NavigationDestination>[
-                NavigationDestination(
-                  icon: const _NavigationIcon(
-                    role: AppSkinIconRole.navigationHome,
-                    selected: false,
-                  ),
-                  selectedIcon: const _NavigationIcon(
-                    role: AppSkinIconRole.navigationHomeSelected,
-                    selected: true,
-                  ),
-                  label: AppI18n.tByLocaleCode(localeCode, 'tab.home'),
+    final glassEnabled = AppGlassScope.isEnabled(context);
+    final miniPlayer = MiniPlayerBar(
+      onOpenFullPlayer: () => context.push(AppRoutes.player),
+    );
+    final navigation = SafeArea(
+      top: false,
+      bottom: !glassEnabled,
+      maintainBottomViewPadding: !glassEnabled,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          glassEnabled ? 16 : 12,
+          0,
+          glassEnabled ? 16 : 12,
+          4,
+        ),
+        child: AppGlassNavigationBar(
+          child: NavigationBar(
+            selectedIndex: navigationShell.currentIndex == _myIndex ? 1 : 0,
+            backgroundColor: Colors.transparent,
+            onDestinationSelected: (index) {
+              final branchIndex = index == 0 ? _homeIndex : _myIndex;
+              navigationShell.goBranch(
+                branchIndex,
+                initialLocation: branchIndex == navigationShell.currentIndex,
+              );
+              GoRouter.of(
+                context,
+              ).go(branchIndex == _homeIndex ? AppRoutes.home : AppRoutes.my);
+            },
+            destinations: <NavigationDestination>[
+              NavigationDestination(
+                icon: const _NavigationIcon(
+                  role: AppSkinIconRole.navigationHome,
+                  selected: false,
                 ),
-                NavigationDestination(
-                  icon: const _NavigationIcon(
-                    role: AppSkinIconRole.navigationMy,
-                    selected: false,
-                  ),
-                  selectedIcon: const _NavigationIcon(
-                    role: AppSkinIconRole.navigationMySelected,
-                    selected: true,
-                  ),
-                  label: AppI18n.tByLocaleCode(localeCode, 'tab.my'),
+                selectedIcon: const _NavigationIcon(
+                  role: AppSkinIconRole.navigationHomeSelected,
+                  selected: true,
                 ),
-              ],
-            ),
+                label: AppI18n.tByLocaleCode(localeCode, 'tab.home'),
+              ),
+              NavigationDestination(
+                icon: const _NavigationIcon(
+                  role: AppSkinIconRole.navigationMy,
+                  selected: false,
+                ),
+                selectedIcon: const _NavigationIcon(
+                  role: AppSkinIconRole.navigationMySelected,
+                  selected: true,
+                ),
+                label: AppI18n.tByLocaleCode(localeCode, 'tab.my'),
+              ),
+            ],
           ),
         ),
       ),
+    );
+    if (glassEnabled) {
+      return AppGlassPlayerScaffold(
+        body: navigationShell,
+        miniPlayer: miniPlayer,
+        navigation: navigation,
+      );
+    }
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      body: Column(
+        children: [
+          Expanded(child: navigationShell),
+          miniPlayer,
+        ],
+      ),
+      bottomNavigationBar: navigation,
     );
   }
 }
@@ -107,6 +126,8 @@ class _NavigationIcon extends StatelessWidget {
     final skinTheme = Theme.of(context).extension<AppSkinTheme>();
     final showLine =
         selected &&
+        (!AppGlassScope.isEnabled(context) ||
+            MediaQuery.highContrastOf(context)) &&
         skinTheme != null &&
         !skinTheme.config.geometry.showNavigationIndicatorPill;
     return SizedBox(

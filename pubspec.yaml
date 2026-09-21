@@ -20,6 +20,7 @@ version: 1.0.12+2
 
 environment:
   sdk: ^3.11.0
+  flutter: '>=3.41.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -83,6 +84,7 @@ dependencies:
   image: ^4.9.2
   flutter_markdown_plus: ^1.0.12
   connectivity_plus: ^7.3.1
+  liquid_glass_widgets: ^1.6.1
 
 dev_dependencies:
   flutter_test:

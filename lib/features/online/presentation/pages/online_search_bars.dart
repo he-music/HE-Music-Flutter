@@ -56,10 +56,7 @@ class SearchTopBox extends StatelessWidget {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: borderRadius,
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.22),
-                      width: 1,
-                    ),
+                    borderSide: BorderSide.none,
                   ),
                   prefixIcon: AppSkinIcon(
                     role: AppSkinIconRole.search,
@@ -73,9 +70,13 @@ class SearchTopBox extends StatelessWidget {
                   suffixIcon: value.text.trim().isEmpty
                       ? null
                       : IconButton(
+                          tooltip: MaterialLocalizations.of(
+                            context,
+                          ).deleteButtonTooltip,
                           onPressed: () {
                             controller.clear();
                             onChanged('');
+                            focusNode?.requestFocus();
                           },
                           icon: AppSkinIcon(
                             role: AppSkinIconRole.close,

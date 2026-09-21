@@ -1,3 +1,5 @@
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
@@ -12,7 +14,8 @@ Future<void> showUpdateAvailableReleaseSheet({
   required String? downloadUrl,
   required Future<void> Function(String rawUrl) onOpenUrl,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppThemedBottomSheet<void>(
+    fixedHeightFactor: LayoutTokens.contentSheetHeightFactor,
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

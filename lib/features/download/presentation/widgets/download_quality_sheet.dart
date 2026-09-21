@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_theme.dart';
 import '../../../../shared/constants/layout_tokens.dart';
@@ -80,13 +81,15 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
     return showPlayerStyledBottomSheet<PlayerQualityOption>(
       context: context,
       isScrollControlled: true,
+      fitContent: true,
+      heightFactor: LayoutTokens.actionSheetMaxHeightFactor,
       builder: buildSheet,
     );
   }
-  return showModalBottomSheet<PlayerQualityOption>(
+  return showAppThemedBottomSheet<PlayerQualityOption>(
     context: context,
-    useRootNavigator: true,
-    showDragHandle: true,
+    heightFactor: LayoutTokens.actionSheetMaxHeightFactor,
+    fitContent: true,
     isScrollControlled: true,
     builder: buildSheet,
   );

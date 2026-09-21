@@ -96,13 +96,15 @@ class _VinylPlayerStageState extends ConsumerState<VinylPlayerStage>
                     turns: _rotationController,
                     child: SizedBox.square(
                       dimension: recordSize,
-                      child: CustomPaint(
-                        painter: const VinylRecordPainter(),
-                        child: Center(
-                          child: _VinylCenterLabel(
-                            size: recordSize * 0.68,
-                            trackId: _displayedTrack?.id ?? 'empty',
-                            imageProvider: imageProvider,
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: const VinylRecordPainter(),
+                          child: Center(
+                            child: _VinylCenterLabel(
+                              size: recordSize * 0.68,
+                              trackId: _displayedTrack?.id ?? 'empty',
+                              imageProvider: imageProvider,
+                            ),
                           ),
                         ),
                       ),

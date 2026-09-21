@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
@@ -235,6 +236,52 @@ void main() {
       config.cellularOnlineAudioQualityPreference,
       AppOnlineAudioQuality.mp3128,
     );
+  });
+
+  testWidgets('glass preference can be changed from appearance settings', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(_buildSettingsApp(container: container));
+    await tester.pump();
+    await tester.tap(find.text('外观'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('玻璃效果'));
+    await tester.pumpAndSettle();
+    expect(find.text('玻璃质量'), findsOneWidget);
+    expect(find.text('高'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('省电'),
+      150,
+      scrollable: find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.text('应用优化'), findsOneWidget);
+    await tester.tap(find.text('省电'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(appConfigProvider).glassMode,
+      AppGlassMode.powerSaving,
+    );
+    await tester.tap(find.text('玻璃效果'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('关闭'),
+      150,
+      scrollable: find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+    expect(container.read(appConfigProvider).glassMode, AppGlassMode.off);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('mobile appearance section shows grouped settings', (

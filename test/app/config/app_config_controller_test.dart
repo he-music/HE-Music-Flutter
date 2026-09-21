@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -60,6 +61,23 @@ void main() {
       expect(dataSource.saved.themeAccent, AppThemeAccent.rose);
     },
   );
+
+  test('glass mode hydrates and persists without changing the skin', () async {
+    final source = _RecordingAppConfigDataSource(
+      AppConfigState.initial.copyWith(glassMode: AppGlassMode.off),
+    );
+    final container = ProviderContainer(
+      overrides: [appConfigDataSourceProvider.overrideWithValue(source)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(appConfigProvider.notifier);
+    await controller.waitUntilHydrated();
+    expect(container.read(appConfigProvider).glassMode, AppGlassMode.off);
+    controller.setGlassMode(AppGlassMode.powerSaving);
+    await Future<void>.delayed(Duration.zero);
+    expect(source.saved.glassMode, AppGlassMode.powerSaving);
+    expect(source.saved.skinId, AppConfigState.initial.skinId);
+  });
 
   test('controller persists global skin display preferences', () async {
     final dataSource = _RecordingAppConfigDataSource(AppConfigState.initial);

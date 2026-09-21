@@ -137,7 +137,10 @@ class _OnlineSearchResultListState
     final showFooter = widget.loadingMore || !widget.hasMore;
     return ListView.separated(
       controller: _commonScrollController,
-      padding: const EdgeInsets.only(top: 2, bottom: 4),
+      padding: EdgeInsets.only(
+        top: 2,
+        bottom: 4 + MediaQuery.paddingOf(context).bottom,
+      ),
       itemCount: widget.results.length + (showFooter ? 1 : 0),
       separatorBuilder: (context, index) {
         if (showFooter && index == widget.results.length - 1) {
@@ -253,7 +256,10 @@ class _SearchResultSkeletonList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.only(top: 2, bottom: 4),
+      padding: EdgeInsets.only(
+        top: 2,
+        bottom: 4 + MediaQuery.paddingOf(context).bottom,
+      ),
       itemCount: 8,
       separatorBuilder: (context, index) => const SizedBox(height: 2),
       itemBuilder: (context, index) {

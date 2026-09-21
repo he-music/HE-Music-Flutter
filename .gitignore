@@ -60,4 +60,8 @@ app.*.map.json
 .codex
 .trellis/
 .superpowers
-/docs
+/docs/*
+!/docs/adr/
+/docs/adr/*
+!/docs/adr/0009-use-liquid-glass-as-control-surface.md
+!/docs/liquid-glass-acceptance.md

@@ -213,8 +213,8 @@ void main() {
 
       expect(pagerRect.left, 0);
       expect(pagerRect.right, 430);
-      expect(contentRect.left, 12);
-      expect(contentRect.right, 418);
+      expect(contentRect.left, 20);
+      expect(contentRect.right, 410);
     },
   );
 
@@ -686,8 +686,12 @@ void main() {
     );
     final mediaHeight = MediaQuery.sizeOf(tester.element(listFinder)).height;
     expect(
+      tester.getSize(find.byType(BottomSheet)).height,
+      closeTo(mediaHeight * LayoutTokens.playerActionSheetHeightFactor, 0.1),
+    );
+    expect(
       tester.getSize(listFinder).height,
-      closeTo(mediaHeight * LayoutTokens.actionSheetMaxHeightFactor, 0.1),
+      lessThan(mediaHeight * LayoutTokens.playerActionSheetHeightFactor),
     );
   });
 

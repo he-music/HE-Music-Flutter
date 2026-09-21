@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
@@ -383,7 +384,12 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
       child: ListView.separated(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        padding: EdgeInsets.fromLTRB(
+          12,
+          8,
+          12,
+          12 + MediaQuery.paddingOf(context).bottom,
+        ),
         itemCount: _comments.length + 1,
         separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
@@ -509,10 +515,9 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
     if (parentId.isEmpty) {
       return;
     }
-    showModalBottomSheet<void>(
+    showAppThemedBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
+      fixedHeightFactor: LayoutTokens.contentSheetHeightFactor,
       builder: (context) => _ReplySheet(
         resourceId: widget.resourceId,
         resourceType: widget.resourceType,
@@ -973,8 +978,7 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
     final totalReplyCount = _asInt(widget.parentComment['reply_count']);
     final parentAuthor = _commentAuthor(widget.parentComment);
     return SafeArea(
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.72,
+      child: SizedBox.expand(
         child: Column(
           children: <Widget>[
             Padding(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app_glass_mode.dart';
 import 'app_lyric_auxiliary_mode.dart';
 import '../../core/network/token_refresh_interceptor.dart';
 import '../../core/audio/cache/audio_cache_policy.dart';
@@ -38,6 +39,10 @@ class AppConfigController extends Notifier<AppConfigState> {
       AppThemeMode.dark => AppThemeMode.system,
     };
     _update(state.copyWith(themeMode: next));
+  }
+
+  void setGlassMode(AppGlassMode mode) {
+    _update(state.copyWith(glassMode: mode));
   }
 
   void setThemeMode(AppThemeMode mode) {
@@ -323,6 +328,7 @@ class AppConfigController extends Notifier<AppConfigState> {
     final accessToken = globalTokenHolder.accessToken ?? loaded.authToken;
     final refreshToken = globalTokenHolder.refreshToken ?? loaded.refreshToken;
     state = state.copyWith(
+      glassMode: loaded.glassMode,
       themeMode: loaded.themeMode,
       themeAccent: loaded.themeAccent,
       skinId: skinId,

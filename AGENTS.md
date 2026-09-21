@@ -20,6 +20,15 @@
 ## 编码风格与命名约定
 遵循 `analysis_options.yaml` 中启用的 `flutter_lints` 规则。Dart 代码使用标准 2 空格缩进。文件名保持 `snake_case.dart`，类、枚举和类型别名使用 `UpperCamelCase`，方法、变量和 provider 使用 `lowerCamelCase`。保持现有的 feature-first 结构，优先沿用当前 Riverpod、GoRouter 和 repository 模式，不要额外引入平行抽象层。
 
+## 液态玻璃开发与审查
+
+后续凡涉及 `liquid_glass_widgets`、液态玻璃 UI 或 `Glass*` 组件的开发、重构和审查，必须先读取并遵循 [liquid-glass-widgets skill](.pi/skills/liquid-glass-widgets/SKILL.md)。审查已有改动时也必须使用该 skill。
+
+- 以官方样例和当前依赖版本的公共 API 为依据，不凭印象自创材质参数或用普通组件包一层玻璃替代原生玻璃组件。
+- 玻璃导航及浮动表面页面使用 `GlassScaffold`；禁止嵌套折射玻璃。
+- 默认使用 `standard`，仅持久导航和明确的主视觉表面使用 `premium`，并保留自适应降级。
+- 若现有实现或历史决策与 skill 不一致，明确记录差异及实际影响，不能以测试通过代替规范检查。
+
 ## 避免无效重建
 控制组件重建范围，避免高频状态变化导致无关 UI 重建。
 

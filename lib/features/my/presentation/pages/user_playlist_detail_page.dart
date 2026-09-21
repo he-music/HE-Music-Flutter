@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../shared/widgets/app_form_dialog.dart';
+import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -175,7 +178,7 @@ class _UserPlaylistDetailPageState
             description: description,
             metaItems: _buildMetaItems(context, content, songs.length),
             actions: <Widget>[
-              IconButton(
+              MusicDetailActionButton(
                 onPressed: () => _showPlaylistActions(context, content),
                 icon: const Icon(Icons.more_horiz_rounded),
                 tooltip: AppI18n.t(
@@ -502,7 +505,7 @@ class _UserPlaylistDetailPageState
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
+        return AppAlertDialog(
           title: Text(
             AppI18n.t(
               ref.read(appConfigProvider),
@@ -542,7 +545,7 @@ class _UserPlaylistDetailPageState
     PlaylistDetailContent content,
   ) async {
     final isDefaultPlaylist = content.isDefault;
-    await showModalBottomSheet<void>(
+    await showAppThemedBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {
@@ -653,7 +656,7 @@ class _UserPlaylistDetailPageState
       return showDialog<_EditPlaylistPayload>(
         context: context,
         builder: (dialogContext) {
-          return Dialog(
+          return AppFormDialog(
             insetPadding: const EdgeInsets.symmetric(
               horizontal: 24,
               vertical: 24,
@@ -671,7 +674,8 @@ class _UserPlaylistDetailPageState
         },
       );
     }
-    return showModalBottomSheet<_EditPlaylistPayload>(
+    return showAppThemedBottomSheet<_EditPlaylistPayload>(
+      fixedHeightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -691,7 +695,7 @@ class _UserPlaylistDetailPageState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
+        return AppAlertDialog(
           title: Text(
             AppI18n.t(
               ref.read(appConfigProvider),

@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import 'app_glass_mode.dart';
 import 'app_lyric_auxiliary_mode.dart';
 import '../../core/audio/cache/audio_cache_policy.dart';
 
@@ -14,6 +15,7 @@ import 'app_theme_mode.dart';
 import '../theme/player/app_player_style_registry.dart';
 import '../theme/skin/app_skin_registry.dart';
 
+const _glassModeKey = 'app_config.glass_mode';
 const _themeModeKey = 'app_config.theme_mode';
 const _themeAccentKey = 'app_config.theme_accent';
 const _skinIdKey = 'app_config.skin_id';
@@ -118,6 +120,7 @@ class AppConfigDataSource {
       audioCacheLimitBytes: _readAudioCacheLimit(
         prefs.get(_audioCacheLimitKey),
       ),
+      glassMode: AppGlassMode.parse(prefs.getString(_glassModeKey)),
       themeMode: _readThemeMode(prefs.getString(_themeModeKey)),
       themeAccent: AppThemeAccent.fromValue(prefs.getString(_themeAccentKey)),
       skinId: skinId,
@@ -194,6 +197,7 @@ class AppConfigDataSource {
       _audioCacheLimitKey,
       _readAudioCacheLimit(state.audioCacheLimitBytes),
     );
+    await prefs.setString(_glassModeKey, state.glassMode.name);
     await prefs.setString(_themeModeKey, state.themeMode.name);
     await prefs.setString(_themeAccentKey, state.themeAccent.value);
     await prefs.setString(_skinIdKey, state.skinId);

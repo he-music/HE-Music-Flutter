@@ -239,7 +239,12 @@ class _ArtistPlazaBody extends StatelessWidget {
           controller: scrollController,
           slivers: <Widget>[
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
+              padding: EdgeInsets.fromLTRB(
+                12,
+                8,
+                12,
+                18 + MediaQuery.paddingOf(context).bottom,
+              ),
               sliver: SliverGrid(
                 gridDelegate: spec.sliverDelegate,
                 delegate: SliverChildBuilderDelegate((context, index) {

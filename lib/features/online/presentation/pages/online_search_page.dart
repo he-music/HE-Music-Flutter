@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+
+import '../../../../app/theme/glass/app_glass_scope.dart';
 
 import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
@@ -189,94 +192,93 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     final availableTypes = _availableSearchTypes(platforms);
     return DetailPageShell(
       resizeToAvoidBottomInset: false,
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        body: SafeArea(
-          child: Column(
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  LayoutTokens.compactPageGutter,
-                  8,
-                  LayoutTokens.compactPageGutter,
-                  10,
-                ),
-                child: _SearchHeader(
-                  config: config,
-                  onBack: () => context.appPopOrGo(),
-                  controller: _searchController,
-                  freezePlaceholder:
-                      keyword.isNotEmpty || _searchFocusNode.hasFocus,
-                  frozenPlaceholderEntry: _frozenPlaceholderEntry,
-                  focusNode: _searchFocusNode,
-                  onChanged: _onSearchChanged,
-                  onSubmit: _search,
-                  onSearch: _search,
-                ),
+      child: SafeArea(
+        // Reserve the player clearance inside scrollable content, not outside
+        // the viewport, so results can pass behind the floating player.
+        bottom: !AppGlassScope.isEnabled(context),
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                LayoutTokens.compactPageGutter,
+                8,
+                LayoutTokens.compactPageGutter,
+                10,
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: LayoutTokens.compactPageGutter,
-                  ),
-                  child: showHotPanel
-                      ? OnlineSearchHotPanel(
-                          localeCode: config.localeCode,
-                          historyKeywords: _searchHistoryKeywords,
-                          hotKeywords: _hotKeywords,
-                          loadingHistory: _loadingSearchHistory,
-                          loadingHot: _loadingHotKeywords,
-                          onTapKeyword: _onTapSuggestedKeyword,
-                          onClearHistory: () =>
-                              unawaited(_clearSearchHistory()),
-                        )
-                      : showSuggestPanel
-                      ? ValueListenableBuilder(
-                          valueListenable: _suggestions,
-                          builder: (context, suggestions, child) =>
-                              OnlineSearchSuggestPanel(
-                                loading: suggestions.loading,
-                                suggestions: suggestions.keywords,
-                                onTapKeyword: _onTapSuggestedKeyword,
-                              ),
-                        )
-                      : OnlineSearchResultPage(
-                          localeCode: config.localeCode,
-                          selectedType: _selectedType,
-                          onTypeChanged: _onTypeChanged,
-                          loadingPlatforms: loadingPlatforms,
-                          platforms: platforms,
-                          selectedPlatformId: _selectedPlatformId,
-                          onPlatformChanged: _onPlatformChanged,
-                          availableTypes: availableTypes,
-                          loading: loading,
-                          results: results,
-                          songResults: songResults,
-                          searchKeyword: effectiveKeyword,
-                          comprehensiveResult: comprehensiveResult,
-                          error: error,
-                          initialLoading: initialLoading,
-                          likedSongKeys: const <String>{},
-                          onTapItem: (type, item) => openSearchDetail(
-                            context: context,
-                            type: type,
-                            item: item,
-                            fallbackPlatformId: _selectedPlatformId,
-                            localeCode: ref.read(appConfigProvider).localeCode,
-                            onError: AppMessageService.showWarning,
-                          ),
-                          onTapSongItem: (song) => unawaited(_playSong(song)),
-                          onLikeSongItem: _toggleSongLike,
-                          onMoreSongItem: _showSongActions,
-                          onMoreSection: _openMoreSection,
-                          onLoadMore: _loadMore,
-                          loadingMore: loadingMore,
-                          hasMore: hasMore,
+              child: _SearchHeader(
+                config: config,
+                onBack: () => context.appPopOrGo(),
+                controller: _searchController,
+                freezePlaceholder:
+                    keyword.isNotEmpty || _searchFocusNode.hasFocus,
+                frozenPlaceholderEntry: _frozenPlaceholderEntry,
+                focusNode: _searchFocusNode,
+                onChanged: _onSearchChanged,
+                onSubmit: _search,
+                onSearch: _search,
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LayoutTokens.compactPageGutter,
+                ),
+                child: showHotPanel
+                    ? OnlineSearchHotPanel(
+                        localeCode: config.localeCode,
+                        historyKeywords: _searchHistoryKeywords,
+                        hotKeywords: _hotKeywords,
+                        loadingHistory: _loadingSearchHistory,
+                        loadingHot: _loadingHotKeywords,
+                        onTapKeyword: _onTapSuggestedKeyword,
+                        onClearHistory: () => unawaited(_clearSearchHistory()),
+                      )
+                    : showSuggestPanel
+                    ? ValueListenableBuilder(
+                        valueListenable: _suggestions,
+                        builder: (context, suggestions, child) =>
+                            OnlineSearchSuggestPanel(
+                              loading: suggestions.loading,
+                              suggestions: suggestions.keywords,
+                              onTapKeyword: _onTapSuggestedKeyword,
+                            ),
+                      )
+                    : OnlineSearchResultPage(
+                        localeCode: config.localeCode,
+                        selectedType: _selectedType,
+                        onTypeChanged: _onTypeChanged,
+                        loadingPlatforms: loadingPlatforms,
+                        platforms: platforms,
+                        selectedPlatformId: _selectedPlatformId,
+                        onPlatformChanged: _onPlatformChanged,
+                        availableTypes: availableTypes,
+                        loading: loading,
+                        results: results,
+                        songResults: songResults,
+                        searchKeyword: effectiveKeyword,
+                        comprehensiveResult: comprehensiveResult,
+                        error: error,
+                        initialLoading: initialLoading,
+                        likedSongKeys: const <String>{},
+                        onTapItem: (type, item) => openSearchDetail(
+                          context: context,
+                          type: type,
+                          item: item,
+                          fallbackPlatformId: _selectedPlatformId,
+                          localeCode: ref.read(appConfigProvider).localeCode,
+                          onError: AppMessageService.showWarning,
                         ),
-                ),
+                        onTapSongItem: (song) => unawaited(_playSong(song)),
+                        onLikeSongItem: _toggleSongLike,
+                        onMoreSongItem: _showSongActions,
+                        onMoreSection: _openMoreSection,
+                        onLoadMore: _loadMore,
+                        loadingMore: loadingMore,
+                        hasMore: hasMore,
+                      ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1427,9 +1429,22 @@ class _SearchHeader extends ConsumerWidget {
               );
             }),
           );
+    final glassEnabled = AppGlassScope.controlsEnabled(context);
     return Row(
       children: <Widget>[
-        AppBackButton(onPressed: onBack),
+        if (glassEnabled) ...[
+          Tooltip(
+            message: AppI18n.t(config, 'common.back'),
+            child: GlassIconButton(
+              onPressed: onBack,
+              semanticLabel: AppI18n.t(config, 'common.back'),
+              quality: AppGlassScope.qualityOf(context),
+              icon: const AppSkinIcon(role: AppSkinIconRole.back),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ] else
+          AppBackButton(onPressed: onBack),
         Expanded(
           child: SearchTopBox(
             controller: controller,
@@ -1445,20 +1460,38 @@ class _SearchHeader extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Material(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.72,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            onTap: onSearch,
+        if (glassEnabled)
+          Tooltip(
+            message: AppI18n.t(config, 'home.search'),
+            child: GlassIconButton(
+              onPressed: () => unawaited(onSearch()),
+              semanticLabel: AppI18n.t(config, 'home.search'),
+              quality: AppGlassScope.qualityOf(context),
+              icon: AppSkinIcon(
+                role: AppSkinIconRole.searchSubmit,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+            ),
+          )
+        else
+          Material(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.72,
+            ),
             borderRadius: BorderRadius.circular(14),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: AppSkinIcon(role: AppSkinIconRole.searchSubmit, size: 18),
+            child: InkWell(
+              onTap: onSearch,
+              borderRadius: BorderRadius.circular(14),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: AppSkinIcon(
+                  role: AppSkinIconRole.searchSubmit,
+                  size: 18,
+                ),
+              ),
             ),
           ),
-        ),
       ],
     );
   }

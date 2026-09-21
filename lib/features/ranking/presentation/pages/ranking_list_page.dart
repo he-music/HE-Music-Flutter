@@ -249,7 +249,12 @@ class _RankingGroupsView extends StatelessWidget {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
+      padding: EdgeInsets.fromLTRB(
+        12,
+        12,
+        12,
+        18 + MediaQuery.paddingOf(context).bottom,
+      ),
       itemCount: groups.length,
       itemBuilder: (context, index) {
         final group = groups[index];

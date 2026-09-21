@@ -29,7 +29,7 @@ class ClassicPlayerStage extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final side = constraints.biggest.shortestSide;
-            final coverSize = side * 0.90;
+            final coverSize = side * 0.94;
             final radius = (coverSize * 0.075).clamp(18.0, 30.0);
             return Stack(
               alignment: Alignment.center,

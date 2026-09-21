@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -238,7 +239,7 @@ class DetailSongActionHandler {
     var playlistName = '';
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => AppAlertDialog(
         title: Text(AppI18n.t(config, 'my.playlist.create.title')),
         content: TextField(
           autofocus: true,

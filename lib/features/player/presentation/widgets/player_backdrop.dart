@@ -8,6 +8,7 @@ import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../domain/entities/player_track.dart';
 import '../../../../shared/image/image_color_extractor.dart';
 import '../providers/artist_photo_provider.dart';
+
 import '../styles/fluid_player_backdrop.dart';
 
 typedef ArtistPhotoImageProviderBuilder =
@@ -29,6 +30,7 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
     required this.backdropKind,
     required this.imageProvider,
     this.track,
+    this.motionActive = true,
     this.isPortrait = false,
     this.artistPhotoImageProviderBuilder,
     this.artistPhotoImageReadyChecker,
@@ -42,6 +44,7 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
 
   /// 竖屏模式标识，用于决定写真请求的方向。
   final bool isPortrait;
+  final bool motionActive;
 
   /// 测试可注入固定图片，运行时默认使用网络缓存图片。
   final ArtistPhotoImageProviderBuilder? artistPhotoImageProviderBuilder;
@@ -309,6 +312,7 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
       ),
       AppPlayerBackdropKind.fluid => FluidPlayerBackdrop(
         imageProvider: widget.imageProvider,
+        active: widget.motionActive,
       ),
       AppPlayerBackdropKind.artistPhoto => _ArtistPhotoBackdrop(
         visualState: _artistPhotoState,

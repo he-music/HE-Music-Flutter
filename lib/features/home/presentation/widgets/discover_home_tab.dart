@@ -572,7 +572,11 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                         ),
                       ),
                     ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 20 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -1504,16 +1508,19 @@ class _HomePageTabs extends StatelessWidget {
       child: Row(
         children: pages
             .map(
-              (page) => UnderlineTab(
-                label: AppI18n.t(
-                  config,
-                  page == HomePageKind.recommend
-                      ? 'home.tab.recommend'
-                      : 'home.tab.discover',
+              (page) => Flexible(
+                child: UnderlineTab(
+                  prominent: true,
+                  label: AppI18n.t(
+                    config,
+                    page == HomePageKind.recommend
+                        ? 'home.tab.recommend'
+                        : 'home.tab.discover',
+                  ),
+                  selected: page == selectedPage,
+                  enabled: true,
+                  onTap: () => onSelected(page),
                 ),
-                selected: page == selectedPage,
-                enabled: true,
-                onTap: () => onSelected(page),
               ),
             )
             .toList(growable: false),

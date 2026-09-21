@@ -332,7 +332,12 @@ class _RadioGrid extends ConsumerWidget {
           maxWidth: constraints.maxWidth - 24,
         );
         return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            12,
+            12,
+            18 + MediaQuery.paddingOf(context).bottom,
+          ),
           gridDelegate: spec.sliverDelegate,
           itemCount: radios.length,
           itemBuilder: (context, index) {

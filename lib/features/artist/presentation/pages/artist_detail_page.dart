@@ -1241,6 +1241,9 @@ class _ArtistAlbumsTab extends StatelessWidget {
           ),
         if (albums.isNotEmpty)
           SliverToBoxAdapter(child: _ArtistListFooter(loading: loading)),
+        SliverToBoxAdapter(
+          child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
+        ),
       ],
     );
   }
@@ -1304,6 +1307,9 @@ class _ArtistVideosTab extends StatelessWidget {
           ),
         if (videos.isNotEmpty)
           SliverToBoxAdapter(child: _ArtistListFooter(loading: loading)),
+        SliverToBoxAdapter(
+          child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
+        ),
       ],
     );
   }
