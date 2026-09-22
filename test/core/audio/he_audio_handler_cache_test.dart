@@ -35,6 +35,35 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  test('playing cached remote source can stop and switch queues', () async {
+    _installNativePlatform();
+    final fixture = await _CacheFixture.create();
+    addTearDown(fixture.dispose);
+    final network = _FakeNetworkStatusPort(NetworkConnectionType.wifi);
+    addTearDown(network.dispose);
+    final player = AudioPlayer(handleAudioSessionActivation: false);
+    final handler = _handler(
+      fixture: fixture,
+      network: network,
+      loaded: [],
+      player: player,
+      realNative: true,
+      play: (player) => player.play(),
+    );
+    addTearDown(handler.disposeHandler);
+    await _syncConfig(handler);
+    await handler.setQueueData([_track()]);
+    await handler.play();
+    await player.playingStream.firstWhere((playing) => playing);
+    await handler.stop().timeout(const Duration(seconds: 3));
+    await handler
+        .setQueueData([_track(id: 'B')])
+        .timeout(const Duration(seconds: 3));
+    await handler.play();
+    expect(handler.mediaItem.value?.id, 'B');
+    expect(player.playing, isTrue);
+  });
+
   test(
     'held cache invalidation cannot reload old A over committed B',
     () async {

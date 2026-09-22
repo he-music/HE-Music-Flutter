@@ -1,5 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+import 'package:just_audio/just_audio.dart';
+// ignore: depend_on_referenced_packages
+import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
+
+import '../../../../core/audio/native_audio_test_support.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +17,7 @@ import 'package:he_music_flutter/core/audio/audio_player_port.dart';
 import 'package:he_music_flutter/core/audio/audio_track.dart';
 import 'package:he_music_flutter/core/audio/he_audio_handler.dart';
 import 'package:he_music_flutter/features/online/data/online_api_client.dart';
+import 'package:he_music_flutter/features/player/data/providers/player_progress_providers.dart';
 import 'package:he_music_flutter/features/player/data/datasources/player_queue_data_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_history_item.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
@@ -28,6 +35,118 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  test('反复切换上个队列不会累积嵌套历史', () async {
+    final audioPlayer = _FakeAudioPlayerPort();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(audioPlayer),
+      ],
+    );
+    addTearDown(audioPlayer.dispose);
+    addTearDown(container.dispose);
+    final controller = container.read(playerControllerProvider.notifier);
+    final queue = _buildQueue();
+    await controller.replaceQueue([queue[0]], autoplay: false);
+    await controller.replaceQueue([queue[1]], autoplay: false);
+    for (var i = 0; i < 10; i++) {
+      await controller.swapToPreviousQueue(autoplay: false);
+      final state = container.read(playerControllerProvider);
+      expect(state.currentTrack?.id, queue[i % 2].id);
+      expect(
+        state.previousQueueSnapshot!.queue.single.id,
+        queue[(i + 1) % 2].id,
+      );
+      expect(state.previousQueueSnapshot!.previousSnapshot, isNull);
+    }
+  });
+
+  for (final action in ['点歌', '播放全部', '立即播放']) {
+    test('$action 不等待上一首的进度存储完成', () async {
+      final progress = _HeldProgressDataSource();
+      final audioPlayer = _FakeAudioPlayerPort();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          audioPlayerPortProvider.overrideWithValue(audioPlayer),
+          playerProgressDataSourceProvider.overrideWithValue(progress),
+        ],
+      );
+      addTearDown(audioPlayer.dispose);
+      addTearDown(container.dispose);
+      addTearDown(() => progress.pending.complete());
+      final controller = container.read(playerControllerProvider.notifier);
+      final queue = _buildQueue();
+      await controller.replaceQueue(queue, autoplay: false);
+      audioPlayer.emitPlaying(true);
+      await Future<void>.delayed(Duration.zero);
+      final switching = switch (action) {
+        '点歌' => controller.playAt(1),
+        '播放全部' => controller.replaceQueue([queue[1]]),
+        _ => controller.insertNextAndPlay(queue[1]),
+      };
+      await switching.timeout(const Duration(seconds: 1));
+      expect(progress.pending.isCompleted, isFalse);
+      expect(progress.savedTrack?.id, queue[0].id);
+      expect(
+        container.read(playerControllerProvider).currentTrack?.id,
+        queue[1].id,
+      );
+      expect(audioPlayer.playCallCount, 1);
+    });
+  }
+
+  test('播放中通过真实音频适配器点歌和替换队列能够完成', () async {
+    final original = JustAudioPlatform.instance;
+    final native = NativeAudioTestPlatform();
+    JustAudioPlatform.instance = native;
+    const channel = MethodChannel('com.ryanheise.audio_session');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (_) async => null);
+    addTearDown(() {
+      JustAudioPlatform.instance = original;
+      messenger.setMockMethodCallHandler(channel, null);
+    });
+    final player = AudioPlayer(handleAudioSessionActivation: false);
+    final handler = HeAudioHandler(player: player);
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(
+          AudioHandlerPlayerAdapter(handler),
+        ),
+      ],
+    );
+    addTearDown(handler.disposeHandler);
+    addTearDown(container.dispose);
+    final controller = container.read(playerControllerProvider.notifier);
+    final queue = List.generate(
+      3,
+      (i) => PlayerTrack(
+        id: 'local-$i',
+        title: 'Local $i',
+        platform: 'local',
+        path: '/tmp/local-$i.mp3',
+      ),
+    );
+    await controller.replaceQueue(queue).timeout(const Duration(seconds: 3));
+    await player.playingStream.firstWhere((playing) => playing);
+    await controller.playAt(1).timeout(const Duration(seconds: 3));
+    expect(
+      container.read(playerControllerProvider).currentTrack?.id,
+      'local-1',
+    );
+    await controller
+        .replaceQueue([queue[2]])
+        .timeout(const Duration(seconds: 3));
+    expect(
+      container.read(playerControllerProvider).currentTrack?.id,
+      'local-2',
+    );
+    expect(player.playing, isTrue);
   });
 
   test(
@@ -1928,6 +2047,20 @@ class _SongUrlRequest {
   final String platform;
   final int? quality;
   final String? format;
+}
+
+class _HeldProgressDataSource extends PlayerProgressDataSource {
+  final pending = Completer<void>();
+  PlayerTrack? savedTrack;
+
+  @override
+  Future<void> saveProgress({
+    required PlayerTrack track,
+    required int positionMs,
+  }) {
+    savedTrack = track;
+    return pending.future;
+  }
 }
 
 class _FakeRadioApiClient extends RadioApiClient {

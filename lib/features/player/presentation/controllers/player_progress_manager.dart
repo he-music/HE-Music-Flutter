@@ -52,7 +52,11 @@ class PlayerProgressManager {
         (durationOverride ?? callback.currentState.duration).inMilliseconds;
     if (durationMs > _minPositionMs &&
         positionMs >= durationMs - _tailBufferMs) {
-      await _dataSource.clearProgress(track);
+      try {
+        await _dataSource.clearProgress(track);
+      } catch (_) {
+        // 清理进度同样是尽力而为，不能让后台保存产生未处理异常。
+      }
       return;
     }
     final trackKey = _computeTrackKey(track);

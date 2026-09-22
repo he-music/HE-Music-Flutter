@@ -108,8 +108,8 @@ class PlayerQueueManager {
       currentIndex: safeCurrentIndex(state, queue.length),
       playMode: state.playMode,
       isRadioMode: state.isRadioMode,
+      // “上个队列”是两个队列之间的交换，不是无限历史栈。
       source: state.queueSource,
-      previousSnapshot: state.previousQueueSnapshot,
       currentRadioId: state.currentRadioId,
       currentRadioPlatform: state.currentRadioPlatform,
       currentRadioPageIndex: state.currentRadioPageIndex,

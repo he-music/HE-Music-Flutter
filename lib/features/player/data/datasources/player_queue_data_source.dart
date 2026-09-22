@@ -62,6 +62,20 @@ class PlayerQueueDataSource {
         return null;
       }
       final raw = decoded.map((key, value) => MapEntry('$key', value));
+      final previousRaw = _asMap(raw['previous_snapshot']);
+      if (previousRaw['previous_snapshot'] != null) {
+        // 旧版递归保存历史队列，使 Android 每次偏好写入都重写巨大的 XML。
+        // 保留当前和上个队列，并一次性压缩旧数据。
+        raw['previous_snapshot'] = <String, dynamic>{
+          ...previousRaw,
+          'previous_snapshot': null,
+        };
+        try {
+          await prefs.setString(_queueStorageKey, jsonEncode(raw));
+        } catch (_) {
+          // 压缩写入失败仍恢复有效队列，下次保存会再次写入有界快照。
+        }
+      }
       final queue = _trackList(raw['queue']);
       final previousSnapshot = previousSnapshotFromValue(
         raw['previous_snapshot'],
@@ -134,9 +148,7 @@ class PlayerQueueDataSource {
           snapshot.previousPlayModeBeforeRadio?.name,
       'queue': snapshot.queue.map(_trackToMap).toList(growable: false),
       'source': snapshot.source?.toMap(),
-      'previous_snapshot': snapshot.previousSnapshot == null
-          ? null
-          : _snapshotToMap(snapshot.previousSnapshot!),
+      'previous_snapshot': null,
     };
   }
 
@@ -215,7 +227,6 @@ class PlayerQueueDataSource {
       playMode: playMode,
       isRadioMode: raw['is_radio_mode'] == true,
       source: _sourceFromValue(raw['source']),
-      previousSnapshot: previousSnapshotFromValue(raw['previous_snapshot']),
       currentRadioId: _nullableString(raw['current_radio_id']),
       currentRadioPlatform: _nullableString(raw['current_radio_platform']),
       currentRadioPageIndex: _toInt(raw['current_radio_page_index']),

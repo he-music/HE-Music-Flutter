@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/player/data/datasources/player_queue_data_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
@@ -144,13 +146,19 @@ void main() {
       expect(result.previousPlayModeBeforeRadio, PlayerPlayMode.shuffle);
     });
 
-    test('previousSnapshot 应递归保存和恢复', () async {
+    test('保存上个队列时不递归携带更早的队列', () async {
       const ds = PlayerQueueDataSource();
       final previous = PlayerQueueSnapshot(
         queue: [track3],
         currentIndex: 0,
         playMode: PlayerPlayMode.single,
         isRadioMode: false,
+        previousSnapshot: const PlayerQueueSnapshot(
+          queue: [track2],
+          currentIndex: 0,
+          playMode: PlayerPlayMode.sequence,
+          isRadioMode: false,
+        ),
       );
       await ds.saveQueue(
         queue: [track1, track2],
@@ -165,6 +173,42 @@ void main() {
       expect(result.previousSnapshot!.queue, hasLength(1));
       expect(result.previousSnapshot!.queue.first.id, 's3');
       expect(result.previousSnapshot!.playMode, PlayerPlayMode.single);
+      expect(result.previousSnapshot!.previousSnapshot, isNull);
+      final prefs = await SharedPreferences.getInstance();
+      final raw = jsonDecode(prefs.getString('player_queue_v1')!) as Map;
+      expect((raw['previous_snapshot'] as Map)['previous_snapshot'], isNull);
+    });
+
+    test('读取旧版深层快照时压缩存储且保留当前和上个队列', () async {
+      Map<String, dynamic>? history;
+      for (var i = 129; i >= 0; i--) {
+        history = {
+          'queue': [
+            {'id': 'song-$i', 'title': 'Song $i'},
+          ],
+          'current_index': 0,
+          'play_mode': 'shuffle',
+          'is_radio_mode': false,
+          'previous_snapshot': history,
+        };
+      }
+      final payload = jsonEncode(history);
+      SharedPreferences.setMockInitialValues({'player_queue_v1': payload});
+      const ds = PlayerQueueDataSource();
+      final result = await ds.readQueue();
+      expect(result!.queue.single.id, 'song-0');
+      expect(result.previousSnapshot!.queue.single.id, 'song-1');
+      expect(result.previousSnapshot!.playMode, PlayerPlayMode.shuffle);
+      expect(result.previousSnapshot!.previousSnapshot, isNull);
+      final prefs = await SharedPreferences.getInstance();
+      final compact = prefs.getString('player_queue_v1')!;
+      expect(compact.length, lessThan(payload.length ~/ 10));
+      final raw = jsonDecode(compact) as Map;
+      expect((raw['previous_snapshot'] as Map)['previous_snapshot'], isNull);
+      expect(
+        (await ds.readQueue())!.previousSnapshot!.queue.single.id,
+        'song-1',
+      );
     });
 
     test('Track 含完整字段时应正确往返', () async {

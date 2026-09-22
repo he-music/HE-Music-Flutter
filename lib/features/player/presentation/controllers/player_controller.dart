@@ -1012,11 +1012,14 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       _endPlaybackSession();
     }
     try {
-      await _progressManager.persistTrackProgress(
-        callback: this,
-        track: state.currentTrack,
-        position: state.position,
-        force: true,
+      // 进度保存是尽力而为的后台操作，存储插件未返回时也必须能切歌。
+      unawaited(
+        _progressManager.persistTrackProgress(
+          callback: this,
+          track: state.currentTrack,
+          position: state.position,
+          force: true,
+        ),
       );
       await _interruptPlaybackForTrackSwitch();
       final currentTrack = queue[targetIndex];
