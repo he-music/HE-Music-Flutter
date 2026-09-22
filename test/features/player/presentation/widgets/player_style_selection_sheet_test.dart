@@ -155,6 +155,14 @@ void main() {
       optionId: 'claddagh_lyrics',
     );
     expect(harness.config.state.playerLyricsId, 'claddagh_lyrics');
+    await _selectStyleOption(
+      tester,
+      axis: 'lyrics',
+      optionId: 'star_tunnel_lyrics',
+    );
+    expect(harness.config.state.playerLyricsId, 'star_tunnel_lyrics');
+    expect(find.text('潮汐'), findsNothing);
+    expect(find.text('折光'), findsNothing);
 
     // 选择后面板保持打开，不自动关闭。
     expect(find.byType(PlayerStyleSelectionSheet), findsOneWidget);

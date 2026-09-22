@@ -157,8 +157,9 @@ CinemaLyricRenderData buildCinemaLyricRenderData({
         final translationGap = translationPainter == null ? 0.0 : 10.0;
         final height =
             mainPainter.height +
-            translationGap +
-            (translationPainter?.height ?? 0.0);
+            (translationPainter == null
+                ? 0.0
+                : translationGap + translationPainter.height);
         final tokenData = accentPainter == null
             ? const <CinemaTokenPaintData>[]
             : displayTokens
@@ -200,8 +201,10 @@ CinemaLyricRenderData buildCinemaLyricRenderData({
   final anchorHeight = measured.isEmpty
       ? 0.0
       : measured[safeAnchorIndex].height;
+  const anchorCenterFactor = 0.54;
   final desiredCenter =
-      options.size.height * (options.size.height < 300 ? 0.48 : 0.54);
+      options.size.height *
+      (options.size.height < 300 ? 0.48 : anchorCenterFactor);
   final anchorTop = (desiredCenter - anchorHeight / 2).clamp(
     0.0,
     (options.size.height - anchorHeight).clamp(0.0, double.infinity),
@@ -366,26 +369,13 @@ class CinemaLyricPainter extends CustomPainter {
       line.mainPainter.paint(canvas, line.mainOrigin);
       final accentPainter = line.accentPainter;
       if (accentPainter != null) {
-        final clipPath = Path();
-        for (final tokenData in line.tokens) {
-          final tokenProgress = resolveMonetTokenProgress(
-            timelinePosition: timelinePosition,
-            token: tokenData.token,
-          );
-          for (final clip in resolveCinemaTokenClipRects(
-            boxes: tokenData.boxes,
-            progress: tokenProgress,
-            textDirection: renderData.textDirection,
-          )) {
-            clipPath.addRect(clip.shift(line.mainOrigin));
-          }
-        }
-        if (clipPath.getBounds().isEmpty == false) {
-          canvas.save();
-          canvas.clipPath(clipPath);
-          accentPainter.paint(canvas, line.mainOrigin);
-          canvas.restore();
-        }
+        _paintCinemaAccent(
+          canvas,
+          renderData,
+          line,
+          accentPainter,
+          timelinePosition,
+        );
       }
       final translationPainter = line.translationPainter;
       final translationOrigin = line.translationOrigin;
@@ -393,6 +383,34 @@ class CinemaLyricPainter extends CustomPainter {
         translationPainter.paint(canvas, translationOrigin);
       }
     }
+    canvas.restore();
+  }
+
+  void _paintCinemaAccent(
+    Canvas canvas,
+    CinemaLyricRenderData renderData,
+    CinemaLyricPaintLine line,
+    TextPainter accentPainter,
+    Duration timelinePosition,
+  ) {
+    final clipPath = Path();
+    for (final tokenData in line.tokens) {
+      final tokenProgress = resolveMonetTokenProgress(
+        timelinePosition: timelinePosition,
+        token: tokenData.token,
+      );
+      for (final clip in resolveCinemaTokenClipRects(
+        boxes: tokenData.boxes,
+        progress: tokenProgress,
+        textDirection: renderData.textDirection,
+      )) {
+        clipPath.addRect(clip.shift(line.mainOrigin));
+      }
+    }
+    if (clipPath.getBounds().isEmpty) return;
+    canvas.save();
+    canvas.clipPath(clipPath);
+    accentPainter.paint(canvas, line.mainOrigin);
     canvas.restore();
   }
 

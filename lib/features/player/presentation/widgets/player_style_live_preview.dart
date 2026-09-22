@@ -23,6 +23,7 @@ import 'cinema_lyric_page.dart';
 import 'monet_lyric_page.dart';
 import 'partita_lyric_page.dart';
 import 'tilt_lyric_page.dart';
+import 'star_tunnel_lyric_page.dart';
 import 'pendolo_lyric_page.dart';
 import 'claddagh_lyric_page.dart';
 import 'player_backdrop.dart';
@@ -257,6 +258,7 @@ class _LyricStagePreview extends StatelessWidget {
         ),
         currentLyricRequestProvider.overrideWithValue(_demoLyricRequest),
         lyricPositionProvider.overrideWithValue(_demoLyricPosition),
+        lyricPlaybackActiveProvider.overrideWithValue(false),
       ],
       child: Stack(
         fit: StackFit.expand,
@@ -304,6 +306,11 @@ class _LyricStagePreview extends StatelessWidget {
         palette: null,
       ),
       AppPlayerLyricsKind.tilt => TiltLyricPage(
+        emptyText: emptyText,
+        onSeek: null,
+        palette: null,
+      ),
+      AppPlayerLyricsKind.starTunnel => StarTunnelLyricPage(
         emptyText: emptyText,
         onSeek: null,
         palette: null,

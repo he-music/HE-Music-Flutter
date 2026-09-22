@@ -605,6 +605,8 @@ abstract final class AppI18n {
       'player.style.cinema_lyrics': '镜幕',
       'player.style.partita_lyrics': '云阶',
       'player.style.cadenza_lyrics': '心象',
+      'player.style.star_tunnel_lyrics': '星隧',
+      'player.style.star_tunnel_lyrics.description': '歌词从星光深处迎面而来，随换句穿梭并聚焦',
       'player.style.pendolo_lyrics': '时计',
       'player.style.claddagh_lyrics': '回环',
       'player.style.claddagh_lyrics.description': '文字沿倾斜椭圆回环流动，逐字放大聚焦',
@@ -1563,6 +1565,9 @@ abstract final class AppI18n {
       'player.style.cinema_lyrics': 'Cinema',
       'player.style.partita_lyrics': 'Partita',
       'player.style.cadenza_lyrics': 'Cadenza',
+      'player.style.star_tunnel_lyrics': 'Star Tunnel',
+      'player.style.star_tunnel_lyrics.description':
+          'Lyrics approach through starlit depth and settle into focus with each line',
       'player.style.pendolo_lyrics': 'Pendolo',
       'player.style.claddagh_lyrics': 'Claddagh',
       'player.style.claddagh_lyrics.description':

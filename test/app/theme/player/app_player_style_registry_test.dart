@@ -75,14 +75,14 @@ void main() {
     );
   });
 
-  test('lyrics registry exposes eight unique lyric options', () {
+  test('lyrics registry exposes nine unique lyric options', () {
     final registry = AppPlayerLyricsRegistry.builtIn();
 
     expect(
       registry.options.map((o) => o.metadata.id).toSet(),
       AppPlayerLyricsRegistry.builtInIds,
     );
-    expect(registry.options, hasLength(8));
+    expect(registry.options, hasLength(9));
     expect(registry.options.every((o) => o.isValid), isTrue);
     expect(
       registry.resolve(AppPlayerLyricsRegistry.legacyId).lyricsKind,
@@ -113,6 +113,10 @@ void main() {
       AppPlayerLyricsKind.pendolo,
     );
     expect(
+      registry.resolve(AppPlayerLyricsRegistry.starTunnelId).lyricsKind,
+      AppPlayerLyricsKind.starTunnel,
+    );
+    expect(
       registry.resolve(AppPlayerLyricsRegistry.claddaghId).lyricsKind,
       AppPlayerLyricsKind.claddagh,
     );
@@ -123,6 +127,23 @@ void main() {
       AppPlayerLyricsRegistry.legacyId,
     );
   });
+
+  test(
+    'removed lyric styles resolve to cinema without appearing as options',
+    () {
+      final registry = AppPlayerLyricsRegistry.builtIn();
+
+      for (final id in ['tide_lyrics', 'refraction_lyrics']) {
+        expect(registry.contains(id), isFalse);
+        expect(
+          registry.options.map((option) => option.metadata.id),
+          isNot(contains(id)),
+        );
+        expect(registry.normalizeId(id), AppPlayerLyricsRegistry.cinemaId);
+        expect(registry.resolve(id).lyricsKind, AppPlayerLyricsKind.cinema);
+      }
+    },
+  );
 
   test('stage registry rejects duplicate ids', () {
     expect(

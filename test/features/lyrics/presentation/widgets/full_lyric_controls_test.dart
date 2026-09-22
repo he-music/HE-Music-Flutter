@@ -195,7 +195,7 @@ void main() {
           final target = find.text(switch (title) {
             '歌词大小' => '大',
             '歌词颜色' => '樱粉',
-            _ => '回环',
+            _ => '镜幕',
           });
           await tester.scrollUntilVisible(
             target,
@@ -215,10 +215,7 @@ void main() {
         final config = container.read(appConfigProvider);
         expect(config.lyricFontPreset, AppLyricFontPreset.large);
         expect(config.lyricHighlightPreset, AppLyricHighlightColor.values.last);
-        expect(
-          config.playerLyricsId,
-          AppPlayerLyricsRegistry.instance.options.last.metadata.id,
-        );
+        expect(config.playerLyricsId, AppPlayerLyricsRegistry.cinemaId);
       },
     );
   }

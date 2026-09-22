@@ -10,6 +10,7 @@ import 'styles/legacy_lyrics_option.dart';
 import 'styles/monet_lyrics_player_style.dart';
 import 'styles/partita_lyrics_player_style.dart';
 import 'styles/tilt_lyrics_player_style.dart';
+import 'styles/star_tunnel_lyrics_player_style.dart';
 import 'styles/pendolo_lyrics_player_style.dart';
 import 'styles/claddagh_lyrics_player_style.dart';
 import 'styles/radial_spectrum_player_style.dart';
@@ -121,6 +122,7 @@ class AppPlayerLyricsRegistry {
       tiltLyricsOption,
       pendoloLyricsOption,
       claddaghLyricsOption,
+      starTunnelLyricsOption,
     ]);
   }
 
@@ -131,6 +133,7 @@ class AppPlayerLyricsRegistry {
   static const String cadenzaId = 'cadenza_lyrics';
   static const String tiltId = 'tilt_lyrics';
   static const String pendoloId = 'pendolo_lyrics';
+  static const String starTunnelId = 'star_tunnel_lyrics';
   static const String claddaghId = 'claddagh_lyrics';
 
   static const Set<String> builtInIds = <String>{
@@ -142,6 +145,7 @@ class AppPlayerLyricsRegistry {
     tiltId,
     pendoloId,
     claddaghId,
+    starTunnelId,
   };
 
   static final AppPlayerLyricsRegistry instance =
@@ -154,7 +158,13 @@ class AppPlayerLyricsRegistry {
 
   bool contains(String? id) => id != null && _options.containsKey(id);
 
-  String normalizeId(String? id) => contains(id) ? id! : legacyId;
+  String normalizeId(String? id) {
+    if ((id == 'tide_lyrics' || id == 'refraction_lyrics') &&
+        contains(cinemaId)) {
+      return cinemaId;
+    }
+    return contains(id) ? id! : legacyId;
+  }
 
   AppPlayerLyricsOption resolve(String? id) => _options[normalizeId(id)]!;
 }

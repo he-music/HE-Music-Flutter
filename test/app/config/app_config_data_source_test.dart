@@ -100,6 +100,32 @@ void main() {
     },
   );
 
+  for (final removedId in ['tide_lyrics', 'refraction_lyrics']) {
+    test('load migrates and persists $removedId to cinema', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'app_config.player_lyrics_id': removedId,
+        'app_config.player_stage_id': AppPlayerStageRegistry.vinylId,
+        'app_config.player_backdrop_id': AppPlayerBackdropRegistry.fluidId,
+      });
+      const source = AppConfigDataSource();
+
+      final state = await source.load();
+      final prefs = await SharedPreferences.getInstance();
+
+      expect(state.playerLyricsId, AppPlayerLyricsRegistry.cinemaId);
+      expect(state.playerStageId, AppPlayerStageRegistry.vinylId);
+      expect(state.playerBackdropId, AppPlayerBackdropRegistry.fluidId);
+      expect(
+        prefs.getString('app_config.player_lyrics_id'),
+        AppPlayerLyricsRegistry.cinemaId,
+      );
+      expect(
+        (await source.load()).playerLyricsId,
+        AppPlayerLyricsRegistry.cinemaId,
+      );
+    });
+  }
+
   test('load should keep system locale preference', () async {
     const dataSource = AppConfigDataSource();
     await dataSource.save(
