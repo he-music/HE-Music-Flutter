@@ -4,6 +4,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'app_glass_scope.dart';
 import 'app_glass_material.dart';
+import '../skin/app_skin_theme.dart';
 
 const _sheetBottomMargin = 8.0;
 
@@ -106,6 +107,13 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
             ),
             pageBuilder: (sheetContext, fittedHeightFactor, sheet) {
               final settings = AppGlassMaterial.sheetFor(sheetContext);
+              final expandedColor =
+                  theme
+                      .extension<AppSkinTheme>()
+                      ?.config
+                      .colors
+                      .bottomSheetBackground ??
+                  theme.colorScheme.surface;
               return GlassModalSheetScaffold(
                 controller: _controller,
                 quality: AppGlassScope.qualityOf(sheetContext),
@@ -119,7 +127,7 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
                 halfSettings: settings,
                 fullSettings: settings,
                 maintainContentGlass: false,
-                expandedColor: theme.colorScheme.surface.withValues(alpha: 1),
+                expandedColor: expandedColor.withValues(alpha: 1),
                 showDragIndicator: showDragHandle,
                 dragIndicatorColor: theme.colorScheme.onSurfaceVariant,
                 onStateChanged: (state) {

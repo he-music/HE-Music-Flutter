@@ -22,20 +22,15 @@ abstract final class AppGlassMaterial {
     ambientStrength: 0.4,
   );
 
-  /// Keep the official optics, but use the library's brightness-specific tint
-  /// and documented 35% contrast backer for readable content over busy covers.
+  /// Keep the package's sheet optics and add only a skin-colored backer.
+  /// The backer reduces background noise while the library material handles
+  /// the brightness-aware glass rendering.
   static LiquidGlassSettings sheetFor(BuildContext context) {
     final theme = Theme.of(context);
-    final variant = theme.brightness == Brightness.dark
-        ? GlassThemeVariant.dark
-        : GlassThemeVariant.light;
     final surface =
         theme.extension<AppSkinTheme>()?.config.colors.bottomSheetBackground ??
         theme.colorScheme.surface;
-    return sheet.copyWith(
-      glassColor: variant.settings?.glassColor ?? sheet.glassColor,
-      backerColor: surface.withValues(alpha: 0.35),
-    );
+    return sheet.copyWith(backerColor: surface.withValues(alpha: 0.35));
   }
 
   static LiquidGlassSettings settings(

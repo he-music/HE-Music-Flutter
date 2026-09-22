@@ -4,6 +4,7 @@ import 'package:he_music_flutter/app/config/app_glass_mode.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_material.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_bottom_sheet.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
@@ -341,10 +342,7 @@ void main() {
           backer.computeLuminance(),
           brightness == Brightness.dark ? lessThan(0.2) : greaterThan(0.7),
         );
-        final variant = brightness == Brightness.dark
-            ? GlassThemeVariant.dark
-            : GlassThemeVariant.light;
-        expect(sheet.settings!.glassColor, variant.settings!.glassColor);
+        expect(sheet.settings!.glassColor, AppGlassMaterial.sheet.glassColor);
         expect(sheet.halfSettings, sheet.settings);
         expect(sheet.fullSettings, sheet.settings);
         expect(sheet.maintainContentGlass, isFalse);

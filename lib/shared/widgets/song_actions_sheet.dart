@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_i18n.dart';
-import '../../app/theme/glass/app_glass_scope.dart';
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
@@ -335,25 +334,17 @@ class _SongActionsSheetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLightGlass =
-        AppGlassScope.isEnabled(context) &&
-        theme.brightness == Brightness.light;
-    const groupDivider = Divider(height: 24, indent: 16, endIndent: 16);
     return ListTileTheme.merge(
-      iconColor: isLightGlass ? theme.colorScheme.onSurfaceVariant : null,
+      iconColor: theme.colorScheme.onSurfaceVariant,
+      textColor: theme.colorScheme.onSurface,
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.only(bottom: 8),
           children: <Widget>[
-            _SongHeader(
-              coverUrl: coverUrl,
-              title: title,
-              subtitle: subtitle,
-              prominent: isLightGlass,
-            ),
+            _SongHeader(coverUrl: coverUrl, title: title, subtitle: subtitle),
             const Divider(height: 1),
             ListTile(
-              iconColor: isLightGlass ? theme.colorScheme.primary : null,
+              iconColor: theme.colorScheme.primary,
               leading: const AppSkinIcon(role: AppSkinIconRole.songPlay),
               title: Text(resolvedPlayActionLabel),
               onTap: () {
@@ -362,7 +353,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               },
             ),
             ListTile(
-              iconColor: isLightGlass ? theme.colorScheme.primary : null,
+              iconColor: theme.colorScheme.primary,
               leading: const AppSkinIcon(role: AppSkinIconRole.songPlayNext),
               title: Text(
                 AppI18n.tByLocaleCode(localeCode, 'song.action.play_next'),
@@ -373,7 +364,7 @@ class _SongActionsSheetBody extends StatelessWidget {
               },
             ),
             ListTile(
-              iconColor: isLightGlass ? theme.colorScheme.primary : null,
+              iconColor: theme.colorScheme.primary,
               leading: const AppSkinIcon(role: AppSkinIconRole.songAddToQueue),
               title: Text(
                 AppI18n.tByLocaleCode(localeCode, 'song.action.add_to_queue'),
@@ -383,11 +374,6 @@ class _SongActionsSheetBody extends StatelessWidget {
                 onAddToPlaylist();
               },
             ),
-            if (isLightGlass &&
-                (onDownload != null ||
-                    onAddToUserPlaylist != null ||
-                    onRemoveFromPlaylist != null))
-              groupDivider,
             if (onDownload != null)
               ListTile(
                 leading: const AppSkinIcon(role: AppSkinIconRole.songDownload),
@@ -429,7 +415,6 @@ class _SongActionsSheetBody extends StatelessWidget {
                   onRemoveFromPlaylist?.call();
                 },
               ),
-            if (isLightGlass) groupDivider,
             ListTile(
               leading: const AppSkinIcon(role: AppSkinIconRole.songWatchVideo),
               title: Text(
@@ -486,7 +471,6 @@ class _SongActionsSheetBody extends StatelessWidget {
                   onViewArtists?.call();
                 },
               ),
-            if (isLightGlass) groupDivider,
             ListTile(
               leading: const AppSkinIcon(role: AppSkinIconRole.songCopyName),
               title: Text(
@@ -534,7 +518,6 @@ class _SongActionsSheetBody extends StatelessWidget {
                   onSearchSameName?.call();
                 },
               ),
-            if (isLightGlass) groupDivider,
             _SourceInfoRow(label: sourceLabel),
             const SizedBox(height: 8),
           ],
@@ -577,26 +560,22 @@ class _SongHeader extends StatelessWidget {
     required this.coverUrl,
     required this.title,
     required this.subtitle,
-    this.prominent = false,
   });
 
   final String? coverUrl;
   final String title;
   final String subtitle;
-  final bool prominent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final coverSize = prominent ? 64.0 : 48.0;
+    const coverSize = 48.0;
     return Padding(
-      padding: prominent
-          ? const EdgeInsets.fromLTRB(20, 8, 20, 20)
-          : const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
       child: Row(
         children: <Widget>[
           ClipRRect(
-            borderRadius: BorderRadius.circular(prominent ? 12 : 8),
+            borderRadius: BorderRadius.circular(8),
             child: coverUrl == null || coverUrl!.trim().isEmpty
                 ? Container(
                     width: coverSize,
@@ -630,19 +609,15 @@ class _SongHeader extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: prominent
-                      ? theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        )
-                      : theme.textTheme.titleMedium,
+                  style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).hintColor,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
