@@ -20,6 +20,7 @@ enum AppPlayerBackdropKind {
 enum AppPlayerLyricsKind {
   legacy,
   monet,
+  cinema,
   partita,
   cadenza,
   tilt,

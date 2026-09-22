@@ -1,6 +1,7 @@
 import 'app_player_style_models.dart';
 import 'styles/artist_photo_player_style.dart';
 import 'styles/cadenza_lyrics_player_style.dart';
+import 'styles/cinema_lyrics_player_style.dart';
 import 'styles/cassette_player_style.dart';
 import 'styles/classic_player_style.dart';
 import 'styles/cover_gradient_player_backdrop.dart';
@@ -114,6 +115,7 @@ class AppPlayerLyricsRegistry {
     return AppPlayerLyricsRegistry(<AppPlayerLyricsOption>[
       legacyLyricsOption,
       monetLyricsOption,
+      cinemaLyricsOption,
       partitaLyricsOption,
       cadenzaLyricsOption,
       tiltLyricsOption,
@@ -124,6 +126,7 @@ class AppPlayerLyricsRegistry {
 
   static const String legacyId = 'legacy';
   static const String monetId = 'monet_lyrics';
+  static const String cinemaId = 'cinema_lyrics';
   static const String partitaId = 'partita_lyrics';
   static const String cadenzaId = 'cadenza_lyrics';
   static const String tiltId = 'tilt_lyrics';
@@ -133,6 +136,7 @@ class AppPlayerLyricsRegistry {
   static const Set<String> builtInIds = <String>{
     legacyId,
     monetId,
+    cinemaId,
     partitaId,
     cadenzaId,
     tiltId,
