@@ -7,6 +7,7 @@ import 'styles/classic_player_style.dart';
 import 'styles/cover_gradient_player_backdrop.dart';
 import 'styles/fold_lyrics_player_style.dart';
 import 'styles/fluid_player_style.dart';
+import 'styles/kinetic_lyrics_player_style.dart';
 import 'styles/legacy_lyrics_option.dart';
 import 'styles/monet_lyrics_player_style.dart';
 import 'styles/partita_lyrics_player_style.dart';
@@ -125,6 +126,7 @@ class AppPlayerLyricsRegistry {
       pendoloLyricsOption,
       claddaghLyricsOption,
       starTunnelLyricsOption,
+      kineticLyricsOption,
     ]);
   }
 
@@ -137,6 +139,7 @@ class AppPlayerLyricsRegistry {
   static const String tiltId = 'tilt_lyrics';
   static const String pendoloId = 'pendolo_lyrics';
   static const String starTunnelId = 'star_tunnel_lyrics';
+  static const String kineticId = 'kinetic_lyrics';
   static const String claddaghId = 'claddagh_lyrics';
 
   static const Set<String> builtInIds = <String>{
@@ -150,6 +153,7 @@ class AppPlayerLyricsRegistry {
     pendoloId,
     claddaghId,
     starTunnelId,
+    kineticId,
   };
 
   static final AppPlayerLyricsRegistry instance =

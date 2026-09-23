@@ -28,6 +28,7 @@ enum AppPlayerLyricsKind {
   pendolo,
   claddagh,
   starTunnel,
+  kinetic,
 }
 
 @immutable

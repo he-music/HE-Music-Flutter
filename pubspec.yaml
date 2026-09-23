@@ -134,6 +134,7 @@ flutter:
     - assets/player_styles/tilt_lyrics/preview.png
     - assets/player_styles/pendolo_lyrics/preview.png
     - assets/player_styles/star_tunnel_lyrics/preview.png
+    - assets/player_styles/kinetic_lyrics/preview.png
     - assets/player_styles/claddagh_lyrics/preview.png
     - assets/skins/classic/preview_light.png
     - assets/skins/classic/preview_dark.png

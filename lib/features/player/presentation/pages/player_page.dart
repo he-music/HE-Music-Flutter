@@ -52,6 +52,7 @@ import '../widgets/cadenza_lyric_page.dart';
 import '../widgets/partita_lyric_page.dart';
 import '../widgets/tilt_lyric_page.dart';
 import '../widgets/star_tunnel_lyric_page.dart';
+import '../widgets/kinetic_lyric_page.dart';
 import '../widgets/pendolo_lyric_page.dart';
 import '../widgets/claddagh_lyric_page.dart';
 import '../widgets/player_backdrop.dart';
@@ -418,6 +419,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           seekListenable: _seekRevision,
         ),
         AppPlayerLyricsKind.starTunnel => StarTunnelLyricPage(
+          emptyText: AppI18n.tByLocaleCode(
+            config.localeCode,
+            'player.lyrics.empty',
+          ),
+          onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
+          palette: scenePalette,
+          seekListenable: _seekRevision,
+        ),
+        AppPlayerLyricsKind.kinetic => KineticLyricPage(
           emptyText: AppI18n.tByLocaleCode(
             config.localeCode,
             'player.lyrics.empty',

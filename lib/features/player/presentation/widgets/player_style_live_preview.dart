@@ -25,6 +25,7 @@ import 'monet_lyric_page.dart';
 import 'partita_lyric_page.dart';
 import 'tilt_lyric_page.dart';
 import 'star_tunnel_lyric_page.dart';
+import 'kinetic_lyric_page.dart';
 import 'pendolo_lyric_page.dart';
 import 'claddagh_lyric_page.dart';
 import 'player_backdrop.dart';
@@ -258,7 +259,11 @@ class _LyricStagePreview extends StatelessWidget {
           const AsyncData<LyricDocument>(_demoLyricDocument),
         ),
         currentLyricRequestProvider.overrideWithValue(_demoLyricRequest),
-        lyricPositionProvider.overrideWithValue(_demoLyricPosition),
+        lyricPositionProvider.overrideWithValue(
+          lyrics.lyricsKind == AppPlayerLyricsKind.kinetic
+              ? const Duration(milliseconds: 9700)
+              : _demoLyricPosition,
+        ),
         lyricPlaybackActiveProvider.overrideWithValue(false),
       ],
       child: Stack(
@@ -317,6 +322,11 @@ class _LyricStagePreview extends StatelessWidget {
         palette: null,
       ),
       AppPlayerLyricsKind.starTunnel => StarTunnelLyricPage(
+        emptyText: emptyText,
+        onSeek: null,
+        palette: null,
+      ),
+      AppPlayerLyricsKind.kinetic => KineticLyricPage(
         emptyText: emptyText,
         onSeek: null,
         palette: null,

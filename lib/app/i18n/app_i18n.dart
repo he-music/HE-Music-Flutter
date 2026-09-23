@@ -618,6 +618,8 @@ abstract final class AppI18n {
       'player.style.cadenza_lyrics': '心象',
       'player.style.star_tunnel_lyrics': '星隧',
       'player.style.star_tunnel_lyrics.description': '歌词从星光深处迎面而来，随换句穿梭并聚焦',
+      'player.style.kinetic_lyrics': '跃音',
+      'player.style.kinetic_lyrics.description': '音符随逐字歌词跳跃，落字泛起同色光晕、涟漪与拖尾',
       'player.style.pendolo_lyrics': '时计',
       'player.style.claddagh_lyrics': '回环',
       'player.style.claddagh_lyrics.description': '文字沿倾斜椭圆回环流动，逐字放大聚焦',
@@ -1591,6 +1593,9 @@ abstract final class AppI18n {
       'player.style.star_tunnel_lyrics': 'Star Tunnel',
       'player.style.star_tunnel_lyrics.description':
           'Lyrics approach through starlit depth and settle into focus with each line',
+      'player.style.kinetic_lyrics': 'Kinetic Note',
+      'player.style.kinetic_lyrics.description':
+          'A bouncing note follows timed lyrics with glowing ripples and trails',
       'player.style.pendolo_lyrics': 'Pendolo',
       'player.style.claddagh_lyrics': 'Claddagh',
       'player.style.claddagh_lyrics.description':

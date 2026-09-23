@@ -40,6 +40,16 @@ void main() {
                   ).readAsBytes().then(ByteData.sublistView),
                 ))
                 .load();
+            if (option.id == AppPlayerLyricsRegistry.kineticId) {
+              // Flutter tests have no platform serif fonts; use a deterministic
+              // Latin substitute while keeping the shared CJK fallback.
+              await (FontLoader('Songti SC')..addFont(
+                    File(
+                      'test/assets/fonts/Roboto-Regular.ttf',
+                    ).readAsBytes().then(ByteData.sublistView),
+                  ))
+                  .load();
+            }
             await (FontLoader('PreviewCjk')..addFont(
                   File(
                     'test/assets/fonts/DroidSansFallback-PreviewSubset.ttf',
