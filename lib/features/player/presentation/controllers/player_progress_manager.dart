@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 
 import '../../data/providers/player_progress_providers.dart';
 import '../../domain/entities/player_track.dart';
@@ -30,6 +33,27 @@ class PlayerProgressManager {
   DateTime? _lastPersistAt;
   int _lastPersistedPositionMs = 0;
   String? _lastPersistTrackKey;
+  List<PlayerTrack>? _identityQueue;
+  String? _queueDigest;
+
+  String? _queueKey(PlayerControllerCallback callback) {
+    final state = callback.currentState;
+    if (state.queue.isEmpty) return null;
+    if (!identical(_identityQueue, state.queue)) {
+      _identityQueue = state.queue;
+      _queueDigest = sha256
+          .convert(
+            utf8.encode(
+              jsonEncode([
+                for (final track in state.queue)
+                  [track.platform, track.id, track.path],
+              ]),
+            ),
+          )
+          .toString();
+    }
+    return '$_queueDigest:${state.currentIndex}';
+  }
 
   /// 节流保存当前播放进度。
   ///
@@ -53,7 +77,7 @@ class PlayerProgressManager {
     if (durationMs > _minPositionMs &&
         positionMs >= durationMs - _tailBufferMs) {
       try {
-        await _dataSource.clearProgress(track);
+        await _dataSource.clearProgress(track, queueKey: _queueKey(callback));
       } catch (_) {
         // 清理进度同样是尽力而为，不能让后台保存产生未处理异常。
       }
@@ -72,7 +96,11 @@ class PlayerProgressManager {
       }
     }
     try {
-      await _dataSource.saveProgress(track: track, positionMs: positionMs);
+      await _dataSource.saveProgress(
+        track: track,
+        positionMs: positionMs,
+        queueKey: _queueKey(callback),
+      );
       _lastPersistAt = now;
       _lastPersistedPositionMs = positionMs;
       _lastPersistTrackKey = trackKey;
@@ -90,14 +118,17 @@ class PlayerProgressManager {
     required Duration currentDuration,
   }) async {
     try {
-      final savedMs = await _dataSource.readProgress(track);
+      final savedMs = await _dataSource.readProgress(
+        track,
+        queueKey: _queueKey(callback),
+      );
       if (savedMs == null || savedMs < _minPositionMs) {
         return null;
       }
       final durationMs = currentDuration.inMilliseconds;
       if (durationMs > _minPositionMs &&
           savedMs >= durationMs - _tailBufferMs) {
-        await _dataSource.clearProgress(track);
+        await _dataSource.clearProgress(track, queueKey: _queueKey(callback));
         return null;
       }
       final safePosition = Duration(milliseconds: savedMs);

@@ -4,127 +4,89 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/entities/player_track.dart';
 
-const _progressStorageKey = 'player_progress_v1';
-const _progressLimit = 200;
+const _resumeStorageKey = 'player_resume_v1';
+const _legacyProgressKey = 'player_progress_v1';
 
+/// One app-wide resume position. Writes are ordered to prevent a delayed write
+/// for the previous song from overtaking a newer resume record.
 class PlayerProgressDataSource {
   const PlayerProgressDataSource();
+
+  static Future<void> _tail = Future<void>.value();
+
+  Future<T> _serial<T>(Future<T> Function() action) {
+    final next = _tail.then((_) => action());
+    _tail = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return next;
+  }
 
   Future<void> saveProgress({
     required PlayerTrack track,
     required int positionMs,
-  }) async {
-    final safePosition = positionMs < 0 ? 0 : positionMs;
-    final key = _trackKey(track);
-    if (key.isEmpty) {
-      return;
-    }
-    final current = await _readRaw();
-    final next = <String, dynamic>{...current};
-    next[key] = <String, dynamic>{
-      'position_ms': safePosition,
-      'updated_at': DateTime.now().millisecondsSinceEpoch,
-    };
-    final trimmed = _trim(next);
-    await _saveRaw(trimmed);
-  }
-
-  Future<int?> readProgress(PlayerTrack track) async {
-    final key = _trackKey(track);
-    if (key.isEmpty) {
-      return null;
-    }
-    final raw = await _readRaw();
-    final node = _asMap(raw[key]);
-    final value = _toInt(node['position_ms']);
-    if (value == null || value <= 0) {
-      return null;
-    }
-    return value;
-  }
-
-  Future<void> clearProgress(PlayerTrack track) async {
-    final key = _trackKey(track);
-    if (key.isEmpty) {
-      return;
-    }
-    final raw = await _readRaw();
-    if (!raw.containsKey(key)) {
-      return;
-    }
-    final next = <String, dynamic>{...raw}..remove(key);
-    await _saveRaw(next);
-  }
-
-  Future<Map<String, dynamic>> _readRaw() async {
+    String? queueKey,
+  }) => _serial(() async {
+    if (track.id.trim().isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    final payload = prefs.getString(_progressStorageKey);
-    if (payload == null || payload.isEmpty) {
-      return <String, dynamic>{};
-    }
-    try {
-      final decoded = jsonDecode(payload);
-      if (decoded is! Map) {
-        return <String, dynamic>{};
-      }
-      return decoded.map((key, value) => MapEntry('$key', value));
-    } catch (_) {
-      return <String, dynamic>{};
-    }
-  }
+    await _save(prefs, track, positionMs, queueKey);
+  });
 
-  Future<void> _saveRaw(Map<String, dynamic> value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_progressStorageKey, jsonEncode(value));
-  }
-
-  Map<String, dynamic> _trim(Map<String, dynamic> raw) {
-    if (raw.length <= _progressLimit) {
-      return raw;
-    }
-    final entries = raw.entries.toList(growable: false);
-    entries.sort((a, b) {
-      final aTime = _toInt(_asMap(a.value)['updated_at']) ?? 0;
-      final bTime = _toInt(_asMap(b.value)['updated_at']) ?? 0;
-      return bTime.compareTo(aTime);
-    });
-    return Map<String, dynamic>.fromEntries(
-      entries.take(_progressLimit).toList(growable: false),
+  Future<void> _save(
+    SharedPreferences prefs,
+    PlayerTrack track,
+    int positionMs,
+    String? queueKey,
+  ) async {
+    final saved = await prefs.setString(
+      _resumeStorageKey,
+      jsonEncode({
+        'track_key': _trackKey(track),
+        'queue_key': queueKey,
+        'position_ms': positionMs < 0 ? 0 : positionMs,
+      }),
     );
+    if (!saved) throw StateError('保存播放位置失败');
+    if (prefs.containsKey(_legacyProgressKey)) {
+      await prefs.remove(_legacyProgressKey);
+    }
   }
 
-  Map<String, dynamic> _asMap(dynamic value) {
-    if (value is Map<String, dynamic>) {
-      return value;
-    }
-    if (value is Map) {
-      return value.map((key, item) => MapEntry('$key', item));
-    }
-    return const <String, dynamic>{};
-  }
+  Future<int?> readProgress(PlayerTrack track, {String? queueKey}) =>
+      _serial(() async {
+        final prefs = await SharedPreferences.getInstance();
+        final payload = prefs.getString(_resumeStorageKey);
+        if (payload != null) {
+          final raw = jsonDecode(payload) as Map<String, dynamic>;
+          if (raw['track_key'] != _trackKey(track) ||
+              raw['queue_key'] != queueKey) {
+            return null;
+          }
+          return (raw['position_ms'] as num?)?.toInt();
+        }
+        final legacy = prefs.getString(_legacyProgressKey);
+        if (legacy == null) return null;
+        final raw = jsonDecode(legacy) as Map<String, dynamic>;
+        final entry = raw[_trackKey(track)] as Map?;
+        final position = (entry?['position_ms'] as num?)?.toInt();
+        // Only the restored current song is imported, never the entire old map.
+        await _save(prefs, track, position ?? 0, queueKey);
+        return position;
+      });
 
-  int? _toInt(dynamic value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is double) {
-      return value.toInt();
-    }
-    return int.tryParse('$value');
-  }
+  Future<void> clearProgress(PlayerTrack track, {String? queueKey}) =>
+      _serial(() async {
+        final prefs = await SharedPreferences.getInstance();
+        final payload = prefs.getString(_resumeStorageKey);
+        if (payload == null) return;
+        final raw = jsonDecode(payload) as Map<String, dynamic>;
+        if (raw['track_key'] == _trackKey(track) &&
+            raw['queue_key'] == queueKey) {
+          await prefs.remove(_resumeStorageKey);
+        }
+      });
 
   String _trackKey(PlayerTrack track) {
     final id = track.id.trim();
-    if (id.isEmpty) {
-      return '';
-    }
     final platform = (track.platform ?? '').trim();
-    if (platform == 'local') {
-      return id;
-    }
-    if (platform.isNotEmpty) {
-      return '$id|$platform';
-    }
-    return id;
+    return platform.isEmpty || platform == 'local' ? id : '$id|$platform';
   }
 }

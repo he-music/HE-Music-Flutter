@@ -1,46 +1,66 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:drift/drift.dart';
 
+import '../../../../core/database/app_database.dart';
+import '../../../../core/database/local_music_database.dart';
 import '../../domain/entities/download_task.dart';
 
 const _downloadTaskStoreKey = 'download.tasks.v2';
 
 class DownloadTaskStoreDataSource {
+  DownloadTaskStoreDataSource({LocalMusicDatabase? database})
+    : _database = database;
+
+  final LocalMusicDatabase? _database;
+  LocalMusicDatabase get _db => _database ?? appDatabase;
+
+  Future<void> _migrate() =>
+      migratePreferences(_db, _downloadTaskStoreKey, (value) async {
+        var order = 0;
+        for (final raw in value as List<String>) {
+          final task = DownloadTask.fromJson(
+            jsonDecode(raw) as Map<String, dynamic>,
+          );
+          await _write(task, order++);
+        }
+      });
+
   Future<List<DownloadTask>> loadTasks() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList(_downloadTaskStoreKey) ?? const <String>[];
-    return raw
+    await _migrate();
+    final rows = await (_db.select(
+      _db.storedDownloadTasks,
+    )..orderBy([(row) => OrderingTerm.asc(row.updatedAt)])).get();
+    return rows
         .map(
-          (item) =>
-              DownloadTask.fromJson(jsonDecode(item) as Map<String, dynamic>),
+          (row) => DownloadTask.fromJson(
+            jsonDecode(row.payload) as Map<String, dynamic>,
+          ),
         )
-        .toList(growable: false);
+        .toList();
   }
 
   Future<void> saveTask(DownloadTask task) async {
-    final tasks = await loadTasks();
-    final updated = <DownloadTask>[
-      for (final current in tasks)
-        if (current.id != task.id) current,
-      task,
-    ];
-    await _writeTasks(updated);
+    await _migrate();
+    await _write(task, DateTime.now().microsecondsSinceEpoch);
+  }
+
+  Future<void> _write(DownloadTask task, int order) async {
+    await _db
+        .into(_db.storedDownloadTasks)
+        .insertOnConflictUpdate(
+          StoredDownloadTask(
+            taskId: task.id,
+            updatedAt: order,
+            payload: jsonEncode(task.toJson()),
+          ),
+        );
   }
 
   Future<void> deleteTask(String taskId) async {
-    final tasks = await loadTasks();
-    final updated = tasks
-        .where((task) => task.id != taskId)
-        .toList(growable: false);
-    await _writeTasks(updated);
-  }
-
-  Future<void> _writeTasks(List<DownloadTask> tasks) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _downloadTaskStoreKey,
-      tasks.map((task) => jsonEncode(task.toJson())).toList(growable: false),
-    );
+    await _migrate();
+    await (_db.delete(
+      _db.storedDownloadTasks,
+    )..where((row) => row.taskId.equals(taskId))).go();
   }
 }

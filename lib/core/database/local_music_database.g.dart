@@ -2373,6 +2373,1417 @@ class SongArtistsCompanion extends UpdateCompanion<SongArtist> {
   }
 }
 
+class $PlaybackQueuesTable extends PlaybackQueues
+    with TableInfo<$PlaybackQueuesTable, PlaybackQueue> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlaybackQueuesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _slotMeta = const VerificationMeta('slot');
+  @override
+  late final GeneratedColumn<String> slot = GeneratedColumn<String>(
+    'slot',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _metadataMeta = const VerificationMeta(
+    'metadata',
+  );
+  @override
+  late final GeneratedColumn<String> metadata = GeneratedColumn<String>(
+    'metadata',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [slot, metadata];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'playback_queues';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaybackQueue> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('slot')) {
+      context.handle(
+        _slotMeta,
+        slot.isAcceptableOrUnknown(data['slot']!, _slotMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_slotMeta);
+    }
+    if (data.containsKey('metadata')) {
+      context.handle(
+        _metadataMeta,
+        metadata.isAcceptableOrUnknown(data['metadata']!, _metadataMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_metadataMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {slot};
+  @override
+  PlaybackQueue map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaybackQueue(
+      slot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}slot'],
+      )!,
+      metadata: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}metadata'],
+      )!,
+    );
+  }
+
+  @override
+  $PlaybackQueuesTable createAlias(String alias) {
+    return $PlaybackQueuesTable(attachedDatabase, alias);
+  }
+}
+
+class PlaybackQueue extends DataClass implements Insertable<PlaybackQueue> {
+  final String slot;
+  final String metadata;
+  const PlaybackQueue({required this.slot, required this.metadata});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['slot'] = Variable<String>(slot);
+    map['metadata'] = Variable<String>(metadata);
+    return map;
+  }
+
+  PlaybackQueuesCompanion toCompanion(bool nullToAbsent) {
+    return PlaybackQueuesCompanion(
+      slot: Value(slot),
+      metadata: Value(metadata),
+    );
+  }
+
+  factory PlaybackQueue.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaybackQueue(
+      slot: serializer.fromJson<String>(json['slot']),
+      metadata: serializer.fromJson<String>(json['metadata']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'slot': serializer.toJson<String>(slot),
+      'metadata': serializer.toJson<String>(metadata),
+    };
+  }
+
+  PlaybackQueue copyWith({String? slot, String? metadata}) => PlaybackQueue(
+    slot: slot ?? this.slot,
+    metadata: metadata ?? this.metadata,
+  );
+  PlaybackQueue copyWithCompanion(PlaybackQueuesCompanion data) {
+    return PlaybackQueue(
+      slot: data.slot.present ? data.slot.value : this.slot,
+      metadata: data.metadata.present ? data.metadata.value : this.metadata,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackQueue(')
+          ..write('slot: $slot, ')
+          ..write('metadata: $metadata')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(slot, metadata);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaybackQueue &&
+          other.slot == this.slot &&
+          other.metadata == this.metadata);
+}
+
+class PlaybackQueuesCompanion extends UpdateCompanion<PlaybackQueue> {
+  final Value<String> slot;
+  final Value<String> metadata;
+  final Value<int> rowid;
+  const PlaybackQueuesCompanion({
+    this.slot = const Value.absent(),
+    this.metadata = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlaybackQueuesCompanion.insert({
+    required String slot,
+    required String metadata,
+    this.rowid = const Value.absent(),
+  }) : slot = Value(slot),
+       metadata = Value(metadata);
+  static Insertable<PlaybackQueue> custom({
+    Expression<String>? slot,
+    Expression<String>? metadata,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (slot != null) 'slot': slot,
+      if (metadata != null) 'metadata': metadata,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlaybackQueuesCompanion copyWith({
+    Value<String>? slot,
+    Value<String>? metadata,
+    Value<int>? rowid,
+  }) {
+    return PlaybackQueuesCompanion(
+      slot: slot ?? this.slot,
+      metadata: metadata ?? this.metadata,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (slot.present) {
+      map['slot'] = Variable<String>(slot.value);
+    }
+    if (metadata.present) {
+      map['metadata'] = Variable<String>(metadata.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackQueuesCompanion(')
+          ..write('slot: $slot, ')
+          ..write('metadata: $metadata, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlaybackQueueEntriesTable extends PlaybackQueueEntries
+    with TableInfo<$PlaybackQueueEntriesTable, PlaybackQueueEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlaybackQueueEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _slotMeta = const VerificationMeta('slot');
+  @override
+  late final GeneratedColumn<String> slot = GeneratedColumn<String>(
+    'slot',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES playback_queues (slot) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [slot, position, payload];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'playback_queue_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaybackQueueEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('slot')) {
+      context.handle(
+        _slotMeta,
+        slot.isAcceptableOrUnknown(data['slot']!, _slotMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_slotMeta);
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_positionMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {slot, position};
+  @override
+  PlaybackQueueEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaybackQueueEntry(
+      slot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}slot'],
+      )!,
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+    );
+  }
+
+  @override
+  $PlaybackQueueEntriesTable createAlias(String alias) {
+    return $PlaybackQueueEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class PlaybackQueueEntry extends DataClass
+    implements Insertable<PlaybackQueueEntry> {
+  final String slot;
+  final int position;
+  final String payload;
+  const PlaybackQueueEntry({
+    required this.slot,
+    required this.position,
+    required this.payload,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['slot'] = Variable<String>(slot);
+    map['position'] = Variable<int>(position);
+    map['payload'] = Variable<String>(payload);
+    return map;
+  }
+
+  PlaybackQueueEntriesCompanion toCompanion(bool nullToAbsent) {
+    return PlaybackQueueEntriesCompanion(
+      slot: Value(slot),
+      position: Value(position),
+      payload: Value(payload),
+    );
+  }
+
+  factory PlaybackQueueEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaybackQueueEntry(
+      slot: serializer.fromJson<String>(json['slot']),
+      position: serializer.fromJson<int>(json['position']),
+      payload: serializer.fromJson<String>(json['payload']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'slot': serializer.toJson<String>(slot),
+      'position': serializer.toJson<int>(position),
+      'payload': serializer.toJson<String>(payload),
+    };
+  }
+
+  PlaybackQueueEntry copyWith({String? slot, int? position, String? payload}) =>
+      PlaybackQueueEntry(
+        slot: slot ?? this.slot,
+        position: position ?? this.position,
+        payload: payload ?? this.payload,
+      );
+  PlaybackQueueEntry copyWithCompanion(PlaybackQueueEntriesCompanion data) {
+    return PlaybackQueueEntry(
+      slot: data.slot.present ? data.slot.value : this.slot,
+      position: data.position.present ? data.position.value : this.position,
+      payload: data.payload.present ? data.payload.value : this.payload,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackQueueEntry(')
+          ..write('slot: $slot, ')
+          ..write('position: $position, ')
+          ..write('payload: $payload')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(slot, position, payload);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaybackQueueEntry &&
+          other.slot == this.slot &&
+          other.position == this.position &&
+          other.payload == this.payload);
+}
+
+class PlaybackQueueEntriesCompanion
+    extends UpdateCompanion<PlaybackQueueEntry> {
+  final Value<String> slot;
+  final Value<int> position;
+  final Value<String> payload;
+  final Value<int> rowid;
+  const PlaybackQueueEntriesCompanion({
+    this.slot = const Value.absent(),
+    this.position = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlaybackQueueEntriesCompanion.insert({
+    required String slot,
+    required int position,
+    required String payload,
+    this.rowid = const Value.absent(),
+  }) : slot = Value(slot),
+       position = Value(position),
+       payload = Value(payload);
+  static Insertable<PlaybackQueueEntry> custom({
+    Expression<String>? slot,
+    Expression<int>? position,
+    Expression<String>? payload,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (slot != null) 'slot': slot,
+      if (position != null) 'position': position,
+      if (payload != null) 'payload': payload,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlaybackQueueEntriesCompanion copyWith({
+    Value<String>? slot,
+    Value<int>? position,
+    Value<String>? payload,
+    Value<int>? rowid,
+  }) {
+    return PlaybackQueueEntriesCompanion(
+      slot: slot ?? this.slot,
+      position: position ?? this.position,
+      payload: payload ?? this.payload,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (slot.present) {
+      map['slot'] = Variable<String>(slot.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackQueueEntriesCompanion(')
+          ..write('slot: $slot, ')
+          ..write('position: $position, ')
+          ..write('payload: $payload, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlaybackHistoryTable extends PlaybackHistory
+    with TableInfo<$PlaybackHistoryTable, PlaybackHistoryData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlaybackHistoryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _trackKeyMeta = const VerificationMeta(
+    'trackKey',
+  );
+  @override
+  late final GeneratedColumn<String> trackKey = GeneratedColumn<String>(
+    'track_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _playedAtMeta = const VerificationMeta(
+    'playedAt',
+  );
+  @override
+  late final GeneratedColumn<int> playedAt = GeneratedColumn<int>(
+    'played_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [trackKey, playedAt, payload];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'playback_history';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaybackHistoryData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('track_key')) {
+      context.handle(
+        _trackKeyMeta,
+        trackKey.isAcceptableOrUnknown(data['track_key']!, _trackKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_trackKeyMeta);
+    }
+    if (data.containsKey('played_at')) {
+      context.handle(
+        _playedAtMeta,
+        playedAt.isAcceptableOrUnknown(data['played_at']!, _playedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playedAtMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {trackKey};
+  @override
+  PlaybackHistoryData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaybackHistoryData(
+      trackKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}track_key'],
+      )!,
+      playedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}played_at'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+    );
+  }
+
+  @override
+  $PlaybackHistoryTable createAlias(String alias) {
+    return $PlaybackHistoryTable(attachedDatabase, alias);
+  }
+}
+
+class PlaybackHistoryData extends DataClass
+    implements Insertable<PlaybackHistoryData> {
+  final String trackKey;
+  final int playedAt;
+  final String payload;
+  const PlaybackHistoryData({
+    required this.trackKey,
+    required this.playedAt,
+    required this.payload,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['track_key'] = Variable<String>(trackKey);
+    map['played_at'] = Variable<int>(playedAt);
+    map['payload'] = Variable<String>(payload);
+    return map;
+  }
+
+  PlaybackHistoryCompanion toCompanion(bool nullToAbsent) {
+    return PlaybackHistoryCompanion(
+      trackKey: Value(trackKey),
+      playedAt: Value(playedAt),
+      payload: Value(payload),
+    );
+  }
+
+  factory PlaybackHistoryData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaybackHistoryData(
+      trackKey: serializer.fromJson<String>(json['trackKey']),
+      playedAt: serializer.fromJson<int>(json['playedAt']),
+      payload: serializer.fromJson<String>(json['payload']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'trackKey': serializer.toJson<String>(trackKey),
+      'playedAt': serializer.toJson<int>(playedAt),
+      'payload': serializer.toJson<String>(payload),
+    };
+  }
+
+  PlaybackHistoryData copyWith({
+    String? trackKey,
+    int? playedAt,
+    String? payload,
+  }) => PlaybackHistoryData(
+    trackKey: trackKey ?? this.trackKey,
+    playedAt: playedAt ?? this.playedAt,
+    payload: payload ?? this.payload,
+  );
+  PlaybackHistoryData copyWithCompanion(PlaybackHistoryCompanion data) {
+    return PlaybackHistoryData(
+      trackKey: data.trackKey.present ? data.trackKey.value : this.trackKey,
+      playedAt: data.playedAt.present ? data.playedAt.value : this.playedAt,
+      payload: data.payload.present ? data.payload.value : this.payload,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackHistoryData(')
+          ..write('trackKey: $trackKey, ')
+          ..write('playedAt: $playedAt, ')
+          ..write('payload: $payload')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(trackKey, playedAt, payload);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaybackHistoryData &&
+          other.trackKey == this.trackKey &&
+          other.playedAt == this.playedAt &&
+          other.payload == this.payload);
+}
+
+class PlaybackHistoryCompanion extends UpdateCompanion<PlaybackHistoryData> {
+  final Value<String> trackKey;
+  final Value<int> playedAt;
+  final Value<String> payload;
+  final Value<int> rowid;
+  const PlaybackHistoryCompanion({
+    this.trackKey = const Value.absent(),
+    this.playedAt = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlaybackHistoryCompanion.insert({
+    required String trackKey,
+    required int playedAt,
+    required String payload,
+    this.rowid = const Value.absent(),
+  }) : trackKey = Value(trackKey),
+       playedAt = Value(playedAt),
+       payload = Value(payload);
+  static Insertable<PlaybackHistoryData> custom({
+    Expression<String>? trackKey,
+    Expression<int>? playedAt,
+    Expression<String>? payload,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (trackKey != null) 'track_key': trackKey,
+      if (playedAt != null) 'played_at': playedAt,
+      if (payload != null) 'payload': payload,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlaybackHistoryCompanion copyWith({
+    Value<String>? trackKey,
+    Value<int>? playedAt,
+    Value<String>? payload,
+    Value<int>? rowid,
+  }) {
+    return PlaybackHistoryCompanion(
+      trackKey: trackKey ?? this.trackKey,
+      playedAt: playedAt ?? this.playedAt,
+      payload: payload ?? this.payload,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (trackKey.present) {
+      map['track_key'] = Variable<String>(trackKey.value);
+    }
+    if (playedAt.present) {
+      map['played_at'] = Variable<int>(playedAt.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackHistoryCompanion(')
+          ..write('trackKey: $trackKey, ')
+          ..write('playedAt: $playedAt, ')
+          ..write('payload: $payload, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $StoredDownloadTasksTable extends StoredDownloadTasks
+    with TableInfo<$StoredDownloadTasksTable, StoredDownloadTask> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StoredDownloadTasksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<String> taskId = GeneratedColumn<String>(
+    'task_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [taskId, updatedAt, payload];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stored_download_tasks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredDownloadTask> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('task_id')) {
+      context.handle(
+        _taskIdMeta,
+        taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_taskIdMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {taskId};
+  @override
+  StoredDownloadTask map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredDownloadTask(
+      taskId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}task_id'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+    );
+  }
+
+  @override
+  $StoredDownloadTasksTable createAlias(String alias) {
+    return $StoredDownloadTasksTable(attachedDatabase, alias);
+  }
+}
+
+class StoredDownloadTask extends DataClass
+    implements Insertable<StoredDownloadTask> {
+  final String taskId;
+  final int updatedAt;
+  final String payload;
+  const StoredDownloadTask({
+    required this.taskId,
+    required this.updatedAt,
+    required this.payload,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['task_id'] = Variable<String>(taskId);
+    map['updated_at'] = Variable<int>(updatedAt);
+    map['payload'] = Variable<String>(payload);
+    return map;
+  }
+
+  StoredDownloadTasksCompanion toCompanion(bool nullToAbsent) {
+    return StoredDownloadTasksCompanion(
+      taskId: Value(taskId),
+      updatedAt: Value(updatedAt),
+      payload: Value(payload),
+    );
+  }
+
+  factory StoredDownloadTask.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredDownloadTask(
+      taskId: serializer.fromJson<String>(json['taskId']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+      payload: serializer.fromJson<String>(json['payload']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'taskId': serializer.toJson<String>(taskId),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+      'payload': serializer.toJson<String>(payload),
+    };
+  }
+
+  StoredDownloadTask copyWith({
+    String? taskId,
+    int? updatedAt,
+    String? payload,
+  }) => StoredDownloadTask(
+    taskId: taskId ?? this.taskId,
+    updatedAt: updatedAt ?? this.updatedAt,
+    payload: payload ?? this.payload,
+  );
+  StoredDownloadTask copyWithCompanion(StoredDownloadTasksCompanion data) {
+    return StoredDownloadTask(
+      taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      payload: data.payload.present ? data.payload.value : this.payload,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredDownloadTask(')
+          ..write('taskId: $taskId, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('payload: $payload')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(taskId, updatedAt, payload);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredDownloadTask &&
+          other.taskId == this.taskId &&
+          other.updatedAt == this.updatedAt &&
+          other.payload == this.payload);
+}
+
+class StoredDownloadTasksCompanion extends UpdateCompanion<StoredDownloadTask> {
+  final Value<String> taskId;
+  final Value<int> updatedAt;
+  final Value<String> payload;
+  final Value<int> rowid;
+  const StoredDownloadTasksCompanion({
+    this.taskId = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StoredDownloadTasksCompanion.insert({
+    required String taskId,
+    required int updatedAt,
+    required String payload,
+    this.rowid = const Value.absent(),
+  }) : taskId = Value(taskId),
+       updatedAt = Value(updatedAt),
+       payload = Value(payload);
+  static Insertable<StoredDownloadTask> custom({
+    Expression<String>? taskId,
+    Expression<int>? updatedAt,
+    Expression<String>? payload,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (taskId != null) 'task_id': taskId,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (payload != null) 'payload': payload,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StoredDownloadTasksCompanion copyWith({
+    Value<String>? taskId,
+    Value<int>? updatedAt,
+    Value<String>? payload,
+    Value<int>? rowid,
+  }) {
+    return StoredDownloadTasksCompanion(
+      taskId: taskId ?? this.taskId,
+      updatedAt: updatedAt ?? this.updatedAt,
+      payload: payload ?? this.payload,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (taskId.present) {
+      map['task_id'] = Variable<String>(taskId.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredDownloadTasksCompanion(')
+          ..write('taskId: $taskId, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('payload: $payload, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CachedFavoriteSongsTable extends CachedFavoriteSongs
+    with TableInfo<$CachedFavoriteSongsTable, CachedFavoriteSong> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedFavoriteSongsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _platformMeta = const VerificationMeta(
+    'platform',
+  );
+  @override
+  late final GeneratedColumn<String> platform = GeneratedColumn<String>(
+    'platform',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _songIdMeta = const VerificationMeta('songId');
+  @override
+  late final GeneratedColumn<String> songId = GeneratedColumn<String>(
+    'song_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [platform, songId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_favorite_songs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedFavoriteSong> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('platform')) {
+      context.handle(
+        _platformMeta,
+        platform.isAcceptableOrUnknown(data['platform']!, _platformMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_platformMeta);
+    }
+    if (data.containsKey('song_id')) {
+      context.handle(
+        _songIdMeta,
+        songId.isAcceptableOrUnknown(data['song_id']!, _songIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_songIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {platform, songId};
+  @override
+  CachedFavoriteSong map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedFavoriteSong(
+      platform: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}platform'],
+      )!,
+      songId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}song_id'],
+      )!,
+    );
+  }
+
+  @override
+  $CachedFavoriteSongsTable createAlias(String alias) {
+    return $CachedFavoriteSongsTable(attachedDatabase, alias);
+  }
+}
+
+class CachedFavoriteSong extends DataClass
+    implements Insertable<CachedFavoriteSong> {
+  final String platform;
+  final String songId;
+  const CachedFavoriteSong({required this.platform, required this.songId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['platform'] = Variable<String>(platform);
+    map['song_id'] = Variable<String>(songId);
+    return map;
+  }
+
+  CachedFavoriteSongsCompanion toCompanion(bool nullToAbsent) {
+    return CachedFavoriteSongsCompanion(
+      platform: Value(platform),
+      songId: Value(songId),
+    );
+  }
+
+  factory CachedFavoriteSong.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedFavoriteSong(
+      platform: serializer.fromJson<String>(json['platform']),
+      songId: serializer.fromJson<String>(json['songId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'platform': serializer.toJson<String>(platform),
+      'songId': serializer.toJson<String>(songId),
+    };
+  }
+
+  CachedFavoriteSong copyWith({String? platform, String? songId}) =>
+      CachedFavoriteSong(
+        platform: platform ?? this.platform,
+        songId: songId ?? this.songId,
+      );
+  CachedFavoriteSong copyWithCompanion(CachedFavoriteSongsCompanion data) {
+    return CachedFavoriteSong(
+      platform: data.platform.present ? data.platform.value : this.platform,
+      songId: data.songId.present ? data.songId.value : this.songId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedFavoriteSong(')
+          ..write('platform: $platform, ')
+          ..write('songId: $songId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(platform, songId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedFavoriteSong &&
+          other.platform == this.platform &&
+          other.songId == this.songId);
+}
+
+class CachedFavoriteSongsCompanion extends UpdateCompanion<CachedFavoriteSong> {
+  final Value<String> platform;
+  final Value<String> songId;
+  final Value<int> rowid;
+  const CachedFavoriteSongsCompanion({
+    this.platform = const Value.absent(),
+    this.songId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedFavoriteSongsCompanion.insert({
+    required String platform,
+    required String songId,
+    this.rowid = const Value.absent(),
+  }) : platform = Value(platform),
+       songId = Value(songId);
+  static Insertable<CachedFavoriteSong> custom({
+    Expression<String>? platform,
+    Expression<String>? songId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (platform != null) 'platform': platform,
+      if (songId != null) 'song_id': songId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedFavoriteSongsCompanion copyWith({
+    Value<String>? platform,
+    Value<String>? songId,
+    Value<int>? rowid,
+  }) {
+    return CachedFavoriteSongsCompanion(
+      platform: platform ?? this.platform,
+      songId: songId ?? this.songId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (platform.present) {
+      map['platform'] = Variable<String>(platform.value);
+    }
+    if (songId.present) {
+      map['song_id'] = Variable<String>(songId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedFavoriteSongsCompanion(')
+          ..write('platform: $platform, ')
+          ..write('songId: $songId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $StorageMigrationsTable extends StorageMigrations
+    with TableInfo<$StorageMigrationsTable, StorageMigration> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StorageMigrationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _storageKeyMeta = const VerificationMeta(
+    'storageKey',
+  );
+  @override
+  late final GeneratedColumn<String> storageKey = GeneratedColumn<String>(
+    'storage_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [storageKey];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'storage_migrations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StorageMigration> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('storage_key')) {
+      context.handle(
+        _storageKeyMeta,
+        storageKey.isAcceptableOrUnknown(data['storage_key']!, _storageKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_storageKeyMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {storageKey};
+  @override
+  StorageMigration map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StorageMigration(
+      storageKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}storage_key'],
+      )!,
+    );
+  }
+
+  @override
+  $StorageMigrationsTable createAlias(String alias) {
+    return $StorageMigrationsTable(attachedDatabase, alias);
+  }
+}
+
+class StorageMigration extends DataClass
+    implements Insertable<StorageMigration> {
+  final String storageKey;
+  const StorageMigration({required this.storageKey});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['storage_key'] = Variable<String>(storageKey);
+    return map;
+  }
+
+  StorageMigrationsCompanion toCompanion(bool nullToAbsent) {
+    return StorageMigrationsCompanion(storageKey: Value(storageKey));
+  }
+
+  factory StorageMigration.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StorageMigration(
+      storageKey: serializer.fromJson<String>(json['storageKey']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'storageKey': serializer.toJson<String>(storageKey),
+    };
+  }
+
+  StorageMigration copyWith({String? storageKey}) =>
+      StorageMigration(storageKey: storageKey ?? this.storageKey);
+  StorageMigration copyWithCompanion(StorageMigrationsCompanion data) {
+    return StorageMigration(
+      storageKey: data.storageKey.present
+          ? data.storageKey.value
+          : this.storageKey,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StorageMigration(')
+          ..write('storageKey: $storageKey')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => storageKey.hashCode;
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StorageMigration && other.storageKey == this.storageKey);
+}
+
+class StorageMigrationsCompanion extends UpdateCompanion<StorageMigration> {
+  final Value<String> storageKey;
+  final Value<int> rowid;
+  const StorageMigrationsCompanion({
+    this.storageKey = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StorageMigrationsCompanion.insert({
+    required String storageKey,
+    this.rowid = const Value.absent(),
+  }) : storageKey = Value(storageKey);
+  static Insertable<StorageMigration> custom({
+    Expression<String>? storageKey,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (storageKey != null) 'storage_key': storageKey,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StorageMigrationsCompanion copyWith({
+    Value<String>? storageKey,
+    Value<int>? rowid,
+  }) {
+    return StorageMigrationsCompanion(
+      storageKey: storageKey ?? this.storageKey,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (storageKey.present) {
+      map['storage_key'] = Variable<String>(storageKey.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StorageMigrationsCompanion(')
+          ..write('storageKey: $storageKey, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalMusicDatabase extends GeneratedDatabase {
   _$LocalMusicDatabase(QueryExecutor e) : super(e);
   $LocalMusicDatabaseManager get managers => $LocalMusicDatabaseManager(this);
@@ -2381,6 +3792,18 @@ abstract class _$LocalMusicDatabase extends GeneratedDatabase {
   late final $ScanFoldersTable scanFolders = $ScanFoldersTable(this);
   late final $ArtistsTable artists = $ArtistsTable(this);
   late final $SongArtistsTable songArtists = $SongArtistsTable(this);
+  late final $PlaybackQueuesTable playbackQueues = $PlaybackQueuesTable(this);
+  late final $PlaybackQueueEntriesTable playbackQueueEntries =
+      $PlaybackQueueEntriesTable(this);
+  late final $PlaybackHistoryTable playbackHistory = $PlaybackHistoryTable(
+    this,
+  );
+  late final $StoredDownloadTasksTable storedDownloadTasks =
+      $StoredDownloadTasksTable(this);
+  late final $CachedFavoriteSongsTable cachedFavoriteSongs =
+      $CachedFavoriteSongsTable(this);
+  late final $StorageMigrationsTable storageMigrations =
+      $StorageMigrationsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2391,7 +3814,23 @@ abstract class _$LocalMusicDatabase extends GeneratedDatabase {
     scanFolders,
     artists,
     songArtists,
+    playbackQueues,
+    playbackQueueEntries,
+    playbackHistory,
+    storedDownloadTasks,
+    cachedFavoriteSongs,
+    storageMigrations,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'playback_queues',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('playback_queue_entries', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$LocalSongsTableCreateCompanionBuilder =
@@ -4238,6 +5677,1218 @@ typedef $$SongArtistsTableProcessedTableManager =
       SongArtist,
       PrefetchHooks Function({bool songId, bool artistId})
     >;
+typedef $$PlaybackQueuesTableCreateCompanionBuilder =
+    PlaybackQueuesCompanion Function({
+      required String slot,
+      required String metadata,
+      Value<int> rowid,
+    });
+typedef $$PlaybackQueuesTableUpdateCompanionBuilder =
+    PlaybackQueuesCompanion Function({
+      Value<String> slot,
+      Value<String> metadata,
+      Value<int> rowid,
+    });
+
+final class $$PlaybackQueuesTableReferences
+    extends
+        BaseReferences<
+          _$LocalMusicDatabase,
+          $PlaybackQueuesTable,
+          PlaybackQueue
+        > {
+  $$PlaybackQueuesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<
+    $PlaybackQueueEntriesTable,
+    List<PlaybackQueueEntry>
+  >
+  _playbackQueueEntriesRefsTable(_$LocalMusicDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.playbackQueueEntries,
+        aliasName: 'playback_queues__slot__playback_queue_entries__slot',
+      );
+
+  $$PlaybackQueueEntriesTableProcessedTableManager
+  get playbackQueueEntriesRefs {
+    final manager = $$PlaybackQueueEntriesTableTableManager(
+      $_db,
+      $_db.playbackQueueEntries,
+    ).filter((f) => f.slot.slot.sqlEquals($_itemColumn<String>('slot')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _playbackQueueEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$PlaybackQueuesTableFilterComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackQueuesTable> {
+  $$PlaybackQueuesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get slot => $composableBuilder(
+    column: $table.slot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metadata => $composableBuilder(
+    column: $table.metadata,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> playbackQueueEntriesRefs(
+    Expression<bool> Function($$PlaybackQueueEntriesTableFilterComposer f) f,
+  ) {
+    final $$PlaybackQueueEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.slot,
+      referencedTable: $db.playbackQueueEntries,
+      getReferencedColumn: (t) => t.slot,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaybackQueueEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.playbackQueueEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PlaybackQueuesTableOrderingComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackQueuesTable> {
+  $$PlaybackQueuesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get slot => $composableBuilder(
+    column: $table.slot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get metadata => $composableBuilder(
+    column: $table.metadata,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlaybackQueuesTableAnnotationComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackQueuesTable> {
+  $$PlaybackQueuesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get slot =>
+      $composableBuilder(column: $table.slot, builder: (column) => column);
+
+  GeneratedColumn<String> get metadata =>
+      $composableBuilder(column: $table.metadata, builder: (column) => column);
+
+  Expression<T> playbackQueueEntriesRefs<T extends Object>(
+    Expression<T> Function($$PlaybackQueueEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$PlaybackQueueEntriesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.slot,
+          referencedTable: $db.playbackQueueEntries,
+          getReferencedColumn: (t) => t.slot,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$PlaybackQueueEntriesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.playbackQueueEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$PlaybackQueuesTableTableManager
+    extends
+        RootTableManager<
+          _$LocalMusicDatabase,
+          $PlaybackQueuesTable,
+          PlaybackQueue,
+          $$PlaybackQueuesTableFilterComposer,
+          $$PlaybackQueuesTableOrderingComposer,
+          $$PlaybackQueuesTableAnnotationComposer,
+          $$PlaybackQueuesTableCreateCompanionBuilder,
+          $$PlaybackQueuesTableUpdateCompanionBuilder,
+          (PlaybackQueue, $$PlaybackQueuesTableReferences),
+          PlaybackQueue,
+          PrefetchHooks Function({bool playbackQueueEntriesRefs})
+        > {
+  $$PlaybackQueuesTableTableManager(
+    _$LocalMusicDatabase db,
+    $PlaybackQueuesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlaybackQueuesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlaybackQueuesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlaybackQueuesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> slot = const Value.absent(),
+                Value<String> metadata = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlaybackQueuesCompanion(
+                slot: slot,
+                metadata: metadata,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String slot,
+                required String metadata,
+                Value<int> rowid = const Value.absent(),
+              }) => PlaybackQueuesCompanion.insert(
+                slot: slot,
+                metadata: metadata,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PlaybackQueuesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({playbackQueueEntriesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (playbackQueueEntriesRefs) db.playbackQueueEntries,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (playbackQueueEntriesRefs)
+                    await $_getPrefetchedData<
+                      PlaybackQueue,
+                      $PlaybackQueuesTable,
+                      PlaybackQueueEntry
+                    >(
+                      currentTable: table,
+                      referencedTable: $$PlaybackQueuesTableReferences
+                          ._playbackQueueEntriesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$PlaybackQueuesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).playbackQueueEntriesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.slot == item.slot),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PlaybackQueuesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalMusicDatabase,
+      $PlaybackQueuesTable,
+      PlaybackQueue,
+      $$PlaybackQueuesTableFilterComposer,
+      $$PlaybackQueuesTableOrderingComposer,
+      $$PlaybackQueuesTableAnnotationComposer,
+      $$PlaybackQueuesTableCreateCompanionBuilder,
+      $$PlaybackQueuesTableUpdateCompanionBuilder,
+      (PlaybackQueue, $$PlaybackQueuesTableReferences),
+      PlaybackQueue,
+      PrefetchHooks Function({bool playbackQueueEntriesRefs})
+    >;
+typedef $$PlaybackQueueEntriesTableCreateCompanionBuilder =
+    PlaybackQueueEntriesCompanion Function({
+      required String slot,
+      required int position,
+      required String payload,
+      Value<int> rowid,
+    });
+typedef $$PlaybackQueueEntriesTableUpdateCompanionBuilder =
+    PlaybackQueueEntriesCompanion Function({
+      Value<String> slot,
+      Value<int> position,
+      Value<String> payload,
+      Value<int> rowid,
+    });
+
+final class $$PlaybackQueueEntriesTableReferences
+    extends
+        BaseReferences<
+          _$LocalMusicDatabase,
+          $PlaybackQueueEntriesTable,
+          PlaybackQueueEntry
+        > {
+  $$PlaybackQueueEntriesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $PlaybackQueuesTable _slotTable(_$LocalMusicDatabase db) => db
+      .playbackQueues
+      .createAlias('playback_queue_entries__slot__playback_queues__slot');
+
+  $$PlaybackQueuesTableProcessedTableManager get slot {
+    final $_column = $_itemColumn<String>('slot')!;
+
+    final manager = $$PlaybackQueuesTableTableManager(
+      $_db,
+      $_db.playbackQueues,
+    ).filter((f) => f.slot.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_slotTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PlaybackQueueEntriesTableFilterComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackQueueEntriesTable> {
+  $$PlaybackQueueEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PlaybackQueuesTableFilterComposer get slot {
+    final $$PlaybackQueuesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.slot,
+      referencedTable: $db.playbackQueues,
+      getReferencedColumn: (t) => t.slot,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaybackQueuesTableFilterComposer(
+            $db: $db,
+            $table: $db.playbackQueues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlaybackQueueEntriesTableOrderingComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackQueueEntriesTable> {
+  $$PlaybackQueueEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PlaybackQueuesTableOrderingComposer get slot {
+    final $$PlaybackQueuesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.slot,
+      referencedTable: $db.playbackQueues,
+      getReferencedColumn: (t) => t.slot,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaybackQueuesTableOrderingComposer(
+            $db: $db,
+            $table: $db.playbackQueues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlaybackQueueEntriesTableAnnotationComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackQueueEntriesTable> {
+  $$PlaybackQueueEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  $$PlaybackQueuesTableAnnotationComposer get slot {
+    final $$PlaybackQueuesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.slot,
+      referencedTable: $db.playbackQueues,
+      getReferencedColumn: (t) => t.slot,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaybackQueuesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.playbackQueues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlaybackQueueEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$LocalMusicDatabase,
+          $PlaybackQueueEntriesTable,
+          PlaybackQueueEntry,
+          $$PlaybackQueueEntriesTableFilterComposer,
+          $$PlaybackQueueEntriesTableOrderingComposer,
+          $$PlaybackQueueEntriesTableAnnotationComposer,
+          $$PlaybackQueueEntriesTableCreateCompanionBuilder,
+          $$PlaybackQueueEntriesTableUpdateCompanionBuilder,
+          (PlaybackQueueEntry, $$PlaybackQueueEntriesTableReferences),
+          PlaybackQueueEntry,
+          PrefetchHooks Function({bool slot})
+        > {
+  $$PlaybackQueueEntriesTableTableManager(
+    _$LocalMusicDatabase db,
+    $PlaybackQueueEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlaybackQueueEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlaybackQueueEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PlaybackQueueEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> slot = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlaybackQueueEntriesCompanion(
+                slot: slot,
+                position: position,
+                payload: payload,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String slot,
+                required int position,
+                required String payload,
+                Value<int> rowid = const Value.absent(),
+              }) => PlaybackQueueEntriesCompanion.insert(
+                slot: slot,
+                position: position,
+                payload: payload,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PlaybackQueueEntriesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({slot = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (slot) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.slot,
+                                referencedTable:
+                                    $$PlaybackQueueEntriesTableReferences
+                                        ._slotTable(db),
+                                referencedColumn:
+                                    $$PlaybackQueueEntriesTableReferences
+                                        ._slotTable(db)
+                                        .slot,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PlaybackQueueEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalMusicDatabase,
+      $PlaybackQueueEntriesTable,
+      PlaybackQueueEntry,
+      $$PlaybackQueueEntriesTableFilterComposer,
+      $$PlaybackQueueEntriesTableOrderingComposer,
+      $$PlaybackQueueEntriesTableAnnotationComposer,
+      $$PlaybackQueueEntriesTableCreateCompanionBuilder,
+      $$PlaybackQueueEntriesTableUpdateCompanionBuilder,
+      (PlaybackQueueEntry, $$PlaybackQueueEntriesTableReferences),
+      PlaybackQueueEntry,
+      PrefetchHooks Function({bool slot})
+    >;
+typedef $$PlaybackHistoryTableCreateCompanionBuilder =
+    PlaybackHistoryCompanion Function({
+      required String trackKey,
+      required int playedAt,
+      required String payload,
+      Value<int> rowid,
+    });
+typedef $$PlaybackHistoryTableUpdateCompanionBuilder =
+    PlaybackHistoryCompanion Function({
+      Value<String> trackKey,
+      Value<int> playedAt,
+      Value<String> payload,
+      Value<int> rowid,
+    });
+
+class $$PlaybackHistoryTableFilterComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackHistoryTable> {
+  $$PlaybackHistoryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get trackKey => $composableBuilder(
+    column: $table.trackKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get playedAt => $composableBuilder(
+    column: $table.playedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PlaybackHistoryTableOrderingComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackHistoryTable> {
+  $$PlaybackHistoryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get trackKey => $composableBuilder(
+    column: $table.trackKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get playedAt => $composableBuilder(
+    column: $table.playedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlaybackHistoryTableAnnotationComposer
+    extends Composer<_$LocalMusicDatabase, $PlaybackHistoryTable> {
+  $$PlaybackHistoryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get trackKey =>
+      $composableBuilder(column: $table.trackKey, builder: (column) => column);
+
+  GeneratedColumn<int> get playedAt =>
+      $composableBuilder(column: $table.playedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+}
+
+class $$PlaybackHistoryTableTableManager
+    extends
+        RootTableManager<
+          _$LocalMusicDatabase,
+          $PlaybackHistoryTable,
+          PlaybackHistoryData,
+          $$PlaybackHistoryTableFilterComposer,
+          $$PlaybackHistoryTableOrderingComposer,
+          $$PlaybackHistoryTableAnnotationComposer,
+          $$PlaybackHistoryTableCreateCompanionBuilder,
+          $$PlaybackHistoryTableUpdateCompanionBuilder,
+          (
+            PlaybackHistoryData,
+            BaseReferences<
+              _$LocalMusicDatabase,
+              $PlaybackHistoryTable,
+              PlaybackHistoryData
+            >,
+          ),
+          PlaybackHistoryData,
+          PrefetchHooks Function()
+        > {
+  $$PlaybackHistoryTableTableManager(
+    _$LocalMusicDatabase db,
+    $PlaybackHistoryTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlaybackHistoryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlaybackHistoryTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlaybackHistoryTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> trackKey = const Value.absent(),
+                Value<int> playedAt = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlaybackHistoryCompanion(
+                trackKey: trackKey,
+                playedAt: playedAt,
+                payload: payload,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String trackKey,
+                required int playedAt,
+                required String payload,
+                Value<int> rowid = const Value.absent(),
+              }) => PlaybackHistoryCompanion.insert(
+                trackKey: trackKey,
+                playedAt: playedAt,
+                payload: payload,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PlaybackHistoryTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalMusicDatabase,
+      $PlaybackHistoryTable,
+      PlaybackHistoryData,
+      $$PlaybackHistoryTableFilterComposer,
+      $$PlaybackHistoryTableOrderingComposer,
+      $$PlaybackHistoryTableAnnotationComposer,
+      $$PlaybackHistoryTableCreateCompanionBuilder,
+      $$PlaybackHistoryTableUpdateCompanionBuilder,
+      (
+        PlaybackHistoryData,
+        BaseReferences<
+          _$LocalMusicDatabase,
+          $PlaybackHistoryTable,
+          PlaybackHistoryData
+        >,
+      ),
+      PlaybackHistoryData,
+      PrefetchHooks Function()
+    >;
+typedef $$StoredDownloadTasksTableCreateCompanionBuilder =
+    StoredDownloadTasksCompanion Function({
+      required String taskId,
+      required int updatedAt,
+      required String payload,
+      Value<int> rowid,
+    });
+typedef $$StoredDownloadTasksTableUpdateCompanionBuilder =
+    StoredDownloadTasksCompanion Function({
+      Value<String> taskId,
+      Value<int> updatedAt,
+      Value<String> payload,
+      Value<int> rowid,
+    });
+
+class $$StoredDownloadTasksTableFilterComposer
+    extends Composer<_$LocalMusicDatabase, $StoredDownloadTasksTable> {
+  $$StoredDownloadTasksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$StoredDownloadTasksTableOrderingComposer
+    extends Composer<_$LocalMusicDatabase, $StoredDownloadTasksTable> {
+  $$StoredDownloadTasksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StoredDownloadTasksTableAnnotationComposer
+    extends Composer<_$LocalMusicDatabase, $StoredDownloadTasksTable> {
+  $$StoredDownloadTasksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get taskId =>
+      $composableBuilder(column: $table.taskId, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+}
+
+class $$StoredDownloadTasksTableTableManager
+    extends
+        RootTableManager<
+          _$LocalMusicDatabase,
+          $StoredDownloadTasksTable,
+          StoredDownloadTask,
+          $$StoredDownloadTasksTableFilterComposer,
+          $$StoredDownloadTasksTableOrderingComposer,
+          $$StoredDownloadTasksTableAnnotationComposer,
+          $$StoredDownloadTasksTableCreateCompanionBuilder,
+          $$StoredDownloadTasksTableUpdateCompanionBuilder,
+          (
+            StoredDownloadTask,
+            BaseReferences<
+              _$LocalMusicDatabase,
+              $StoredDownloadTasksTable,
+              StoredDownloadTask
+            >,
+          ),
+          StoredDownloadTask,
+          PrefetchHooks Function()
+        > {
+  $$StoredDownloadTasksTableTableManager(
+    _$LocalMusicDatabase db,
+    $StoredDownloadTasksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StoredDownloadTasksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StoredDownloadTasksTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$StoredDownloadTasksTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> taskId = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StoredDownloadTasksCompanion(
+                taskId: taskId,
+                updatedAt: updatedAt,
+                payload: payload,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String taskId,
+                required int updatedAt,
+                required String payload,
+                Value<int> rowid = const Value.absent(),
+              }) => StoredDownloadTasksCompanion.insert(
+                taskId: taskId,
+                updatedAt: updatedAt,
+                payload: payload,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StoredDownloadTasksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalMusicDatabase,
+      $StoredDownloadTasksTable,
+      StoredDownloadTask,
+      $$StoredDownloadTasksTableFilterComposer,
+      $$StoredDownloadTasksTableOrderingComposer,
+      $$StoredDownloadTasksTableAnnotationComposer,
+      $$StoredDownloadTasksTableCreateCompanionBuilder,
+      $$StoredDownloadTasksTableUpdateCompanionBuilder,
+      (
+        StoredDownloadTask,
+        BaseReferences<
+          _$LocalMusicDatabase,
+          $StoredDownloadTasksTable,
+          StoredDownloadTask
+        >,
+      ),
+      StoredDownloadTask,
+      PrefetchHooks Function()
+    >;
+typedef $$CachedFavoriteSongsTableCreateCompanionBuilder =
+    CachedFavoriteSongsCompanion Function({
+      required String platform,
+      required String songId,
+      Value<int> rowid,
+    });
+typedef $$CachedFavoriteSongsTableUpdateCompanionBuilder =
+    CachedFavoriteSongsCompanion Function({
+      Value<String> platform,
+      Value<String> songId,
+      Value<int> rowid,
+    });
+
+class $$CachedFavoriteSongsTableFilterComposer
+    extends Composer<_$LocalMusicDatabase, $CachedFavoriteSongsTable> {
+  $$CachedFavoriteSongsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedFavoriteSongsTableOrderingComposer
+    extends Composer<_$LocalMusicDatabase, $CachedFavoriteSongsTable> {
+  $$CachedFavoriteSongsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedFavoriteSongsTableAnnotationComposer
+    extends Composer<_$LocalMusicDatabase, $CachedFavoriteSongsTable> {
+  $$CachedFavoriteSongsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get platform =>
+      $composableBuilder(column: $table.platform, builder: (column) => column);
+
+  GeneratedColumn<String> get songId =>
+      $composableBuilder(column: $table.songId, builder: (column) => column);
+}
+
+class $$CachedFavoriteSongsTableTableManager
+    extends
+        RootTableManager<
+          _$LocalMusicDatabase,
+          $CachedFavoriteSongsTable,
+          CachedFavoriteSong,
+          $$CachedFavoriteSongsTableFilterComposer,
+          $$CachedFavoriteSongsTableOrderingComposer,
+          $$CachedFavoriteSongsTableAnnotationComposer,
+          $$CachedFavoriteSongsTableCreateCompanionBuilder,
+          $$CachedFavoriteSongsTableUpdateCompanionBuilder,
+          (
+            CachedFavoriteSong,
+            BaseReferences<
+              _$LocalMusicDatabase,
+              $CachedFavoriteSongsTable,
+              CachedFavoriteSong
+            >,
+          ),
+          CachedFavoriteSong,
+          PrefetchHooks Function()
+        > {
+  $$CachedFavoriteSongsTableTableManager(
+    _$LocalMusicDatabase db,
+    $CachedFavoriteSongsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedFavoriteSongsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CachedFavoriteSongsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CachedFavoriteSongsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> platform = const Value.absent(),
+                Value<String> songId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedFavoriteSongsCompanion(
+                platform: platform,
+                songId: songId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String platform,
+                required String songId,
+                Value<int> rowid = const Value.absent(),
+              }) => CachedFavoriteSongsCompanion.insert(
+                platform: platform,
+                songId: songId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedFavoriteSongsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalMusicDatabase,
+      $CachedFavoriteSongsTable,
+      CachedFavoriteSong,
+      $$CachedFavoriteSongsTableFilterComposer,
+      $$CachedFavoriteSongsTableOrderingComposer,
+      $$CachedFavoriteSongsTableAnnotationComposer,
+      $$CachedFavoriteSongsTableCreateCompanionBuilder,
+      $$CachedFavoriteSongsTableUpdateCompanionBuilder,
+      (
+        CachedFavoriteSong,
+        BaseReferences<
+          _$LocalMusicDatabase,
+          $CachedFavoriteSongsTable,
+          CachedFavoriteSong
+        >,
+      ),
+      CachedFavoriteSong,
+      PrefetchHooks Function()
+    >;
+typedef $$StorageMigrationsTableCreateCompanionBuilder =
+    StorageMigrationsCompanion Function({
+      required String storageKey,
+      Value<int> rowid,
+    });
+typedef $$StorageMigrationsTableUpdateCompanionBuilder =
+    StorageMigrationsCompanion Function({
+      Value<String> storageKey,
+      Value<int> rowid,
+    });
+
+class $$StorageMigrationsTableFilterComposer
+    extends Composer<_$LocalMusicDatabase, $StorageMigrationsTable> {
+  $$StorageMigrationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get storageKey => $composableBuilder(
+    column: $table.storageKey,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$StorageMigrationsTableOrderingComposer
+    extends Composer<_$LocalMusicDatabase, $StorageMigrationsTable> {
+  $$StorageMigrationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get storageKey => $composableBuilder(
+    column: $table.storageKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StorageMigrationsTableAnnotationComposer
+    extends Composer<_$LocalMusicDatabase, $StorageMigrationsTable> {
+  $$StorageMigrationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get storageKey => $composableBuilder(
+    column: $table.storageKey,
+    builder: (column) => column,
+  );
+}
+
+class $$StorageMigrationsTableTableManager
+    extends
+        RootTableManager<
+          _$LocalMusicDatabase,
+          $StorageMigrationsTable,
+          StorageMigration,
+          $$StorageMigrationsTableFilterComposer,
+          $$StorageMigrationsTableOrderingComposer,
+          $$StorageMigrationsTableAnnotationComposer,
+          $$StorageMigrationsTableCreateCompanionBuilder,
+          $$StorageMigrationsTableUpdateCompanionBuilder,
+          (
+            StorageMigration,
+            BaseReferences<
+              _$LocalMusicDatabase,
+              $StorageMigrationsTable,
+              StorageMigration
+            >,
+          ),
+          StorageMigration,
+          PrefetchHooks Function()
+        > {
+  $$StorageMigrationsTableTableManager(
+    _$LocalMusicDatabase db,
+    $StorageMigrationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StorageMigrationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StorageMigrationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StorageMigrationsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> storageKey = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StorageMigrationsCompanion(
+                storageKey: storageKey,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String storageKey,
+                Value<int> rowid = const Value.absent(),
+              }) => StorageMigrationsCompanion.insert(
+                storageKey: storageKey,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StorageMigrationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalMusicDatabase,
+      $StorageMigrationsTable,
+      StorageMigration,
+      $$StorageMigrationsTableFilterComposer,
+      $$StorageMigrationsTableOrderingComposer,
+      $$StorageMigrationsTableAnnotationComposer,
+      $$StorageMigrationsTableCreateCompanionBuilder,
+      $$StorageMigrationsTableUpdateCompanionBuilder,
+      (
+        StorageMigration,
+        BaseReferences<
+          _$LocalMusicDatabase,
+          $StorageMigrationsTable,
+          StorageMigration
+        >,
+      ),
+      StorageMigration,
+      PrefetchHooks Function()
+    >;
 
 class $LocalMusicDatabaseManager {
   final _$LocalMusicDatabase _db;
@@ -4252,4 +6903,16 @@ class $LocalMusicDatabaseManager {
       $$ArtistsTableTableManager(_db, _db.artists);
   $$SongArtistsTableTableManager get songArtists =>
       $$SongArtistsTableTableManager(_db, _db.songArtists);
+  $$PlaybackQueuesTableTableManager get playbackQueues =>
+      $$PlaybackQueuesTableTableManager(_db, _db.playbackQueues);
+  $$PlaybackQueueEntriesTableTableManager get playbackQueueEntries =>
+      $$PlaybackQueueEntriesTableTableManager(_db, _db.playbackQueueEntries);
+  $$PlaybackHistoryTableTableManager get playbackHistory =>
+      $$PlaybackHistoryTableTableManager(_db, _db.playbackHistory);
+  $$StoredDownloadTasksTableTableManager get storedDownloadTasks =>
+      $$StoredDownloadTasksTableTableManager(_db, _db.storedDownloadTasks);
+  $$CachedFavoriteSongsTableTableManager get cachedFavoriteSongs =>
+      $$CachedFavoriteSongsTableTableManager(_db, _db.cachedFavoriteSongs);
+  $$StorageMigrationsTableTableManager get storageMigrations =>
+      $$StorageMigrationsTableTableManager(_db, _db.storageMigrations);
 }

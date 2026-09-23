@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/download/data/datasources/download_task_store_data_source.dart';
 import 'package:he_music_flutter/features/download/domain/entities/download_task.dart';
@@ -30,6 +32,27 @@ void main() {
   });
 
   group('DownloadTaskStoreDataSource', () {
+    test('旧下载任务迁移后并发保存不丢失其他任务', () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('download.tasks.v2', [
+        jsonEncode(_task('legacy').toJson()),
+      ]);
+      final ds = DownloadTaskStoreDataSource();
+      await Future.wait(List.generate(20, (i) => ds.saveTask(_task('new-$i'))));
+      final tasks = await ds.loadTasks();
+      expect(tasks, hasLength(21));
+      expect(tasks.any((task) => task.id == 'legacy'), isTrue);
+      expect(prefs.containsKey('download.tasks.v2'), isFalse);
+      await ds.deleteTask('legacy');
+      await prefs.setStringList('download.tasks.v2', [
+        jsonEncode(_task('legacy').toJson()),
+      ]);
+      expect(
+        (await ds.loadTasks()).any((task) => task.id == 'legacy'),
+        isFalse,
+      );
+    });
+
     test('loadTasks 应在空存储时返回空列表', () async {
       final ds = DownloadTaskStoreDataSource();
       final tasks = await ds.loadTasks();

@@ -2057,8 +2057,9 @@ class _HeldProgressDataSource extends PlayerProgressDataSource {
   Future<void> saveProgress({
     required PlayerTrack track,
     required int positionMs,
+    String? queueKey,
   }) {
-    savedTrack = track;
+    savedTrack ??= track;
     return pending.future;
   }
 }

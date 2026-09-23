@@ -1082,6 +1082,16 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         clearRequestedTransitionId: true,
       );
       applyResolvedState(resolution);
+      // A deliberate track switch starts a new resume position, even when the
+      // selected song occurs at the same position as the previous selection.
+      unawaited(
+        _progressManager.persistTrackProgress(
+          callback: this,
+          track: state.currentTrack,
+          position: Duration.zero,
+          force: true,
+        ),
+      );
       unawaited(_syncAutoLyricHighlightColor());
       await _queueManager.persistQueueState(this);
     } catch (_) {

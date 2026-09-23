@@ -27,6 +27,7 @@ class _ResolvedDownloadSource {
 class DownloadController extends Notifier<DownloadState> {
   StreamSubscription<DownloadRunnerEvent>? _eventsSubscription;
   bool _disposed = false;
+  final Map<String, DateTime> _lastProgressWrite = {};
 
   @override
   DownloadState build() {
@@ -352,24 +353,33 @@ class DownloadController extends Notifier<DownloadState> {
           ),
         );
       case DownloadRunnerStatus.running:
-        await _updateTask(task.id, (old) {
-          final nextTotalBytes = _resolveTotalBytes(
-            previous: old.totalBytes,
-            incoming: event.expectedFileSize,
-          );
-          return old.copyWith(
-            status: DownloadTaskStatus.downloading,
-            progress: event.progress ?? old.progress,
-            downloadedBytes: _resolveDownloadedBytes(
+        await _updateTask(
+          task.id,
+          (old) {
+            final nextTotalBytes = _resolveTotalBytes(
+              previous: old.totalBytes,
+              incoming: event.expectedFileSize,
+            );
+            return old.copyWith(
+              status: DownloadTaskStatus.downloading,
               progress: event.progress ?? old.progress,
+              downloadedBytes: _resolveDownloadedBytes(
+                progress: event.progress ?? old.progress,
+                totalBytes: nextTotalBytes,
+                previous: old.downloadedBytes,
+              ),
               totalBytes: nextTotalBytes,
-              previous: old.downloadedBytes,
-            ),
-            totalBytes: nextTotalBytes,
-            filePath: event.filePath ?? old.filePath,
-            clearError: true,
-          );
-        });
+              filePath: event.filePath ?? old.filePath,
+              clearError: true,
+            );
+          },
+          persist:
+              task.status != DownloadTaskStatus.downloading ||
+              DateTime.now().difference(
+                    _lastProgressWrite[task.id] ?? DateTime(0),
+                  ) >=
+                  const Duration(seconds: 2),
+        );
       case DownloadRunnerStatus.complete:
         await _completeTask(task: task, eventFilePath: event.filePath);
         await _dispatchQueuedTasks();
@@ -410,8 +420,9 @@ class DownloadController extends Notifier<DownloadState> {
 
   Future<void> _updateTask(
     String taskId,
-    DownloadTask Function(DownloadTask task) updater,
-  ) async {
+    DownloadTask Function(DownloadTask task) updater, {
+    bool persist = true,
+  }) async {
     if (_disposed) {
       return;
     }
@@ -425,7 +436,7 @@ class DownloadController extends Notifier<DownloadState> {
         .toList(growable: false);
     state = _withProcessing(updated);
     final next = _findTask(taskId);
-    if (next != null) {
+    if (next != null && persist) {
       await _persistTask(next);
     }
   }
@@ -434,6 +445,7 @@ class DownloadController extends Notifier<DownloadState> {
     if (_disposed) {
       return Future<void>.value();
     }
+    _lastProgressWrite[task.id] = DateTime.now();
     return ref.read(downloadRepositoryProvider).saveTask(task);
   }
 

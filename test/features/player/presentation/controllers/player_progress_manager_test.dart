@@ -230,7 +230,7 @@ void main() {
 
         final saved1 = await const PlayerProgressDataSource().readProgress(_t1);
         final saved2 = await const PlayerProgressDataSource().readProgress(_t2);
-        expect(saved1, 10000);
+        expect(saved1, isNull);
         expect(saved2, 20000);
       });
     });

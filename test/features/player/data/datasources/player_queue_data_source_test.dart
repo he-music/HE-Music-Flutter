@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:he_music_flutter/core/database/app_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/player/data/datasources/player_queue_data_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
@@ -175,8 +176,15 @@ void main() {
       expect(result.previousSnapshot!.playMode, PlayerPlayMode.single);
       expect(result.previousSnapshot!.previousSnapshot, isNull);
       final prefs = await SharedPreferences.getInstance();
-      final raw = jsonDecode(prefs.getString('player_queue_v1')!) as Map;
-      expect((raw['previous_snapshot'] as Map)['previous_snapshot'], isNull);
+      expect(prefs.containsKey('player_queue_v1'), isFalse);
+      expect(
+        await appDatabase.select(appDatabase.playbackQueues).get(),
+        hasLength(2),
+      );
+      expect(
+        await appDatabase.select(appDatabase.playbackQueueEntries).get(),
+        hasLength(3),
+      );
     });
 
     test('读取旧版深层快照时压缩存储且保留当前和上个队列', () async {
@@ -201,10 +209,11 @@ void main() {
       expect(result.previousSnapshot!.playMode, PlayerPlayMode.shuffle);
       expect(result.previousSnapshot!.previousSnapshot, isNull);
       final prefs = await SharedPreferences.getInstance();
-      final compact = prefs.getString('player_queue_v1')!;
-      expect(compact.length, lessThan(payload.length ~/ 10));
-      final raw = jsonDecode(compact) as Map;
-      expect((raw['previous_snapshot'] as Map)['previous_snapshot'], isNull);
+      expect(prefs.containsKey('player_queue_v1'), isFalse);
+      expect(
+        await appDatabase.select(appDatabase.playbackQueueEntries).get(),
+        hasLength(2),
+      );
       expect(
         (await ds.readQueue())!.previousSnapshot!.queue.single.id,
         'song-1',

@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import 'playback_tables.dart';
+
 part 'local_music_database.g.dart';
 
 /// 本地歌曲表
@@ -111,7 +113,19 @@ class SongArtists extends Table {
 /// 使用 Drift + SQLite 持久化本地歌曲、播放统计、扫描文件夹配置和歌手信息。
 /// 数据库文件存储在应用文档目录下。
 @DriftDatabase(
-  tables: [LocalSongs, PlayStats, ScanFolders, Artists, SongArtists],
+  tables: [
+    LocalSongs,
+    PlayStats,
+    ScanFolders,
+    Artists,
+    SongArtists,
+    PlaybackQueues,
+    PlaybackQueueEntries,
+    PlaybackHistory,
+    StoredDownloadTasks,
+    CachedFavoriteSongs,
+    StorageMigrations,
+  ],
 )
 class LocalMusicDatabase extends _$LocalMusicDatabase {
   LocalMusicDatabase() : super(_openConnection());
@@ -120,7 +134,7 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
   LocalMusicDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -134,6 +148,14 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
       if (from < 3) {
         await m.createTable(artists);
         await m.createTable(songArtists);
+      }
+      if (from < 4) {
+        await m.createTable(playbackQueues);
+        await m.createTable(playbackQueueEntries);
+        await m.createTable(playbackHistory);
+        await m.createTable(storedDownloadTasks);
+        await m.createTable(cachedFavoriteSongs);
+        await m.createTable(storageMigrations);
       }
     },
     beforeOpen: (details) async {

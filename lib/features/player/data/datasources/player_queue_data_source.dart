@@ -1,6 +1,9 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:drift/drift.dart';
+
+import '../../../../core/database/app_database.dart';
+import '../../../../core/database/local_music_database.dart';
 
 import '../../../../shared/models/he_music_models.dart';
 import '../../domain/entities/player_play_mode.dart';
@@ -11,7 +14,18 @@ import '../../domain/entities/player_track.dart';
 const _queueStorageKey = 'player_queue_v1';
 
 class PlayerQueueDataSource {
-  const PlayerQueueDataSource();
+  const PlayerQueueDataSource({LocalMusicDatabase? database})
+    : _database = database;
+
+  final LocalMusicDatabase? _database;
+  LocalMusicDatabase get _db => _database ?? appDatabase;
+
+  Future<void> _migrate() =>
+      migratePreferences(_db, _queueStorageKey, (value) async {
+        final raw = jsonDecode(value as String) as Map<String, dynamic>;
+        await _writeSlot('current', raw);
+        await _writeSlot('previous', _asMap(raw['previous_snapshot']));
+      });
 
   Future<void> saveQueue({
     required List<PlayerTrack> queue,
@@ -25,11 +39,11 @@ class PlayerQueueDataSource {
     PlayerQueueSource? source,
     PlayerQueueSnapshot? previousSnapshot,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
+    await _migrate();
     final hasPreviousSnapshot =
         previousSnapshot != null && previousSnapshot.queue.isNotEmpty;
     if (queue.isEmpty && !hasPreviousSnapshot) {
-      await prefs.remove(_queueStorageKey);
+      await clearQueue();
       return;
     }
     final payload = <String, dynamic>{
@@ -47,68 +61,114 @@ class PlayerQueueDataSource {
           ? null
           : _snapshotToMap(previousSnapshot),
     };
-    await prefs.setString(_queueStorageKey, jsonEncode(payload));
+    await _db.transaction(() async {
+      await _writeSlot('current', payload);
+      await _writeSlot('previous', _asMap(payload['previous_snapshot']));
+    });
   }
 
   Future<PlayerQueueSnapshot?> readQueue() async {
-    final prefs = await SharedPreferences.getInstance();
-    final payload = prefs.getString(_queueStorageKey);
-    if (payload == null || payload.isEmpty) {
-      return null;
-    }
     try {
-      final decoded = jsonDecode(payload);
-      if (decoded is! Map) {
-        return null;
-      }
-      final raw = decoded.map((key, value) => MapEntry('$key', value));
-      final previousRaw = _asMap(raw['previous_snapshot']);
-      if (previousRaw['previous_snapshot'] != null) {
-        // 旧版递归保存历史队列，使 Android 每次偏好写入都重写巨大的 XML。
-        // 保留当前和上个队列，并一次性压缩旧数据。
-        raw['previous_snapshot'] = <String, dynamic>{
-          ...previousRaw,
-          'previous_snapshot': null,
-        };
-        try {
-          await prefs.setString(_queueStorageKey, jsonEncode(raw));
-        } catch (_) {
-          // 压缩写入失败仍恢复有效队列，下次保存会再次写入有界快照。
+      await _migrate();
+      return await _db.transaction(() async {
+        final raw = await _readSlot('current');
+        raw['previous_snapshot'] = await _readSlot('previous');
+        final queue = _trackList(raw['queue']);
+        final previousSnapshot = previousSnapshotFromValue(
+          raw['previous_snapshot'],
+        );
+        if (queue.isEmpty && previousSnapshot == null) {
+          return null;
         }
-      }
-      final queue = _trackList(raw['queue']);
-      final previousSnapshot = previousSnapshotFromValue(
-        raw['previous_snapshot'],
-      );
-      if (queue.isEmpty && previousSnapshot == null) {
-        return null;
-      }
-      final currentIndex = _toInt(raw['current_index']) ?? 0;
-      final playMode = _playModeFromValue('${raw['play_mode'] ?? ''}');
-      return PlayerQueueSnapshot(
-        queue: queue,
-        currentIndex: queue.isEmpty
-            ? 0
-            : currentIndex.clamp(0, queue.length - 1).toInt(),
-        playMode: playMode,
-        isRadioMode: raw['is_radio_mode'] == true,
-        source: _sourceFromValue(raw['source']),
-        previousSnapshot: previousSnapshot,
-        currentRadioId: _nullableString(raw['current_radio_id']),
-        currentRadioPlatform: _nullableString(raw['current_radio_platform']),
-        currentRadioPageIndex: _toInt(raw['current_radio_page_index']),
-        previousPlayModeBeforeRadio: _nullablePlayMode(
-          raw['previous_play_mode_before_radio'],
-        ),
-      );
+        final currentIndex = _toInt(raw['current_index']) ?? 0;
+        final playMode = _playModeFromValue('${raw['play_mode'] ?? ''}');
+        return PlayerQueueSnapshot(
+          queue: queue,
+          currentIndex: queue.isEmpty
+              ? 0
+              : currentIndex.clamp(0, queue.length - 1).toInt(),
+          playMode: playMode,
+          isRadioMode: raw['is_radio_mode'] == true,
+          source: _sourceFromValue(raw['source']),
+          previousSnapshot: previousSnapshot,
+          currentRadioId: _nullableString(raw['current_radio_id']),
+          currentRadioPlatform: _nullableString(raw['current_radio_platform']),
+          currentRadioPageIndex: _toInt(raw['current_radio_page_index']),
+          previousPlayModeBeforeRadio: _nullablePlayMode(
+            raw['previous_play_mode_before_radio'],
+          ),
+        );
+      });
     } catch (_) {
       return null;
     }
   }
 
   Future<void> clearQueue() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_queueStorageKey);
+    await _migrate();
+    await _db.delete(_db.playbackQueues).go();
+  }
+
+  Future<Map<String, dynamic>> _readSlot(String slot) async {
+    final record = await (_db.select(
+      _db.playbackQueues,
+    )..where((row) => row.slot.equals(slot))).getSingleOrNull();
+    if (record == null) return {};
+    final entries =
+        await (_db.select(_db.playbackQueueEntries)
+              ..where((row) => row.slot.equals(slot))
+              ..orderBy([(row) => OrderingTerm.asc(row.position)]))
+            .get();
+    return {
+      ...jsonDecode(record.metadata) as Map<String, dynamic>,
+      'queue': entries.map((row) => jsonDecode(row.payload)).toList(),
+    };
+  }
+
+  Future<void> _writeSlot(String slot, Map<String, dynamic> raw) async {
+    final tracks = (raw['queue'] as List?) ?? const [];
+    if (tracks.isEmpty && slot == 'previous') {
+      await (_db.delete(
+        _db.playbackQueues,
+      )..where((row) => row.slot.equals(slot))).go();
+      return;
+    }
+    final metadata = jsonEncode(
+      {...raw}
+        ..remove('queue')
+        ..remove('previous_snapshot'),
+    );
+    final previous = await (_db.select(
+      _db.playbackQueues,
+    )..where((row) => row.slot.equals(slot))).getSingleOrNull();
+    if (previous?.metadata != metadata) {
+      await _db
+          .into(_db.playbackQueues)
+          .insertOnConflictUpdate(
+            PlaybackQueue(slot: slot, metadata: metadata),
+          );
+    }
+    final existing = await (_db.select(
+      _db.playbackQueueEntries,
+    )..where((row) => row.slot.equals(slot))).get();
+    final byPosition = {for (final row in existing) row.position: row.payload};
+    await _db.batch((batch) {
+      for (var i = 0; i < tracks.length; i++) {
+        final payload = jsonEncode(tracks[i]);
+        if (byPosition[i] == payload) continue;
+        batch.insert(
+          _db.playbackQueueEntries,
+          PlaybackQueueEntry(slot: slot, position: i, payload: payload),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
+    await (_db.delete(_db.playbackQueueEntries)..where(
+          (row) =>
+              row.slot.equals(slot) &
+              row.position.isBiggerOrEqualValue(tracks.length),
+        ))
+        .go();
   }
 
   Map<String, dynamic> _trackToMap(PlayerTrack track) {
