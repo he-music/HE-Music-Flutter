@@ -46,6 +46,7 @@ import '../providers/player_providers.dart';
 import '../styles/player_style_stage.dart';
 import '../styles/player_track_header.dart';
 import '../widgets/monet_lyric_page.dart';
+import '../widgets/fold_lyric_page.dart';
 import '../widgets/cinema_lyric_page.dart';
 import '../widgets/cadenza_lyric_page.dart';
 import '../widgets/partita_lyric_page.dart';
@@ -363,6 +364,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       final content = switch (lyrics.lyricsKind) {
         AppPlayerLyricsKind.legacy => lyricPage,
         AppPlayerLyricsKind.monet => MonetLyricPage(
+          emptyText: AppI18n.tByLocaleCode(
+            config.localeCode,
+            'player.lyrics.empty',
+          ),
+          onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
+          palette: scenePalette,
+          seekListenable: _seekRevision,
+        ),
+        AppPlayerLyricsKind.fold => FoldLyricPage(
           emptyText: AppI18n.tByLocaleCode(
             config.localeCode,
             'player.lyrics.empty',

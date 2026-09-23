@@ -21,6 +21,7 @@ enum AppPlayerLyricsKind {
   legacy,
   monet,
   cinema,
+  fold,
   partita,
   cadenza,
   tilt,

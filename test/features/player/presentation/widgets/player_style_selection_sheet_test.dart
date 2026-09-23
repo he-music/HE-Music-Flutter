@@ -137,6 +137,11 @@ void main() {
     await _selectStyleOption(tester, axis: 'backdrop', optionId: 'fluid');
     expect(harness.config.state.playerBackdropId, 'fluid');
 
+    await _selectStyleOption(tester, axis: 'lyrics', optionId: 'fold_lyrics');
+    expect(harness.config.state.playerLyricsId, 'fold_lyrics');
+    expect(harness.config.state.playerStageId, 'vinyl');
+    expect(harness.config.state.playerBackdropId, 'fluid');
+
     await _selectStyleOption(
       tester,
       axis: 'lyrics',

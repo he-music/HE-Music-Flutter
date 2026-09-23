@@ -5,6 +5,7 @@ import 'styles/cinema_lyrics_player_style.dart';
 import 'styles/cassette_player_style.dart';
 import 'styles/classic_player_style.dart';
 import 'styles/cover_gradient_player_backdrop.dart';
+import 'styles/fold_lyrics_player_style.dart';
 import 'styles/fluid_player_style.dart';
 import 'styles/legacy_lyrics_option.dart';
 import 'styles/monet_lyrics_player_style.dart';
@@ -117,6 +118,7 @@ class AppPlayerLyricsRegistry {
       legacyLyricsOption,
       monetLyricsOption,
       cinemaLyricsOption,
+      foldLyricsOption,
       partitaLyricsOption,
       cadenzaLyricsOption,
       tiltLyricsOption,
@@ -128,6 +130,7 @@ class AppPlayerLyricsRegistry {
 
   static const String legacyId = 'legacy';
   static const String monetId = 'monet_lyrics';
+  static const String foldId = 'fold_lyrics';
   static const String cinemaId = 'cinema_lyrics';
   static const String partitaId = 'partita_lyrics';
   static const String cadenzaId = 'cadenza_lyrics';
@@ -140,6 +143,7 @@ class AppPlayerLyricsRegistry {
     legacyId,
     monetId,
     cinemaId,
+    foldId,
     partitaId,
     cadenzaId,
     tiltId,

@@ -602,6 +602,8 @@ abstract final class AppI18n {
       'player.style.artist_photo': '歌手写真',
       'player.style.radial_spectrum': '环形频谱',
       'player.style.monet_lyrics': '莫奈',
+      'player.style.fold_lyrics': '折页',
+      'player.style.fold_lyrics.description': '歌词交替折叠，随换句连动展开，当前句平展聚焦',
       'player.style.cinema_lyrics': '镜幕',
       'player.style.partita_lyrics': '云阶',
       'player.style.cadenza_lyrics': '心象',
@@ -1562,6 +1564,9 @@ abstract final class AppI18n {
       'player.style.artist_photo': 'Artist Photo',
       'player.style.radial_spectrum': 'Radial Spectrum',
       'player.style.monet_lyrics': 'Monet',
+      'player.style.fold_lyrics': 'Fold',
+      'player.style.fold_lyrics.description':
+          'Lyrics unfold in connected accordion folds, keeping the current line in focus',
       'player.style.cinema_lyrics': 'Cinema',
       'player.style.partita_lyrics': 'Partita',
       'player.style.cadenza_lyrics': 'Cadenza',

@@ -19,6 +19,7 @@ import '../helpers/player_artwork_helper.dart';
 import '../providers/player_providers.dart';
 import '../styles/player_style_stage.dart';
 import 'cadenza_lyric_page.dart';
+import 'fold_lyric_page.dart';
 import 'cinema_lyric_page.dart';
 import 'monet_lyric_page.dart';
 import 'partita_lyric_page.dart';
@@ -285,6 +286,11 @@ class _LyricStagePreview extends StatelessWidget {
         center: false,
       ),
       AppPlayerLyricsKind.monet => MonetLyricPage(
+        emptyText: emptyText,
+        onSeek: null,
+        palette: null,
+      ),
+      AppPlayerLyricsKind.fold => FoldLyricPage(
         emptyText: emptyText,
         onSeek: null,
         palette: null,
