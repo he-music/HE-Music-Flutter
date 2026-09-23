@@ -1,7 +1,9 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_environment.dart';
@@ -189,6 +191,15 @@ class AboutContent extends ConsumerWidget {
         Card(
           child: Column(
             children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.history_rounded),
+                title: Text(AppI18n.t(config, 'update.history.title')),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                enabled: AppEnvironment.hasGitHubReleaseConfig,
+                onTap: AppEnvironment.hasGitHubReleaseConfig
+                    ? () => context.push(AppRoutes.releaseHistory)
+                    : null,
+              ),
               ListTile(
                 leading: const Icon(Icons.open_in_new_rounded),
                 title: Text(AppI18n.t(config, 'settings.about.github_release')),

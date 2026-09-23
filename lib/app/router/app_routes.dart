@@ -22,6 +22,7 @@ abstract final class AppRoutes {
   static const settingsSkin = '/settings/skin';
   static const settingsGitHubDownloadAcceleration =
       '/settings/github-download-acceleration';
+  static const releaseHistory = '/settings/about/releases';
   static const about = '/settings/about';
   static const settingsProfile = '/settings/profile';
   static const settingsPassword = '/settings/password';

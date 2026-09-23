@@ -6,6 +6,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/update/data/github_release_api_client.dart';
 
 void main() {
+  test('fetchReleases sends pagination and decodes release bodies', () async {
+    final adapter = _CapturingAdapter(
+      body: '[{"tag_name":"v1.2.0","body":"notes"}]',
+    );
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.github.com'))
+      ..httpClientAdapter = adapter;
+    final result = await GitHubReleaseApiClient(
+      dio,
+    ).fetchReleases(owner: 'he music', repo: 'flutter/app', page: 3);
+    expect(adapter.options?.path, '/repos/he%20music/flutter%2Fapp/releases');
+    expect(adapter.options?.queryParameters, {'page': 3, 'per_page': 30});
+    expect(result.single['body'], 'notes');
+  });
+
   test('fetchDownloadProxyConfig requests raw repository config', () async {
     final adapter = _CapturingAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'https://api.github.com'))
@@ -31,6 +45,11 @@ void main() {
 }
 
 class _CapturingAdapter implements HttpClientAdapter {
+  _CapturingAdapter({
+    this.body = '{"schema_version":1,"revision":1,"proxies":[]}',
+  });
+
+  final String body;
   RequestOptions? options;
 
   @override
@@ -41,7 +60,7 @@ class _CapturingAdapter implements HttpClientAdapter {
   ) async {
     this.options = options;
     return ResponseBody.fromBytes(
-      utf8.encode('{"schema_version":1,"revision":1,"proxies":[]}'),
+      utf8.encode(body),
       200,
       headers: <String, List<String>>{
         Headers.contentTypeHeader: <String>['application/json'],

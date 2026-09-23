@@ -24,6 +24,14 @@ class UpdateVersion {
     );
   }
 
+  static UpdateVersion? tryParse(String input) {
+    try {
+      return UpdateVersion.parse(input);
+    } on FormatException {
+      return null;
+    }
+  }
+
   int compareTo(UpdateVersion other) {
     if (major != other.major) {
       return major.compareTo(other.major);

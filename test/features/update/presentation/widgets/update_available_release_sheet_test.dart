@@ -1,3 +1,5 @@
+import 'package:go_router/go_router.dart';
+import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,58 @@ import 'package:he_music_flutter/features/update/domain/entities/update_version.
 import 'package:he_music_flutter/features/update/presentation/widgets/update_available_release_sheet.dart';
 
 void main() {
+  testWidgets(
+    'history opens above the sheet and returns to its download action',
+    (tester) async {
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => Scaffold(
+              body: TextButton(
+                onPressed: () => showUpdateAvailableReleaseSheet(
+                  context: context,
+                  config: AppConfigState.initial,
+                  release: UpdateRelease(
+                    version: UpdateVersion.parse('1.5.0'),
+                    versionTag: 'v1.5.0',
+                    title: 'v1.5.0',
+                    releaseNotes: 'notes',
+                    htmlUrl: 'https://example.com/release',
+                    publishedAt: DateTime(2026),
+                  ),
+                  downloadUrl: 'https://example.com/app.apk',
+                  onOpenUrl: (_) async {},
+                ),
+                child: const Text('show'),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.releaseHistory,
+            builder: (context, state) => Scaffold(
+              body: TextButton(
+                onPressed: () => context.pop(),
+                child: Text('history ${state.uri.queryParameters['latest']}'),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.tap(find.text('show'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('查看其他版本的更新'));
+      await tester.pumpAndSettle();
+      expect(find.text('history 1.5.0'), findsOneWidget);
+      await tester.tap(find.text('history 1.5.0'));
+      await tester.pumpAndSettle();
+      expect(find.text('下载更新'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('fallback layout keeps the original GitHub Release action', (
     tester,
   ) async {

@@ -3,6 +3,7 @@ import '../domain/entities/update_check_result.dart';
 import '../domain/entities/update_release.dart';
 import '../domain/entities/update_release_asset.dart';
 import '../domain/entities/update_version.dart';
+import '../domain/entities/update_release_page.dart';
 import '../domain/repositories/update_repository.dart';
 import 'github_release_api_client.dart';
 
@@ -40,8 +41,43 @@ class GitHubReleaseRepositoryImpl implements UpdateRepository {
     if (latestVersion.compareTo(currentVersion) <= 0) {
       return const UpdateCheckResult.latest();
     }
-    final release = UpdateRelease(
-      version: latestVersion,
+    return UpdateCheckResult.available(_decodeRelease(data));
+  }
+
+  @override
+  Future<UpdateReleasePage> fetchReleaseHistory(int page) async {
+    if (_owner.trim().isEmpty || _repo.trim().isEmpty) {
+      throw StateError('未配置 GitHub Release 仓库。');
+    }
+    const pageSize = 30;
+    final data = await _apiClient.fetchReleases(
+      owner: _owner,
+      repo: _repo,
+      page: page,
+      perPage: pageSize,
+    );
+    final releases = <UpdateRelease>[];
+    for (final entry in data) {
+      if (entry['draft'] == true || entry['prerelease'] == true) continue;
+      try {
+        releases.add(_decodeRelease(entry));
+      } on FormatException {
+        // 历史标签可能不是应用版本；跳过它们，但继续按原始页大小分页。
+      }
+    }
+    releases.sort((a, b) => b.version.compareTo(a.version));
+    return UpdateReleasePage(
+      releases: List.unmodifiable(releases),
+      hasMore: data.length == pageSize,
+    );
+  }
+
+  UpdateRelease _decodeRelease(Map<String, dynamic> data) {
+    final tag = '${data['tag_name'] ?? ''}'.trim();
+    final htmlUrl = '${data['html_url'] ?? ''}'.trim();
+    if (htmlUrl.isEmpty) throw const FormatException('缺少 Release 链接');
+    return UpdateRelease(
+      version: UpdateVersion.parse(tag),
       versionTag: tag,
       title: '${data['name'] ?? ''}'.trim(),
       releaseNotes: '${data['body'] ?? ''}'.trim(),
@@ -51,7 +87,6 @@ class GitHubReleaseRepositoryImpl implements UpdateRepository {
           DateTime.fromMillisecondsSinceEpoch(0),
       assets: _decodeAssets(data['assets']),
     );
-    return UpdateCheckResult.available(release);
   }
 
   List<UpdateReleaseAsset> _decodeAssets(Object? source) {

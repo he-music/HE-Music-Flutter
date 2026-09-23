@@ -1,3 +1,5 @@
+import 'package:go_router/go_router.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import 'package:flutter/material.dart';
@@ -68,8 +70,7 @@ Future<void> showUpdateAvailableReleaseSheet({
                 ),
               ),
               const SizedBox(height: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 260),
+              Flexible(
                 child: SingleChildScrollView(
                   child: MarkdownBody(
                     data: releaseNotes,
@@ -87,6 +88,16 @@ Future<void> showUpdateAvailableReleaseSheet({
                     imageBuilder: (_, _, alt) => Text(alt ?? ''),
                   ),
                 ),
+              ),
+              TextButton.icon(
+                onPressed: () => context.push(
+                  Uri(
+                    path: AppRoutes.releaseHistory,
+                    queryParameters: {'latest': release.version.normalized},
+                  ).toString(),
+                ),
+                icon: const Icon(Icons.history_rounded),
+                label: Text(AppI18n.t(config, 'update.history.open')),
               ),
               const SizedBox(height: 16),
               Row(

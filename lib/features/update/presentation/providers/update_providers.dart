@@ -12,6 +12,7 @@ import '../../domain/entities/github_download_proxy_config.dart';
 import '../../domain/entities/update_current_app_info.dart';
 import '../../domain/entities/update_state.dart';
 import '../../domain/repositories/github_download_proxy_repository.dart';
+import '../../domain/entities/update_release_page.dart';
 import '../../domain/repositories/update_repository.dart';
 import '../controllers/github_download_proxy_controller.dart';
 import '../controllers/update_controller.dart';
@@ -54,6 +55,12 @@ final updateRepositoryProvider = Provider<UpdateRepository>((ref) {
   final apiClient = ref.read(gitHubReleaseApiClientProvider);
   return GitHubReleaseRepositoryImpl(apiClient);
 });
+
+// 每页按需请求并在当前 ProviderScope 中复用，版本切换不触发网络请求。
+final releaseHistoryPageProvider =
+    FutureProvider.family<UpdateReleasePage, int>((ref, page) {
+      return ref.watch(updateRepositoryProvider).fetchReleaseHistory(page);
+    });
 
 final gitHubDownloadProxyConfigDataSourceProvider =
     Provider<GitHubDownloadProxyConfigDataSource>((ref) {

@@ -44,6 +44,7 @@ import '../../features/settings/domain/settings_catalog.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/settings/presentation/pages/skin_selection_page.dart';
 import '../../features/song/presentation/pages/song_detail_page.dart';
+import '../../features/update/presentation/pages/release_history_page.dart';
 import '../../features/settings/presentation/pages/about_page.dart';
 import '../../features/settings/presentation/pages/account_password_page.dart';
 import '../../features/settings/presentation/pages/account_profile_page.dart';
@@ -386,6 +387,12 @@ List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
         ),
       );
     },
+  ),
+  GoRoute(
+    path: AppRoutes.releaseHistory,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) =>
+        ReleaseHistoryPage(latestVersion: state.uri.queryParameters['latest']),
   ),
   GoRoute(
     path: AppRoutes.about,

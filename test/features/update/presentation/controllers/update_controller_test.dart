@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_check_result.dart';
+import 'package:he_music_flutter/features/update/domain/entities/update_release_page.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_current_app_info.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_release.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_state.dart';
@@ -62,6 +63,11 @@ void main() {
 
 class _FakeUpdateRepository implements UpdateRepository {
   const _FakeUpdateRepository._(this._result);
+
+  @override
+  Future<UpdateReleasePage> fetchReleaseHistory(int page) async {
+    throw UnimplementedError('History is not used by the update check.');
+  }
 
   final UpdateCheckResult _result;
 

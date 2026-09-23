@@ -15,6 +15,21 @@ class GitHubReleaseApiClient {
     return response.data ?? const <String, dynamic>{};
   }
 
+  Future<List<Map<String, dynamic>>> fetchReleases({
+    required String owner,
+    required String repo,
+    required int page,
+    int perPage = 30,
+  }) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/repos/${Uri.encodeComponent(owner)}/${Uri.encodeComponent(repo)}/releases',
+      queryParameters: {'page': page, 'per_page': perPage},
+    );
+    return (response.data ?? const <dynamic>[])
+        .map((entry) => Map<String, dynamic>.from(entry as Map))
+        .toList();
+  }
+
   Future<String> fetchDownloadProxyConfig({
     required String owner,
     required String repo,
