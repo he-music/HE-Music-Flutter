@@ -8,6 +8,24 @@ const _mediaGridCardRadius = 14.0;
 const _mediaGridOverlayFontSize = 10.0;
 const _mediaGridCardPadding = 4.0;
 
+double _singleLineTextHeight({
+  required String text,
+  required TextStyle? style,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+  required double maxWidth,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    maxLines: 1,
+    textScaler: textScaler,
+    textDirection: textDirection,
+  )..layout(maxWidth: maxWidth);
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
 enum MediaGridCardKind { album, playlist }
 
 class MediaGridCard extends StatelessWidget {
@@ -70,11 +88,55 @@ class MediaGridCard extends StatelessWidget {
               padding: const EdgeInsets.all(_mediaGridCardPadding),
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  final textScaler = MediaQuery.textScalerOf(context);
+                  final textDirection = Directionality.of(context);
+                  final titleStyle = theme.textTheme.titleSmall?.copyWith(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    height: 1.0,
+                    color: selected ? theme.colorScheme.primary : null,
+                  );
+                  final subtitleStyle = theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.0,
+                  );
+                  final captionStyle = theme.textTheme.labelSmall?.copyWith(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                    height: 1.0,
+                  );
                   final textHeight = overlayText
                       ? 0.0
-                      : 17.0 +
-                            (showSubtitle ? 14.0 : 0.0) +
-                            (showCaption ? 14.0 : 0.0);
+                      : _singleLineTextHeight(
+                              text: title,
+                              style: titleStyle,
+                              textScaler: textScaler,
+                              textDirection: textDirection,
+                              maxWidth: constraints.maxWidth,
+                            ) +
+                            (showSubtitle
+                                ? 1.0 +
+                                      _singleLineTextHeight(
+                                        text: subtitle,
+                                        style: subtitleStyle,
+                                        textScaler: textScaler,
+                                        textDirection: textDirection,
+                                        maxWidth: constraints.maxWidth,
+                                      )
+                                : 0.0) +
+                            (showCaption
+                                ? 2.0 +
+                                      _singleLineTextHeight(
+                                        text: caption!,
+                                        style: captionStyle,
+                                        textScaler: textScaler,
+                                        textDirection: textDirection,
+                                        maxWidth: constraints.maxWidth,
+                                      )
+                                : 0.0) +
+                            3.0;
                   final coverSide = constraints.maxHeight.isFinite
                       ? (constraints.maxHeight - textHeight).clamp(
                           0.0,
@@ -233,55 +295,28 @@ class MediaGridCard extends StatelessWidget {
                       ),
                       if (!overlayText) const SizedBox(height: 3),
                       if (!overlayText)
-                        SizedBox(
-                          height: 14,
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontSize: 13,
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              height: 1.0,
-                              color: selected
-                                  ? theme.colorScheme.primary
-                                  : null,
-                            ),
-                          ),
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: titleStyle,
                         ),
                       if (!overlayText && showSubtitle) ...<Widget>[
                         const SizedBox(height: 1),
-                        SizedBox(
-                          height: 13,
-                          child: Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              height: 1.0,
-                            ),
-                          ),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: subtitleStyle,
                         ),
                       ],
                       if (!overlayText && showCaption) ...<Widget>[
                         const SizedBox(height: 2),
-                        SizedBox(
-                          height: 12,
-                          child: Text(
-                            caption!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 11,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
-                              height: 1.0,
-                            ),
-                          ),
+                        Text(
+                          caption!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: captionStyle,
                         ),
                       ],
                     ],

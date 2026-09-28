@@ -38,7 +38,9 @@ class ArtistGridCard extends ConsumerWidget {
             padding: const EdgeInsets.all(4),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final coverSide = (constraints.maxHeight - 36).clamp(
+                final scaler = MediaQuery.textScalerOf(context);
+                final textHeight = scaler.scale(13) + scaler.scale(12) + 7;
+                final coverSide = (constraints.maxHeight - textHeight).clamp(
                   0.0,
                   constraints.maxWidth,
                 );
@@ -67,31 +69,25 @@ class ArtistGridCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 5),
-                    SizedBox(
-                      height: 15,
-                      child: Text(
-                        artist.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          height: 1,
-                        ),
+                    Text(
+                      artist.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    SizedBox(
-                      height: 13,
-                      child: Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurfaceVariant,
-                          height: 1,
-                        ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1,
                       ),
                     ),
                   ],

@@ -1,9 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/shared/widgets/media_grid_card.dart';
 
 void main() {
   group('MediaGridCard', () {
+    for (final scale in <double>[1, 1.5, 2, 3.2]) {
+      testWidgets('文字缩放 $scale 时三行文字保持完整高度', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: SizedBox(
+                  width: 160,
+                  height: 190,
+                  child: MediaGridCard(
+                    kind: MediaGridCardKind.playlist,
+                    title: '歌单标题 Playlist',
+                    subtitle: '创建者 Creator',
+                    caption: '2026',
+                    coverUrl: '',
+                    onTap: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(tester.takeException(), isNull);
+        final cardRect = tester.getRect(find.byType(MediaGridCard));
+        for (final text in <String>['歌单标题 Playlist', '创建者 Creator', '2026']) {
+          final finder = find.text(text);
+          final paragraph = tester.renderObject<RenderParagraph>(finder);
+          expect(
+            paragraph.size.height,
+            greaterThanOrEqualTo(
+              paragraph.getMaxIntrinsicHeight(paragraph.size.width) - 0.01,
+            ),
+            reason: '$text 不应被固定行高裁切',
+          );
+          expect(
+            tester.getRect(finder).bottom,
+            lessThanOrEqualTo(cardRect.bottom),
+          );
+        }
+      });
+    }
+
     testWidgets('应显示标题和副标题', (tester) async {
       await tester.pumpWidget(
         _wrap(

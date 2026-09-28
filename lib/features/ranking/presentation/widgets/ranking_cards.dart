@@ -98,9 +98,12 @@ class _RankingRowCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 14),
                         Expanded(
-                          child: SizedBox(
-                            height: rowSpec.coverSide,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: rowSpec.coverSide,
+                            ),
                             child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: ranking.previewSongs
