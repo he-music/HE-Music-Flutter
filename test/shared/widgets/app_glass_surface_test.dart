@@ -209,7 +209,7 @@ void main() {
     final sheet = tester.widget<GlassModalSheet>(find.byType(GlassModalSheet));
     expect(sheet.initialState, GlassSheetState.half);
     expect(sheet.halfSize, 0.45);
-    expect(sheet.quality, GlassQuality.premium);
+    expect(sheet.quality, GlassQuality.standard);
     await tester.tap(find.byKey(const ValueKey('sheet-input')));
     tester.view.viewInsets = const FakeViewPadding(bottom: 240);
     await tester.pumpAndSettle();

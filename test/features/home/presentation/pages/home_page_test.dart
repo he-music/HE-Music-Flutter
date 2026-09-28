@@ -26,6 +26,31 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 
 void main() {
+  testWidgets('search respects large text and keeps a usable touch target', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(_buildTestApp());
+    await tester.pump();
+    final search = find.byType(HomeSearchField);
+    final texts = tester.widgetList<RichText>(
+      find.descendant(of: search, matching: find.byType(RichText)),
+    );
+    expect(
+      texts
+          .singleWhere(
+            (text) => text.text.toPlainText().contains('Search songs'),
+          )
+          .textScaler
+          .scale(12),
+      24,
+    );
+    expect(tester.getSize(search).height, greaterThanOrEqualTo(48));
+    expect(search.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('home pages omit hero title and keep mobile search gutter', (
     tester,
   ) async {
@@ -38,7 +63,7 @@ void main() {
     expect(find.text('What do you want to hear?'), findsNothing);
     final searchTopLeft = tester.getTopLeft(find.byType(HomeSearchField));
     expect(searchTopLeft.dx, 12);
-    expect(tester.getSize(find.byType(HomeSearchField)).height, 40);
+    expect(tester.getSize(find.byType(HomeSearchField)).height, 48);
     final searchText = tester.widget<RichText>(
       find
           .descendant(

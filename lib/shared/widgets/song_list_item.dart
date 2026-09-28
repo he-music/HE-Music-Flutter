@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/skin/app_skin_surface.dart';
 import 'adaptive_action_menu.dart';
 import 'app_network_image.dart';
@@ -364,7 +365,7 @@ class _ActionButtons extends StatelessWidget {
   static const endPadding = 2.0;
 
   static double widthFor({required bool hasLike, required bool hasMore}) {
-    return hasLike && hasMore ? 90.0 : actionExtent;
+    return hasLike && hasMore ? actionExtent * 2 : actionExtent;
   }
 
   @override
@@ -374,6 +375,7 @@ class _ActionButtons extends StatelessWidget {
     if (!hasLike && !hasMore) {
       return const SizedBox.shrink();
     }
+    final localeCode = Localizations.localeOf(context).languageCode;
     final iconColor = Theme.of(
       context,
     ).colorScheme.onSurfaceVariant.withValues(alpha: 0.78);
@@ -381,7 +383,7 @@ class _ActionButtons extends StatelessWidget {
     return SizedBox(
       width: width,
       height: actionExtent,
-      // 两个命中区重叠 6dp，扩大点击范围但保持原有图标中心位置。
+      // Keep adjacent touch targets independent, including their edges.
       child: Stack(
         children: <Widget>[
           if (hasLike)
@@ -398,7 +400,12 @@ class _ActionButtons extends StatelessWidget {
                       ? Theme.of(context).colorScheme.error
                       : iconColor,
                 ),
-                tooltip: 'Like',
+                tooltip: AppI18n.tByLocaleCode(
+                  localeCode,
+                  liked
+                      ? 'detail.favorite.remove_song'
+                      : 'detail.favorite.add_song',
+                ),
               ),
             ),
           if (hasMore)
@@ -408,7 +415,7 @@ class _ActionButtons extends StatelessWidget {
               child: _ActionIcon(
                 onPressed: onMoreTap,
                 icon: Icon(Icons.more_horiz_rounded, color: iconColor),
-                tooltip: 'More',
+                tooltip: AppI18n.tByLocaleCode(localeCode, 'common.more'),
               ),
             ),
         ],

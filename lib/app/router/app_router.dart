@@ -36,6 +36,7 @@ import '../../features/online/presentation/pages/online_search_page.dart';
 import '../../features/online/presentation/pages/parse_source_url_page.dart';
 import '../../features/playlist/presentation/pages/playlist_detail_page.dart';
 import '../../features/playlist/presentation/pages/playlist_plaza_page.dart';
+import '../../features/player/presentation/widgets/player_route_page.dart';
 import '../../features/player/presentation/pages/player_page.dart';
 import '../../features/ranking/presentation/pages/ranking_detail_page.dart';
 import '../../features/ranking/presentation/pages/ranking_list_page.dart';
@@ -500,33 +501,9 @@ GoRouter createAppRouter([String? initialLocation]) {
       GoRoute(
         path: AppRoutes.player,
         parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => CustomTransitionPage<void>(
+        pageBuilder: (context, state) => PlayerRoutePage(
           key: state.pageKey,
           child: const AppPlayerStyleBoundary(child: PlayerPage()),
-          transitionDuration: const Duration(milliseconds: 260),
-          reverseTransitionDuration: const Duration(milliseconds: 220),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final offsetAnimation =
-                Tween<Offset>(
-                  begin: const Offset(0, 1),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                    reverseCurve: Curves.easeInCubic,
-                  ),
-                );
-            final fadeAnimation = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOut,
-              reverseCurve: Curves.easeIn,
-            );
-            return FadeTransition(
-              opacity: fadeAnimation,
-              child: SlideTransition(position: offsetAnimation, child: child),
-            );
-          },
         ),
       ),
 

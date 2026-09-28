@@ -6,6 +6,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:he_music_flutter/app/router/app_routes.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/player_route_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -116,6 +119,213 @@ const _monetFixtureDocument = LyricDocument(
 );
 
 void main() {
+  testWidgets(
+    'pending close cannot pop home while player reverse transition is still mounted',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      final cleanup = Completer<void>();
+      var blockCleanup = false;
+      var calls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (blockCleanup &&
+                call.method == 'SystemChrome.setPreferredOrientations') {
+              calls++;
+              await cleanup.future;
+            }
+            return null;
+          });
+      addTearDown(() {
+        if (!cleanup.isCompleted) cleanup.complete();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null);
+        debugDefaultTargetPlatformOverride = null;
+        tester.view.reset();
+      });
+      final router = GoRouter(
+        initialLocation: AppRoutes.home,
+        routes: [
+          GoRoute(
+            path: AppRoutes.home,
+            builder: (_, _) => const Scaffold(body: Text('home remains')),
+          ),
+          GoRoute(
+            path: AppRoutes.player,
+            builder: (_, _) =>
+                const AppPlayerStyleBoundary(child: PlayerPage()),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+          router: router,
+        ),
+      );
+      unawaited(router.push<void>(AppRoutes.player));
+      await tester.pumpAndSettle();
+      final button = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.keyboard_arrow_down_rounded),
+      );
+      final playerElement = tester.element(find.byType(PlayerPage));
+      blockCleanup = true;
+      button.onPressed!();
+      button.onPressed!();
+      await tester.pump();
+      expect(calls, 1);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(playerElement.mounted, isTrue);
+      expect(ModalRoute.of(playerElement)!.isCurrent, isFalse);
+      cleanup.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('home remains'), findsOneWidget);
+      expect(router.canPop(), isFalse);
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
+
+  for (final drag in [false, true]) {
+    for (final systemBack in [false, true]) {
+      testWidgets(
+        'player exit is single-use during platform cleanup drag=$drag systemBack=$systemBack',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.android;
+          tester.view.physicalSize = const Size(430, 932);
+          tester.view.devicePixelRatio = 1;
+          final cleanup = Completer<void>();
+          var blockCleanup = false;
+          var cleanupCalls = 0;
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+                if (blockCleanup &&
+                    call.method == 'SystemChrome.setPreferredOrientations' &&
+                    (call.arguments as List).isEmpty) {
+                  cleanupCalls++;
+                  await cleanup.future;
+                }
+                return null;
+              });
+          addTearDown(() {
+            if (!cleanup.isCompleted) cleanup.complete();
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+                .setMockMethodCallHandler(SystemChannels.platform, null);
+            debugDefaultTargetPlatformOverride = null;
+            tester.view.reset();
+          });
+          final router = GoRouter(
+            initialLocation: AppRoutes.home,
+            routes: [
+              GoRoute(
+                path: AppRoutes.home,
+                builder: (_, _) => const Scaffold(body: Text('home remains')),
+              ),
+              GoRoute(
+                path: AppRoutes.player,
+                pageBuilder: (_, state) => PlayerRoutePage(
+                  key: state.pageKey,
+                  child: const AppPlayerStyleBoundary(child: PlayerPage()),
+                ),
+              ),
+            ],
+          );
+          addTearDown(router.dispose);
+          await tester.pumpWidget(
+            _buildPlayerTestApp(
+              controllerFactory: _OnlineTrackPlayerController.new,
+              router: router,
+            ),
+          );
+          unawaited(router.push<void>(AppRoutes.player));
+          await tester.pumpAndSettle();
+          final closeButton = tester.widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.keyboard_arrow_down_rounded),
+          );
+          blockCleanup = true;
+          if (drag) {
+            await tester.fling(
+              find.byType(PlayerDismissRegion),
+              const Offset(0, 160),
+              1400,
+            );
+          } else {
+            await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+          }
+          await tester.pumpAndSettle();
+          expect(cleanupCalls, 1);
+          // A duplicate click during cleanup must not invoke another close.
+          closeButton.onPressed!();
+          await tester.pumpAndSettle();
+          expect(cleanupCalls, 1);
+          if (systemBack) {
+            await tester.binding.handlePopRoute();
+            // Release cleanup while the popped player is still mounted.
+            await tester.pump();
+            expect(
+              router.routeInformationProvider.value.uri.path,
+              AppRoutes.home,
+            );
+          }
+          cleanup.complete();
+          await tester.pumpAndSettle();
+          expect(find.text('home remains'), findsOneWidget);
+          expect(find.byType(PlayerPage), findsNothing);
+          expect(router.canPop(), isFalse);
+          expect(tester.takeException(), isNull);
+          debugDefaultTargetPlatformOverride = null;
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'player opened as only route returns home instead of popping last page',
+    (tester) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (_) async => null);
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final router = GoRouter(
+        initialLocation: AppRoutes.player,
+        routes: [
+          GoRoute(
+            path: AppRoutes.home,
+            builder: (_, _) => const Scaffold(body: Text('home remains')),
+          ),
+          GoRoute(
+            path: AppRoutes.player,
+            pageBuilder: (_, state) => PlayerRoutePage(
+              key: state.pageKey,
+              child: const AppPlayerStyleBoundary(child: PlayerPage()),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+          router: router,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('home remains'), findsOneWidget);
+      expect(router.canPop(), isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('published cache adds no full player or queue badge', (
     tester,
   ) async {
@@ -2996,6 +3206,7 @@ Widget _buildPlayerTestApp({
   Stream<SleepTimerState>? sleepTimerStates,
   Stream<DateTime>? sleepTimerTimes,
   CacheSurfaceFixture? cache,
+  GoRouter? router,
 }) {
   return ProviderScope(
     overrides: [
@@ -3042,12 +3253,14 @@ Widget _buildPlayerTestApp({
         ),
       ),
     ],
-    child: MaterialApp(
-      navigatorObservers: <NavigatorObserver>[appPageRouteObserver],
-      home: AppPlayerStyleBoundary(
-        child: PlayerPage(debugOnBuild: onPlayerPageBuild),
-      ),
-    ),
+    child: router != null
+        ? MaterialApp.router(routerConfig: router)
+        : MaterialApp(
+            navigatorObservers: <NavigatorObserver>[appPageRouteObserver],
+            home: AppPlayerStyleBoundary(
+              child: PlayerPage(debugOnBuild: onPlayerPageBuild),
+            ),
+          ),
   );
 }
 

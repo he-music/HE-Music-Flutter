@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 const _defaultSliderMax = 1.0;
 
-class PlayerProgressBar extends StatelessWidget {
+class PlayerProgressBar extends StatefulWidget {
   const PlayerProgressBar({
     required this.position,
     this.bufferedPosition = Duration.zero,
@@ -15,15 +17,49 @@ class PlayerProgressBar extends StatelessWidget {
   final Duration position;
   final Duration bufferedPosition;
   final Duration duration;
-  final ValueChanged<Duration> onSeek;
+  final FutureOr<void> Function(Duration) onSeek;
   final bool enabled;
 
   @override
+  State<PlayerProgressBar> createState() => _PlayerProgressBarState();
+}
+
+class _PlayerProgressBarState extends State<PlayerProgressBar> {
+  double? _dragMillis;
+  int _seekRevision = 0;
+
+  Future<void> _commitSeek(double value) async {
+    final revision = ++_seekRevision;
+    setState(() => _dragMillis = value);
+    try {
+      await widget.onSeek(Duration(milliseconds: value.round()));
+    } finally {
+      if (mounted && revision == _seekRevision) {
+        setState(() => _dragMillis = null);
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(PlayerProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled || widget.duration != oldWidget.duration) {
+      _seekRevision++;
+      _dragMillis = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final maxMillis = _maxDurationMillis(duration);
-    final currentMillis = _clampPosition(position, maxMillis);
+    final maxMillis = _maxDurationMillis(widget.duration);
+    final previewPosition = _dragMillis == null
+        ? widget.position
+        : Duration(milliseconds: _dragMillis!.round());
+    final currentMillis = _clampPosition(previewPosition, maxMillis);
     final bufferedMillis = _clampPosition(
-      bufferedPosition > position ? bufferedPosition : position,
+      widget.bufferedPosition > previewPosition
+          ? widget.bufferedPosition
+          : previewPosition,
       maxMillis,
     );
     final theme = Theme.of(context);
@@ -46,22 +82,31 @@ class PlayerProgressBar extends StatelessWidget {
             value: currentMillis.toDouble(),
             secondaryTrackValue: bufferedMillis.toDouble(),
             max: maxMillis.toDouble(),
-            onChanged: enabled
-                ? (value) => onSeek(Duration(milliseconds: value.toInt()))
+            onChangeStart: widget.enabled
+                ? (value) {
+                    _seekRevision++;
+                    setState(() => _dragMillis = value);
+                  }
                 : null,
+            onChanged: widget.enabled
+                ? (value) => setState(() => _dragMillis = value)
+                : null,
+            onChangeEnd: widget.enabled ? _commitSeek : null,
+            semanticFormatterCallback: (value) =>
+                _formatDuration(Duration(milliseconds: value.round())),
           ),
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             Text(
-              _formatDuration(position),
+              _formatDuration(previewPosition),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.white.withValues(alpha: 0.74),
               ),
             ),
             Text(
-              _formatDuration(duration),
+              _formatDuration(widget.duration),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.white.withValues(alpha: 0.74),
               ),

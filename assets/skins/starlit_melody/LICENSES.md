@@ -38,9 +38,9 @@ No generative enhancement, face repair, spatial crop, or composition change was 
 - Actual dimensions: `360x640` for both previews
 - UI revision: regenerated on 2026-08-26 after the shared song item layout adjustment; wallpaper and theme-token assets are unchanged
 - Light preview: `assets/skins/starlit_melody/preview_light.png`
-- Light preview SHA-256: `30641808494fc4d697ee336074567da41574cdced960e7329e0cf9c89247d59d`
+- Light preview SHA-256: `2392fd42975a43c1f929b1c951bdf349f2f431f1e3b25fcd5b096766761bcf3e`
 - Dark preview: `assets/skins/starlit_melody/preview_dark.png`
-- Dark preview SHA-256: `d32f6afd19c9a143ae12e51f598293dfcb42218ab758f0018e0e780c1f2aec83`
+- Dark preview SHA-256: `891bebae492fc43f287f2f5fb3be1d71827b31cdd58fc9dfacecdb09a8832c6f`
 - Light tokens: Ice Rail primary `#00677A`, Berry Signal secondary `#B72F5B`, Ink text `#17202A`, transparent scrolling content surface
 - Dark tokens: Ice Rail primary `#78D5E7`, blue-gray fixed surfaces, Mist text `#F0EDF5`, transparent scrolling content surface
 - Approval status: the light preview and current dark evaluation appearance were approved by the user on 2026-07-28; these files were regenerated from those same runtime tokens

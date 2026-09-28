@@ -29,14 +29,16 @@ class AppGlassScope extends InheritedWidget {
   static bool controlsEnabled(BuildContext context) =>
       isEnabled(context) && modeOf(context).usesGlass;
 
-  /// Automatic requests the highest tier and lets the adaptive ceiling decide.
-  /// This product preference deliberately overrides the usual standard control
-  /// default: automatic/high may spend more GPU time on popup refraction.
-  /// Fixed modes also remain subject to platform/accessibility fallbacks.
-  static GlassQuality qualityOf(BuildContext context) => switch (modeOf(
-    context,
-  )) {
-    AppGlassMode.automatic || AppGlassMode.high => GlassQuality.premium,
+  /// Ordinary surfaces default to standard. Persistent playback/navigation
+  /// surfaces may request premium, subject to the adaptive quality ceiling.
+  /// An explicit high-quality preference continues to apply to every surface.
+  static GlassQuality qualityOf(
+    BuildContext context, {
+    bool persistent = false,
+  }) => switch (modeOf(context)) {
+    AppGlassMode.automatic =>
+      persistent ? GlassQuality.premium : GlassQuality.standard,
+    AppGlassMode.high => GlassQuality.premium,
     AppGlassMode.standard || AppGlassMode.powerSaving => GlassQuality.standard,
     AppGlassMode.low || AppGlassMode.off => GlassQuality.minimal,
   };

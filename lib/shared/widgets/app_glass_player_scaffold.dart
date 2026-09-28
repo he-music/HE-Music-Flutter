@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
+import '../../features/player/presentation/widgets/mini_player_bar.dart';
 import '../../features/player/presentation/providers/player_providers.dart';
 
 typedef GlassPlayerNavigationBuilder =
@@ -93,7 +94,9 @@ class _AppGlassPlayerScaffoldState
     );
     final media = MediaQuery.of(context);
     final integrated = widget.navigationBuilder != null;
+    final miniPlayerHeight = MiniPlayerBar.heightFor(context);
     final canMinimize =
+        miniPlayerHeight <= 60 &&
         hasTrack &&
         integrated &&
         media.size.width >= 340 &&
@@ -136,7 +139,8 @@ class _AppGlassPlayerScaffoldState
           // remain scrollable past the threshold after that size change.
           final target =
               metrics.maxScrollExtent - metrics.minScrollExtent >
-                  _collapseOffset + (_minimize.minimized ? 0 : 60) &&
+                  _collapseOffset +
+                      (_minimize.minimized ? 0 : miniPlayerHeight + 8) &&
               distance > (wasMinimized ? _expandOffset : _collapseOffset);
           _pendingMinimized = target;
           if (_updateQueued) return false;
@@ -177,7 +181,8 @@ class _AppGlassPlayerScaffoldState
         final minimized = canMinimize && _minimize.minimized;
         final chromeHeight = minimized
             ? 64.0
-            : (hasTrack ? 60.0 : 0.0) + (hasNavigation ? 64.0 : 0.0);
+            : (hasTrack ? miniPlayerHeight + 8 : 0.0) +
+                  (hasNavigation ? 64.0 : 0.0);
         final hasChrome = chromeHeight > 0;
         final clearance = hasChrome ? chromeHeight + bottomInset : 0.0;
         return MediaQuery(

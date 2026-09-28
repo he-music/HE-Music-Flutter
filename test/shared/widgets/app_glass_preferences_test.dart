@@ -82,7 +82,11 @@ void main() {
         mode == AppGlassMode.automatic ? GlassQuality.minimal : expected,
       );
       expect(scope.allowStepUp, mode == AppGlassMode.automatic);
-      expect(AppGlassScope.qualityOf(context), expected);
+      expect(
+        AppGlassScope.qualityOf(context),
+        mode == AppGlassMode.automatic ? GlassQuality.standard : expected,
+      );
+      expect(AppGlassScope.qualityOf(context, persistent: true), expected);
       expect(AppGlassScope.controlsEnabled(context), mode.usesGlass);
       expect(navigatorKey.currentState, same(navigator));
       expect(find.text('keep input'), findsOneWidget);

@@ -75,7 +75,7 @@ void main() {
         .widget<Slider>(
           find.byKey(const ValueKey<String>('player-progress-slider')),
         )
-        .onChanged!(90000);
+        .onChangeEnd!(90000);
 
     expect(playCalls, 1);
     expect(modeCalls, 1);

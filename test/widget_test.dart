@@ -268,7 +268,7 @@ void main() {
     final searchSlide = tester.widget<AnimatedSlide>(
       find.descendant(of: searchClip, matching: find.byType(AnimatedSlide)),
     );
-    expect(searchSlide.duration, const Duration(milliseconds: 480));
+    expect(searchSlide.duration, const Duration(milliseconds: 220));
     expect(
       tester.getTopLeft(searchClip).dy,
       greaterThanOrEqualTo(tester.getBottomLeft(find.text('推荐')).dy),
@@ -279,7 +279,7 @@ void main() {
 
     expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
 
-    await tester.drag(scrollView, const Offset(0, -80));
+    await tester.drag(scrollView, const Offset(0, -140));
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeSearchField).hitTestable(), findsNothing);
@@ -355,7 +355,7 @@ void main() {
     expect(tester.getTopLeft(find.byType(HomeSearchField)), searchTopLeft);
   });
 
-  testWidgets('home search reveals after three seconds without scrolling', (
+  testWidgets('home search stays hidden while reading after scrolling', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -373,7 +373,7 @@ void main() {
       matching: find.byType(Scrollable),
     );
 
-    await tester.drag(scrollView, const Offset(0, -80));
+    await tester.drag(scrollView, const Offset(0, -140));
     await tester.pumpAndSettle();
 
     final position = tester.state<ScrollableState>(scrollable.first).position;
@@ -387,8 +387,12 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
-    expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
+    expect(find.byType(HomeSearchField).hitTestable(), findsNothing);
     expect(position.pixels, stoppedOffset);
+
+    await tester.drag(scrollView, const Offset(0, 24));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
   });
 
   testWidgets('home hides page tabs when only discover is available', (

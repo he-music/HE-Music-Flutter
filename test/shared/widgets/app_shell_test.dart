@@ -16,6 +16,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_playback
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
 import 'package:he_music_flutter/shared/widgets/app_shell.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
@@ -23,6 +24,125 @@ import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/app_glass_player_scaffold.dart';
 
 void main() {
+  testWidgets('large text expands mini player without collapsing its text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final router = _createRouter(home: const _ChromeAwareList());
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(_ImmersiveAppConfigController.new),
+          playerControllerProvider.overrideWith(_TestPlayerController.new),
+        ],
+        child: _GlassTestApp(router: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(MiniPlayerBar)).height, greaterThan(52));
+    await tester.drag(
+      find.byKey(const ValueKey('home-scroll')),
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<GlassTabBar>(find.byType(GlassTabBar)).minimizeController,
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'desktop sidebar preserves browsing state across tabs and resizing',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final router = _createRouter(home: const _ChromeAwareList());
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_ImmersiveAppConfigController.new),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+          ],
+          child: _GlassTestApp(router: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(GlassTabBar), findsNothing);
+      expect(find.byKey(const ValueKey('desktop-queue')), findsNothing);
+      final queueButton = find.descendant(
+        of: find.byType(MiniPlayerBar),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AppSkinIcon &&
+              widget.role == AppSkinIconRole.miniPlayerQueue,
+        ),
+      );
+      await tester.tap(queueButton);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerQueueSheet), findsOneWidget);
+      expect(find.byKey(const ValueKey('desktop-queue')), findsNothing);
+      Navigator.of(tester.element(find.byType(PlayerQueueSheet))).pop();
+      await tester.pumpAndSettle();
+      final list = find.byKey(const ValueKey('home-scroll'));
+      final position = tester
+          .state<ScrollableState>(
+            find.descendant(of: list, matching: find.byType(Scrollable)),
+          )
+          .position;
+      position.jumpTo(300);
+      await tester.pumpAndSettle();
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      rail.onDestinationSelected!(1);
+      await tester.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, AppRoutes.my);
+      tester
+          .widget<NavigationRail>(find.byType(NavigationRail))
+          .onDestinationSelected!(0);
+      await tester.pumpAndSettle();
+      expect(position.pixels, 300);
+      expect(rail.trailing, isNull);
+      expect(
+        find.descendant(
+          of: find.byType(MiniPlayerBar),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AppSkinIcon &&
+                widget.role == AppSkinIconRole.miniPlayerQueue,
+          ),
+        ),
+        findsOneWidget,
+      );
+      tester.view.physicalSize = const Size(1000, 900);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('desktop-queue')), findsNothing);
+      await tester.tap(queueButton);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerQueueSheet), findsOneWidget);
+      Navigator.of(tester.element(find.byType(PlayerQueueSheet))).pop();
+      await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byType(GlassTabBar), findsOneWidget);
+      final mobilePosition = tester
+          .state<ScrollableState>(
+            find.descendant(of: list, matching: find.byType(Scrollable)),
+          )
+          .position;
+      expect(mobilePosition.pixels, 300);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('short content keeps stable expanded chrome', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

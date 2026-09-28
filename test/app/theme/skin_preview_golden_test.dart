@@ -37,6 +37,31 @@ final _previewHomePageFeatures =
 
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
+  testWidgets(
+    'desktop home keeps music full width with mobile queue sheet',
+    (tester) async {
+      await tester.runAsync(_loadPreviewFonts);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1280, 800);
+      addTearDown(tester.view.reset);
+      final router = createAppRouter(AppRoutes.home);
+      await tester.pumpWidget(
+        _buildPreviewApp(router, Brightness.light, AppSkinRegistry.classicId),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byKey(const ValueKey('desktop-queue')), findsNothing);
+      expect(tester.takeException(), isNull);
+      await expectLater(
+        find.byKey(_previewKey),
+        matchesGoldenFile('goldens/desktop_home.png'),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      router.dispose();
+    },
+    skip: Platform.isLinux,
+  );
+
   const previewCases =
       <
         ({String name, String skinId, String assetDirectory, bool hasWallpaper})

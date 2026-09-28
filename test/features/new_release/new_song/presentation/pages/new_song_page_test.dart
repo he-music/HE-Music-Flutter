@@ -106,7 +106,7 @@ void main() {
     await tester.pumpWidget(_buildTestApp(onlineController: onlineController));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Like'));
+    await tester.tap(find.byTooltip('Favorite Song'));
     await tester.pumpAndSettle();
 
     expect(onlineController.toggleCalls, hasLength(1));

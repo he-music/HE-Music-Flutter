@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +30,19 @@ class MiniPlayerBar extends ConsumerStatefulWidget {
     this.embedded = false,
     super.key,
   });
+
+  static double heightFor(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scaler = MediaQuery.textScalerOf(context);
+    final title = textTheme.titleSmall;
+    final artist = textTheme.bodySmall;
+    return math.max(
+      52,
+      scaler.scale(title?.fontSize ?? 14) * (title?.height ?? 1.5) +
+          scaler.scale(artist?.fontSize ?? 12) * (artist?.height ?? 1.5) +
+          12,
+    );
+  }
 
   final VoidCallback onOpenFullPlayer;
   final bool bottomSafeArea;
@@ -207,7 +221,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
           child: AppGlassSurface(
             role: AppSkinSurfaceRole.miniPlayer,
             child: SizedBox(
-              height: 52,
+              height: MiniPlayerBar.heightFor(context),
               child: Row(
                 children: <Widget>[
                   const SizedBox(width: 6),

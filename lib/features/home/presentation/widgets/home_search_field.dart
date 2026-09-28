@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/skin/app_skin_icon.dart';
@@ -13,6 +15,15 @@ class HomeSearchField extends StatelessWidget {
     super.key,
   });
 
+  static double heightFor(BuildContext context) => math.max(
+    48,
+    MediaQuery.textScalerOf(
+              context,
+            ).scale(Theme.of(context).textTheme.bodySmall?.fontSize ?? 12) *
+            1.5 +
+        20,
+  );
+
   final String placeholderPrimary;
   final String? placeholderSecondary;
   final VoidCallback onTap;
@@ -24,7 +35,7 @@ class HomeSearchField extends StatelessWidget {
     final platform = platformLabel?.trim() ?? '';
     final secondary = placeholderSecondary?.trim() ?? '';
     return SizedBox(
-      height: 40,
+      height: heightFor(context),
       child: AppSkinSurface(
         role: AppSkinSurfaceRole.search,
         borderRadius: BorderRadius.circular(14),
@@ -45,6 +56,7 @@ class HomeSearchField extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: RichText(
+                      textScaler: MediaQuery.textScalerOf(context),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       text: TextSpan(

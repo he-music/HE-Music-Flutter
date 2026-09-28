@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
+import '../constants/layout_tokens.dart';
 import '../../../app/config/app_config_controller.dart';
 import '../../../app/i18n/app_i18n.dart';
 import '../../../app/router/app_routes.dart';
@@ -14,7 +15,7 @@ import 'app_glass_navigation_bar.dart';
 import 'app_glass_player_scaffold.dart';
 import '../../../features/player/presentation/widgets/mini_player_bar.dart';
 
-/// 应用级 Shell：所有窗口尺寸统一使用手机端布局。
+/// Switch navigation to a sidebar when there is room for desktop browsing.
 class AppShell extends StatelessWidget {
   const AppShell({required this.navigationShell, super.key});
 
@@ -22,7 +23,13 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _MobileLayout(navigationShell: navigationShell);
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          constraints.maxWidth >= LayoutTokens.desktopBreakpoint &&
+              constraints.maxHeight >= 600
+          ? _DesktopLayout(navigationShell: navigationShell)
+          : _MobileLayout(navigationShell: navigationShell),
+    );
   }
 }
 
@@ -120,6 +127,94 @@ class _MobileLayout extends ConsumerWidget {
         ],
       ),
       bottomNavigationBar: buildNavigation(null, null, (_) {}),
+    );
+  }
+}
+
+class _DesktopLayout extends ConsumerWidget {
+  const _DesktopLayout({required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
+    final wide = MediaQuery.sizeOf(context).width >= 1200;
+    final colors = Theme.of(context).colorScheme;
+    final body = Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SafeArea(
+          right: false,
+          child: NavigationRail(
+            key: const ValueKey('desktop-navigation'),
+            backgroundColor: colors.surfaceContainerLow,
+            extended: wide,
+            minExtendedWidth: 160,
+            labelType: wide
+                ? NavigationRailLabelType.none
+                : NavigationRailLabelType.all,
+            selectedIndex: navigationShell.currentIndex,
+            onDestinationSelected: (index) {
+              navigationShell.goBranch(
+                index,
+                initialLocation: index == navigationShell.currentIndex,
+              );
+            },
+            destinations: [
+              NavigationRailDestination(
+                icon: const _NavigationIcon(
+                  role: AppSkinIconRole.navigationHome,
+                  selected: false,
+                ),
+                selectedIcon: const _NavigationIcon(
+                  role: AppSkinIconRole.navigationHomeSelected,
+                  selected: true,
+                ),
+                label: Text(AppI18n.tByLocaleCode(locale, 'tab.home')),
+              ),
+              NavigationRailDestination(
+                icon: const _NavigationIcon(
+                  role: AppSkinIconRole.navigationMy,
+                  selected: false,
+                ),
+                selectedIcon: const _NavigationIcon(
+                  role: AppSkinIconRole.navigationMySelected,
+                  selected: true,
+                ),
+                label: Text(AppI18n.tByLocaleCode(locale, 'tab.my')),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1120),
+              child: navigationShell,
+            ),
+          ),
+        ),
+      ],
+    );
+    final miniPlayer = Center(
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1120),
+        child: MiniPlayerBar(
+          onOpenFullPlayer: () => context.push(AppRoutes.player),
+        ),
+      ),
+    );
+    if (AppGlassScope.isEnabled(context)) {
+      return AppGlassPlayerScaffold(body: body, miniPlayer: miniPlayer);
+    }
+    return Scaffold(
+      body: body,
+      bottomNavigationBar: SafeArea(top: false, child: miniPlayer),
     );
   }
 }

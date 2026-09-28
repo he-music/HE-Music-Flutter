@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../widgets/player_route_page.dart';
 import '../../../lyrics/presentation/widgets/full_lyric_controls.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
@@ -98,6 +99,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   int? _mobilePageToRestore;
   PlayerLayoutMode? _lastLayoutMode;
   bool _isLandscapeSystemUiActive = false;
+  bool _closingPlayer = false;
   _PlayerOrientationPreference _orientationPreference =
       _PlayerOrientationPreference.systemManaged;
   late final ScreenWakeLockPort _screenWakeLockPort;
@@ -520,14 +522,24 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                       setState(() => _currentPage = index);
                       _requestSpectrumVisibilitySync();
                     },
-                    topBarBuilder: (context, spec) => _PlayerTopBar(
-                      currentPage: _currentPage,
-                      total: _pageCount,
-                      showPageIndicator:
-                          spec.mode == PlayerLayoutMode.mobilePortrait,
-                      onClose: () => unawaited(_closePlayer()),
-                      onTapDot: _animateToPage,
-                    ),
+                    topBarBuilder: (context, spec) {
+                      final header = _PlayerTopBar(
+                        currentPage: _currentPage,
+                        total: _pageCount,
+                        showPageIndicator:
+                            spec.mode == PlayerLayoutMode.mobilePortrait,
+                        onClose: () => unawaited(
+                          PlayerDismissRegion.close(context, _closePlayer),
+                        ),
+                        onTapDot: _animateToPage,
+                      );
+                      return spec.mode == PlayerLayoutMode.mobilePortrait
+                          ? PlayerDismissRegion(
+                              onDismiss: _closePlayer,
+                              child: header,
+                            )
+                          : header;
+                    },
                     mainPlayerBuilder: (context, spec) =>
                         _PlayerMetaControlPage(
                           noTrackText: AppI18n.tByLocaleCode(
@@ -791,14 +803,35 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _closePlayer() async {
-    if (_usesMobileOrientationControls) {
-      _orientationPreference = _PlayerOrientationPreference.systemManaged;
-      await Future.wait<void>(<Future<void>>[
-        SystemChrome.setPreferredOrientations(const <DeviceOrientation>[]),
-        _restoreDefaultSystemUi(force: true),
-      ]);
+    final route = ModalRoute.of(context);
+    if (_closingPlayer ||
+        route == null ||
+        !route.isActive ||
+        !route.isCurrent) {
+      return;
     }
-    if (mounted) Navigator.of(context).pop();
+    final navigator = Navigator.of(context);
+    _closingPlayer = true;
+    try {
+      if (_usesMobileOrientationControls) {
+        _orientationPreference = _PlayerOrientationPreference.systemManaged;
+        await Future.wait<void>(<Future<void>>[
+          SystemChrome.setPreferredOrientations(const <DeviceOrientation>[]),
+          _restoreDefaultSystemUi(force: true),
+        ]);
+      }
+      // System back can pop this route while platform cleanup is pending.
+      // mounted alone remains true throughout its reverse transition.
+      if (!mounted || !route.isActive || !route.isCurrent) return;
+      if (navigator.canPop()) {
+        navigator.pop();
+      } else {
+        // A deep link may have opened the player as the only router page.
+        GoRouter.maybeOf(context)?.go(AppRoutes.home);
+      }
+    } finally {
+      _closingPlayer = false;
+    }
   }
 
   void _openQueueSheet() {

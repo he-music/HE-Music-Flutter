@@ -74,10 +74,7 @@ const _entries = <_DiscoverEntry>[
 
 enum _DiscoverEntryType { ranking, playlist, artist, video, radio }
 
-const double _homeSearchHeight = 48;
-const double _homeSearchHideOffset = _homeSearchHeight + 8;
-const Duration _homeSearchAnimationDuration = Duration(milliseconds: 480);
-const Duration _homeSearchIdleRevealDelay = Duration(seconds: 3);
+const Duration _homeSearchAnimationDuration = Duration(milliseconds: 220);
 
 List<OnlinePlatform> _platformsForPage(
   List<OnlinePlatform> platforms,
@@ -126,7 +123,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
   late final PageController _pageController;
   late final Map<HomePageKind, ScrollController> _scrollControllers;
   final ValueNotifier<bool> _searchVisible = ValueNotifier<bool>(true);
-  Timer? _searchRevealTimer;
+  double get _searchHeight => HomeSearchField.heightFor(context) + 8;
 
   @override
   void initState() {
@@ -146,7 +143,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
 
   @override
   void dispose() {
-    _searchRevealTimer?.cancel();
     _searchVisible.dispose();
     for (final controller in _scrollControllers.values) {
       controller.dispose();
@@ -242,7 +238,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                             top: 0,
                             left: 0,
                             right: 0,
-                            height: _homeSearchHeight,
+                            height: _searchHeight,
                             child: ClipRect(
                               key: const ValueKey<String>('home-search-clip'),
                               child: ValueListenableBuilder<bool>(
@@ -347,9 +343,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                   parent: BouncingScrollPhysics(),
                 ),
                 slivers: <Widget>[
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: _homeSearchHeight),
-                  ),
+                  SliverToBoxAdapter(child: SizedBox(height: _searchHeight)),
                   if (page == HomePageKind.discover)
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(
@@ -597,22 +591,17 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       return false;
     }
 
-    if (notification is ScrollStartNotification) {
-      _searchRevealTimer?.cancel();
-    } else if (notification is UserScrollNotification) {
+    if (notification is UserScrollNotification) {
       switch (notification.direction) {
         case ScrollDirection.reverse:
-          _searchRevealTimer?.cancel();
           if (_isPastSearchHideOffset(notification.metrics)) {
             _searchVisible.value = false;
           }
           break;
         case ScrollDirection.forward:
-          _searchRevealTimer?.cancel();
           _searchVisible.value = true;
           break;
         case ScrollDirection.idle:
-          _scheduleSearchReveal();
           break;
       }
     } else if (notification is ScrollUpdateNotification) {
@@ -622,8 +611,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       } else if (delta < 0) {
         _searchVisible.value = true;
       }
-    } else if (notification is ScrollEndNotification) {
-      _scheduleSearchReveal();
     }
 
     if (ref.read(homePageControllerProvider).selectedPage ==
@@ -635,25 +622,11 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
   }
 
   bool _isPastSearchHideOffset(ScrollMetrics metrics) {
-    return metrics.pixels - metrics.minScrollExtent >= _homeSearchHideOffset;
+    return metrics.pixels - metrics.minScrollExtent >= _searchHeight + 8;
   }
 
   void _showSearchAfterPageSwitch() {
-    _searchRevealTimer?.cancel();
     _searchVisible.value = true;
-  }
-
-  void _scheduleSearchReveal() {
-    _searchRevealTimer?.cancel();
-    if (_searchVisible.value) {
-      return;
-    }
-    // 搜索栏空闲后独立出现，不改变当前页面滚动位置。
-    _searchRevealTimer = Timer(_homeSearchIdleRevealDelay, () {
-      if (mounted) {
-        _searchVisible.value = true;
-      }
-    });
   }
 
   void _selectPage({
@@ -1582,7 +1555,7 @@ class _HomeSearchActions extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         SizedBox.square(
-          dimension: 40,
+          dimension: HomeSearchField.heightFor(context),
           child: Material(
             color: theme.colorScheme.surface.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(13),

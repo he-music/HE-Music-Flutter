@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
+import '../../features/player/presentation/widgets/mini_player_bar.dart';
 import '../../app/theme/glass/app_glass_material.dart';
 import '../../app/theme/glass/app_glass_scope.dart';
 import '../../app/theme/skin/app_skin_surface.dart';
@@ -50,10 +51,12 @@ class AppGlassNavigationBar extends StatelessWidget {
         }
       },
       bottomAccessory: accessory,
-      bottomAccessoryHeight: accessory == null ? null : 52,
+      bottomAccessoryHeight: accessory == null
+          ? null
+          : MiniPlayerBar.heightFor(context),
       bottomAccessorySpacing: 8,
       minimizedBarHeight: 60,
-      quality: AppGlassScope.qualityOf(context),
+      quality: AppGlassScope.qualityOf(context, persistent: true),
       tabs: [
         for (final destination
             in child.destinations.cast<NavigationDestination>())

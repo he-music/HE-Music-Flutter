@@ -57,7 +57,12 @@ class AppGlassSurface extends StatelessWidget {
       );
     }
     return GlassContainer(
-      quality: AppGlassScope.qualityOf(context),
+      quality: AppGlassScope.qualityOf(
+        context,
+        persistent:
+            role == AppSkinSurfaceRole.navigation ||
+            role == AppSkinSurfaceRole.miniPlayer,
+      ),
       useOwnLayer: true,
       clipBehavior: Clip.antiAlias,
       shape: LiquidVerticalRoundedRectangle(
