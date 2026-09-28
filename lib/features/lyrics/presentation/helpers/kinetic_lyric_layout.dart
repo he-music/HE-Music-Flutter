@@ -6,7 +6,8 @@ import '../../domain/entities/lyric_line.dart';
 import 'lyric_painter_owner.dart';
 import 'monet_lyric_layout.dart';
 
-/// A grapheme keeps the source timing; multi-grapheme tokens are subdivided.
+/// One animation unit: a word for alphabetic scripts, otherwise a grapheme.
+/// Multi-grapheme source timings are subdivided before words are regrouped.
 class KineticGlyph {
   KineticGlyph({required this.text, required this.start, required this.end});
   final String text;
@@ -16,32 +17,81 @@ class KineticGlyph {
 
 List<KineticGlyph> buildKineticGlyphs(LyricLine line) {
   final result = <KineticGlyph>[];
+  var offset = 0;
+  int? wordOffset;
+  int? wordStart;
+  int? wordEnd;
+
+  void flushWord() {
+    if (wordOffset == null) return;
+    result.add(
+      KineticGlyph(
+        text: line.text.substring(wordOffset!, offset),
+        start: wordStart == null ? null : Duration(microseconds: wordStart!),
+        end: wordEnd == null ? null : Duration(microseconds: wordEnd!),
+      ),
+    );
+    wordOffset = null;
+    wordStart = null;
+    wordEnd = null;
+  }
+
   for (final token in buildMonetDisplayTokens(line)) {
     final characters = token.text.characters.toList(growable: false);
+    final tokenStart = token.start?.inMicroseconds;
     final duration = token.hasTiming
         ? (token.end! - token.start!).inMicroseconds
         : 0;
     for (final (index, text) in characters.indexed) {
-      result.add(
-        KineticGlyph(
-          text: text,
-          start: token.hasTiming
-              ? token.start! +
-                    Duration(
-                      microseconds: duration * index ~/ characters.length,
-                    )
-              : null,
-          end: token.hasTiming
-              ? token.start! +
-                    Duration(
-                      microseconds: duration * (index + 1) ~/ characters.length,
-                    )
-              : null,
-        ),
-      );
+      final start = tokenStart == null
+          ? null
+          : tokenStart + duration * index ~/ characters.length;
+      final end = tokenStart == null
+          ? null
+          : tokenStart + duration * (index + 1) ~/ characters.length;
+      final joinsWord =
+          wordOffset != null &&
+          (text == "'" || text == '’') &&
+          _isKineticWordAt(line.text, offset + text.length);
+      if (_isKineticWordAt(line.text, offset) || joinsWord) {
+        wordOffset ??= offset;
+        wordStart ??= start;
+        wordEnd = end ?? wordEnd;
+      } else {
+        flushWord();
+        result.add(
+          KineticGlyph(
+            text: text,
+            start: start == null ? null : Duration(microseconds: start),
+            end: end == null ? null : Duration(microseconds: end),
+          ),
+        );
+      }
+      offset += text.length;
     }
   }
+  flushWord();
   return result;
+}
+
+// This is display grouping, not linguistic segmentation. CJK and emoji keep
+// their grapheme units; Latin, Greek and Cyrillic letters form words. Unicode
+// script properties cover accented letters without maintaining block ranges.
+final _kineticWordLetter = RegExp(
+  r'[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]',
+  unicode: true,
+);
+
+bool _isKineticWordAt(String text, int offset) {
+  if (offset >= text.length) return false;
+  final code = text.codeUnitAt(offset);
+  // The common English path needs neither a regexp match nor a substring.
+  if (code < 0x80) {
+    return (code >= 0x41 && code <= 0x5a) ||
+        (code >= 0x61 && code <= 0x7a) ||
+        (code >= 0x30 && code <= 0x39);
+  }
+  return _kineticWordLetter.matchAsPrefix(text, offset) != null;
 }
 
 class KineticPaintGlyph {

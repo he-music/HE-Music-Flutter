@@ -33,10 +33,10 @@ final _document = LyricDocument(
     (i) => LyricLine(
       start: Duration(seconds: i * 4),
       end: Duration(seconds: i * 4 + 4),
-      text: 'WORD',
+      text: '跃音歌词',
       tokens: const [
         LyricToken(
-          text: 'WORD',
+          text: '跃音歌词',
           startOffset: Duration.zero,
           duration: Duration(seconds: 4),
         ),
@@ -354,7 +354,7 @@ void main() {
   testWidgets(
     'wrapped-row camera finishes at the new row onset without following letter jitter',
     (tester) async {
-      const text = 'ABCDEFGHIJKLMNOP';
+      const text = 'Hello beautiful world keep singing';
       await tester.pumpWidget(
         _app(
           document: const LyricDocument(
@@ -562,15 +562,15 @@ void main() {
           LyricLine(
             start: Duration.zero,
             end: Duration(seconds: 4),
-            text: 'AB',
+            text: '你好',
             tokens: [
               LyricToken(
-                text: 'A',
+                text: '你',
                 startOffset: Duration.zero,
                 duration: Duration(seconds: 2),
               ),
               LyricToken(
-                text: 'B',
+                text: '好',
                 startOffset: Duration(seconds: 2),
                 duration: Duration(seconds: 2),
               ),
