@@ -77,6 +77,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     }
 
     return RefreshIndicator(
+      elevation: 0,
       onRefresh: () =>
           ref.read(deviceManagementControllerProvider.notifier).loadDevices(),
       child: ListView(

@@ -33,6 +33,19 @@ void main() {
     expect(find.text('Last active: 2 hour(s) ago'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('device list pull to refresh indicator has no elevation', (
+    tester,
+  ) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 300;
+
+    await _pumpPage(tester, timestamp: timestamp);
+
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    expect(indicator.elevation, 0);
+  });
 }
 
 Future<void> _pumpPage(
