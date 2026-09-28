@@ -112,7 +112,8 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
           title: Text(AppI18n.t(config, 'parse.title')),
         ),
         body: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

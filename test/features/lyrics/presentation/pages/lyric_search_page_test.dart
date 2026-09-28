@@ -132,6 +132,47 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('keyboard does not lift the use lyrics button for either input', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+    tester.view.padding = const FakeViewPadding(bottom: 24);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewInsets);
+    await open(tester);
+    api.pending['B']!.complete([_candidate]);
+    await tester.pumpAndSettle();
+    final button = find.widgetWithText(FilledButton, '使用此歌词').first;
+    final originalRect = tester.getRect(button);
+    final preview = find.byType(LyricCandidatePreview).first;
+    final originalPreviewRect = tester.getRect(preview);
+
+    for (var index = 0; index < 2; index++) {
+      await tester.tap(find.byType(TextField).at(index));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      tester.view.padding = const FakeViewPadding();
+      await tester.pumpAndSettle();
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.getRect(button), originalRect);
+      expect(tester.getRect(preview), originalPreviewRect);
+      expect(find.byType(TextField).at(index).hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      tester.view.viewInsets = const FakeViewPadding();
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(button), originalRect);
+      expect(tester.getRect(preview), originalPreviewRect);
+      expect(button.hitTestable(), findsOneWidget);
+    }
+  });
+
   testWidgets(
     'platform order and current platform preference; stale A B A searches never overwrite latest result',
     (tester) async {

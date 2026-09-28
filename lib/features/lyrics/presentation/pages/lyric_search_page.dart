@@ -279,6 +279,7 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
         _selecting == null && platforms.any((p) => p.id == _platform);
     final theme = Theme.of(context);
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         leading: AppBackButton(onPressed: () => Navigator.of(context).pop()),
         title: const Text('搜索歌词', maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -291,6 +292,7 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
         ],
       ),
       body: SafeArea(
+        maintainBottomViewPadding: true,
         child: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [

@@ -55,16 +55,19 @@ class DetailPageShell extends StatelessWidget {
     final clearance = AppGlassScope.isEnabled(context) && bottomBar != null
         ? MediaQuery.paddingOf(context).bottom
         : 0.0;
-    final body = Padding(
-      padding: EdgeInsets.only(bottom: clearance),
-      child: MediaQuery.removePadding(
-        context: context,
-        removeBottom: clearance > 0,
-        child: Column(
-          children: <Widget>[
-            Expanded(child: child),
-            ...<Widget?>[bottomBar].nonNulls,
-          ],
+    final body = Builder(
+      // Read below the scaffold so consumed keyboard insets stay consumed.
+      builder: (bodyContext) => Padding(
+        padding: EdgeInsets.only(bottom: clearance),
+        child: MediaQuery.removePadding(
+          context: bodyContext,
+          removeBottom: clearance > 0,
+          child: Column(
+            children: <Widget>[
+              Expanded(child: child),
+              ...<Widget?>[bottomBar].nonNulls,
+            ],
+          ),
         ),
       ),
     );
