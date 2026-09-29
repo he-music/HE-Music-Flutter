@@ -16,6 +16,10 @@ abstract final class AppI18n {
       'player.play': '播放',
       'player.pause': '暂停',
 
+      'player.lyric.background_brightness': '背景明暗',
+      'player.lyric.background_dark': '暗',
+      'player.lyric.background_bright': '亮',
+      'player.lyric.background_original': '原图',
       'player.lyric.options': '歌词选项',
       'player.lyric.search': '搜索歌词',
       'player.lyric.replace': '更换歌词',
@@ -918,6 +922,10 @@ abstract final class AppI18n {
       'player.play': 'Play',
       'player.pause': 'Pause',
 
+      'player.lyric.background_brightness': 'Background brightness',
+      'player.lyric.background_dark': 'Dark',
+      'player.lyric.background_bright': 'Bright',
+      'player.lyric.background_original': 'Original',
       'player.lyric.options': 'Lyric options',
       'player.lyric.search': 'Search lyrics',
       'player.lyric.replace': 'Replace lyrics',

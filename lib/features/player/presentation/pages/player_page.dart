@@ -59,6 +59,7 @@ import '../widgets/claddagh_lyric_page.dart';
 import '../widgets/player_backdrop.dart';
 import '../widgets/player_compact_lyric_section.dart';
 import '../widgets/player_control_bar.dart';
+import '../widgets/lyric_photo_dimmer.dart';
 import '../widgets/player_lyric_page.dart';
 import '../widgets/player_more_sheet_widgets.dart';
 import '../widgets/player_progress_bar.dart';
@@ -457,13 +458,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           seekListenable: _seekRevision,
         ),
       };
-      if (!showControls) return content;
-      return Column(
-        children: [
-          Expanded(child: content),
-          const FullLyricControls(),
-        ],
-      );
+      final lyricContent = showControls
+          ? Column(
+              children: [
+                Expanded(child: content),
+                const FullLyricControls(),
+              ],
+            )
+          : content;
+      if (backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto &&
+          currentLayoutMode != PlayerLayoutMode.mobilePortrait) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            const Positioned.fill(child: LyricPhotoDimmer()),
+            lyricContent,
+          ],
+        );
+      }
+      return lyricContent;
     }
 
     return PopScope(
@@ -498,6 +511,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 ),
               ),
             ),
+            if (backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto &&
+                currentLayoutMode == PlayerLayoutMode.mobilePortrait)
+              Positioned.fill(
+                child: LyricPhotoDimmer(pageController: _pageController),
+              ),
             Positioned.fill(
               child: SafeArea(
                 left: !isMobileLandscape,

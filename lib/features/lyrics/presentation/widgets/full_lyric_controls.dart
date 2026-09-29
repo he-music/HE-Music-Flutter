@@ -17,6 +17,7 @@ import '../../../settings/presentation/pages/settings_item_presentation_registry
 import '../../../settings/presentation/widgets/settings_single_choice_sheet.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_request.dart';
+import 'lyric_photo_brightness_control.dart';
 import 'lyric_search_empty.dart';
 import '../providers/lyrics_providers.dart';
 
@@ -225,7 +226,20 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(appConfigProvider);
+    ref.watch(
+      appConfigProvider.select(
+        (config) => (
+          config.localeCode,
+          config.playerLyricsId,
+          config.playerBackdropId,
+          config.lyricFontPreset,
+          config.lyricHighlightMode,
+          config.lyricHighlightPreset,
+          config.lyricHighlightCustomColor,
+        ),
+      ),
+    );
+    final config = ref.read(appConfigProvider);
     final controller = ref.read(appConfigProvider.notifier);
     final currentRequest = ref.watch(currentLyricRequestProvider);
     final document = ref.watch(currentLyricDocumentProvider);
@@ -355,6 +369,9 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 onSelected: controller.setPlayerLyricsId,
               ),
             ),
+            if (config.playerBackdropId ==
+                AppPlayerBackdropRegistry.artistPhotoId)
+              const LyricPhotoBrightnessTile(),
             ListTile(
               leading: const Icon(Icons.text_fields),
               title: Text(AppI18n.t(config, 'settings.lyric_font_preset')),

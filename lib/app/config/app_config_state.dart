@@ -43,6 +43,7 @@ class AppConfigState {
     this.authToken,
     this.refreshToken,
     this.tokenExpiresAt,
+    this.lyricPhotoBrightness = 1.0,
     this.lyricAuxiliaryMode = AppLyricAuxiliaryMode.translation,
     this.enablePlaybackAudioCache = true,
     this.enableCellularAudioCache = false,
@@ -79,6 +80,9 @@ class AppConfigState {
   final String? authToken;
   final String? refreshToken;
   final int? tokenExpiresAt;
+
+  /// 写真歌词背景亮度：0 最暗，1 原图（无遮罩）。
+  final double lyricPhotoBrightness;
   final AppLyricAuxiliaryMode lyricAuxiliaryMode;
   final bool enablePlaybackAudioCache;
   final bool enableCellularAudioCache;
@@ -127,12 +131,14 @@ class AppConfigState {
     String? refreshToken,
     int? tokenExpiresAt,
     bool clearRefreshToken = false,
+    double? lyricPhotoBrightness,
     AppLyricAuxiliaryMode? lyricAuxiliaryMode,
     bool? enablePlaybackAudioCache,
     bool? enableCellularAudioCache,
     int? audioCacheLimitBytes,
   }) {
     return AppConfigState(
+      lyricPhotoBrightness: lyricPhotoBrightness ?? this.lyricPhotoBrightness,
       lyricAuxiliaryMode: lyricAuxiliaryMode ?? this.lyricAuxiliaryMode,
       enablePlaybackAudioCache:
           enablePlaybackAudioCache ?? this.enablePlaybackAudioCache,

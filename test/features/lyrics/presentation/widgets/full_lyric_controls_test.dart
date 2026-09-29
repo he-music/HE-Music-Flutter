@@ -138,6 +138,60 @@ void main() {
     });
   }
 
+  for (final photo in [false, true]) {
+    testWidgets(
+      'background brightness is shown only for artist photo: $photo',
+      (tester) async {
+        await tester.pumpWidget(_app(store: _Store()));
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FullLyricControls)),
+        );
+        if (photo) {
+          (container.read(appConfigProvider.notifier) as _Config)
+              .setPlayerBackdropId(AppPlayerBackdropRegistry.artistPhotoId);
+          await tester.pump();
+        }
+        await tester.tap(find.byKey(const ValueKey('lyric-options-control')));
+        await tester.pumpAndSettle();
+        expect(find.text('背景明暗'), photo ? findsOneWidget : findsNothing);
+        expect(find.byType(Slider), findsNothing);
+        if (photo) {
+          final tile = find.byKey(
+            const ValueKey('lyric-photo-brightness-tile'),
+          );
+          expect(
+            find.descendant(of: tile, matching: find.text('100% · 原图')),
+            findsOneWidget,
+          );
+          await tester.ensureVisible(tile);
+          await tester.tap(tile);
+          await tester.pumpAndSettle();
+          expect(find.byType(Slider), findsOneWidget);
+          final value = find.byKey(
+            const ValueKey('lyric-photo-brightness-value'),
+          );
+          expect(tester.widget<Text>(value).data, '100% · 原图');
+          final slider = tester.widget<Slider>(find.byType(Slider));
+          slider.onChanged!(.42);
+          slider.onChangeEnd!(.42);
+          await tester.pump();
+          expect(tester.widget<Text>(value).data, '42%');
+          Navigator.of(tester.element(value)).pop();
+          await tester.pumpAndSettle();
+          expect(find.byType(Slider), findsNothing);
+          expect(
+            find.descendant(of: tile, matching: find.text('42%')),
+            findsOneWidget,
+          );
+          await tester.tap(tile);
+          await tester.pumpAndSettle();
+          expect(tester.widget<Slider>(find.byType(Slider)).value, .42);
+        }
+      },
+    );
+  }
+
   testWidgets('English lyric options and automatic color icon are localized', (
     tester,
   ) async {
@@ -561,6 +615,16 @@ Widget _app({
 );
 
 class _Config extends AppConfigController {
+  @override
+  void setLyricPhotoBrightness(double brightness, {bool persist = true}) {
+    state = state.copyWith(lyricPhotoBrightness: brightness);
+  }
+
+  @override
+  void setPlayerBackdropId(String id) {
+    state = state.copyWith(playerBackdropId: id);
+  }
+
   @override
   void setLocaleCode(String locale) {
     state = state.copyWith(localeCode: locale);

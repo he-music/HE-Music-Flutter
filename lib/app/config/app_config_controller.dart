@@ -207,6 +207,19 @@ class AppConfigController extends Notifier<AppConfigState> {
     _update(state.copyWith(lyricAuxiliaryMode: mode));
   }
 
+  void setLyricPhotoBrightness(double brightness, {bool persist = true}) {
+    final next = state.copyWith(
+      lyricPhotoBrightness: brightness.isFinite
+          ? brightness.clamp(0.0, 1.0)
+          : 1.0,
+    );
+    if (persist) {
+      _update(next);
+    } else {
+      state = next;
+    }
+  }
+
   void setLyricFontPreset(AppLyricFontPreset preset) {
     _update(state.copyWith(lyricFontPreset: preset));
   }
@@ -356,6 +369,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       lyricHighlightPreset: loaded.lyricHighlightPreset,
       lyricHighlightCustomColor: loaded.lyricHighlightCustomColor,
       clearLyricHighlightCustomColor: loaded.lyricHighlightCustomColor == null,
+      lyricPhotoBrightness: loaded.lyricPhotoBrightness,
       lyricAuxiliaryMode: loaded.lyricAuxiliaryMode,
       lyricFontPreset: loaded.lyricFontPreset,
       enableWordByWordLyric: loaded.enableWordByWordLyric,

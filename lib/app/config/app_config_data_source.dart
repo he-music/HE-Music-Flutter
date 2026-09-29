@@ -46,6 +46,7 @@ const _legacyLyricHighlightColorKey = 'app_config.lyric_highlight_color';
 const _lyricHighlightModeKey = 'app_config.lyric_highlight_mode';
 const _lyricHighlightPresetKey = 'app_config.lyric_highlight_preset';
 const _lyricHighlightCustomColorKey = 'app_config.lyric_highlight_custom_color';
+const _lyricPhotoBrightnessKey = 'app_config.lyric_photo_brightness';
 const _lyricFontPresetKey = 'app_config.lyric_font_preset';
 const _enableWordByWordLyricKey = 'app_config.enable_word_by_word_lyric';
 const _enableDesktopLyricKey = 'app_config.enable_desktop_lyric';
@@ -159,6 +160,9 @@ class AppConfigDataSource {
       lyricAuxiliaryMode: AppLyricAuxiliaryMode.fromValue(
         prefs.getString('app_config.lyric_auxiliary_mode'),
       ),
+      lyricPhotoBrightness: _readLyricPhotoBrightness(
+        prefs.get(_lyricPhotoBrightnessKey),
+      ),
       lyricFontPreset: AppLyricFontPreset.fromValue(
         prefs.getString(_lyricFontPresetKey),
       ),
@@ -261,6 +265,10 @@ class AppConfigDataSource {
     await prefs.setString(
       'app_config.lyric_auxiliary_mode',
       state.lyricAuxiliaryMode.name,
+    );
+    await prefs.setDouble(
+      _lyricPhotoBrightnessKey,
+      _readLyricPhotoBrightness(state.lyricPhotoBrightness),
     );
     await prefs.setString(_lyricFontPresetKey, state.lyricFontPreset.value);
     await prefs.setBool(_enableWordByWordLyricKey, state.enableWordByWordLyric);
@@ -473,6 +481,11 @@ class AppConfigDataSource {
     return AppLyricHighlightColor.fromValue(
       prefs.getString(_legacyLyricHighlightColorKey),
     );
+  }
+
+  double _readLyricPhotoBrightness(Object? value) {
+    if (value is! num || !value.isFinite) return 1.0;
+    return value.toDouble().clamp(0.0, 1.0);
   }
 
   int? _readLyricHighlightCustomColor(SharedPreferences prefs) {
