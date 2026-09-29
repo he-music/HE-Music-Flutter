@@ -89,9 +89,7 @@ class FavoriteCollectionStatusController
   }
 
   void addPlaylist({required String id, required String platform}) {
-    final next = <String>{...state.playlistKeys};
-    next.add(buildIdPlatformKey(id: id, platform: platform));
-    state = state.copyWith(playlistKeys: next, ready: true);
+    add(type: MyFavoriteType.playlists, id: id, platform: platform);
   }
 
   void add({

@@ -6,6 +6,7 @@ import '../../../../online/domain/entities/online_platform.dart';
 import '../../../../online/presentation/providers/online_providers.dart';
 import '../../../shared/domain/entities/new_release_tab.dart';
 import '../../../shared/domain/entities/new_release_page_result.dart';
+import '../../../shared/presentation/helpers/new_release_selection.dart';
 import '../../data/datasources/new_album_api_client.dart';
 import '../../domain/entities/new_album_page_state.dart';
 import '../providers/new_album_page_providers.dart';
@@ -51,7 +52,11 @@ class NewAlbumPageController extends Notifier<NewAlbumPageState> {
       if (requestVersion != _requestVersion) {
         return;
       }
-      final platformId = _resolvePlatformId(platforms, preferredPlatformId);
+      final platformId = resolveNewReleaseSelectionId(
+        platforms,
+        preferredPlatformId,
+        idOf: (platform) => platform.id,
+      );
       if (platformId == null) {
         state = state.copyWith(
           platforms: platforms,
@@ -181,39 +186,6 @@ class NewAlbumPageController extends Notifier<NewAlbumPageState> {
         .toList(growable: false);
   }
 
-  String? _resolvePlatformId(
-    List<OnlinePlatform> platforms,
-    String? preferredPlatformId,
-  ) {
-    final normalizedPreferred = preferredPlatformId?.trim() ?? '';
-    if (normalizedPreferred.isNotEmpty) {
-      for (final platform in platforms) {
-        if (platform.id == normalizedPreferred) {
-          return platform.id;
-        }
-      }
-    }
-    if (platforms.isEmpty) {
-      return null;
-    }
-    return platforms.first.id;
-  }
-
-  String? _resolveTabId(List<NewReleaseTab> tabs, String? preferredTabId) {
-    final normalizedPreferred = preferredTabId?.trim() ?? '';
-    if (normalizedPreferred.isNotEmpty) {
-      for (final tab in tabs) {
-        if (tab.id == normalizedPreferred) {
-          return tab.id;
-        }
-      }
-    }
-    if (tabs.isEmpty) {
-      return null;
-    }
-    return tabs.first.id;
-  }
-
   Future<void> _loadPlatform({
     required String platformId,
     required int requestVersion,
@@ -249,7 +221,11 @@ class NewAlbumPageController extends Notifier<NewAlbumPageState> {
       if (requestVersion != _requestVersion) {
         return;
       }
-      final selectedTabId = _resolveTabId(tabs, preferredTabId);
+      final selectedTabId = resolveNewReleaseSelectionId(
+        tabs,
+        preferredTabId,
+        idOf: (tab) => tab.id,
+      );
       state = state.copyWith(
         tabsLoading: false,
         tabs: tabs,

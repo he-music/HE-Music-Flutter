@@ -58,6 +58,54 @@ void main() {
     },
   );
 
+  for (final liked in [true, false]) {
+    test('local liked=$liked persists and ignores an older refresh', () async {
+      const other = IdPlatformInfo(id: 'song', platform: 'kuwo');
+      await const FavoriteSongCacheDataSource().replace([
+        other,
+        if (!liked) song,
+      ]);
+      final pending = Completer<List<IdPlatformInfo>>();
+      final started = Completer<void>();
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_Config.new),
+          onlineApiClientProvider.overrideWithValue(
+            _Api((_) {
+              started.complete();
+              return pending.future;
+            }),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(favoriteSongStatusProvider.notifier);
+      await started.future;
+      if (liked) {
+        controller.addSong(songId: song.id, platform: song.platform);
+      } else {
+        controller.removeSong(songId: song.id, platform: song.platform);
+      }
+      pending.complete(liked ? [] : [song]);
+      await drain();
+
+      expect(
+        controller.contains(songId: song.id, platform: song.platform),
+        liked,
+      );
+      expect(
+        controller.contains(songId: other.id, platform: other.platform),
+        isTrue,
+      );
+      expect(container.read(favoriteSongStatusProvider).ready, isTrue);
+      final cached = await const FavoriteSongCacheDataSource().read();
+      expect(cached!.map((item) => (item.id, item.platform)), [
+        ('song', 'kuwo'),
+        if (liked) ('song', 'qq'),
+      ]);
+    });
+  }
+
   test('offline startup retains saved favorites', () async {
     const cache = FavoriteSongCacheDataSource();
     await cache.replace([song]);

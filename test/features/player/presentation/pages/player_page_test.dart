@@ -119,13 +119,13 @@ const _monetFixtureDocument = LyricDocument(
 );
 
 void main() {
-  for (final action in <(String, String)>[
+  for (final (label, detailPath) in <(String, String)>[
     ('View Album', AppRoutes.albumDetail),
     ('View Artist', AppRoutes.artistDetail),
     ('View Detail', AppRoutes.songDetail),
     ('Watch MV', AppRoutes.videoDetail),
   ]) {
-    testWidgets('${action.$1} returns to an interactive player twice', (
+    testWidgets('$label returns to an interactive player twice', (
       tester,
     ) async {
       tester.view.devicePixelRatio = 1;
@@ -152,7 +152,7 @@ void main() {
             ),
           ),
           GoRoute(
-            path: action.$2,
+            path: detailPath,
             builder: (_, _) => const Scaffold(body: Text('detail page')),
           ),
         ],
@@ -169,8 +169,8 @@ void main() {
       for (var i = 0; i < 2; i++) {
         await tester.tap(find.byIcon(Icons.more_horiz_rounded));
         await tester.pumpAndSettle();
-        await _scrollPlayerMoreSheetTo(tester, action.$1);
-        await tester.tap(find.text(action.$1));
+        await _scrollPlayerMoreSheetTo(tester, label);
+        await tester.tap(find.text(label));
         await tester.pumpAndSettle();
         expect(find.text('detail page'), findsOneWidget);
         router.pop();

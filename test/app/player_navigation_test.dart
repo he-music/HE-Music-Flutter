@@ -37,6 +37,17 @@ void main() {
     return router;
   }
 
+  void expectSinglePlayer(GoRouter router) {
+    final matches = router.routerDelegate.currentConfiguration.matches;
+    expect(
+      matches.where((match) {
+        final route = match.route;
+        return route is GoRoute && route.path == AppRoutes.player;
+      }),
+      hasLength(1),
+    );
+  }
+
   Future<void> tap(WidgetTester tester, String label) async {
     await tester.tap(find.text(label).hitTestable());
     await tester.pumpAndSettle();
@@ -73,14 +84,7 @@ void main() {
       await toAlbum(tester);
       final album = tester.element(find.text('Album'));
       await tap(tester, 'MiniPlayer');
-      expect(
-        router.routerDelegate.currentConfiguration.matches.where(
-          (m) =>
-              m.route is GoRoute &&
-              (m.route as GoRoute).path == AppRoutes.player,
-        ),
-        hasLength(1),
-      );
+      expectSinglePlayer(router);
       await backTo(tester, 'Album');
       expect(tester.element(find.text('Album')), same(album));
       await backTo(tester, 'Search');
@@ -113,14 +117,7 @@ void main() {
         unawaited(openFullPlayer(context));
         unawaited(openFullPlayer(context));
         await tester.pumpAndSettle();
-        expect(
-          router.routerDelegate.currentConfiguration.matches.where(
-            (m) =>
-                m.route is GoRoute &&
-                (m.route as GoRoute).path == AppRoutes.player,
-          ),
-          hasLength(1),
-        );
+        expectSinglePlayer(router);
         await backTo(tester, 'Album');
       }
       await backTo(tester, 'Search');

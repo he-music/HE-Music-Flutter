@@ -112,27 +112,31 @@ class FavoriteSongStatusController extends Notifier<FavoriteSongStatusState> {
   }
 
   void addSong({required String songId, required String platform}) {
-    _revision++;
-    final next = <String>{...state.songKeys};
-    next.add(buildFavoriteSongKey(songId: songId, platform: platform));
-    state = state.copyWith(songKeys: next, ready: true);
-    _persist(
-      () => _cache.setSong(
-        IdPlatformInfo(id: songId, platform: platform),
-        liked: true,
-      ),
-    );
+    _setSongLiked(songId: songId, platform: platform, liked: true);
   }
 
   void removeSong({required String songId, required String platform}) {
+    _setSongLiked(songId: songId, platform: platform, liked: false);
+  }
+
+  void _setSongLiked({
+    required String songId,
+    required String platform,
+    required bool liked,
+  }) {
     _revision++;
     final next = <String>{...state.songKeys};
-    next.remove(buildFavoriteSongKey(songId: songId, platform: platform));
+    final key = buildFavoriteSongKey(songId: songId, platform: platform);
+    if (liked) {
+      next.add(key);
+    } else {
+      next.remove(key);
+    }
     state = state.copyWith(songKeys: next, ready: true);
     _persist(
       () => _cache.setSong(
         IdPlatformInfo(id: songId, platform: platform),
-        liked: false,
+        liked: liked,
       ),
     );
   }
