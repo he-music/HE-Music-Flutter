@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../../app/app_navigation_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/router/app_routes.dart';
 import '../../../my/presentation/pages/my_page.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../../player/presentation/widgets/mini_player_bar.dart';
@@ -49,7 +48,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               children: const <Widget>[DiscoverHomeTab(), MyPage()],
             ),
           ),
-          MiniPlayerBar(onOpenFullPlayer: () => context.push(AppRoutes.player)),
+          MiniPlayerBar(onOpenFullPlayer: () => openFullPlayer(context)),
         ],
       ),
       bottomNavigationBar: SafeArea(

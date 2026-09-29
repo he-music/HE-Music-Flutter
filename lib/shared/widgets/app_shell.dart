@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../constants/layout_tokens.dart';
+import '../../../app/app_navigation_service.dart';
 import '../../../app/config/app_config_controller.dart';
 import '../../../app/i18n/app_i18n.dart';
 import '../../../app/router/app_routes.dart';
@@ -49,7 +50,7 @@ class _MobileLayout extends ConsumerWidget {
     final glassEnabled = AppGlassScope.isEnabled(context);
     final miniPlayer = MiniPlayerBar(
       embedded: glassEnabled,
-      onOpenFullPlayer: () => context.push(AppRoutes.player),
+      onOpenFullPlayer: () => openFullPlayer(context),
     );
     Widget buildNavigation(
       Widget? accessory,
@@ -204,9 +205,7 @@ class _DesktopLayout extends ConsumerWidget {
       heightFactor: 1,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1120),
-        child: MiniPlayerBar(
-          onOpenFullPlayer: () => context.push(AppRoutes.player),
-        ),
+        child: MiniPlayerBar(onOpenFullPlayer: () => openFullPlayer(context)),
       ),
     );
     if (AppGlassScope.isEnabled(context)) {

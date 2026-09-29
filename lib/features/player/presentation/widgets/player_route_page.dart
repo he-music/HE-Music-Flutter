@@ -52,7 +52,8 @@ class _PlayerRoute extends PageRouteBuilder<void> {
 
   @override
   void didChangeNext(Route<dynamic>? nextRoute) {
-    if (nextRoute != null) {
+    // 已 pop 的路由必须完成退出动画，不能因紧接着 push 而复活显示层。
+    if (nextRoute != null && isActive) {
       _revision++;
       controller!.value = 1;
     }

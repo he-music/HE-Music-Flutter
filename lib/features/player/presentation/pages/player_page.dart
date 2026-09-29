@@ -1529,11 +1529,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     );
   }
 
-  /// 关闭播放器后把详情页压入根 Navigator。
-  ///
-  /// 播放器和详情页都在根 navigator，使用 push 保留来源页面的返回栈。
+  /// 保留播放器作为详情页的返回目标。
   void _goToDetail(String location) {
-    Navigator.of(context).pop();
+    final route = ModalRoute.of(context);
+    if (!mounted || route == null || !route.isActive || !route.isCurrent) {
+      return;
+    }
     unawaited(GoRouter.of(context).push(location));
   }
 
@@ -1571,7 +1572,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _openArtistSelectionAndGo(platformId: platformId, artists: track.artists);
   }
 
-  /// 弹出歌手选择面板，选择后关闭播放器并导航到歌手详情。
+  /// 弹出歌手选择面板，选择后在播放器上方打开歌手详情。
   void _openArtistSelectionAndGo({
     required String platformId,
     required List<SongInfoArtistInfo> artists,

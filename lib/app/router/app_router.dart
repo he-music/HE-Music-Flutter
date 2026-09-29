@@ -74,7 +74,7 @@ class _RootContentRouteShell extends StatelessWidget {
       return AppGlassPlayerScaffold(
         body: child,
         miniPlayer: MiniPlayerBar(
-          onOpenFullPlayer: () => context.push(AppRoutes.player),
+          onOpenFullPlayer: () => openFullPlayer(context),
         ),
       );
     }
@@ -84,7 +84,7 @@ class _RootContentRouteShell extends StatelessWidget {
       body: child,
       bottomNavigationBar: MiniPlayerBar(
         bottomSafeArea: true,
-        onOpenFullPlayer: () => context.push(AppRoutes.player),
+        onOpenFullPlayer: () => openFullPlayer(context),
       ),
     );
   }

@@ -119,6 +119,73 @@ const _monetFixtureDocument = LyricDocument(
 );
 
 void main() {
+  for (final action in <(String, String)>[
+    ('View Album', AppRoutes.albumDetail),
+    ('View Artist', AppRoutes.artistDetail),
+    ('View Detail', AppRoutes.songDetail),
+    ('Watch MV', AppRoutes.videoDetail),
+  ]) {
+    testWidgets('${action.$1} returns to an interactive player twice', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(430, 1200);
+      addTearDown(tester.view.reset);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (_) async => null);
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final router = GoRouter(
+        initialLocation: AppRoutes.home,
+        routes: [
+          GoRoute(
+            path: AppRoutes.home,
+            builder: (_, _) => const Scaffold(body: Text('source page')),
+          ),
+          GoRoute(
+            path: AppRoutes.player,
+            pageBuilder: (_, state) => PlayerRoutePage(
+              key: state.pageKey,
+              child: const AppPlayerStyleBoundary(child: PlayerPage()),
+            ),
+          ),
+          GoRoute(
+            path: action.$2,
+            builder: (_, _) => const Scaffold(body: Text('detail page')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _NavigationTrackPlayerController.new,
+          router: router,
+        ),
+      );
+      unawaited(router.push<void>(AppRoutes.player));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.pumpAndSettle();
+        await _scrollPlayerMoreSheetTo(tester, action.$1);
+        await tester.tap(find.text(action.$1));
+        await tester.pumpAndSettle();
+        expect(find.text('detail page'), findsOneWidget);
+        router.pop();
+        await tester.pumpAndSettle();
+        final route = ModalRoute.of(tester.element(find.byType(PlayerPage)))!;
+        expect(route.isActive && route.isCurrent, isTrue);
+      }
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+      await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
+      expect(find.text('source page'), findsOneWidget);
+      expect(find.byType(PlayerPage, skipOffstage: false), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets(
     'pending close cannot pop home while player reverse transition is still mounted',
     (tester) async {
@@ -3401,6 +3468,16 @@ class _OnlineTrackPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _NavigationTrackPlayerController extends _OnlineTrackPlayerController {
+  @override
+  PlayerPlaybackState build() {
+    final initial = super.build();
+    return initial.copyWith(
+      queue: [for (final track in initial.queue) track.copyWith(mvId: 'mv-1')],
+    );
+  }
 }
 
 class _WakeLockPlayerController extends _OnlineTrackPlayerController {
