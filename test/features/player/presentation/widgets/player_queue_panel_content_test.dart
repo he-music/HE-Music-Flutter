@@ -17,7 +17,22 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_panel_content.dart';
 
+import '../../../../helpers/expect_text_height_fits.dart';
+
 void main() {
+  testWidgets('queue tabs accommodate large labels and counts', (tester) async {
+    await tester.pumpWidget(
+      _buildTestApp(
+        theme: ThemeData(useMaterial3: true),
+        controllerFactory: _QueueTestController.new,
+        textScale: 3,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expectTextHeightFits(tester, find.byType(TabBar));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('global queue clear requests the city skin role', (tester) async {
     late _QueueTestController controller;
     await tester.pumpWidget(
@@ -181,6 +196,7 @@ void main() {
 }
 
 Widget _buildTestApp({
+  double textScale = 1,
   required ThemeData theme,
   required PlayerController Function() controllerFactory,
 }) {
@@ -190,6 +206,12 @@ Widget _buildTestApp({
       playerControllerProvider.overrideWith(controllerFactory),
     ],
     child: MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       theme: theme,
       home: const Scaffold(body: PlayerQueuePanelContent()),
     ),

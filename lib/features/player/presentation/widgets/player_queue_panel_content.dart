@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -48,6 +50,21 @@ class _PlayerQueuePanelContentState
       playerControllerProvider.select(_QueuePanelSelection.fromState),
     );
     final queue = queueState.queue;
+    final theme = Theme.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final titleStyle = theme.textTheme.titleSmall;
+    final countStyle = theme.textTheme.labelMedium;
+    final tabHeight = math.max(
+      34.0,
+      math.max(
+            textScaler.scale(titleStyle?.fontSize ?? 14) *
+                (titleStyle?.height ?? 1.5),
+            textScaler.scale(countStyle?.fontSize ?? 12) *
+                    (countStyle?.height ?? 1.5) +
+                6,
+          ) +
+          8,
+    );
     final currentIndex = queueState.currentIndex;
     final previousSnapshot = queueState.previousSnapshot;
     return Column(
@@ -72,6 +89,7 @@ class _PlayerQueuePanelContentState
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
                   tabs: <Widget>[
                     _QueueTabLabel(
+                      height: tabHeight,
                       title: AppI18n.t(config, 'player.queue.current'),
                       count: queue.length,
                       source: queueState.source,
@@ -82,6 +100,7 @@ class _PlayerQueuePanelContentState
                           : () => _openSource(context, queueState.source!),
                     ),
                     _QueueTabLabel(
+                      height: tabHeight,
                       title: AppI18n.t(config, 'player.queue.previous'),
                       count: previousSnapshot?.queue.length ?? 0,
                       source: previousSnapshot?.source,
@@ -263,23 +282,28 @@ int _snapshotPresentationHash(PlayerQueueSnapshot? snapshot) {
   );
 }
 
-class _QueueTabLabel extends StatelessWidget {
+class _QueueTabLabel extends StatelessWidget implements PreferredSizeWidget {
   const _QueueTabLabel({
+    required this.height,
     required this.title,
     required this.count,
     this.source,
     this.onOpenSource,
   });
 
+  final double height;
   final String title;
   final int count;
+
+  @override
+  Size get preferredSize => Size.fromHeight(height);
   final PlayerQueueSource? source;
   final VoidCallback? onOpenSource;
 
   @override
   Widget build(BuildContext context) {
     return Tab(
-      height: 34,
+      height: height,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[

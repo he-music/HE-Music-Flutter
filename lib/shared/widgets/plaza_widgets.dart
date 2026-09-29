@@ -19,8 +19,8 @@ class PlazaPlatformsErrorView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    return SizedBox(
-      height: 28,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 28),
       child: Row(
         children: <Widget>[
           Expanded(

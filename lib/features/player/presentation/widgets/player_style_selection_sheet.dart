@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import '../../../../shared/widgets/app_alert_dialog.dart';
@@ -287,7 +288,14 @@ class _AxisTabBar extends StatelessWidget {
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: SizedBox(
-        height: 44,
+        height: math.max(
+          44,
+          MediaQuery.textScalerOf(
+                    context,
+                  ).scale(theme.textTheme.labelLarge?.fontSize ?? 14) *
+                  (theme.textTheme.labelLarge?.height ?? 1.5) +
+              20,
+        ),
         child: Row(
           children: <Widget>[
             for (final axis in _PlayerStyleAxis.values)
@@ -545,8 +553,8 @@ class _StyleOptionCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      height: 32,
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 32),
                       child: Text(
                         spec.label,
                         maxLines: 2,

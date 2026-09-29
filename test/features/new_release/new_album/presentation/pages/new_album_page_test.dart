@@ -19,6 +19,8 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_widgets.dart';
 
+import '../../../../../helpers/expect_text_height_fits.dart';
+
 void main() {
   testWidgets('new album page shows all skeleton regions on first load', (
     tester,
@@ -48,27 +50,43 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('new album page renders album grid items', (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          playerControllerProvider.overrideWith(_TestPlayerController.new),
-          newAlbumApiClientProvider.overrideWithValue(_FakeNewAlbumApiClient()),
-          onlinePlatformsProvider.overrideWith(
-            _TestOnlinePlatformsController.new,
+  for (final scale in <double>[1, 3]) {
+    testWidgets('new album page renders album grid items at scale $scale', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            newAlbumApiClientProvider.overrideWithValue(
+              _FakeNewAlbumApiClient(),
+            ),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+          ],
+          child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(scale)),
+              child: child!,
+            ),
+            home: const NewAlbumPage(initialPlatform: 'qq'),
           ),
-        ],
-        child: const MaterialApp(home: NewAlbumPage(initialPlatform: 'qq')),
-      ),
-    );
+        ),
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('QQ'), findsOneWidget);
-    expect(find.text('推荐'), findsOneWidget);
-    expect(find.byType(PlazaChoiceChip), findsOneWidget);
-    expect(find.text('年度新碟'), findsOneWidget);
-  });
+      expect(find.text('QQ'), findsOneWidget);
+      expect(find.text('推荐'), findsOneWidget);
+      expect(find.byType(PlazaChoiceChip), findsOneWidget);
+      expect(find.text('年度新碟'), findsOneWidget);
+      expectTextHeightFits(tester, find.byType(PlazaChoiceChip));
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 class _FakeNewAlbumApiClient extends NewAlbumApiClient {

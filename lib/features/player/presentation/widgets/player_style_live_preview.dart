@@ -67,36 +67,40 @@ class PlayerStyleLivePreview extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _PreviewPane(
-            label: AppI18n.tByLocaleCode(
-              localeCode,
-              'player.style.preview.cover',
-            ),
-            frameKey: const ValueKey<String>(
-              'player-style-live-preview-cover-frame',
-            ),
-            child: _CoverStagePreview(
-              key: const ValueKey<String>('player-style-preview-cover'),
-              track: previewTrack,
-              stageId: stageId,
-              backdropId: backdropId,
+          Flexible(
+            child: _PreviewPane(
+              label: AppI18n.tByLocaleCode(
+                localeCode,
+                'player.style.preview.cover',
+              ),
+              frameKey: const ValueKey<String>(
+                'player-style-live-preview-cover-frame',
+              ),
+              child: _CoverStagePreview(
+                key: const ValueKey<String>('player-style-preview-cover'),
+                track: previewTrack,
+                stageId: stageId,
+                backdropId: backdropId,
+              ),
             ),
           ),
           const SizedBox(width: 16),
-          _PreviewPane(
-            label: AppI18n.tByLocaleCode(
-              localeCode,
-              'player.style.preview.lyrics',
-            ),
-            frameKey: const ValueKey<String>(
-              'player-style-live-preview-lyrics-frame',
-            ),
-            child: _LyricStagePreview(
-              key: const ValueKey<String>('player-style-preview-lyrics'),
-              track: previewTrack,
-              backdropId: backdropId,
-              lyricsId: lyricsId,
-              localeCode: localeCode,
+          Flexible(
+            child: _PreviewPane(
+              label: AppI18n.tByLocaleCode(
+                localeCode,
+                'player.style.preview.lyrics',
+              ),
+              frameKey: const ValueKey<String>(
+                'player-style-live-preview-lyrics-frame',
+              ),
+              child: _LyricStagePreview(
+                key: const ValueKey<String>('player-style-preview-lyrics'),
+                track: previewTrack,
+                backdropId: backdropId,
+                lyricsId: lyricsId,
+                localeCode: localeCode,
+              ),
             ),
           ),
         ],
@@ -366,6 +370,7 @@ class _PreviewPane extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           label,
+          textAlign: TextAlign.center,
           style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

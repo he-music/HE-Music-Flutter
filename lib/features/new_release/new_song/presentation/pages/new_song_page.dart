@@ -328,11 +328,10 @@ class _ReleaseTabBar extends StatelessWidget {
     if (labels.isEmpty) {
       return const SizedBox.shrink();
     }
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      child: Row(
         children: labels
             .map(
               (item) => Padding(

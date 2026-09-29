@@ -10,7 +10,21 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart
 import 'package:he_music_flutter/core/device/realtime_spectrum_permission.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_style_selection_sheet.dart';
 
+import '../../../../helpers/expect_text_height_fits.dart';
+
 void main() {
+  testWidgets('style names and category tabs accommodate large text', (
+    tester,
+  ) async {
+    await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.granted),
+      textScale: 3,
+    );
+    expectTextHeightFits(tester, find.byType(PlayerStyleSelectionSheet));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Android 已授权时直接保存环形样式且不重复申请', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -300,6 +314,7 @@ Future<_SheetHarness> _pumpSheet(
   WidgetTester tester,
   _FakeSpectrumPermission permission, {
   Size surfaceSize = const Size(430, 1200),
+  double textScale = 1,
 }) async {
   await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -314,6 +329,12 @@ Future<_SheetHarness> _pumpSheet(
         realtimeSpectrumPermissionPortProvider.overrideWithValue(permission),
       ],
       child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: Scaffold(
           body: Builder(
             builder: (context) => FilledButton(

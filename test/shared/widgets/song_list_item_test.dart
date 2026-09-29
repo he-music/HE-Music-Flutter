@@ -261,6 +261,84 @@ void main() {
       expect(find.text('副标题'), findsOneWidget);
     });
 
+    for (final scale in <double>[1, 1.5, 2, 3]) {
+      for (final highlighted in <bool>[false, true]) {
+        for (final withLyric in <bool>[false, true]) {
+          testWidgets(
+            '副标题完整容纳缩放文字 scale=$scale highlighted=$highlighted lyric=$withLyric',
+            (tester) async {
+              const subtitle = '《精灵王座》电影主题曲';
+              await tester.pumpWidget(
+                _wrap(
+                  MediaQuery(
+                    data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                    child: SongListItem(
+                      data: SongListItemData(
+                        title: '我好像在哪见过你',
+                        artistAlbumText: '薛之谦 - 初学者',
+                        subtitleText: subtitle,
+                        subtitleSpans: highlighted
+                            ? const <InlineSpan>[
+                                TextSpan(text: '《精灵王座》'),
+                                TextSpan(
+                                  text: '电影主题曲',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ]
+                            : null,
+                        tags: const ['MASTER'],
+                      ),
+                      onLikeTap: () {},
+                      onMoreTap: () {},
+                      contentAfterSubtitle: withLyric
+                          ? const Text('我听见了你的声音', maxLines: 1)
+                          : null,
+                    ),
+                  ),
+                  height: 400,
+                ),
+              );
+
+              final subtitleFinder = find.text(subtitle, findRichText: true);
+              final richText = tester.widget<RichText>(
+                find.descendant(
+                  of: find.byType(SongListItem),
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is RichText &&
+                        widget.text.toPlainText() == subtitle,
+                  ),
+                ),
+              );
+              final rect = tester.getRect(subtitleFinder.last);
+              final painter = TextPainter(
+                text: richText.text,
+                textDirection: richText.textDirection ?? TextDirection.ltr,
+                textScaler: richText.textScaler,
+                maxLines: richText.maxLines,
+                ellipsis: richText.overflow == TextOverflow.ellipsis
+                    ? '…'
+                    : null,
+              )..layout(maxWidth: rect.width);
+              expect(rect.height, greaterThanOrEqualTo(painter.height));
+              painter.dispose();
+              expect(
+                tester.getRect(find.byType(SongListItem)).bottom,
+                greaterThanOrEqualTo(rect.bottom),
+              );
+              if (withLyric) {
+                expect(
+                  tester.getRect(find.text('我听见了你的声音')).top,
+                  greaterThan(rect.bottom),
+                );
+              }
+              expect(tester.takeException(), isNull);
+            },
+          );
+        }
+      }
+    }
+
     testWidgets('tags 非空时应显示标签', (tester) async {
       final data = SongListItemData(
         title: 'T',

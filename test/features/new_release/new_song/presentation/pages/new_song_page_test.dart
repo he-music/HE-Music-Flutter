@@ -29,7 +29,17 @@ import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_widgets.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 
+import '../../../../../helpers/expect_text_height_fits.dart';
+
 void main() {
+  testWidgets('new song category accommodates large text', (tester) async {
+    await tester.pumpWidget(_buildTestApp(textScale: 3));
+    await tester.pumpAndSettle();
+
+    expectTextHeightFits(tester, find.byType(PlazaChoiceChip));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('new song page shows all skeleton regions on first load', (
     tester,
   ) async {
@@ -129,6 +139,7 @@ void main() {
 }
 
 Widget _buildTestApp({
+  double textScale = 1,
   _TestPlayerController? playerController,
   _TestOnlineController? onlineController,
   NewSongApiClient? apiClient,
@@ -157,6 +168,12 @@ Widget _buildTestApp({
       ),
     ],
     child: MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       theme: ThemeData(platform: TargetPlatform.android),
       home: const NewSongPage(initialPlatform: 'qq'),
     ),
