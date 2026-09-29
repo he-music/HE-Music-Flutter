@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -732,7 +733,7 @@ class _ArtistSliverHeader extends StatelessWidget {
     this.actions = const <Widget>[],
   });
 
-  static const double expandedHeight = 308;
+  static const double _defaultExpandedHeight = 308;
 
   final String title;
   final String subtitle;
@@ -749,6 +750,25 @@ class _ArtistSliverHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final titleStyle = theme.textTheme.titleLarge;
+    final bodyStyle = theme.textTheme.bodySmall;
+    final titleHeight =
+        scaler.scale(titleStyle?.fontSize ?? 22) * (titleStyle?.height ?? 1.3);
+    final bodyHeight =
+        scaler.scale(bodyStyle?.fontSize ?? 12) * (bodyStyle?.height ?? 1.5);
+    // 窄屏下三项统计可以分成三行，展开时为文字和导航预留完整空间。
+    final metadataHeight =
+        titleHeight +
+        (subtitle.trim().isNotEmpty ? bodyHeight + 4 : 0) +
+        8 +
+        math.max(14, bodyHeight) * 3 +
+        16 +
+        (description.trim().isNotEmpty ? bodyHeight + 8 : 0);
+    final expandedHeight = math.max(
+      _defaultExpandedHeight,
+      kToolbarHeight + 18 + metadataHeight,
+    );
     return SliverAppBar(
       pinned: true,
       expandedHeight: expandedHeight,
@@ -861,16 +881,21 @@ class _ArtistSliverHeader extends StatelessWidget {
                         alignment: Alignment.bottomLeft,
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-                          child: Opacity(
-                            opacity: expandedTitleOpacity,
-                            child: _ArtistHeaderMeta(
-                              title: title,
-                              subtitle: subtitle,
-                              description: description,
-                              songCount: songCount,
-                              albumCount: albumCount,
-                              videoCount: videoCount,
-                              onShowDescription: onShowDescription,
+                          child: OverflowBox(
+                            alignment: Alignment.bottomLeft,
+                            minHeight: 0,
+                            maxHeight: double.infinity,
+                            child: Opacity(
+                              opacity: expandedTitleOpacity,
+                              child: _ArtistHeaderMeta(
+                                title: title,
+                                subtitle: subtitle,
+                                description: description,
+                                songCount: songCount,
+                                albumCount: albumCount,
+                                videoCount: videoCount,
+                                onShowDescription: onShowDescription,
+                              ),
                             ),
                           ),
                         ),
@@ -961,9 +986,10 @@ class _ArtistHeaderMeta extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textColor = theme.colorScheme.onSurface;
-    return SizedBox(
-      height: 114,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 114),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
@@ -991,7 +1017,9 @@ class _ArtistHeaderMeta extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 14,
+            runSpacing: 8,
             children: <Widget>[
               _ArtistMetaIcon(
                 icon: Icons.music_note_rounded,
@@ -1001,7 +1029,6 @@ class _ArtistHeaderMeta extends StatelessWidget {
                   <String, String>{'count': songCount.toString()},
                 ),
               ),
-              const SizedBox(width: 14),
               _ArtistMetaIcon(
                 icon: Icons.album_rounded,
                 label: AppI18n.formatByLocaleCode(
@@ -1010,7 +1037,6 @@ class _ArtistHeaderMeta extends StatelessWidget {
                   <String, String>{'count': albumCount.toString()},
                 ),
               ),
-              const SizedBox(width: 14),
               _ArtistMetaIcon(
                 icon: Icons.videocam_rounded,
                 label: AppI18n.formatByLocaleCode(
@@ -1073,9 +1099,15 @@ class _ArtistMetaIcon extends StatelessWidget {
       children: <Widget>[
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 5),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: color),
+          ),
         ),
       ],
     );

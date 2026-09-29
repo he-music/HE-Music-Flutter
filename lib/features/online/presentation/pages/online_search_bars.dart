@@ -31,8 +31,8 @@ class SearchTopBox extends StatelessWidget {
     final theme = Theme.of(context);
     final borderRadius = BorderRadius.circular(16);
     final secondary = placeholderSecondary?.trim() ?? '';
-    return SizedBox(
-      height: 42,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 42),
       child: ValueListenableBuilder<TextEditingValue>(
         valueListenable: controller,
         builder: (context, value, child) {
@@ -100,6 +100,7 @@ class SearchTopBox extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: RichText(
+                          textScaler: MediaQuery.textScalerOf(context),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           text: TextSpan(

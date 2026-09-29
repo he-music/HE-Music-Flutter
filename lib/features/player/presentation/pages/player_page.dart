@@ -2127,7 +2127,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
                   gap * 2 +
                   (usesCassetteLabel
                       ? 0
-                      : PlayerTrackHeader.layoutHeight + gap);
+                      : PlayerTrackHeader.resolveLayoutHeight(context) + gap);
               final availableStageHeight =
                   constraints.maxHeight - reservedInformationHeight;
               final stageHeight = availableStageHeight <= 0

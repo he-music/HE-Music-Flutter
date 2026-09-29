@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
@@ -247,7 +249,18 @@ class MusicDetailMetaItem {
 class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
   static const double _headerHeight = 56;
 
+  static double heightFor(BuildContext context) {
+    final style = Theme.of(context).textTheme.titleSmall;
+    return math.max(
+      _headerHeight,
+      MediaQuery.textScalerOf(context).scale(style?.fontSize ?? 14) *
+              (style?.height ?? 1.5) +
+          16,
+    );
+  }
+
   MusicDetailPlayAllHeader({
+    required this.height,
     required this.countText,
     required this.onPlayAll,
     this.onBatchAction,
@@ -271,11 +284,13 @@ class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
   final VoidCallback? onSelectAll;
   final VoidCallback? onCancelBatch;
 
-  @override
-  double get minExtent => _headerHeight;
+  final double height;
 
   @override
-  double get maxExtent => _headerHeight;
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
 
   @override
   Widget build(
@@ -305,7 +320,8 @@ class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant MusicDetailPlayAllHeader oldDelegate) {
-    return oldDelegate.countText != countText ||
+    return oldDelegate.height != height ||
+        oldDelegate.countText != countText ||
         oldDelegate.onBatchAction != onBatchAction ||
         oldDelegate.onMore != onMore ||
         oldDelegate.onPlayAll != onPlayAll ||
@@ -347,7 +363,7 @@ class MusicDetailPlayAllHeaderBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: MusicDetailPlayAllHeader._headerHeight,
+      height: MusicDetailPlayAllHeader.heightFor(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: _MusicDetailPlayAllHeaderContent(
@@ -402,17 +418,20 @@ class _MusicDetailPlayAllHeaderContent extends StatelessWidget {
     if (batchMode) {
       return Row(
         children: <Widget>[
-          Text(
-            AppI18n.formatByLocaleCode(
-              localeCode,
-              'detail.batch.selected_count',
-              <String, String>{'count': '$selectedCount'},
-            ),
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              AppI18n.formatByLocaleCode(
+                localeCode,
+                'detail.batch.selected_count',
+                <String, String>{'count': '$selectedCount'},
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          const Spacer(),
           IconButton(
             onPressed: onSelectAll,
             icon: AppSkinIcon(
@@ -438,51 +457,65 @@ class _MusicDetailPlayAllHeaderContent extends StatelessWidget {
         ],
       );
     }
-    return Row(
-      children: <Widget>[
-        InkWell(
-          onTap: enabled ? onPlayAll : null,
-          borderRadius: BorderRadius.circular(999),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 8, 10, 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(
-                  Icons.play_circle_fill_rounded,
-                  size: 22,
-                  color: effectivePrimary,
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
+        children: <Widget>[
+          Expanded(
+            child: InkWell(
+              onTap: enabled ? onPlayAll : null,
+              borderRadius: BorderRadius.circular(999),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 8, 10, 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      Icons.play_circle_fill_rounded,
+                      size: 22,
+                      color: effectivePrimary,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        countText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: enabled ? null : theme.hintColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  countText,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: enabled ? null : theme.hintColor,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-        const Spacer(),
-        if (onBatchAction != null)
-          TextButton(
-            onPressed: onBatchAction,
-            child: Text(
-              AppI18n.tByLocaleCode(localeCode, 'detail.batch.action'),
+          if (onBatchAction != null)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth * 0.45,
+              ),
+              child: TextButton(
+                onPressed: onBatchAction,
+                child: Text(
+                  AppI18n.tByLocaleCode(localeCode, 'detail.batch.action'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
-          ),
-        if (onMore != null)
-          IconButton(
-            onPressed: onMore,
-            icon: const Icon(Icons.more_horiz_rounded),
-            tooltip: AppI18n.tByLocaleCode(localeCode, 'common.more'),
-            visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-            padding: EdgeInsets.zero,
-          ),
-      ],
+          if (onMore != null)
+            IconButton(
+              onPressed: onMore,
+              icon: const Icon(Icons.more_horiz_rounded),
+              tooltip: AppI18n.tByLocaleCode(localeCode, 'common.more'),
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+              padding: EdgeInsets.zero,
+            ),
+        ],
+      ),
     );
   }
 }

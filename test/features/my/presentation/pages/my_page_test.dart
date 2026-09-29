@@ -32,6 +32,22 @@ import 'package:he_music_flutter/core/audio/cache/audio_cache_provider.dart';
 import '../../../../core/audio/cache/cache_surface_test_support.dart';
 
 void main() {
+  for (final locale in ['zh', 'en']) {
+    testWidgets('my page fits large text in $locale on a narrow screen', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildTestApp(
+          localeCode: locale,
+          textScaler: const TextScaler.linear(2),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('published cache creates no library navigation entry', (
     tester,
   ) async {
@@ -294,6 +310,7 @@ Widget _buildTestApp({
   bool overviewLoading = false,
   Future<List<MyFavoriteItem>>? playlistsFuture,
   bool useCitySkin = false,
+  TextScaler textScaler = TextScaler.noScaling,
   CacheSurfaceFixture? cache,
   MyCollectionRepository? collectionRepository,
 }) {
@@ -328,6 +345,10 @@ Widget _buildTestApp({
         onlineApiClientProvider.overrideWithValue(onlineApiClient),
     ],
     child: MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       theme: useCitySkin
           ? AppTheme.light(citySoundCreatorSkin())
           : ThemeData(platform: TargetPlatform.android),

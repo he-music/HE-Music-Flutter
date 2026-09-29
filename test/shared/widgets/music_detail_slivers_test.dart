@@ -7,6 +7,52 @@ import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/music_detail_slivers.dart';
 
 void main() {
+  for (final batchMode in [false, true]) {
+    testWidgets('large text fits pinned playback actions, batch=$batchMode', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(3.2)),
+            child: Builder(
+              builder: (context) => Scaffold(
+                body: CustomScrollView(
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: MusicDetailPlayAllHeader(
+                        height: MusicDetailPlayAllHeader.heightFor(context),
+                        countText: 'Play all (1000)',
+                        onPlayAll: () {},
+                        onBatchAction: () {},
+                        onMore: () {},
+                        batchMode: batchMode,
+                        selectedCount: 1000,
+                        onSelectAll: () {},
+                        onCancelBatch: () {},
+                      ),
+                    ),
+                    SliverList.builder(
+                      itemCount: 30,
+                      itemBuilder: (_, index) =>
+                          SizedBox(height: 60, child: Text('Track $index')),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('glass detail navigation remains interactive after collapsing', (
     tester,
   ) async {
@@ -79,6 +125,7 @@ void main() {
               SliverPersistentHeader(
                 pinned: true,
                 delegate: MusicDetailPlayAllHeader(
+                  height: 56,
                   countText: '全部播放 10',
                   onPlayAll: () {},
                   batchMode: true,

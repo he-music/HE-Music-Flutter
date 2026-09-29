@@ -21,6 +21,60 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 
 void main() {
+  for (final scale in <double>[1.3, 2, 3]) {
+    testWidgets('recommendation cards fit large text at scale $scale', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildApp(
+          child: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: OnlineSearchComprehensiveResult(
+              result: const OnlineComprehensiveSearchResult(
+                keyword: 'Love',
+                bestMatch: <BestMatchRecommendItem>[
+                  BestMatchRecommendItem(
+                    resourceType: 'artist',
+                    data: <String, dynamic>{
+                      'id': 'artist-1',
+                      'platform': 'qq',
+                      'name': 'Taylor Swift',
+                      'cover': '',
+                    },
+                  ),
+                  BestMatchRecommendItem(
+                    resourceType: 'song',
+                    data: _searchSong,
+                  ),
+                ],
+              ),
+              likedSongKeys: const <String>{},
+              onTapItem: (_, _) {},
+              onTapSongItem: (_) {},
+              onLikeSongItem: (_) async {},
+              onMoreSongItem: (_) {},
+              onMoreSection: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      final list = find.byWidgetPredicate(
+        (widget) =>
+            widget is ListView && widget.scrollDirection == Axis.horizontal,
+      );
+      final subtitle = find.descendant(
+        of: list,
+        matching: find.text('Taylor Swift'),
+      );
+      expect(subtitle, findsOneWidget);
+      expect(
+        tester.getRect(subtitle).bottom,
+        lessThanOrEqualTo(tester.getRect(list).bottom),
+      );
+    });
+  }
   testWidgets(
     'comprehensive initial load shows section and platform skeletons',
     (tester) async {

@@ -200,6 +200,7 @@ class _UserPlaylistDetailPageState
           SliverPersistentHeader(
             pinned: true,
             delegate: MusicDetailPlayAllHeader(
+              height: MusicDetailPlayAllHeader.heightFor(context),
               countText: AppI18n.format(
                 ref.read(appConfigProvider),
                 'detail.play_all_count',

@@ -57,9 +57,10 @@ class VideoListItem extends ConsumerWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: SizedBox(
-                    height: 88,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 88),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
@@ -137,12 +138,18 @@ class VideoGridItem extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: _VideoCover(
-                    url: coverUrl,
-                    duration: duration,
-                    playCount: playCount,
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    heightFactor: 1,
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: _VideoCover(
+                        url: coverUrl,
+                        duration: duration,
+                        playCount: playCount,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),

@@ -692,15 +692,15 @@ class _PlaylistTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: 10,
+      runSpacing: 4,
       children: <Widget>[
         _PlaylistTabButton(
           label: AppI18n.tByLocaleCode(localeCode, 'my.playlist.tab.created'),
           selected: selectedIndex == 0,
           onTap: () => onSelected(0),
         ),
-        const SizedBox(width: 10),
         _PlaylistTabButton(
           label: AppI18n.tByLocaleCode(localeCode, 'my.playlist.tab.favorites'),
           selected: selectedIndex == 1,
@@ -731,9 +731,10 @@ class _PlaylistTabButton extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: SizedBox(
-          height: 40,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 40),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               AnimatedDefaultTextStyle(

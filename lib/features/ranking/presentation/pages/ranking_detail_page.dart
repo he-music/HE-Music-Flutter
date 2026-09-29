@@ -320,6 +320,7 @@ class _Body extends ConsumerWidget {
           SliverPersistentHeader(
             pinned: true,
             delegate: MusicDetailPlayAllHeader(
+              height: MusicDetailPlayAllHeader.heightFor(context),
               countText: AppI18n.format(
                 config,
                 'detail.play_all_count',

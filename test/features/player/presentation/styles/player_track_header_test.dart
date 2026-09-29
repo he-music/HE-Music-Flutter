@@ -9,6 +9,43 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/features/player/presentation/styles/player_track_header.dart';
 
 void main() {
+  for (final scale in <double>[1.3, 2, 3]) {
+    testWidgets('metadata fits a narrow header at text scale $scale', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildHeaderApp(
+          _ShortArtistController.new,
+          width: 260,
+          artistSlotWidth: 176,
+          textScaler: TextScaler.linear(scale),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      final header = tester.getRect(
+        find.byKey(const ValueKey<String>('player-track-header')),
+      );
+      final artist = tester.getRect(
+        find.byKey(const ValueKey<String>('player-artist-slot')),
+      );
+      final quality = tester.getRect(
+        find.byKey(const ValueKey<String>('player-quality-badge')),
+      );
+      final speed = tester.getRect(
+        find.byKey(const ValueKey<String>('player-speed-badge')),
+      );
+      expect(artist.height, greaterThan(20));
+      expect(artist.bottom, lessThanOrEqualTo(header.bottom));
+      expect(quality.left, greaterThan(artist.right));
+      expect(speed.right, lessThanOrEqualTo(header.right));
+      expect(speed.bottom, lessThanOrEqualTo(header.bottom));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+  }
   testWidgets('short artist stays static inside the fixed metadata slot', (
     tester,
   ) async {
@@ -245,6 +282,8 @@ void main() {
 Widget _buildHeaderApp(
   PlayerController Function() controllerFactory, {
   double width = 300,
+  double artistSlotWidth = 100,
+  TextScaler textScaler = TextScaler.noScaling,
   double? height,
   PlayerTrackHeaderLayout layout = PlayerTrackHeaderLayout.standard,
   VoidCallback? onOpenArtist,
@@ -252,13 +291,17 @@ Widget _buildHeaderApp(
   return ProviderScope(
     overrides: [playerControllerProvider.overrideWith(controllerFactory)],
     child: MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: Scaffold(
         body: SizedBox(
           width: width,
           height: height,
           child: PlayerTrackHeader(
             noTrackText: 'No track',
-            artistSlotWidth: 100,
+            artistSlotWidth: artistSlotWidth,
             onOpenArtist: onOpenArtist,
             onOpenQuality: _noop,
             onOpenSpeed: _noop,

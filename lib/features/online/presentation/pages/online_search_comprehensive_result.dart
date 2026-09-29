@@ -317,8 +317,11 @@ class _BestMatchBlock extends ConsumerWidget {
   /// 卡片高度：封面高度 + 间距 + 两行文字
   double _bestMatchCardHeight(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final titleHeight = (textTheme.titleSmall?.fontSize ?? 14) * 1.2;
-    final subtitleHeight = (textTheme.bodySmall?.fontSize ?? 12) * 1.1;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final titleHeight =
+        textScaler.scale(textTheme.titleSmall?.fontSize ?? 14) * 1.2;
+    final subtitleHeight =
+        textScaler.scale(textTheme.bodySmall?.fontSize ?? 12) * 1.1;
     return _bestMatchCoverHeight + 6 + titleHeight + 2 + subtitleHeight;
   }
 }

@@ -24,6 +24,48 @@ import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_loading_skeleton.dart';
 
 void main() {
+  for (final scale in [2.0, 3.2]) {
+    testWidgets('artist detail metadata fits narrow screens at scale $scale', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(
+              () => _TestAppConfigController(localeCode: 'zh'),
+            ),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            artistDetailRepositoryProvider.overrideWithValue(
+              _TestArtistDetailRepository(),
+            ),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+          ],
+          child: _buildTestApp(
+            localeCode: 'zh',
+            textScaler: TextScaler.linear(scale),
+            child: const ArtistDetailPage(
+              id: 'artist-1',
+              platform: 'qq',
+              title: 'Artist',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('artist-detail-expanded-title')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.drag(find.byType(NestedScrollView), const Offset(0, -250));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets(
     'artist detail albums tab shows english no more text for en locale',
     (tester) async {
@@ -403,8 +445,13 @@ Widget _buildTestApp({
   required String localeCode,
   required Widget child,
   ThemeData? theme,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   return MaterialApp(
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+      child: child!,
+    ),
     locale: Locale(localeCode),
     supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
     localizationsDelegates: const <LocalizationsDelegate<dynamic>>[

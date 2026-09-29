@@ -34,10 +34,55 @@ class PlayerTrackHeader extends ConsumerWidget {
   final PlayerTrackHeaderLayout layout;
   final bool showCassetteMetadataBadges;
 
-  /// 共享播放器布局用于预留固定歌曲信息槽位的高度。
+  /// 默认字体下歌曲信息槽位的最小高度。
   static const double layoutHeight = 58;
   static const double mobileLandscapeLayoutHeight = 40;
   static const double mobileLandscapeContentInset = 24;
+
+  static double _lineHeight(BuildContext context, TextStyle? style) {
+    final painter = TextPainter(
+      text: TextSpan(text: '国Ag', style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final height = painter.height.ceilToDouble();
+    painter.dispose();
+    return height;
+  }
+
+  static double _metadataHeight(BuildContext context) {
+    return math.max(
+      20,
+      math.max(
+        _lineHeight(context, Theme.of(context).textTheme.bodyMedium),
+        _lineHeight(
+              context,
+              Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                height: 1,
+                fontWeight: FontWeight.w500,
+              ),
+            ) +
+            6,
+      ),
+    );
+  }
+
+  /// 与封面布局共享实际文字高度，避免大字体挤出歌曲信息区。
+  static double resolveLayoutHeight(BuildContext context) {
+    return math.max(
+      layoutHeight,
+      _lineHeight(
+            context,
+            Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+          ) +
+          8 +
+          _metadataHeight(context),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -245,7 +290,7 @@ class PlayerTrackHeader extends ConsumerWidget {
     }
     return SizedBox(
       key: const ValueKey<String>('player-track-header'),
-      height: layoutHeight,
+      height: resolveLayoutHeight(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -295,26 +340,30 @@ class PlayerTrackHeader extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 20,
+            height: _metadataHeight(context),
             child: Row(
               children: <Widget>[
-                SizedBox(
-                  key: const ValueKey<String>('player-artist-slot'),
-                  width: artistSlotWidth,
-                  child: _ArtistAction(
-                    onTap: onOpenArtist,
-                    child: _OverflowMarquee(
-                      text: artist,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color:
-                            scenePalette?.secondaryForeground ??
-                            Colors.white.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0,
-                      ),
-                      staticKey: const ValueKey<String>('player-artist-static'),
-                      marqueeKey: const ValueKey<String>(
-                        'player-artist-marquee',
+                Flexible(
+                  child: SizedBox(
+                    key: const ValueKey<String>('player-artist-slot'),
+                    width: artistSlotWidth,
+                    child: _ArtistAction(
+                      onTap: onOpenArtist,
+                      child: _OverflowMarquee(
+                        text: artist,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color:
+                              scenePalette?.secondaryForeground ??
+                              Colors.white.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 0,
+                        ),
+                        staticKey: const ValueKey<String>(
+                          'player-artist-static',
+                        ),
+                        marqueeKey: const ValueKey<String>(
+                          'player-artist-marquee',
+                        ),
                       ),
                     ),
                   ),

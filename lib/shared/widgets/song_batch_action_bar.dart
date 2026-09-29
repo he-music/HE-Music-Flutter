@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_i18n.dart';
@@ -26,6 +28,11 @@ class SongBatchActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final localeCode = Localizations.localeOf(context).languageCode;
     final actions = _buildActions(localeCode);
+    final labelStyle = Theme.of(context).textTheme.labelSmall;
+    final labelHeight =
+        MediaQuery.textScalerOf(context).scale(labelStyle?.fontSize ?? 11) *
+        (labelStyle?.height ?? 1.5);
+    final height = math.max(72.0, 24 + 3 + labelHeight * 2 + 6);
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       elevation: 6,
@@ -37,7 +44,7 @@ class SongBatchActionBar extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: SizedBox(
-                height: 72,
+                height: height,
                 child: loading
                     ? const Center(
                         child: SizedBox.square(
