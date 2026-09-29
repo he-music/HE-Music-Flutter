@@ -31,12 +31,21 @@ class CaptchaChallengeInterceptor extends Interceptor {
       handler.next(err);
       return;
     }
-    final passed = await coordinator.open(challenge);
-    if (!passed) {
+    final ticket = await coordinator.open(challenge);
+    if (ticket == null || ticket.isEmpty) {
+      handler.next(err);
+      return;
+    }
+    final body = requestOptions.data;
+    if (body is! Map) {
       handler.next(err);
       return;
     }
     final retryOptions = requestOptions.copyWith(
+      data: <String, dynamic>{
+        ...body.cast<String, dynamic>(),
+        'captcha_ticket': ticket,
+      },
       extra: <String, dynamic>{
         ...requestOptions.extra,
         _captchaRetriedKey: true,

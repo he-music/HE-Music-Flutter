@@ -9,8 +9,14 @@ class CaptchaApiClient {
     required String scene,
     required String meta,
     int? type,
+    String? sessionId,
   }) async {
     final queryParams = <String, dynamic>{'scene': scene, 'meta': meta};
+    if (sessionId == null) {
+      queryParams['supported_methods'] = 1;
+    } else {
+      queryParams['session_id'] = sessionId;
+    }
     if (type != null && type > 0) {
       queryParams['type'] = type;
     }
@@ -22,9 +28,11 @@ class CaptchaApiClient {
     return CaptchaData.fromMap(payload);
   }
 
-  Future<bool> verifyCaptcha({
+  Future<CaptchaVerification> verifyCaptcha({
     required String scene,
     required String meta,
+    required String sessionId,
+    required String challengeId,
     int angle = 0,
     Map<String, dynamic> point = const <String, dynamic>{},
     List<Map<String, dynamic>> dots = const <Map<String, dynamic>>[],
@@ -34,15 +42,22 @@ class CaptchaApiClient {
       data: <String, dynamic>{
         'scene': scene,
         'meta': meta,
+        'session_id': sessionId,
+        'challenge_id': challengeId,
         'angle': angle,
         'point': point,
         'dots': dots,
       },
     );
-    final payload = _unwrapBody(response.data);
-    final isExpired = _readBool(payload['is_expired']);
-    final isSuccess = _readBool(payload['is_success']);
-    return !isExpired && isSuccess;
+    return CaptchaVerification.fromMap(_unwrapBody(response.data));
+  }
+
+  Future<CaptchaVerification> getResult(String sessionId) async {
+    final response = await _dio.post(
+      '/v1/captcha/result',
+      data: <String, dynamic>{'session_id': sessionId},
+    );
+    return CaptchaVerification.fromMap(_unwrapBody(response.data));
   }
 
   Map<String, dynamic> _unwrapBody(dynamic raw) {
@@ -63,19 +78,37 @@ class CaptchaApiClient {
     }
     return const <String, dynamic>{};
   }
+}
 
-  bool _readBool(dynamic value) {
-    if (value is bool) {
-      return value;
-    }
-    final normalized = '$value'.trim().toLowerCase();
-    return normalized == 'true' || normalized == '1';
-  }
+class CaptchaVerification {
+  const CaptchaVerification({
+    required this.isSuccess,
+    required this.isExpired,
+    required this.ticket,
+  });
+
+  final bool isSuccess;
+  final bool isExpired;
+  final String ticket;
+
+  factory CaptchaVerification.fromMap(Map<String, dynamic> map) =>
+      CaptchaVerification(
+        isSuccess: _readBool(map['is_success']),
+        isExpired: _readBool(map['is_expired']),
+        ticket: '${map['captcha_ticket'] ?? ''}',
+      );
+
+  static bool _readBool(dynamic value) =>
+      value == true || value == 1 || '$value'.toLowerCase() == 'true';
 }
 
 /// 验证码数据，直接提供 base64 字符串给 go_captcha_flutter 组件
 class CaptchaData {
   const CaptchaData({
+    required this.sessionId,
+    required this.challengeId,
+    required this.expiresAt,
+    required this.method,
     required this.type,
     required this.image,
     required this.thumb,
@@ -88,6 +121,10 @@ class CaptchaData {
   });
 
   final int type;
+  final String sessionId;
+  final String challengeId;
+  final int expiresAt;
+  final int method;
   final String image;
   final String thumb;
   final int thumbX;
@@ -98,10 +135,18 @@ class CaptchaData {
   final int angle;
 
   bool get isSupported =>
-      type == 1 || type == 2 || type == 3 || type == 4 || type == 5;
+      method == 1 &&
+      sessionId.isNotEmpty &&
+      challengeId.isNotEmpty &&
+      expiresAt > DateTime.now().millisecondsSinceEpoch &&
+      (type == 1 || type == 2 || type == 3 || type == 4 || type == 5);
 
   factory CaptchaData.fromMap(Map<String, dynamic> map) {
     return CaptchaData(
+      sessionId: '${map['session_id'] ?? ''}',
+      challengeId: '${map['challenge_id'] ?? ''}',
+      expiresAt: _readInt(map['expires_at']),
+      method: _readInt(map['method']),
       type: _readInt(map['type']),
       image: _normalizeBase64(map['image']),
       thumb: _normalizeBase64(map['thumb']),

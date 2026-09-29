@@ -7,15 +7,15 @@ class CaptchaCoordinator {
   CaptchaCoordinator(this._router);
 
   final GoRouter _router;
-  Future<bool>? _activeChallenge;
+  Future<String?>? _activeChallenge;
 
-  Future<bool> open(CaptchaChallenge challenge) {
+  Future<String?> open(CaptchaChallenge challenge) {
     final active = _activeChallenge;
     if (active != null) {
       return active;
     }
     final future = _router
-        .push<bool>(
+        .push<String>(
           Uri(
             path: AppRoutes.captcha,
             queryParameters: <String, String>{
@@ -24,7 +24,7 @@ class CaptchaCoordinator {
             },
           ).toString(),
         )
-        .then((value) => value ?? false);
+        .then((value) => value);
     _activeChallenge = future;
     future.whenComplete(() {
       if (identical(_activeChallenge, future)) {

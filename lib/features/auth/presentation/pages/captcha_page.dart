@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +24,8 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
   String? _errorMessage;
   String? _unsupportedMessage;
   CaptchaData? _captchaData;
+  String? _sessionId;
+  bool _mustRestart = false;
   int? _currentType;
   bool _verifying = false;
 
@@ -42,7 +45,7 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
         title: Text(AppI18n.t(config, 'captcha.title')),
         actions: <Widget>[
           IconButton(
-            onPressed: _loading ? null : _resetCaptcha,
+            onPressed: _loading || _verifying ? null : _resetCaptcha,
             icon: const Icon(Icons.refresh_rounded),
             tooltip: AppI18n.t(config, 'captcha.refresh'),
           ),
@@ -85,7 +88,7 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
         message: errorMessage,
         primaryLabel: AppI18n.t(config, 'captcha.reload'),
         cancelLabel: AppI18n.t(config, 'common.cancel'),
-        onPrimaryTap: _resetCaptcha,
+        onPrimaryTap: _mustRestart ? _restartCaptcha : _resetCaptcha,
       );
     }
     final unsupportedMessage = _unsupportedMessage;
@@ -203,10 +206,17 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
     );
   }
 
-  Future<void> _loadCaptcha() async {
+  Future<void> _loadCaptcha({bool restart = false}) async {
+    if (restart) {
+      _sessionId = null;
+      _currentType = null;
+      _mustRestart = false;
+    }
+    if (_mustRestart) return;
     if (mounted) {
       setState(() {
         _loading = true;
+        _captchaData = null;
         _errorMessage = null;
         _unsupportedMessage = null;
       });
@@ -216,7 +226,13 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
         scene: widget.scene,
         meta: widget.meta,
         type: _currentType,
+        sessionId: _sessionId,
       );
+      _sessionId = data.sessionId;
+      if (data.expiresAt <= DateTime.now().millisecondsSinceEpoch) {
+        _requireRestart();
+        return;
+      }
       if (!data.isSupported) {
         if (!mounted) return;
         setState(() {
@@ -238,6 +254,10 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
       });
     } catch (error) {
       if (!mounted) return;
+      if (_isSessionExpired(error)) {
+        _requireRestart();
+        return;
+      }
       setState(() {
         _captchaData = null;
         _loading = false;
@@ -278,34 +298,105 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
     if (_verifying) return;
     _verifying = true;
     try {
-      final isSuccess = await _client.verifyCaptcha(
-        scene: widget.scene,
-        meta: widget.meta,
-        angle: angle,
-        point: point,
-        dots: dots,
-      );
-      if (!isSuccess) {
+      final data = _captchaData;
+      if (data == null ||
+          data.expiresAt <= DateTime.now().millisecondsSinceEpoch) {
+        _requireRestart();
+        return;
+      }
+      CaptchaVerification result;
+      try {
+        result = await _client.verifyCaptcha(
+          scene: widget.scene,
+          meta: widget.meta,
+          sessionId: data.sessionId,
+          challengeId: data.challengeId,
+          angle: angle,
+          point: point,
+          dots: dots,
+        );
+      } on DioException catch (error) {
+        if (error.response != null) rethrow;
+        result = await _recoverResult(data.sessionId);
+      }
+      if (result.isExpired) {
+        _requireRestart();
+        return;
+      }
+      if (!result.isSuccess || result.ticket.isEmpty) {
         _showMessage(
           AppI18n.t(ref.read(appConfigProvider), 'captcha.verify_failed'),
         );
         reset();
-        _loadCaptcha();
+        await _loadCaptcha();
         return;
       }
       if (mounted) {
-        context.pop(true);
+        context.pop(result.ticket);
       }
     } catch (error) {
-      _showMessage(_normalizeError(error));
-      reset();
-      _loadCaptcha();
+      if (_isSessionExpired(error)) {
+        _requireRestart();
+      } else if (_isProofInvalid(error)) {
+        _showMessage(
+          AppI18n.t(ref.read(appConfigProvider), 'captcha.verify_failed'),
+        );
+        reset();
+        await _loadCaptcha();
+      } else if (error is DioException && error.response == null) {
+        _requireRestart(messageKey: 'captcha.recovery_failed');
+      } else {
+        _showMessage(_normalizeError(error));
+        _requireRestart(messageKey: 'captcha.recovery_failed');
+      }
     } finally {
       _verifying = false;
     }
   }
 
+  Future<CaptchaVerification> _recoverResult(String sessionId) async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0)
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      try {
+        return await _client.getResult(sessionId);
+      } on DioException catch (error) {
+        if (_reason(error) != 'CAPTCHA_RESULT_PENDING') rethrow;
+      }
+    }
+    throw StateError('CAPTCHA_RESULT_PENDING');
+  }
+
+  String? _reason(Object error) {
+    if (error is! DioException) return null;
+    final body = error.response?.data;
+    return body is Map ? '${body['reason']}' : null;
+  }
+
+  bool _isSessionExpired(Object error) =>
+      _reason(error) == 'CAPTCHA_SESSION_EXPIRED';
+  bool _isProofInvalid(Object error) => _reason(error) == 'CAPTCHA_INVALID';
+
+  void _requireRestart({String messageKey = 'captcha.session_expired'}) {
+    if (!mounted) return;
+    setState(() {
+      _mustRestart = true;
+      _captchaData = null;
+      _loading = false;
+      _errorMessage = AppI18n.t(ref.read(appConfigProvider), messageKey);
+    });
+  }
+
+  void _restartCaptcha() => _loadCaptcha(restart: true);
+
   void _resetCaptcha() {
+    if (_verifying || _loading) return;
+    final data = _captchaData;
+    if (data != null &&
+        data.expiresAt <= DateTime.now().millisecondsSinceEpoch) {
+      _requireRestart();
+      return;
+    }
     _loadCaptcha();
   }
 

@@ -865,6 +865,8 @@ abstract final class AppI18n {
       'captcha.empty': '验证码数据为空',
       'captcha.empty_reload': '请重新加载',
       'captcha.verify_failed': '验证码校验失败，请重试。',
+      'captcha.session_expired': '验证会话已过期，请点击重新加载开始新的验证。',
+      'captcha.recovery_failed': '验证结果暂时无法确认，请点击重新加载开始新的验证。',
       'captcha.unsupported_type': '后端返回了不支持的验证码类型 {type}。',
       'captcha.widget.click_title': '请依次点击目标',
       'captcha.widget.click_verify': '验证',
@@ -1877,6 +1879,9 @@ abstract final class AppI18n {
       'captcha.empty': 'Captcha data is empty',
       'captcha.empty_reload': 'Please reload',
       'captcha.verify_failed': 'Captcha verification failed. Please try again.',
+      'captcha.session_expired': 'Verification expired. Reload to start again.',
+      'captcha.recovery_failed':
+          'Could not confirm verification. Reload to start again.',
       'captcha.unsupported_type':
           'The backend returned an unsupported captcha type {type}.',
       'captcha.widget.click_title': 'Click the targets in order',
