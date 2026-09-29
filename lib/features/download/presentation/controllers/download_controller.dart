@@ -549,7 +549,7 @@ class DownloadController extends Notifier<DownloadState> {
         (old) => old.copyWith(
           status: DownloadTaskStatus.completed,
           progress: 1,
-          downloadedBytes: completedBytes ?? totalBytes ?? old.downloadedBytes,
+          downloadedBytes: totalBytes ?? old.downloadedBytes,
           totalBytes: totalBytes ?? old.totalBytes,
           filePath: finalizedPaths.filePath,
           lyricPath: finalizedPaths.lyricPath,
@@ -563,7 +563,7 @@ class DownloadController extends Notifier<DownloadState> {
       (old) => old.copyWith(
         status: DownloadTaskStatus.tagging,
         progress: 1,
-        downloadedBytes: completedBytes ?? totalBytes ?? old.downloadedBytes,
+        downloadedBytes: totalBytes ?? old.downloadedBytes,
         totalBytes: totalBytes ?? old.totalBytes,
         filePath: filePath,
         clearError: true,

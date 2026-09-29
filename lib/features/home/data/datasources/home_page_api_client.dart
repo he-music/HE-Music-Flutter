@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/network/response_parsers.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../ranking/domain/entities/ranking_info.dart';
 import '../../domain/entities/home_page_result.dart';
@@ -250,15 +251,5 @@ class HomePageApiClient {
     return int.tryParse('$value') ?? -1;
   }
 
-  Map<String, dynamic> _asMap(dynamic value) {
-    if (value is Map<String, dynamic>) {
-      return value;
-    }
-    if (value is Map) {
-      return value.map((key, item) => MapEntry('$key', item));
-    }
-    throw AppException(
-      NetworkFailure('Invalid payload type: ${value.runtimeType}'),
-    );
-  }
+  Map<String, dynamic> _asMap(dynamic value) => parseResponseMap(value);
 }

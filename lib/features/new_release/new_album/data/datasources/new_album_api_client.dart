@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../../core/error/app_exception.dart';
 import '../../../../../core/error/failure.dart';
+import '../../../../../core/network/response_parsers.dart';
 import '../../../../../shared/models/he_music_models.dart';
 import '../../../shared/domain/entities/new_release_page_result.dart';
 import '../../../shared/domain/entities/new_release_tab.dart';
@@ -70,32 +71,8 @@ class NewAlbumApiClient {
     );
   }
 
-  Map<String, dynamic> _asMap(dynamic value) {
-    if (value is Map<String, dynamic>) {
-      return value;
-    }
-    if (value is Map) {
-      return value.map((key, item) => MapEntry('$key', item));
-    }
-    throw AppException(
-      NetworkFailure('Invalid payload type: ${value.runtimeType}'),
-    );
-  }
+  Map<String, dynamic> _asMap(dynamic value) => parseResponseMap(value);
 
-  bool _readBool(dynamic value, {required bool fallback}) {
-    if (value is bool) {
-      return value;
-    }
-    if (value is num) {
-      return value != 0;
-    }
-    final text = '$value'.trim().toLowerCase();
-    if (text == 'true' || text == '1') {
-      return true;
-    }
-    if (text == 'false' || text == '0') {
-      return false;
-    }
-    return fallback;
-  }
+  bool _readBool(dynamic value, {required bool fallback}) =>
+      parseResponseBool(value, fallback: fallback);
 }

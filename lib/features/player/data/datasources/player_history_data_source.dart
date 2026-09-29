@@ -87,12 +87,7 @@ class PlayerHistoryDataSource {
     );
     return _db.transaction(() async {
       await _writeItem(item, sortTime: DateTime.now().microsecondsSinceEpoch);
-      final rows =
-          await (_db.select(_db.playbackHistory)..orderBy([
-                (row) => OrderingTerm.desc(row.playedAt),
-                (row) => OrderingTerm.asc(row.trackKey),
-              ]))
-              .get();
+      final rows = await _readHistoryRows();
       if (rows.length > _historyLimit) {
         await (_db.delete(_db.playbackHistory)..where(
               (row) => row.trackKey.isIn(
@@ -112,15 +107,18 @@ class PlayerHistoryDataSource {
 
   Future<List<Map<String, dynamic>>> _readRawList() async {
     await _migrate();
-    final rows =
-        await (_db.select(_db.playbackHistory)..orderBy([
-              (row) => OrderingTerm.desc(row.playedAt),
-              (row) => OrderingTerm.asc(row.trackKey),
-            ]))
-            .get();
+    final rows = await _readHistoryRows();
     return rows
         .map((row) => jsonDecode(row.payload) as Map<String, dynamic>)
         .toList();
+  }
+
+  Future<List<PlaybackHistoryData>> _readHistoryRows() {
+    return (_db.select(_db.playbackHistory)..orderBy([
+          (row) => OrderingTerm.desc(row.playedAt),
+          (row) => OrderingTerm.asc(row.trackKey),
+        ]))
+        .get();
   }
 
   Map<String, dynamic> _toMap(
