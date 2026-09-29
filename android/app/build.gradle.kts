@@ -51,6 +51,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        resValue(
+            "string",
+            "app_name",
+            if (audioCacheSpikeApplicationId == null) "HE-Music" else "Audio Cache Spike",
+        )
     }
 
     buildTypes {
@@ -59,11 +64,6 @@ android {
             resValue("string", "app_name", "HE-Music Debug")
         }
         release {
-            resValue(
-                "string",
-                "app_name",
-                if (audioCacheSpikeApplicationId == null) "HE-Music" else "Audio Cache Spike",
-            )
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
