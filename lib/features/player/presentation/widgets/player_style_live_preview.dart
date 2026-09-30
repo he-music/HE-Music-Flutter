@@ -81,6 +81,7 @@ class PlayerStyleLivePreview extends StatelessWidget {
                 track: previewTrack,
                 stageId: stageId,
                 backdropId: backdropId,
+                demoArtistPhoto: track == null,
               ),
             ),
           ),
@@ -98,6 +99,7 @@ class PlayerStyleLivePreview extends StatelessWidget {
                 key: const ValueKey<String>('player-style-preview-lyrics'),
                 track: previewTrack,
                 backdropId: backdropId,
+                demoArtistPhoto: track == null,
                 lyricsId: lyricsId,
                 localeCode: localeCode,
               ),
@@ -195,17 +197,53 @@ const LyricRequest _demoLyricRequest = LyricRequest(
   platform: 'preview',
 );
 
+class _PreviewBackdrop extends StatelessWidget {
+  const _PreviewBackdrop({
+    required this.backdropKind,
+    required this.imageProvider,
+    required this.track,
+    required this.demoArtistPhoto,
+  });
+
+  final AppPlayerBackdropKind backdropKind;
+  final ImageProvider<Object>? imageProvider;
+  final PlayerTrack track;
+  final bool demoArtistPhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    if (demoArtistPhoto && backdropKind == AppPlayerBackdropKind.artistPhoto) {
+      return Image.asset(
+        AppPlayerBackdropRegistry.instance
+            .resolve(AppPlayerBackdropRegistry.artistPhotoId)
+            .metadata
+            .previewAsset,
+        key: const ValueKey<String>('player-style-demo-artist-photo'),
+        fit: BoxFit.cover,
+      );
+    }
+    return PlayerBackdrop(
+      backdropKind: backdropKind,
+      imageProvider: imageProvider,
+      track: track,
+      isPortrait: true,
+    );
+  }
+}
+
 class _CoverStagePreview extends StatelessWidget {
   const _CoverStagePreview({
     required this.track,
     required this.stageId,
     required this.backdropId,
+    this.demoArtistPhoto = false,
     super.key,
   });
 
   final PlayerTrack track;
   final String stageId;
   final String backdropId;
+  final bool demoArtistPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -217,11 +255,11 @@ class _CoverStagePreview extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
-        PlayerBackdrop(
+        _PreviewBackdrop(
           backdropKind: backdrop.backdropKind,
           imageProvider: imageProvider,
           track: track,
-          isPortrait: true,
+          demoArtistPhoto: demoArtistPhoto,
         ),
         if (showStage)
           PlayerStyleStage(
@@ -238,6 +276,7 @@ class _LyricStagePreview extends StatelessWidget {
   const _LyricStagePreview({
     required this.track,
     required this.backdropId,
+    this.demoArtistPhoto = false,
     required this.lyricsId,
     required this.localeCode,
     super.key,
@@ -245,6 +284,7 @@ class _LyricStagePreview extends StatelessWidget {
 
   final PlayerTrack track;
   final String backdropId;
+  final bool demoArtistPhoto;
   final String lyricsId;
   final String localeCode;
 
@@ -273,11 +313,11 @@ class _LyricStagePreview extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          PlayerBackdrop(
+          _PreviewBackdrop(
             backdropKind: backdrop.backdropKind,
             imageProvider: imageProvider,
             track: track,
-            isPortrait: true,
+            demoArtistPhoto: demoArtistPhoto,
           ),
           _buildLyricHost(lyrics.lyricsKind, emptyText),
         ],
@@ -445,11 +485,13 @@ class PlayerStyleComponentPreview extends StatelessWidget {
   const PlayerStyleComponentPreview({
     required this.axis,
     required this.optionId,
+    this.artistPhotoPreviewImage,
     super.key,
   });
 
   final String axis;
   final String optionId;
+  final ImageProvider<Object>? artistPhotoPreviewImage;
 
   @override
   Widget build(BuildContext context) {
@@ -468,14 +510,24 @@ class PlayerStyleComponentPreview extends StatelessWidget {
           stageId: optionId,
           backdropId: AppPlayerBackdropRegistry.coverGradientId,
         ),
-        'backdrop' => PlayerBackdrop(
-          backdropKind: AppPlayerBackdropRegistry.instance
-              .resolve(optionId)
-              .backdropKind,
-          imageProvider: null,
-          track: _demoTrack,
-          isPortrait: true,
-        ),
+        'backdrop' =>
+          optionId == AppPlayerBackdropRegistry.artistPhotoId &&
+                  artistPhotoPreviewImage != null
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: <Widget>[
+                    Image(image: artistPhotoPreviewImage!, fit: BoxFit.cover),
+                    ColoredBox(color: Colors.black.withValues(alpha: 0.20)),
+                  ],
+                )
+              : PlayerBackdrop(
+                  backdropKind: AppPlayerBackdropRegistry.instance
+                      .resolve(optionId)
+                      .backdropKind,
+                  imageProvider: null,
+                  track: _demoTrack,
+                  isPortrait: true,
+                ),
         _ => _LyricStagePreview(
           track: _demoTrack,
           backdropId: AppPlayerBackdropRegistry.coverGradientId,

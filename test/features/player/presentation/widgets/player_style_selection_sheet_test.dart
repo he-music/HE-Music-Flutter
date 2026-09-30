@@ -8,6 +8,7 @@ import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/i18n/app_i18n.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/core/device/realtime_spectrum_permission.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_style_selection_sheet.dart';
 
 import '../../../../helpers/expect_text_height_fits.dart';
@@ -256,6 +257,59 @@ void main() {
     expect(tester.widget<InkWell>(vinylFinder).onTap, isNotNull);
   });
 
+  testWidgets('无当前曲目时歌手写真双屏预览展示示例照片', (tester) async {
+    await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
+    );
+    await _selectStyleOption(
+      tester,
+      axis: 'backdrop',
+      optionId: 'artist_photo',
+    );
+
+    final photo = find.byKey(
+      const ValueKey<String>('player-style-demo-artist-photo'),
+    );
+    expect(photo, findsNWidgets(2));
+    expect(
+      tester.widget<Image>(photo.first).image,
+      isA<AssetImage>().having(
+        (image) => image.assetName,
+        'assetName',
+        'assets/player_styles/artist_photo/preview.png',
+      ),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('有当前曲目时不使用示例写真', (tester) async {
+    await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
+      track: const PlayerTrack(
+        id: 'track-1',
+        title: 'Song',
+        artist: 'Singer',
+        platform: '',
+      ),
+    );
+    await _selectStyleOption(
+      tester,
+      axis: 'backdrop',
+      optionId: 'artist_photo',
+    );
+
+    expect(
+      find.byKey(const ValueKey<String>('player-style-demo-artist-photo')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('player-backdrop-artist-photo')),
+      findsNWidgets(2),
+    );
+  });
+
   testWidgets('歌词样式按语言显示简洁名称', (tester) async {
     expect(AppI18n.tByLocaleCode('zh', 'player.style.monet_lyrics'), '莫奈');
     expect(AppI18n.tByLocaleCode('zh', 'player.style.partita_lyrics'), '云阶');
@@ -315,6 +369,7 @@ Future<_SheetHarness> _pumpSheet(
   _FakeSpectrumPermission permission, {
   Size surfaceSize = const Size(430, 1200),
   double textScale = 1,
+  PlayerTrack? track,
 }) async {
   await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -341,7 +396,7 @@ Future<_SheetHarness> _pumpSheet(
               onPressed: () => showModalBottomSheet<void>(
                 context: context,
                 isScrollControlled: true,
-                builder: (context) => const PlayerStyleSelectionSheet(),
+                builder: (context) => PlayerStyleSelectionSheet(track: track),
               ),
               child: const Text('Open'),
             ),

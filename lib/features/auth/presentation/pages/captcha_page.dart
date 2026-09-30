@@ -356,8 +356,9 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
 
   Future<CaptchaVerification> _recoverResult(String sessionId) async {
     for (var attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0)
+      if (attempt > 0) {
         await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
       try {
         return await _client.getResult(sessionId);
       } on DioException catch (error) {

@@ -14,6 +14,7 @@ import 'package:he_music_flutter/features/player/presentation/widgets/player_sty
 void main() {
   const enabled = bool.fromEnvironment('GENERATE_PLAYER_PREVIEWS');
   const axisFilter = String.fromEnvironment('PREVIEW_AXIS');
+  const optionFilter = String.fromEnvironment('PREVIEW_OPTION');
   final registries = {
     'stage': AppPlayerStageRegistry.instance.options.map((e) => e.metadata),
     'backdrop': AppPlayerBackdropRegistry.instance.options.map(
@@ -58,6 +59,16 @@ void main() {
                 .load();
           });
           const key = ValueKey('component-export');
+          final artistPhotoBytes =
+              option.id == AppPlayerBackdropRegistry.artistPhotoId
+              ? await tester.runAsync(
+                  () =>
+                      File('test/assets/player/artist_photo.png').readAsBytes(),
+                )
+              : null;
+          final artistPhotoImage = artistPhotoBytes == null
+              ? null
+              : MemoryImage(artistPhotoBytes);
           await tester.pumpWidget(
             ProviderScope(
               overrides: [appConfigProvider.overrideWith(_PreviewConfig.new)],
@@ -74,12 +85,21 @@ void main() {
                     child: PlayerStyleComponentPreview(
                       axis: axis.key,
                       optionId: option.id,
+                      artistPhotoPreviewImage: artistPhotoImage,
                     ),
                   ),
                 ),
               ),
             ),
           );
+          if (artistPhotoImage != null) {
+            await tester.runAsync(
+              () => precacheImage(
+                artistPhotoImage,
+                tester.element(find.byKey(key)),
+              ),
+            );
+          }
           await tester.pump(const Duration(milliseconds: 800));
           await tester.pump();
           expect(tester.takeException(), isNull);
@@ -103,6 +123,14 @@ void main() {
                   reason: 'Previews must include an opaque background',
                 );
               }
+              if (artistPhotoImage != null) {
+                final rgbaPixels = rgba.buffer.asUint8List();
+                expect(
+                  rgbaPixels[4 * (100 * 360 + 180)],
+                  greaterThan(100),
+                  reason: 'Artist preview must contain decoded photo pixels',
+                );
+              }
               final png = (await image.toByteData(
                 format: ui.ImageByteFormat.png,
               ))!;
@@ -115,7 +143,10 @@ void main() {
           });
           await tester.pumpWidget(const SizedBox.shrink());
         },
-        skip: !enabled || (axisFilter.isNotEmpty && axisFilter != axis.key),
+        skip:
+            !enabled ||
+            (axisFilter.isNotEmpty && axisFilter != axis.key) ||
+            (optionFilter.isNotEmpty && optionFilter != option.id),
       );
     }
   }
