@@ -466,16 +466,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               ],
             )
           : content;
-      if (backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto &&
-          currentLayoutMode != PlayerLayoutMode.mobilePortrait) {
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            const Positioned.fill(child: LyricPhotoDimmer()),
-            lyricContent,
-          ],
-        );
-      }
       return lyricContent;
     }
 
@@ -511,10 +501,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 ),
               ),
             ),
-            if (backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto &&
-                currentLayoutMode == PlayerLayoutMode.mobilePortrait)
+            if (backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto)
+              // 遮罩覆盖整张背景，避免横屏及桌面布局出现局部暗色矩形。
+              // 竖屏随翻页渐变，其余布局始终按歌词背景亮度显示。
               Positioned.fill(
-                child: LyricPhotoDimmer(pageController: _pageController),
+                child: LyricPhotoDimmer(
+                  pageController:
+                      currentLayoutMode == PlayerLayoutMode.mobilePortrait
+                      ? _pageController
+                      : null,
+                ),
               ),
             Positioned.fill(
               child: SafeArea(
