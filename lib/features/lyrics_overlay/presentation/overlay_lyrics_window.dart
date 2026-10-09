@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_lyric/core/lyric_model.dart' as flm;
 import 'package:flutter_lyric/core/lyric_style.dart';
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
@@ -29,6 +31,9 @@ class _OverlayLyricsWindowState extends State<OverlayLyricsWindow> {
   String? _loadedKey;
 
   StreamSubscription<dynamic>? _subscription;
+  StreamSubscription<bool>? _statusSubscription;
+  bool _windowShowing = false;
+  int _statusVersion = 0;
 
   @override
   void initState() {
@@ -37,11 +42,16 @@ class _OverlayLyricsWindowState extends State<OverlayLyricsWindow> {
       _onMessage,
       onError: (e) {}, // 静默忽略消息解析错误，防止 overlay 进程崩溃
     );
+    _statusSubscription = FlutterOverlayWindow.overlayStatusListener.listen(
+      _onWindowStatus,
+    );
+    unawaited(_refreshWindowStatus());
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
+    _statusSubscription?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -79,18 +89,54 @@ class _OverlayLyricsWindowState extends State<OverlayLyricsWindow> {
           _loadedKey = null;
         });
       case OverlayLockStateMessage(:final locked):
-        _applyLock(locked);
         setState(() {
           _locked = locked;
         });
+        unawaited(_applyLock());
       case OverlayCloseMessage():
         FlutterOverlayWindow.closeOverlay();
     }
   }
 
-  Future<void> _applyLock(bool locked) async {
-    await FlutterOverlayWindow.updateFlag(
-      locked ? OverlayFlag.clickThrough : OverlayFlag.defaultFlag,
+  void _onWindowStatus(bool showing) {
+    if (!mounted) return;
+    _statusVersion++;
+    _windowShowing = showing;
+    if (showing) unawaited(_applyLock());
+  }
+
+  Future<void> _refreshWindowStatus() async {
+    final version = _statusVersion;
+    try {
+      final showing = await FlutterOverlayWindow.isActive();
+      if (mounted && version == _statusVersion) _onWindowStatus(showing);
+    } on PlatformException catch (error, stack) {
+      _logWindowError(error, stack);
+    } on MissingPluginException catch (error, stack) {
+      _logWindowError(error, stack);
+    }
+  }
+
+  Future<void> _applyLock() async {
+    // 插件在窗口创建完毕后才注册 updateFlag；启动前只保存最新锁定状态。
+    if (!mounted || !_windowShowing) return;
+    try {
+      await FlutterOverlayWindow.updateFlag(
+        _locked ? OverlayFlag.clickThrough : OverlayFlag.defaultFlag,
+      );
+    } on PlatformException catch (error, stack) {
+      _logWindowError(error, stack);
+    } on MissingPluginException catch (error, stack) {
+      _logWindowError(error, stack);
+    }
+  }
+
+  void _logWindowError(Object error, StackTrace stack) {
+    dev.log(
+      '桌面歌词窗口状态更新失败',
+      name: 'OverlayLyrics',
+      error: error,
+      stackTrace: stack,
     );
   }
 
@@ -112,8 +158,8 @@ class _OverlayLyricsWindowState extends State<OverlayLyricsWindow> {
         OverlayLockStateMessage(newLocked).toJson(),
       ),
     );
-    _applyLock(newLocked);
     setState(() => _locked = newLocked);
+    unawaited(_applyLock());
   }
 
   void _loadDocumentIfNeeded() {

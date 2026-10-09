@@ -77,7 +77,7 @@ void main() {
     );
     expect(
       theme.pageTransitionsTheme.builders[TargetPlatform.android],
-      isA<PredictiveBackPageTransitionsBuilder>(),
+      isA<FadeForwardsPageTransitionsBuilder>(),
     );
   });
 

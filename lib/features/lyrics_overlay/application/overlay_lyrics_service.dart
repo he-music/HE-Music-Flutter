@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:io' show Platform;
 
@@ -11,12 +12,16 @@ import '../data/overlay_message.dart';
 import '../domain/services/overlay_channel_service.dart';
 
 class OverlayLyricsService implements OverlayChannelService {
+  OverlayLyricsService({bool? isSupportedPlatform})
+    : _isSupportedPlatform = isSupportedPlatform ?? Platform.isAndroid;
+
+  final bool _isSupportedPlatform;
+  Future<void> _windowOperation = Future<void>.value();
   Duration _lastSentPosition = Duration.zero;
   DateTime _lastSentTime = DateTime.fromMillisecondsSinceEpoch(0);
 
   static const _overlayHeight = 500;
   static const _positionThrottle = Duration(milliseconds: 100);
-  static final bool _isSupportedPlatform = Platform.isAndroid;
 
   @override
   Stream<OverlayMessage> get overlayToMainMessages {
@@ -48,29 +53,68 @@ class OverlayLyricsService implements OverlayChannelService {
   }
 
   @override
-  Future<void> open() async {
-    if (!_isSupportedPlatform) return;
+  Future<void> open() {
+    if (!_isSupportedPlatform) return Future<void>.value();
+    return _enqueueWindowOperation(_openWindow);
+  }
+
+  Future<void> _openWindow() async {
+    if (await isActive()) return;
     final granted = await isPermissionGranted();
     if (!granted) {
       final result = await requestPermission();
       if (result != true) return;
     }
-    await FlutterOverlayWindow.showOverlay(
-      height: _overlayHeight,
-      width: WindowSize.matchParent,
-      alignment: OverlayAlignment.center,
-      enableDrag: true,
-      positionGravity: PositionGravity.auto,
-      flag: OverlayFlag.defaultFlag,
-      overlayTitle: 'HE-Music 歌词',
-      overlayContent: '桌面歌词已开启',
-    );
+    final ready = Completer<void>();
+    final subscription = FlutterOverlayWindow.overlayStatusListener.listen((
+      showing,
+    ) {
+      if (showing && !ready.isCompleted) ready.complete();
+    });
+    try {
+      await FlutterOverlayWindow.showOverlay(
+        height: _overlayHeight,
+        width: WindowSize.matchParent,
+        alignment: OverlayAlignment.center,
+        enableDrag: true,
+        positionGravity: PositionGravity.auto,
+        flag: OverlayFlag.defaultFlag,
+        overlayTitle: 'HE-Music 歌词',
+        overlayContent: '桌面歌词已开启',
+      );
+      // showOverlay 仅确认启动请求；窗口显示后通道才可用于同步状态和关闭。
+      if (!await isActive()) {
+        await ready.future.timeout(const Duration(seconds: 5));
+      }
+    } finally {
+      await subscription.cancel();
+    }
   }
 
   @override
   Future<void> close() {
     if (!_isSupportedPlatform) return Future<void>.value();
-    return FlutterOverlayWindow.closeOverlay();
+    return _enqueueWindowOperation(() async {
+      if (!await isActive()) return;
+      try {
+        await FlutterOverlayWindow.closeOverlay().timeout(
+          const Duration(seconds: 5),
+        );
+      } on TimeoutException {
+        // 插件在窗口已由另一侧关闭时不返回结果，确认关闭后才视为完成。
+        if (await isActive()) rethrow;
+      }
+    });
+  }
+
+  Future<void> _enqueueWindowOperation(Future<void> Function() operation) {
+    final result = _windowOperation.then((_) => operation());
+    // 单次失败交给调用者处理，不阻塞后续开启/关闭请求。
+    _windowOperation = result.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return result;
   }
 
   @override

@@ -5,6 +5,16 @@ import 'skin/app_skin_models.dart';
 import 'skin/app_skin_theme.dart';
 
 abstract final class AppTheme {
+  // 预测返回在悬浮窗切换后可能遗留导航手势状态，导致整页屏蔽点击。
+  // Android 使用普通转场，让系统返回通过常规 pop 完整收尾。
+  static final PageTransitionsTheme _pageTransitionsTheme =
+      PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          ...const PageTransitionsTheme().builders,
+          TargetPlatform.android: const FadeForwardsPageTransitionsBuilder(),
+        },
+      );
+
   static final PageTransitionsTheme _immersivePageTransitionsTheme =
       PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{
@@ -99,7 +109,7 @@ abstract final class AppTheme {
       // Android 默认转场会绘制不透明 surface，透明页面需让根壁纸持续可见。
       pageTransitionsTheme: colors.scaffoldBackground.a == 0
           ? _immersivePageTransitionsTheme
-          : const PageTransitionsTheme(),
+          : _pageTransitionsTheme,
       extensions: <ThemeExtension<dynamic>>[
         AppSkinTheme(
           config: config,

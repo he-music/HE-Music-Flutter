@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -51,6 +52,83 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final endMethod in ['cancelBackGesture', 'commitBackGesture']) {
+    testWidgets(
+      'Android repeated back start followed by $endMethod keeps taps working',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        await tester.pumpWidget(
+          _buildRouterTestApp(
+            initialLocation: AppRoutes.my,
+            theme: AppTheme.light(
+              AppSkinRegistry.builtIn(
+                AppConfigState.initial.themeAccent,
+              ).resolve(AppSkinRegistry.classicId),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final router = GoRouter.of(tester.element(find.byType(MyPage)));
+        router.push(AppRoutes.settings);
+        await tester.pumpAndSettle();
+        final navigator = Navigator.of(
+          tester.element(find.byType(SettingsPage)),
+        );
+        Future<void> send(String method, {double progress = 0}) async {
+          await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+            'flutter/backgesture',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall(
+                method,
+                method == 'startBackGesture' ||
+                        method == 'updateBackGestureProgress'
+                    ? <String, dynamic>{
+                        'touchOffset': <double>[5, 300],
+                        'progress': progress,
+                        'swipeEdge': 0,
+                      }
+                    : null,
+              ),
+            ),
+            (_) {},
+          );
+        }
+
+        await send('startBackGesture');
+        await tester.pump();
+        await send('updateBackGestureProgress', progress: 0.35);
+        await tester.pump();
+        await send('startBackGesture');
+        await send(endMethod);
+        await tester.pumpAndSettle();
+        expect(navigator.userGestureInProgress, isFalse);
+        if (endMethod == 'cancelBackGesture') {
+          expect(router.state.uri.path, AppRoutes.settings);
+          await tester.tap(find.byTooltip('返回'));
+          await tester.pumpAndSettle();
+        }
+        expect(router.state.uri.path, AppRoutes.my);
+        expect(
+          tester
+              .widgetList<IgnorePointer>(
+                find.ancestor(
+                  of: find.byType(MyPage),
+                  matching: find.byType(IgnorePointer),
+                ),
+              )
+              .any((widget) => widget.ignoring),
+          isFalse,
+        );
+        await tester.tap(find.byTooltip('设置'));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.path, AppRoutes.settings);
+        expect(tester.takeException(), isNull);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+  }
+
   testWidgets(
     'root GoRouter observer distinguishes PageRoute from PopupRoute',
     (tester) async {
@@ -461,6 +539,7 @@ Widget _buildRouterTestApp({
   PlayerController Function()? playerControllerFactory,
   ScreenWakeLockPort? screenWakeLockPort,
   HomePageApiClient? homePageApiClient,
+  ThemeData? theme,
 }) {
   return ProviderScope(
     overrides: [
@@ -486,7 +565,7 @@ Widget _buildRouterTestApp({
     child: Consumer(
       builder: (context, ref, _) {
         final router = ref.watch(appRouterProvider);
-        return MaterialApp.router(routerConfig: router);
+        return MaterialApp.router(theme: theme, routerConfig: router);
       },
     ),
   );
