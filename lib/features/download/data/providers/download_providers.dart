@@ -10,6 +10,9 @@ import '../repositories/download_repository_impl.dart';
 import '../services/download_lyric_resolver.dart';
 import '../services/download_metadata_writer.dart';
 import 'package:dio/dio.dart';
+import '../../domain/repositories/downloaded_music_repository.dart';
+import '../datasources/downloaded_music_data_source.dart';
+import '../repositories/downloaded_music_repository_impl.dart';
 
 final downloadPathDataSourceProvider = Provider<DownloadPathDataSource>((ref) {
   return DownloadPathDataSource();
@@ -45,5 +48,14 @@ final downloadMetadataWriterProvider = Provider<DownloadMetadataWriter>((ref) {
     lyricResolver: DownloadLyricResolver.fromDataSource(lyricDataSource),
     metadataAdapter: const AudioMetadataAdapter(),
     dio: Dio(),
+  );
+});
+
+final downloadedMusicRepositoryProvider = Provider<DownloadedMusicRepository>((
+  ref,
+) {
+  return DownloadedMusicRepositoryImpl(
+    dataSource: DownloadedMusicDataSource(),
+    taskStore: ref.read(downloadTaskStoreDataSourceProvider),
   );
 });

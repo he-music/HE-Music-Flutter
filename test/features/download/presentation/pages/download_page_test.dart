@@ -28,7 +28,7 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: DownloadPage(),
+          home: DownloadPage(initialTab: DownloadPageTab.tasks),
         ),
       ),
     );
@@ -57,7 +57,7 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: DownloadPage(),
+          home: DownloadPage(initialTab: DownloadPageTab.tasks),
         ),
       ),
     );
@@ -297,7 +297,7 @@ Future<void> _pumpDownloadPage(
         theme: ThemeData(platform: platform),
         home: MediaQuery(
           data: MediaQueryData(size: size),
-          child: const DownloadPage(),
+          child: const DownloadPage(initialTab: DownloadPageTab.tasks),
         ),
       ),
     ),

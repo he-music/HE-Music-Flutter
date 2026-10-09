@@ -32,11 +32,13 @@ class DownloadMetadataWriteResult {
     required this.lyricFormat,
     required this.artworkEmbedded,
     required this.lyricPath,
+    this.artworkPath,
   });
 
   final DownloadLyricFormat lyricFormat;
   final bool artworkEmbedded;
   final String? lyricPath;
+  final String? artworkPath;
 }
 
 abstract class DownloadMetadataAdapter {
@@ -167,6 +169,12 @@ class DownloadMetadataWriter {
       platform: request.platform,
     );
     final artworkBytes = await _loadArtworkBytes(request.artworkUrl);
+    String? artworkPath;
+    if (artworkBytes != null && artworkBytes.isNotEmpty) {
+      // Retain a readable cover even when the audio moves to public Downloads.
+      artworkPath = '${request.filePath}.cover';
+      await File(artworkPath).writeAsBytes(artworkBytes, flush: true);
+    }
     final lyricPath = await _writeLyricFile(
       filePath: request.filePath,
       lyrics: lyric.content,
@@ -183,6 +191,7 @@ class DownloadMetadataWriter {
       lyricFormat: lyric.format,
       artworkEmbedded: artworkBytes != null && artworkBytes.isNotEmpty,
       lyricPath: lyricPath,
+      artworkPath: artworkPath,
     );
   }
 

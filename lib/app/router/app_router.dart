@@ -357,7 +357,15 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
   ),
   _rootContentRoute(
     path: AppRoutes.downloads,
-    builder: (context, state) => const DownloadPage(),
+    builder: (context, state) => DownloadPage(
+      initialTab: state.uri.queryParameters['tab'] == 'tasks'
+          ? DownloadPageTab.tasks
+          : DownloadPageTab.downloaded,
+    ),
+  ),
+  GoRoute(
+    path: AppRoutes.downloadedMusic,
+    redirect: (context, state) => AppRoutes.downloads,
   ),
 ];
 

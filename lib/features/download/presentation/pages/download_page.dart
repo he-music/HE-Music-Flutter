@@ -9,35 +9,156 @@ import '../../../../shared/widgets/adaptive_action_menu.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../domain/entities/download_task.dart';
 import '../providers/download_providers.dart';
+import '../../../../shared/widgets/detail_page_shell.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
+import '../../../../shared/widgets/underline_tab.dart';
+import '../providers/downloaded_music_providers.dart';
+import '../widgets/downloaded_music_content.dart';
 
-class DownloadPage extends ConsumerWidget {
-  const DownloadPage({super.key});
+enum DownloadPageTab { downloaded, tasks }
+
+class DownloadPage extends ConsumerStatefulWidget {
+  const DownloadPage({this.initialTab = DownloadPageTab.downloaded, super.key});
+
+  final DownloadPageTab initialTab;
+
+  @override
+  ConsumerState<DownloadPage> createState() => _DownloadPageState();
+}
+
+class _DownloadPageState extends ConsumerState<DownloadPage> {
+  late DownloadPageTab _selectedTab = widget.initialTab;
+  late final Set<DownloadPageTab> _visitedTabs = {widget.initialTab};
+
+  @override
+  void didUpdateWidget(covariant DownloadPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      _selectedTab = widget.initialTab;
+      _visitedTabs.add(widget.initialTab);
+      // The route rebuilds this widget immediately. Refresh providers after
+      // that frame, so switching via a queue-source link never mutates scope
+      // while the router is still building its page.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        FocusManager.instance.primaryFocus?.unfocus();
+        if (_selectedTab == DownloadPageTab.downloaded) {
+          ref.invalidate(downloadedSongsProvider);
+        }
+      });
+    }
+  }
+
+  void _selectTab(DownloadPageTab tab) {
+    if (tab == _selectedTab) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (tab == DownloadPageTab.downloaded) {
+      ref.invalidate(downloadedSongsProvider);
+    }
+    setState(() {
+      _selectedTab = tab;
+      _visitedTabs.add(tab);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context).languageCode;
+    return DetailPageShell(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppBackButton(),
+          title: Text(AppI18n.tByLocaleCode(locale, 'download.title')),
+          actions: [
+            if (_selectedTab == DownloadPageTab.downloaded)
+              IconButton(
+                tooltip: AppI18n.tByLocaleCode(
+                  locale,
+                  'download.library.refresh',
+                ),
+                onPressed: () => ref.invalidate(downloadedSongsProvider),
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+          ],
+        ),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  LayoutTokens.compactPageGutter + 4,
+                  6,
+                  LayoutTokens.compactPageGutter + 4,
+                  4,
+                ),
+                child: Row(
+                  children: [
+                    for (final tab in DownloadPageTab.values)
+                      Flexible(
+                        child: UnderlineTab(
+                          key: ValueKey('download-tab-${tab.name}'),
+                          label: AppI18n.tByLocaleCode(
+                            locale,
+                            tab == DownloadPageTab.downloaded
+                                ? 'download.tab.downloaded'
+                                : 'download.tab.tasks',
+                          ),
+                          selected: _selectedTab == tab,
+                          enabled: true,
+                          onTap: () => _selectTab(tab),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedTab.index,
+                  children: [
+                    if (_visitedTabs.contains(DownloadPageTab.downloaded))
+                      DownloadedMusicContent(
+                        locale: locale,
+                        onOpenTasks: () => _selectTab(DownloadPageTab.tasks),
+                      )
+                    else
+                      const SizedBox.shrink(),
+                    if (_visitedTabs.contains(DownloadPageTab.tasks))
+                      const _DownloadTasksContent()
+                    else
+                      const SizedBox.shrink(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DownloadTasksContent extends ConsumerWidget {
+  const _DownloadTasksContent();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(downloadControllerProvider.notifier);
-    final localeCode = Localizations.localeOf(context).languageCode;
-    return Scaffold(
-      appBar: AppBar(
-        leading: const AppBackButton(),
-        title: Text(AppI18n.tByLocaleCode(localeCode, 'download.title')),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: _DownloadTaskList(
-            onPause: controller.pause,
-            onResume: controller.resume,
-            onRedownload: controller.redownload,
-            onOpenLocation: controller.openContainingFolder,
-            onExportFiles: (taskId, sharePositionOrigin) => controller
-                .exportFiles(taskId, sharePositionOrigin: sharePositionOrigin),
-            onRetry: controller.retry,
-            onRemoveTask: controller.removeTask,
-            onRemoveTaskAndFile: controller.removeTaskAndFile,
-            onClearCompleted: controller.clearCompleted,
-          ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      child: _DownloadTaskList(
+        onPause: controller.pause,
+        onResume: controller.resume,
+        onRedownload: controller.redownload,
+        onOpenLocation: controller.openContainingFolder,
+        onExportFiles: (taskId, sharePositionOrigin) => controller.exportFiles(
+          taskId,
+          sharePositionOrigin: sharePositionOrigin,
         ),
+        onRetry: controller.retry,
+        onRemoveTask: controller.removeTask,
+        onRemoveTaskAndFile: controller.removeTaskAndFile,
+        onClearCompleted: controller.clearCompleted,
       ),
     );
   }
@@ -220,90 +341,85 @@ class _DownloadTaskRow extends ConsumerWidget {
     }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Container(
-      key: ValueKey<String>('download_task_content_${task.id}'),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  _displayFileName(task),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontSize: 14,
-                    height: 1.15,
-                    fontWeight: FontWeight.w600,
+    return AppSkinContentSurface(
+      child: Container(
+        key: ValueKey<String>('download_task_content_${task.id}'),
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    _displayFileName(task),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontSize: 14,
+                      height: 1.15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 28,
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: _MoreButton(
-                    task: task,
-                    onPause: onPause,
-                    onResume: onResume,
-                    onRedownload: onRedownload,
-                    onOpenLocation: onOpenLocation,
-                    onExportFiles: onExportFiles,
-                    onRetry: onRetry,
-                    onRemoveTask: onRemoveTask,
-                    onRemoveTaskAndFile: onRemoveTaskAndFile,
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 28,
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: _MoreButton(
+                      task: task,
+                      onPause: onPause,
+                      onResume: onResume,
+                      onRedownload: onRedownload,
+                      onOpenLocation: onOpenLocation,
+                      onExportFiles: onExportFiles,
+                      onRetry: onRetry,
+                      onRemoveTask: onRemoveTask,
+                      onRemoveTaskAndFile: onRemoveTaskAndFile,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  _sizeLabel(context, task),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    _sizeLabel(context, task),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontSize: 11,
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  task.effectiveFileExtension.trim().toUpperCase(),
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontSize: 11,
                     color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                task.effectiveFileExtension.trim().toUpperCase(),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  fontSize: 11,
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(width: 10),
+                Text(
+                  _statusLabel(context, task),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontSize: 11,
+                    color: _statusColor(colorScheme, task),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                _statusLabel(context, task),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  fontSize: 11,
-                  color: _statusColor(colorScheme, task),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

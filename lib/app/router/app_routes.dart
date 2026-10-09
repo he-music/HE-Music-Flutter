@@ -13,6 +13,7 @@ abstract final class AppRoutes {
   static const localMetadataEdit = '/local/edit';
   static const player = '/player';
   static const downloads = '/downloads';
+  static const downloadedMusic = '/downloads/music';
   static const online = '/online';
   static const onlineSearch = '/online/search';
   static const parseSourceUrl = '/online/parse';

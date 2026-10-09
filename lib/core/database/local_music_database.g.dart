@@ -3395,6 +3395,376 @@ class StoredDownloadTasksCompanion extends UpdateCompanion<StoredDownloadTask> {
   }
 }
 
+class $DownloadedMusicTable extends DownloadedMusic
+    with TableInfo<$DownloadedMusicTable, DownloadedMusicEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DownloadedMusicTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<String> taskId = GeneratedColumn<String>(
+    'task_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _songIdMeta = const VerificationMeta('songId');
+  @override
+  late final GeneratedColumn<String> songId = GeneratedColumn<String>(
+    'song_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _platformMeta = const VerificationMeta(
+    'platform',
+  );
+  @override
+  late final GeneratedColumn<String> platform = GeneratedColumn<String>(
+    'platform',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _downloadedAtMeta = const VerificationMeta(
+    'downloadedAt',
+  );
+  @override
+  late final GeneratedColumn<int> downloadedAt = GeneratedColumn<int>(
+    'downloaded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    taskId,
+    songId,
+    platform,
+    downloadedAt,
+    payload,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'downloaded_music';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DownloadedMusicEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('task_id')) {
+      context.handle(
+        _taskIdMeta,
+        taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_taskIdMeta);
+    }
+    if (data.containsKey('song_id')) {
+      context.handle(
+        _songIdMeta,
+        songId.isAcceptableOrUnknown(data['song_id']!, _songIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_songIdMeta);
+    }
+    if (data.containsKey('platform')) {
+      context.handle(
+        _platformMeta,
+        platform.isAcceptableOrUnknown(data['platform']!, _platformMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_platformMeta);
+    }
+    if (data.containsKey('downloaded_at')) {
+      context.handle(
+        _downloadedAtMeta,
+        downloadedAt.isAcceptableOrUnknown(
+          data['downloaded_at']!,
+          _downloadedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_downloadedAtMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {taskId};
+  @override
+  DownloadedMusicEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DownloadedMusicEntry(
+      taskId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}task_id'],
+      )!,
+      songId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}song_id'],
+      )!,
+      platform: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}platform'],
+      )!,
+      downloadedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}downloaded_at'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+    );
+  }
+
+  @override
+  $DownloadedMusicTable createAlias(String alias) {
+    return $DownloadedMusicTable(attachedDatabase, alias);
+  }
+}
+
+class DownloadedMusicEntry extends DataClass
+    implements Insertable<DownloadedMusicEntry> {
+  final String taskId;
+  final String songId;
+  final String platform;
+  final int downloadedAt;
+  final String payload;
+  const DownloadedMusicEntry({
+    required this.taskId,
+    required this.songId,
+    required this.platform,
+    required this.downloadedAt,
+    required this.payload,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['task_id'] = Variable<String>(taskId);
+    map['song_id'] = Variable<String>(songId);
+    map['platform'] = Variable<String>(platform);
+    map['downloaded_at'] = Variable<int>(downloadedAt);
+    map['payload'] = Variable<String>(payload);
+    return map;
+  }
+
+  DownloadedMusicCompanion toCompanion(bool nullToAbsent) {
+    return DownloadedMusicCompanion(
+      taskId: Value(taskId),
+      songId: Value(songId),
+      platform: Value(platform),
+      downloadedAt: Value(downloadedAt),
+      payload: Value(payload),
+    );
+  }
+
+  factory DownloadedMusicEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DownloadedMusicEntry(
+      taskId: serializer.fromJson<String>(json['taskId']),
+      songId: serializer.fromJson<String>(json['songId']),
+      platform: serializer.fromJson<String>(json['platform']),
+      downloadedAt: serializer.fromJson<int>(json['downloadedAt']),
+      payload: serializer.fromJson<String>(json['payload']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'taskId': serializer.toJson<String>(taskId),
+      'songId': serializer.toJson<String>(songId),
+      'platform': serializer.toJson<String>(platform),
+      'downloadedAt': serializer.toJson<int>(downloadedAt),
+      'payload': serializer.toJson<String>(payload),
+    };
+  }
+
+  DownloadedMusicEntry copyWith({
+    String? taskId,
+    String? songId,
+    String? platform,
+    int? downloadedAt,
+    String? payload,
+  }) => DownloadedMusicEntry(
+    taskId: taskId ?? this.taskId,
+    songId: songId ?? this.songId,
+    platform: platform ?? this.platform,
+    downloadedAt: downloadedAt ?? this.downloadedAt,
+    payload: payload ?? this.payload,
+  );
+  DownloadedMusicEntry copyWithCompanion(DownloadedMusicCompanion data) {
+    return DownloadedMusicEntry(
+      taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      songId: data.songId.present ? data.songId.value : this.songId,
+      platform: data.platform.present ? data.platform.value : this.platform,
+      downloadedAt: data.downloadedAt.present
+          ? data.downloadedAt.value
+          : this.downloadedAt,
+      payload: data.payload.present ? data.payload.value : this.payload,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DownloadedMusicEntry(')
+          ..write('taskId: $taskId, ')
+          ..write('songId: $songId, ')
+          ..write('platform: $platform, ')
+          ..write('downloadedAt: $downloadedAt, ')
+          ..write('payload: $payload')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(taskId, songId, platform, downloadedAt, payload);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DownloadedMusicEntry &&
+          other.taskId == this.taskId &&
+          other.songId == this.songId &&
+          other.platform == this.platform &&
+          other.downloadedAt == this.downloadedAt &&
+          other.payload == this.payload);
+}
+
+class DownloadedMusicCompanion extends UpdateCompanion<DownloadedMusicEntry> {
+  final Value<String> taskId;
+  final Value<String> songId;
+  final Value<String> platform;
+  final Value<int> downloadedAt;
+  final Value<String> payload;
+  final Value<int> rowid;
+  const DownloadedMusicCompanion({
+    this.taskId = const Value.absent(),
+    this.songId = const Value.absent(),
+    this.platform = const Value.absent(),
+    this.downloadedAt = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DownloadedMusicCompanion.insert({
+    required String taskId,
+    required String songId,
+    required String platform,
+    required int downloadedAt,
+    required String payload,
+    this.rowid = const Value.absent(),
+  }) : taskId = Value(taskId),
+       songId = Value(songId),
+       platform = Value(platform),
+       downloadedAt = Value(downloadedAt),
+       payload = Value(payload);
+  static Insertable<DownloadedMusicEntry> custom({
+    Expression<String>? taskId,
+    Expression<String>? songId,
+    Expression<String>? platform,
+    Expression<int>? downloadedAt,
+    Expression<String>? payload,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (taskId != null) 'task_id': taskId,
+      if (songId != null) 'song_id': songId,
+      if (platform != null) 'platform': platform,
+      if (downloadedAt != null) 'downloaded_at': downloadedAt,
+      if (payload != null) 'payload': payload,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DownloadedMusicCompanion copyWith({
+    Value<String>? taskId,
+    Value<String>? songId,
+    Value<String>? platform,
+    Value<int>? downloadedAt,
+    Value<String>? payload,
+    Value<int>? rowid,
+  }) {
+    return DownloadedMusicCompanion(
+      taskId: taskId ?? this.taskId,
+      songId: songId ?? this.songId,
+      platform: platform ?? this.platform,
+      downloadedAt: downloadedAt ?? this.downloadedAt,
+      payload: payload ?? this.payload,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (taskId.present) {
+      map['task_id'] = Variable<String>(taskId.value);
+    }
+    if (songId.present) {
+      map['song_id'] = Variable<String>(songId.value);
+    }
+    if (platform.present) {
+      map['platform'] = Variable<String>(platform.value);
+    }
+    if (downloadedAt.present) {
+      map['downloaded_at'] = Variable<int>(downloadedAt.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DownloadedMusicCompanion(')
+          ..write('taskId: $taskId, ')
+          ..write('songId: $songId, ')
+          ..write('platform: $platform, ')
+          ..write('downloadedAt: $downloadedAt, ')
+          ..write('payload: $payload, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CachedFavoriteSongsTable extends CachedFavoriteSongs
     with TableInfo<$CachedFavoriteSongsTable, CachedFavoriteSong> {
   @override
@@ -3800,6 +4170,9 @@ abstract class _$LocalMusicDatabase extends GeneratedDatabase {
   );
   late final $StoredDownloadTasksTable storedDownloadTasks =
       $StoredDownloadTasksTable(this);
+  late final $DownloadedMusicTable downloadedMusic = $DownloadedMusicTable(
+    this,
+  );
   late final $CachedFavoriteSongsTable cachedFavoriteSongs =
       $CachedFavoriteSongsTable(this);
   late final $StorageMigrationsTable storageMigrations =
@@ -3818,6 +4191,7 @@ abstract class _$LocalMusicDatabase extends GeneratedDatabase {
     playbackQueueEntries,
     playbackHistory,
     storedDownloadTasks,
+    downloadedMusic,
     cachedFavoriteSongs,
     storageMigrations,
   ];
@@ -6591,6 +6965,218 @@ typedef $$StoredDownloadTasksTableProcessedTableManager =
       StoredDownloadTask,
       PrefetchHooks Function()
     >;
+typedef $$DownloadedMusicTableCreateCompanionBuilder =
+    DownloadedMusicCompanion Function({
+      required String taskId,
+      required String songId,
+      required String platform,
+      required int downloadedAt,
+      required String payload,
+      Value<int> rowid,
+    });
+typedef $$DownloadedMusicTableUpdateCompanionBuilder =
+    DownloadedMusicCompanion Function({
+      Value<String> taskId,
+      Value<String> songId,
+      Value<String> platform,
+      Value<int> downloadedAt,
+      Value<String> payload,
+      Value<int> rowid,
+    });
+
+class $$DownloadedMusicTableFilterComposer
+    extends Composer<_$LocalMusicDatabase, $DownloadedMusicTable> {
+  $$DownloadedMusicTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DownloadedMusicTableOrderingComposer
+    extends Composer<_$LocalMusicDatabase, $DownloadedMusicTable> {
+  $$DownloadedMusicTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DownloadedMusicTableAnnotationComposer
+    extends Composer<_$LocalMusicDatabase, $DownloadedMusicTable> {
+  $$DownloadedMusicTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get taskId =>
+      $composableBuilder(column: $table.taskId, builder: (column) => column);
+
+  GeneratedColumn<String> get songId =>
+      $composableBuilder(column: $table.songId, builder: (column) => column);
+
+  GeneratedColumn<String> get platform =>
+      $composableBuilder(column: $table.platform, builder: (column) => column);
+
+  GeneratedColumn<int> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+}
+
+class $$DownloadedMusicTableTableManager
+    extends
+        RootTableManager<
+          _$LocalMusicDatabase,
+          $DownloadedMusicTable,
+          DownloadedMusicEntry,
+          $$DownloadedMusicTableFilterComposer,
+          $$DownloadedMusicTableOrderingComposer,
+          $$DownloadedMusicTableAnnotationComposer,
+          $$DownloadedMusicTableCreateCompanionBuilder,
+          $$DownloadedMusicTableUpdateCompanionBuilder,
+          (
+            DownloadedMusicEntry,
+            BaseReferences<
+              _$LocalMusicDatabase,
+              $DownloadedMusicTable,
+              DownloadedMusicEntry
+            >,
+          ),
+          DownloadedMusicEntry,
+          PrefetchHooks Function()
+        > {
+  $$DownloadedMusicTableTableManager(
+    _$LocalMusicDatabase db,
+    $DownloadedMusicTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DownloadedMusicTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DownloadedMusicTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DownloadedMusicTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> taskId = const Value.absent(),
+                Value<String> songId = const Value.absent(),
+                Value<String> platform = const Value.absent(),
+                Value<int> downloadedAt = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DownloadedMusicCompanion(
+                taskId: taskId,
+                songId: songId,
+                platform: platform,
+                downloadedAt: downloadedAt,
+                payload: payload,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String taskId,
+                required String songId,
+                required String platform,
+                required int downloadedAt,
+                required String payload,
+                Value<int> rowid = const Value.absent(),
+              }) => DownloadedMusicCompanion.insert(
+                taskId: taskId,
+                songId: songId,
+                platform: platform,
+                downloadedAt: downloadedAt,
+                payload: payload,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DownloadedMusicTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalMusicDatabase,
+      $DownloadedMusicTable,
+      DownloadedMusicEntry,
+      $$DownloadedMusicTableFilterComposer,
+      $$DownloadedMusicTableOrderingComposer,
+      $$DownloadedMusicTableAnnotationComposer,
+      $$DownloadedMusicTableCreateCompanionBuilder,
+      $$DownloadedMusicTableUpdateCompanionBuilder,
+      (
+        DownloadedMusicEntry,
+        BaseReferences<
+          _$LocalMusicDatabase,
+          $DownloadedMusicTable,
+          DownloadedMusicEntry
+        >,
+      ),
+      DownloadedMusicEntry,
+      PrefetchHooks Function()
+    >;
 typedef $$CachedFavoriteSongsTableCreateCompanionBuilder =
     CachedFavoriteSongsCompanion Function({
       required String platform,
@@ -6911,6 +7497,8 @@ class $LocalMusicDatabaseManager {
       $$PlaybackHistoryTableTableManager(_db, _db.playbackHistory);
   $$StoredDownloadTasksTableTableManager get storedDownloadTasks =>
       $$StoredDownloadTasksTableTableManager(_db, _db.storedDownloadTasks);
+  $$DownloadedMusicTableTableManager get downloadedMusic =>
+      $$DownloadedMusicTableTableManager(_db, _db.downloadedMusic);
   $$CachedFavoriteSongsTableTableManager get cachedFavoriteSongs =>
       $$CachedFavoriteSongsTableTableManager(_db, _db.cachedFavoriteSongs);
   $$StorageMigrationsTableTableManager get storageMigrations =>

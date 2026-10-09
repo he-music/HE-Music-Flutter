@@ -81,7 +81,13 @@ class DownloadRepositoryImpl implements DownloadRepository {
     final extension = _normalizeExtension(fileExtension);
     final fileBaseName = _buildFileBaseName(title: title, artist: artist);
     final dir = await _pathDataSource.ensureDownloadDirectory();
-    return '${dir.path}/$fileBaseName.$extension';
+    var candidate = '${dir.path}/$fileBaseName.$extension';
+    var suffix = 2;
+    while (await File(candidate).exists()) {
+      candidate = '${dir.path}/$fileBaseName ($suffix).$extension';
+      suffix++;
+    }
+    return candidate;
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:audiotags/audiotags.dart' as at;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/download/data/services/download_lyric_resolver.dart';
@@ -9,6 +10,45 @@ import 'package:he_music_flutter/features/download/domain/entities/download_task
 import 'package:he_music_flutter/features/lyrics/domain/entities/raw_lyric_bundle.dart';
 
 void main() {
+  test(
+    'metadata writer retains a local cover beside downloaded audio',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_cover_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final bytes = [0x89, 0x50, 0x4e, 0x47];
+      final dio = Dio()
+        ..interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) => handler.resolve(
+              Response(requestOptions: options, data: bytes, statusCode: 200),
+            ),
+          ),
+        );
+      final writer = DownloadMetadataWriter(
+        lyricResolver: _FakeDownloadLyricResolver(
+          const ResolvedDownloadLyric.none(),
+        ),
+        metadataAdapter: _FakeMetadataAdapter(),
+        dio: dio,
+      );
+      final result = await writer.write(
+        DownloadMetadataRequest(
+          filePath: '${directory.path}/song.mp3',
+          songId: 'song-1',
+          platform: 'qq',
+          title: 'Song',
+          artist: 'Artist',
+          album: 'Album',
+          artworkUrl: 'https://example.com/cover.png',
+        ),
+      );
+      expect(result.artworkEmbedded, isTrue);
+      expect(await File(result.artworkPath!).readAsBytes(), bytes);
+    },
+  );
+
   test(
     'metadata writer falls back to plain lyric when timed lyric is unavailable',
     () async {

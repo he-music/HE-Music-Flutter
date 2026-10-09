@@ -13,6 +13,7 @@ import '../../domain/entities/download_task.dart';
 import '../../domain/repositories/download_repository.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../providers/download_providers.dart';
+import '../providers/downloaded_music_providers.dart';
 
 class _ResolvedDownloadSource {
   const _ResolvedDownloadSource({
@@ -28,11 +29,13 @@ class DownloadController extends Notifier<DownloadState> {
   StreamSubscription<DownloadRunnerEvent>? _eventsSubscription;
   bool _disposed = false;
   final Map<String, DateTime> _lastProgressWrite = {};
+  Future<void>? _restoringTasks;
 
   @override
   DownloadState build() {
     _bindRunnerEvents();
-    unawaited(_restoreTasks());
+    _restoringTasks = _restoreTasks();
+    unawaited(_restoringTasks);
     ref.onDispose(() {
       _disposed = true;
       unawaited(_eventsSubscription?.cancel());
@@ -42,6 +45,7 @@ class DownloadController extends Notifier<DownloadState> {
 
   Future<void> enqueue({
     required String title,
+    String? taskId,
     String url = '',
     DownloadTaskQuality? quality,
     String? songId,
@@ -68,7 +72,7 @@ class DownloadController extends Notifier<DownloadState> {
       _validateUrl(url);
     }
     final task = DownloadTask.queued(
-      id: _taskId(),
+      id: taskId ?? _taskId(),
       title: title,
       url: url,
       quality: resolvedQuality,
@@ -144,6 +148,35 @@ class DownloadController extends Notifier<DownloadState> {
     await _dispatchQueuedTasks();
   }
 
+  Future<void> redownloadSavedSong(DownloadTask saved) async {
+    await _restoringTasks;
+    if (_disposed) return;
+    final retained = _findTask(saved.id);
+    if (retained != null) {
+      if (state.runningTasks.any((task) => task.id == saved.id) ||
+          retained.status == DownloadTaskStatus.queued) {
+        return;
+      }
+      await redownload(saved.id);
+      return;
+    }
+    await enqueue(
+      taskId: saved.id,
+      title: saved.title,
+      url:
+          (saved.songId?.isNotEmpty ?? false) &&
+              (saved.platform?.isNotEmpty ?? false)
+          ? ''
+          : saved.url,
+      songId: saved.songId,
+      platform: saved.platform,
+      artist: saved.artist,
+      album: saved.album,
+      artworkUrl: saved.artworkUrl,
+      quality: saved.quality,
+    );
+  }
+
   Future<void> openContainingFolder(String taskId) async {
     final task = _findTask(taskId);
     final filePath = task?.filePath?.trim() ?? '';
@@ -176,11 +209,19 @@ class DownloadController extends Notifier<DownloadState> {
     await _removeTask(taskId, deleteFiles: true);
   }
 
-  void clearCompleted() {
-    final updated = state.tasks
-        .where((task) => task.status != DownloadTaskStatus.completed)
-        .toList(growable: false);
-    state = _withProcessing(updated);
+  Future<void> clearCompleted() async {
+    final completed = state.tasks
+        .where((task) => task.status == DownloadTaskStatus.completed)
+        .map((task) => task.id)
+        .toSet();
+    final repository = ref.read(downloadRepositoryProvider);
+    for (final id in completed) {
+      await repository.deleteTask(id);
+    }
+    if (_disposed) return;
+    state = _withProcessing(
+      state.tasks.where((task) => !completed.contains(task.id)).toList(),
+    );
   }
 
   Future<void> _restoreTasks() async {
@@ -210,6 +251,12 @@ class DownloadController extends Notifier<DownloadState> {
           filePath: target.filePath,
           lyricPath: target.lyricPath,
         );
+        if (target.artworkPath != null) {
+          await repository.deleteDownloadedArtifacts(
+            filePath: target.artworkPath,
+          );
+        }
+        ref.invalidate(downloadedSongsProvider);
       }
     }
     final updated = state.tasks
@@ -255,11 +302,18 @@ class DownloadController extends Notifier<DownloadState> {
       return;
     }
     final resolvedSource = await _resolveDownloadSource(currentTask);
-    final savePath = await repository.resolveSavePath(
+    var savePath = await repository.resolveSavePath(
       title: currentTask.title,
       artist: currentTask.artist,
       fileExtension: resolvedSource.fileExtension,
     );
+    if (state.tasks.any(
+      (other) => other.id != task.id && other.filePath == savePath,
+    )) {
+      final extension = '.${resolvedSource.fileExtension}';
+      final base = savePath.substring(0, savePath.length - extension.length);
+      savePath = '$base (${task.id})$extension';
+    }
     final request = DownloadEnqueueRequest(
       taskId: task.id,
       pluginTaskId: task.id,
@@ -499,6 +553,7 @@ class DownloadController extends Notifier<DownloadState> {
           lyricFormat: result.lyricFormat,
           filePath: finalizedPaths.filePath,
           lyricPath: finalizedPaths.lyricPath,
+          artworkPath: result.artworkPath,
           clearError: true,
         ),
       );

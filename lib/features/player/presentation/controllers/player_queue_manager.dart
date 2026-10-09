@@ -131,7 +131,8 @@ class PlayerQueueManager {
       return false;
     }
     for (var index = 0; index < currentQueue.length; index++) {
-      if (trackKey(currentQueue[index]) != trackKey(nextQueue[index])) {
+      if (trackKey(currentQueue[index]) != trackKey(nextQueue[index]) ||
+          currentQueue[index].path != nextQueue[index].path) {
         return false;
       }
     }

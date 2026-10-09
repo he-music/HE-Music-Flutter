@@ -3,6 +3,7 @@ import '../../domain/entities/lyric_request.dart';
 import '../../domain/entities/raw_lyric_bundle.dart';
 import '../storage/lyric_store.dart';
 
+import '../../../download/domain/repositories/downloaded_music_repository.dart';
 import '../../../../core/audio/local_audio_metadata_reader.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/repositories/lyric_repository.dart';
@@ -17,9 +18,12 @@ class LyricRepositoryImpl implements LyricRepository {
     this._metadataReader, {
     LyricStore? store,
     this.onWarning,
-  }) : _store = store ?? LyricStore.shared;
+    DownloadedMusicRepository? downloadedMusicRepository,
+  }) : _store = store ?? LyricStore.shared,
+       _downloadedMusicRepository = downloadedMusicRepository;
 
   final LyricStore _store;
+  final DownloadedMusicRepository? _downloadedMusicRepository;
   final void Function(String)? onWarning;
 
   final OnlineLyricDataSource _onlineDataSource;
@@ -54,6 +58,27 @@ class LyricRepositoryImpl implements LyricRepository {
       return const LyricDocument.empty();
     }
     if (normalizedPlatform.isNotEmpty) {
+      try {
+        final song = await _downloadedMusicRepository?.findPlayable(
+          songId: trackId,
+          platform: normalizedPlatform,
+          filePath: normalizedPath.isEmpty ? null : normalizedPath,
+        );
+        if (song != null) {
+          final lyricPath = song.task.lyricPath;
+          if (lyricPath != null && await File(lyricPath).exists()) {
+            final raw = await File(lyricPath).readAsString();
+            final document = _parseLocal(raw);
+            if (!document.isEmpty) {
+              return document.withSource(LyricSource.local);
+            }
+          }
+          final document = await _readLocalLyrics(song.filePath);
+          if (!document.isEmpty) return document.withSource(LyricSource.local);
+        }
+      } catch (_) {
+        // Missing companion files do not prevent cached or online retrieval.
+      }
       try {
         final cached = await _store.read(target, manual: false);
         if (cached != null && epoch == _store.automaticEpoch) {

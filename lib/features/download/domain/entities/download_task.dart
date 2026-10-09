@@ -88,6 +88,7 @@ class DownloadTask {
     this.finishedAt,
     this.metadataPath,
     this.filePath,
+    this.artworkPath,
     this.resolvedFileExtension,
     this.lyricPath,
     this.errorMessage,
@@ -114,6 +115,7 @@ class DownloadTask {
   final DateTime? finishedAt;
   final String? metadataPath;
   final String? filePath;
+  final String? artworkPath;
   final String? resolvedFileExtension;
   final String? lyricPath;
   final String? errorMessage;
@@ -146,6 +148,7 @@ class DownloadTask {
     DateTime? finishedAt,
     String? metadataPath,
     String? filePath,
+    String? artworkPath,
     String? resolvedFileExtension,
     String? lyricPath,
     String? errorMessage,
@@ -180,6 +183,7 @@ class DownloadTask {
           ? null
           : metadataPath ?? this.metadataPath,
       filePath: clearFilePath ? null : filePath ?? this.filePath,
+      artworkPath: artworkPath ?? this.artworkPath,
       resolvedFileExtension:
           resolvedFileExtension ?? this.resolvedFileExtension,
       lyricPath: clearLyricPath ? null : lyricPath ?? this.lyricPath,
@@ -210,6 +214,7 @@ class DownloadTask {
       'finished_at': finishedAt?.toIso8601String(),
       'metadata_path': metadataPath,
       'file_path': filePath,
+      'artwork_path': artworkPath,
       'resolved_file_extension': resolvedFileExtension,
       'lyric_path': lyricPath,
       'error_message': errorMessage,
@@ -246,6 +251,7 @@ class DownloadTask {
       finishedAt: _nullableDateTime(json['finished_at']),
       metadataPath: _nullableString(json['metadata_path']),
       filePath: _nullableString(json['file_path']),
+      artworkPath: _nullableString(json['artwork_path']),
       resolvedFileExtension:
           _nullableString(json['resolved_file_extension']) ??
           _nullableString(

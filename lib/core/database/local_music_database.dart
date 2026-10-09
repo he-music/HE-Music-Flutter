@@ -123,6 +123,7 @@ class SongArtists extends Table {
     PlaybackQueueEntries,
     PlaybackHistory,
     StoredDownloadTasks,
+    DownloadedMusic,
     CachedFavoriteSongs,
     StorageMigrations,
   ],
@@ -134,7 +135,7 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
   LocalMusicDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -157,6 +158,9 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
         await m.createTable(cachedFavoriteSongs);
         await m.createTable(storageMigrations);
       }
+      if (from < 5) {
+        await m.createTable(downloadedMusic);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -165,6 +169,10 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
   );
 
   Future<void> _ensurePerformanceIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_downloaded_music_identity '
+      'ON downloaded_music (platform, song_id, downloaded_at)',
+    );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_local_songs_scan_cleanup '
       'ON local_songs (scan_source, scan_batch_id, metadata_edited)',

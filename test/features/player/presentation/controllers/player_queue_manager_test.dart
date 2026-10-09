@@ -68,6 +68,34 @@ PlayerPlaybackState _state({
 }
 
 void main() {
+  test(
+    'same online song with a different downloaded path replaces queue context',
+    () {
+      final manager = _buildManager();
+      const source = PlayerQueueSource(
+        routePath: '/downloads/music',
+        queryParameters: {},
+        title: 'Downloads',
+      );
+      const first = PlayerTrack(
+        id: 'song',
+        title: 'Song',
+        platform: 'qq',
+        path: '/music/song.mp3',
+      );
+      final current = PlayerPlaybackState.initial([
+        first,
+      ]).copyWith(queueSource: source);
+      expect(manager.isSameQueueContext(current, [first], source), isTrue);
+      expect(
+        manager.isSameQueueContext(current, [
+          first.copyWith(path: '/music/song.flac'),
+        ], source),
+        isFalse,
+      );
+    },
+  );
+
   group('PlayerQueueManager', () {
     late PlayerQueueManager manager;
 

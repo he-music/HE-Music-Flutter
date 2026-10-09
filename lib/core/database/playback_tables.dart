@@ -34,6 +34,18 @@ class StoredDownloadTasks extends Table {
   Set<Column> get primaryKey => {taskId};
 }
 
+/// User-owned audio; deliberately independent of transfer tasks and cache.
+@DataClassName('DownloadedMusicEntry')
+class DownloadedMusic extends Table {
+  TextColumn get taskId => text()();
+  TextColumn get songId => text()();
+  TextColumn get platform => text()();
+  IntColumn get downloadedAt => integer()();
+  TextColumn get payload => text()();
+  @override
+  Set<Column> get primaryKey => {taskId};
+}
+
 class CachedFavoriteSongs extends Table {
   TextColumn get platform => text()();
   TextColumn get songId => text()();

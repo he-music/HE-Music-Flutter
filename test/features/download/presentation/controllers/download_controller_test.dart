@@ -14,6 +14,107 @@ import 'package:he_music_flutter/features/online/presentation/controllers/online
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 
 void main() {
+  test(
+    'clear completed tasks removes persisted transfers and keeps other tasks',
+    () async {
+      final completed =
+          DownloadTask.queued(
+            id: 'completed',
+            title: 'Downloaded',
+            url: 'https://example.com/song.mp3',
+          ).copyWith(
+            status: DownloadTaskStatus.completed,
+            filePath: '/tmp/saved.mp3',
+          );
+      final paused = DownloadTask.queued(
+        id: 'paused',
+        title: 'Paused',
+        url: 'https://example.com/song.mp3',
+      ).copyWith(status: DownloadTaskStatus.paused);
+      final repository = _FakeDownloadRepository(
+        initialTasks: [completed, paused],
+      );
+      final container = ProviderContainer(
+        overrides: [downloadRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      container.read(downloadControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      await container
+          .read(downloadControllerProvider.notifier)
+          .clearCompleted();
+      expect(
+        container.read(downloadControllerProvider).tasks.single.id,
+        'paused',
+      );
+      expect(repository.savedTasks.single.id, 'paused');
+      expect(repository.deleteDownloadedArtifactsCalls, isEmpty);
+    },
+  );
+
+  test(
+    'redownload saved song recreates a cleared task with the same identity',
+    () async {
+      final saved =
+          DownloadTask.queued(
+            id: 'saved-task',
+            title: 'Song',
+            url: 'https://example.com/expired.mp3',
+            songId: 'song-1',
+            platform: 'qq',
+          ).copyWith(
+            status: DownloadTaskStatus.completed,
+            filePath: '/tmp/deleted.mp3',
+          );
+      final repository = _FakeDownloadRepository();
+      final online = _FakeOnlineController();
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          onlineControllerProvider.overrideWith(() => online),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container
+          .read(downloadControllerProvider.notifier)
+          .redownloadSavedSong(saved);
+      final task = container.read(downloadControllerProvider).tasks.single;
+      expect(task.id, saved.id);
+      expect(task.songId, saved.songId);
+      expect(task.platform, saved.platform);
+      expect(online.fetchSongUrlCalls, 1);
+      expect(repository.enqueueTaskRequests.single.taskId, saved.id);
+    },
+  );
+
+  test(
+    'two queued songs with matching filenames receive distinct output paths',
+    () async {
+      final repository = _FakeDownloadRepository();
+      final container = ProviderContainer(
+        overrides: [downloadRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(downloadControllerProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      await controller.enqueue(
+        title: 'Same name',
+        url: 'https://example.com/a.mp3',
+      );
+      await controller.enqueue(
+        title: 'Same name',
+        url: 'https://example.com/b.mp3',
+      );
+      expect(repository.enqueueTaskRequests, hasLength(2));
+      expect(
+        repository.enqueueTaskRequests
+            .map((request) => request.savePath)
+            .toSet(),
+        hasLength(2),
+      );
+    },
+  );
+
   test('controller restores persisted tasks on build', () async {
     final repository = _FakeDownloadRepository(
       initialTasks: <DownloadTask>[

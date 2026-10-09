@@ -27,6 +27,7 @@ void main() {
       'playback_queues',
       'playback_history',
       'stored_download_tasks',
+      'downloaded_music',
       'cached_favorite_songs',
       'storage_migrations',
     ]) {
@@ -44,7 +45,7 @@ void main() {
     expect(
       (await upgraded.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      4,
+      5,
     );
   });
 

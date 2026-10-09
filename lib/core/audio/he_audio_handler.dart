@@ -10,6 +10,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../features/download/domain/repositories/downloaded_music_repository.dart';
+import '../../features/download/data/repositories/downloaded_music_repository_impl.dart';
+import '../../features/download/data/datasources/downloaded_music_data_source.dart';
+import '../../features/download/data/datasources/download_task_store_data_source.dart';
 import '../../app/config/app_lyric_auxiliary_mode.dart';
 import '../../features/lyrics/data/storage/lyric_store.dart';
 import '../../app/config/app_config_data_source.dart';
@@ -205,6 +209,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     Random? randomOverride,
     OverlayChannelService? overlayLyricsServiceOverride,
     AudioCacheRuntime? audioCacheRuntime,
+    DownloadedMusicRepository? downloadedMusicRepository,
     HeAudioHandlerCreateCachingSource? createCachingSourceOverride,
     HeAudioHandlerReleaseAudioSource? releaseAudioSourceOverride,
   }) : _player = player ?? createHeAudioPlayer(),
@@ -231,6 +236,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
        _overlayLyricsService =
            overlayLyricsServiceOverride ?? OverlayLyricsService(),
        _audioCacheRuntime = audioCacheRuntime,
+       _downloadedMusicRepository = downloadedMusicRepository,
        _createCachingSourceOverride = createCachingSourceOverride,
        _releaseAudioSourceOverride = releaseAudioSourceOverride {
     _appLifecycleListener = AppLifecycleListener(
@@ -298,6 +304,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final HeAudioHandlerFetchRadioSongs? _fetchRadioSongsOverride;
   final HeAudioHandlerFetchLyrics? _fetchLyricsOverride;
   final LyricStore _lyricStore;
+  final DownloadedMusicRepository? _downloadedMusicRepository;
   final HeAudioHandlerSetAudioSource? _setAudioSourceOverride;
   final HeAudioHandlerPlay? _playOverride;
   final HeAudioHandlerPause? _pauseOverride;
@@ -2160,6 +2167,38 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         uri: _localPathToUri(localPath),
       );
     }
+    // User downloads take precedence over transparent cache and remote URLs.
+    // Keep the online identity so favorites, details and history still work.
+    final downloads = _downloadedMusicRepository;
+    if (downloads != null && request.resolvesRemoteUrl) {
+      try {
+        final song = await downloads.findPlayable(
+          songId: track.id,
+          platform: track.platform ?? '',
+        );
+        if (song != null) {
+          final artworkPath = song.task.artworkPath;
+          final hasCover =
+              artworkPath != null && await File(artworkPath).exists();
+          final resolved = _copyResolvedTrack(
+            track,
+            url: _localPathToUrl(song.filePath),
+            format: song.task.effectiveFileExtension,
+            bitrate: song.task.quality.bitrate.round(),
+            artworkUrl: hasCover ? artworkPath : null,
+          );
+          return _plainPreparedSource(
+            request,
+            resolved,
+            kind: AudioSourceKind.localTrack,
+            requiresNetwork: false,
+            uri: _localPathToUri(song.filePath),
+          );
+        }
+      } catch (error) {
+        _logSourceFailure('download.lookup.failed', error);
+      }
+    }
     if (!request.resolvesRemoteUrl) {
       final directUrl = track.url.trim().isNotEmpty
           ? track.url.trim()
@@ -2415,6 +2454,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   AudioTrack _copyResolvedTrack(
     AudioTrack track, {
     required String url,
+    String? artworkUrl,
     String? format,
     int? bitrate,
   }) {
@@ -2427,7 +2467,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       links: track.links,
       artist: track.artist,
       album: track.album,
-      artworkUrl: track.artworkUrl,
+      artworkUrl: artworkUrl ?? track.artworkUrl,
       platform: track.platform,
       format: format ?? track.format,
       bitrate: bitrate ?? track.bitrate,
@@ -2449,6 +2489,13 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       final nextIndex = _resolveNextTrackIndex(sourceIndex, advance: false);
       track = _safeTrack(nextIndex);
       if (track == null || !shouldRefreshRemotePlaybackUrl(track)) {
+        return;
+      }
+      if (await _downloadedMusicRepository?.findPlayable(
+            songId: track.id,
+            platform: track.platform ?? '',
+          ) !=
+          null) {
         return;
       }
       final request = await _freezePlaybackRequest(track);
@@ -3286,6 +3333,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   bool _isSameTrack(AudioTrack left, AudioTrack right) {
+    if (left.path != right.path) return false;
     final leftId = left.id.trim();
     final rightId = right.id.trim();
     if (leftId.isEmpty || rightId.isEmpty || leftId != rightId) {
@@ -3610,6 +3658,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       DemoLyricDataSource(),
       const LocalAudioMetadataReader(),
       store: _lyricStore,
+      downloadedMusicRepository: _downloadedMusicRepository,
       onWarning: (message) {
         if (generation == _lyricGeneration) {
           customEvent.add({'type': 'lyricWarning', 'message': message});
@@ -4127,6 +4176,10 @@ Future<void> initHeAudioHandler({
         HeAudioHandler(
           initialConfig: config,
           audioCacheRuntime: audioCacheRuntime,
+          downloadedMusicRepository: DownloadedMusicRepositoryImpl(
+            dataSource: DownloadedMusicDataSource(),
+            taskStore: DownloadTaskStoreDataSource(),
+          ),
         ),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.hemusic.music.flutter.audio',
