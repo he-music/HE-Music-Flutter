@@ -150,7 +150,17 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
 
     final request = ref.watch(currentLyricRequestProvider);
     final documentAsync = ref.watch(displayedLyricDocumentProvider);
-    final config = ref.watch(appConfigProvider);
+    final config = ref.watch(
+      appConfigProvider.select(
+        (config) => (
+          enableWordByWordLyric: config.enableWordByWordLyric,
+          lyricFontPreset: config.lyricFontPreset,
+          lyricHighlightMode: config.lyricHighlightMode,
+          lyricHighlightPreset: config.lyricHighlightPreset,
+          lyricHighlightCustomColor: config.lyricHighlightCustomColor,
+        ),
+      ),
+    );
 
     return documentAsync.when(
       data: (document) {
@@ -173,8 +183,10 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
             compact: widget.compact,
             fontPreset: config.lyricFontPreset,
             center: widget.center,
-            activeHighlightColor: resolveLyricHighlightColor(
-              config,
+            activeHighlightColor: resolveLyricHighlightColorValues(
+              mode: config.lyricHighlightMode,
+              preset: config.lyricHighlightPreset,
+              customColorValue: config.lyricHighlightCustomColor,
               autoColor: widget.activeHighlightColorOverride,
             ),
           ),

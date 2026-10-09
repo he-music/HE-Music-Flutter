@@ -438,6 +438,25 @@ void main() {
     },
   );
 
+  testWidgets('photo brightness changes do not rebuild home content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildDiscoverTabTestApp());
+    await tester.pumpAndSettle();
+    final page = find.byKey(const PageStorageKey<String>('home-discover'));
+    final initialPage = tester.widget(page);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(DiscoverHomeTab)),
+    );
+    for (var index = 0; index < 10; index++) {
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricPhotoBrightness(0.9 - index * 0.01, persist: false);
+      await tester.pump();
+      expect(tester.widget(page), same(initialPage));
+    }
+  });
+
   testWidgets('home keeps its root stable while current song items update', (
     WidgetTester tester,
   ) async {

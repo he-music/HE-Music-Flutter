@@ -23,6 +23,79 @@ const _testDeviceInfo = DeviceInfoData(
 );
 
 void main() {
+  testWidgets('pending polls do not rebuild the QR image', (tester) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final client = _LoginPageTestClient.desktop();
+    await tester.pumpWidget(
+      _buildApp(platform: TargetPlatform.macOS, client: client),
+    );
+    await tester.pump();
+    await tester.tap(find.text('二维码登录'));
+    await tester.pump();
+    final initialImage = tester.widget<QrImageView>(find.byType(QrImageView));
+    for (var index = 0; index < 3; index++) {
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(
+        tester.widget<QrImageView>(find.byType(QrImageView)),
+        same(initialImage),
+      );
+    }
+    expect(client.statusCallCount, 3);
+    expect(client.createQrCallCount, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('QR polling updates scanned hints, expiry and locale', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final client = _LoginPageTestClient.desktop();
+    await tester.pumpWidget(
+      _buildApp(platform: TargetPlatform.macOS, client: client),
+    );
+    await tester.pump();
+    await tester.tap(find.text('二维码登录'));
+    await tester.pump();
+    client.nextStatus = const QrLoginSessionStatusResult(
+      sessionId: 'qls_desktop',
+      status: 'scanned',
+      checkInterval: 2,
+      expiresAt: 1774593600,
+      clientName: 'HE Music macOS',
+      userHint: '请在手机确认',
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(find.text('请在手机确认'), findsOneWidget);
+    client.nextStatus = const QrLoginSessionStatusResult(
+      sessionId: 'qls_desktop',
+      status: 'expired',
+      checkInterval: 2,
+      expiresAt: 1774593600,
+      clientName: 'HE Music macOS',
+      userHint: '',
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(find.text('请在手机确认'), findsNothing);
+    expect(find.text('二维码已过期，请重新扫码'), findsOneWidget);
+    expect(find.text('刷新二维码'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LoginPage)),
+    );
+    (container.read(appConfigProvider.notifier) as _TestAppConfigController)
+        .updateLocale('en');
+    await tester.pump();
+    expect(
+      find.text('The QR code expired. Please scan again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Refresh QR Code'), findsOneWidget);
+    expect(find.text('二维码已过期，请重新扫码'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('desktop login page defaults to password tab', (tester) async {
     await tester.pumpWidget(
       _buildApp(
@@ -306,6 +379,9 @@ class _TestAppConfigController extends AppConfigController {
   AppConfigState build() {
     return AppConfigState.initial;
   }
+
+  void updateLocale(String locale) =>
+      state = state.copyWith(localeCode: locale);
 }
 
 class _LoginPageTestClient extends OnlineApiClient {
@@ -320,6 +396,7 @@ class _LoginPageTestClient extends OnlineApiClient {
   int statusCallCount = 0;
   int loginCallCount = 0;
   bool? lastStatusRequestWasSilent;
+  QrLoginSessionStatusResult? nextStatus;
   final Completer<Map<String, dynamic>> _loginCompleter = Completer();
 
   factory _LoginPageTestClient.desktop({
@@ -387,13 +464,14 @@ class _LoginPageTestClient extends OnlineApiClient {
   }) async {
     statusCallCount += 1;
     lastStatusRequestWasSilent = silentErrorMessage;
-    return const QrLoginSessionStatusResult(
-      sessionId: 'qls_desktop',
-      status: 'pending',
-      checkInterval: 2,
-      expiresAt: 1774593600,
-      clientName: 'HE Music macOS',
-      userHint: '等待扫码',
-    );
+    return nextStatus ??
+        const QrLoginSessionStatusResult(
+          sessionId: 'qls_desktop',
+          status: 'pending',
+          checkInterval: 2,
+          expiresAt: 1774593600,
+          clientName: 'HE Music macOS',
+          userHint: '等待扫码',
+        );
   }
 }

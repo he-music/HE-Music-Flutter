@@ -32,6 +32,52 @@ import 'package:he_music_flutter/core/audio/cache/audio_cache_provider.dart';
 import '../../../../core/audio/cache/cache_surface_test_support.dart';
 
 void main() {
+  testWidgets('photo brightness changes do not rebuild my page content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
+    await tester.pumpAndSettle();
+    final list = find
+        .descendant(of: find.byType(MyPage), matching: find.byType(ListView))
+        .first;
+    final initialList = tester.widget(list);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MyPage)),
+    );
+    for (var index = 0; index < 10; index++) {
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricPhotoBrightness(0.9 - index * 0.01, persist: false);
+      await tester.pump();
+      expect(tester.widget(list), same(initialList));
+    }
+  });
+
+  testWidgets('my page still responds to locale and authentication changes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MyPage)),
+    );
+    final controller =
+        container.read(appConfigProvider.notifier) as _TestAppConfigController;
+    controller.updateConfig(
+      container.read(appConfigProvider).copyWith(localeCode: 'en'),
+    );
+    await tester.pump();
+    expect(find.text('Collections'), findsOneWidget);
+    expect(find.text('我的收藏'), findsNothing);
+    controller.updateConfig(
+      container.read(appConfigProvider).copyWith(clearToken: true),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Collections'), findsNothing);
+    expect(find.text('Tester'), findsNothing);
+  });
+
   for (final locale in ['zh', 'en']) {
     testWidgets('my page fits large text in $locale on a narrow screen', (
       tester,
@@ -410,6 +456,8 @@ class _TestAppConfigController extends AppConfigController {
       clearToken: authToken == null,
     );
   }
+
+  void updateConfig(AppConfigState config) => state = config;
 }
 
 class _TestMyOverviewController extends MyOverviewController {

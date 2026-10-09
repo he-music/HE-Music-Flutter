@@ -280,6 +280,27 @@ void main() {
     );
   });
 
+  testWidgets('photo brightness changes do not rebuild search results', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(initialKeyword: 'Taylor Swift'),
+    );
+    await tester.pumpAndSettle();
+    final results = find.byType(OnlineSearchResultPage);
+    final initialResults = tester.widget(results);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(OnlineSearchPage)),
+    );
+    for (var index = 0; index < 10; index++) {
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricPhotoBrightness(0.9 - index * 0.01, persist: false);
+      await tester.pump();
+      expect(tester.widget(results), same(initialResults));
+    }
+  });
+
   testWidgets('placeholder updates without rebuilding online search results', (
     tester,
   ) async {

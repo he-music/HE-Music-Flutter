@@ -40,7 +40,12 @@ class _MyPageState extends ConsumerState<MyPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final platform = theme.platform;
-    final config = ref.watch(appConfigProvider);
+    ref.watch(
+      appConfigProvider.select(
+        (config) => (config.localeCode, config.authToken),
+      ),
+    );
+    final config = ref.read(appConfigProvider);
     final state = ref.watch(myOverviewControllerProvider);
     final historyCount = ref.watch(
       playerControllerProvider.select(

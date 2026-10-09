@@ -159,7 +159,8 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       }
       unawaited(_loadHotKeywords());
     });
-    final config = ref.watch(appConfigProvider);
+    ref.watch(appConfigProvider.select((config) => config.localeCode));
+    final config = ref.read(appConfigProvider);
     final platformsAsync = ref.watch(onlinePlatformsProvider);
     final platforms = _resolvePlatforms(platformsAsync);
     _syncSelectedPlatform(platforms);

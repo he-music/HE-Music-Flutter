@@ -130,7 +130,9 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final localeCode = ref.watch(appConfigProvider).localeCode;
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     final commonSections =
         <
           ({
@@ -247,7 +249,9 @@ class _BestMatchBlock extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final localeCode = ref.watch(appConfigProvider).localeCode;
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     // 第一项作为 primary 全宽展示，其余横向滚动
     final primary = items.first;
     final recommendations = items.skip(1).toList(growable: false);
@@ -710,7 +714,9 @@ class _SectionBlock extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final localeCode = ref.watch(appConfigProvider).localeCode;
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[

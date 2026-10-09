@@ -44,7 +44,8 @@ class _PlayerQueuePanelContentState
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(appConfigProvider);
+    ref.watch(appConfigProvider.select((config) => config.localeCode));
+    final config = ref.read(appConfigProvider);
     final controller = ref.read(playerControllerProvider.notifier);
     final queueState = ref.watch(
       playerControllerProvider.select(_QueuePanelSelection.fromState),

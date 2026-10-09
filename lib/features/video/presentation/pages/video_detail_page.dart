@@ -36,7 +36,6 @@ typedef _VideoSurfaceBuildState = ({
   bool isInitialized,
   bool isPlaying,
   double aspectRatio,
-  double volume,
 });
 
 typedef _VideoPlaybackBuildState = ({
@@ -169,7 +168,6 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
       isInitialized: state.isInitialized,
       isPlaying: state.isPlaying,
       aspectRatio: state.aspectRatio,
-      volume: state.volume,
     );
   }
 
@@ -1156,7 +1154,7 @@ class _VideoCoverPoster extends StatelessWidget {
   }
 }
 
-class _VideoPlayerView extends StatelessWidget {
+class _VideoPlayerView extends StatefulWidget {
   const _VideoPlayerView({
     required this.player,
     required this.controls,
@@ -1168,9 +1166,50 @@ class _VideoPlayerView extends StatelessWidget {
   final MaterialVideoControlsThemeData? materialControlsTheme;
 
   @override
-  Widget build(BuildContext context) {
-    final isReady = player != null && player!.state.isInitialized;
+  State<_VideoPlayerView> createState() => _VideoPlayerViewState();
+}
 
+class _VideoPlayerViewState extends State<_VideoPlayerView> {
+  double _volume = 100;
+
+  @override
+  void initState() {
+    super.initState();
+    _volume = widget.player?.state.volume ?? 100;
+    widget.player?.addListener(_handleVolumeChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoPlayerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.player != widget.player) {
+      oldWidget.player?.removeListener(_handleVolumeChanged);
+      widget.player?.addListener(_handleVolumeChanged);
+    }
+    _volume = widget.player?.state.volume ?? 100;
+  }
+
+  @override
+  void dispose() {
+    widget.player?.removeListener(_handleVolumeChanged);
+    super.dispose();
+  }
+
+  void _handleVolumeChanged() {
+    final volume = widget.player?.state.volume ?? 100;
+    if (_volume == volume) return;
+    _volume = volume;
+    // 全屏控件重新挂载时需要当前音量；只更新视频视图的控件配置。
+    if (mounted && widget.materialControlsTheme != null) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final player = widget.player;
+    final isReady = player != null && player.state.isInitialized;
+    final materialControlsTheme = widget.materialControlsTheme?.copyWith(
+      initialVolume: (_volume / 100).clamp(0.0, 1.0).toDouble(),
+    );
     return Container(
       color: Colors.black,
       child: Stack(
@@ -1179,9 +1218,9 @@ class _VideoPlayerView extends StatelessWidget {
           if (isReady)
             Center(
               child: AspectRatio(
-                aspectRatio: player!.state.aspectRatio,
-                child: player!.buildView(
-                  controls: controls,
+                aspectRatio: player.state.aspectRatio,
+                child: player.buildView(
+                  controls: widget.controls,
                   materialControlsTheme: materialControlsTheme,
                 ),
               ),
@@ -1207,11 +1246,27 @@ class _VideoProgressBar extends StatefulWidget {
 class _VideoProgressBarState extends State<_VideoProgressBar> {
   VoidCallback? _listener;
 
+  ({Duration position, Duration duration}) _timing = (
+    position: Duration.zero,
+    duration: Duration.zero,
+  );
+
+  ({Duration position, Duration duration}) _readTiming() {
+    final state = widget.player?.state;
+    return (
+      position: state?.position ?? Duration.zero,
+      duration: state?.duration ?? Duration.zero,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    _timing = _readTiming();
     _listener = () {
-      if (mounted) setState(() {});
+      final timing = _readTiming();
+      if (!mounted || _timing == timing) return;
+      setState(() => _timing = timing);
     };
     widget.player?.addListener(_listener!);
   }
@@ -1222,6 +1277,7 @@ class _VideoProgressBarState extends State<_VideoProgressBar> {
     if (oldWidget.player == widget.player || _listener == null) return;
     oldWidget.player?.removeListener(_listener!);
     widget.player?.addListener(_listener!);
+    _timing = _readTiming();
   }
 
   @override

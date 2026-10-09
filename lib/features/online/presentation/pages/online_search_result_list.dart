@@ -89,7 +89,9 @@ class _OnlineSearchResultListState
   Widget build(BuildContext context) {
     final platforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
-    final localeCode = ref.watch(appConfigProvider).localeCode;
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
     if (widget.error != null) {
       return Center(
         child: Text(

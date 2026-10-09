@@ -13,6 +13,7 @@ import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart
 import 'package:he_music_flutter/features/lyrics/presentation/helpers/lyric_highlight_color_helper.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/lyric_panel.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/lyric_photo_dimmer.dart';
 
 final _testLyricPositionProvider =
     NotifierProvider<_TestLyricPositionController, Duration>(
@@ -161,6 +162,31 @@ void main() {
     expect(color, const Color(0xFF123456));
   });
 
+  testWidgets('photo brightness changes do not rebuild lyric content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildLyricPanelTestApp());
+    await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LyricPanel)),
+    );
+    final initialView = tester.widget<fl.LyricView>(find.byType(fl.LyricView));
+    for (var index = 0; index < 10; index++) {
+      container
+          .read(appConfigProvider.notifier)
+          .setLyricPhotoBrightness(0.9 - index * 0.01, persist: false);
+      await tester.pump();
+      expect(
+        tester.widget<fl.LyricView>(find.byType(fl.LyricView)),
+        same(initialView),
+      );
+      final dimmer = tester.widget<ColoredBox>(
+        find.byKey(const ValueKey('lyric-photo-dimmer')),
+      );
+      expect(dimmer.color.a, closeTo((0.1 + index * 0.01) * 0.75, 0.001));
+    }
+  });
+
   testWidgets('position updates do not rebuild LyricView', (tester) async {
     await tester.pumpWidget(_buildLyricPanelTestApp());
     await tester.pump();
@@ -178,6 +204,74 @@ void main() {
     expect(
       tester.widget<fl.LyricView>(find.byType(fl.LyricView)),
       same(initialView),
+    );
+  });
+
+  testWidgets('lyric color and word timing preferences still update content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildLyricPanelTestApp());
+    await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LyricPanel)),
+    );
+    final controller =
+        container.read(appConfigProvider.notifier) as _TestAppConfigController;
+    for (final preset in [
+      AppLyricHighlightColor.amber,
+      AppLyricHighlightColor.emerald,
+    ]) {
+      controller.updateConfig(
+        container
+            .read(appConfigProvider)
+            .copyWith(
+              lyricHighlightMode: AppLyricHighlightMode.preset,
+              lyricHighlightPreset: preset,
+            ),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<fl.LyricView>(find.byType(fl.LyricView))
+            .style!
+            .activeHighlightColor,
+        preset.color,
+      );
+    }
+    for (final color in [0xFF123456, 0xFF654321]) {
+      controller.updateConfig(
+        container
+            .read(appConfigProvider)
+            .copyWith(
+              lyricHighlightMode: AppLyricHighlightMode.custom,
+              lyricHighlightCustomColor: color,
+            ),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<fl.LyricView>(find.byType(fl.LyricView))
+            .style!
+            .activeHighlightColor,
+        Color(color),
+      );
+    }
+    final previousModel = tester
+        .widget<fl.LyricView>(find.byType(fl.LyricView))
+        .controller
+        .lyricNotifier
+        .value;
+    controller.updateConfig(
+      container.read(appConfigProvider).copyWith(enableWordByWordLyric: false),
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<fl.LyricView>(find.byType(fl.LyricView))
+          .controller
+          .lyricNotifier
+          .value,
+      isNot(same(previousModel)),
     );
   });
 
@@ -219,7 +313,14 @@ Widget _buildLyricPanelTestApp() {
       ),
     ],
     child: const MaterialApp(
-      home: Scaffold(body: LyricPanel(emptyText: '暂无歌词')),
+      home: Scaffold(
+        body: Stack(
+          children: [
+            LyricPhotoDimmer(),
+            LyricPanel(emptyText: '暂无歌词'),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -236,6 +337,8 @@ class _TestLyricPositionController extends Notifier<Duration> {
 class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() => AppConfigState.initial;
+
+  void updateConfig(AppConfigState config) => state = config;
 
   @override
   void setLyricFontPreset(AppLyricFontPreset preset) {

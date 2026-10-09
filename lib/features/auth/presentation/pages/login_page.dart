@@ -96,7 +96,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final config = ref.watch(appConfigProvider);
+    ref.watch(appConfigProvider.select((config) => config.localeCode));
+    final config = ref.read(appConfigProvider);
     final oauthStatusText = _oauthStatusText?.trim() ?? '';
     return Scaffold(
       appBar: AppBar(
@@ -882,9 +883,15 @@ class _QrLoginSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final state = ref.watch(qrLoginControllerProvider);
-    final overlayText = _resolveOverlayText(state);
-    final showRefresh = _shouldShowRefreshButton(state);
+    final (qrContent, overlayText, showRefresh) = ref.watch(
+      qrLoginControllerProvider.select(
+        (state) => (
+          state.qrContent,
+          _resolveOverlayText(state),
+          _shouldShowRefreshButton(state),
+        ),
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -902,7 +909,7 @@ class _QrLoginSection extends ConsumerWidget {
               children: <Widget>[
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: state.qrContent.trim().isEmpty
+                  child: qrContent.trim().isEmpty
                       ? const Center(
                           child: SizedBox(
                             width: 22,
@@ -911,7 +918,7 @@ class _QrLoginSection extends ConsumerWidget {
                           ),
                         )
                       : QrImageView(
-                          data: state.qrContent,
+                          data: qrContent,
                           backgroundColor: Colors.white,
                         ),
                 ),

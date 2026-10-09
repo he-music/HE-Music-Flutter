@@ -385,6 +385,39 @@ void main() {
     );
   });
 
+  testWidgets('volume changes do not rebuild the video page', (tester) async {
+    final repository = _FakeVideoDetailRepository(
+      detail: _buildDetail(id: 'mv-1', url: 'https://example.com/mv-1.mp4'),
+    );
+    final factory = _FakeVideoPlaybackSurfaceFactory();
+    await tester.pumpWidget(
+      _buildTestApp(repository: repository, factory: factory),
+    );
+    await tester.pump();
+    await tester.pump();
+    final pageView = find.byKey(
+      const ValueKey<String>('video-detail-page-view'),
+    );
+    final initialPageView = tester.widget(pageView);
+    final controls = factory.sessions.single.lastMaterialTheme!;
+    final initialSlider = tester.widget<Slider>(find.byType(Slider));
+    for (var index = 0; index < 10; index++) {
+      final volume = 0.9 - index * 0.01;
+      controls.onVolumeChanged!(volume);
+      await tester.pump();
+      expect(
+        factory.sessions.single.state.volume,
+        closeTo(volume * 100, 0.001),
+      );
+      expect(tester.widget(pageView), same(initialPageView));
+      expect(tester.widget<Slider>(find.byType(Slider)), same(initialSlider));
+      expect(
+        factory.sessions.single.lastMaterialTheme!.initialVolume,
+        closeTo(volume, 0.001),
+      );
+    }
+  });
+
   testWidgets('video position update only rebuilds progress widget', (
     tester,
   ) async {

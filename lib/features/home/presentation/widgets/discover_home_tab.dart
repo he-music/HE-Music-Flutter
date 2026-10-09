@@ -153,7 +153,8 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(appConfigProvider);
+    ref.watch(appConfigProvider.select((config) => config.localeCode));
+    final config = ref.read(appConfigProvider);
     final homePlatforms = ref.watch(
       homePageControllerProvider.select((state) => state.platforms),
     );
