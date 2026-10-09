@@ -76,6 +76,12 @@ update         版本更新检查
 video          视频广场、视频详情与播放状态
 ```
 
+## 部分截图
+
+| 推荐页 | 发现页 | 播放详情页 | 搜索页面 |
+| :---: | :---: | :---: | :---: |
+| <img src="./screenshots/recommend.webp" width="280" alt="推荐页" /> | <img src="./screenshots/discover.webp" width="280" alt="发现页" /> | <img src="./screenshots/player.webp" width="280" alt="播放详情页" /> | <img src="./screenshots/search.webp" width="280" alt="搜索页面" /> |
+
 ## 快速开始
 
 ### 环境要求
