@@ -4,6 +4,13 @@ class LayoutTokens {
   static const double compactPageGutter = 12;
   static const double listItemInnerGutter = 6;
 
+  static const double controlMinExtent = 48;
+  static const double searchIconSize = 18;
+  static const double searchIconSlot = 44;
+  static const double controlHorizontalPadding = 12;
+  static const double defaultControlRadius = 14;
+  static const double maxContentWidth = 1120;
+
   /// 歌曲动作、下载菜单这类底部列表弹窗的统一最大高度比例。
   static const double actionSheetMaxHeightFactor = 0.72;
 

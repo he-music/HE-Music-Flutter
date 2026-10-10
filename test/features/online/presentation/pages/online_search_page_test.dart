@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/app/theme/skins/starlit_melody_skin.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
@@ -263,6 +266,50 @@ void main() {
     expect(find.text('平台热词'), findsOneWidget);
   });
 
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'wallpaper search submit matches its input with glass off in $brightness',
+      (tester) async {
+        final skin = starlitMelodySkin();
+        final theme = brightness == Brightness.light
+            ? AppTheme.light(skin)
+            : AppTheme.dark(skin);
+        final client = _SearchPageOnlineApiClient();
+        await tester.pumpWidget(
+          AppGlassScope(
+            enabled: false,
+            mode: AppGlassMode.off,
+            child: _buildOnlineSearchApp(theme: theme, client: client),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final icon = find.byWidgetPredicate(
+          (widget) =>
+              widget is AppSkinIcon &&
+              widget.role == AppSkinIconRole.searchSubmit,
+        );
+        final button = find.ancestor(
+          of: icon,
+          matching: find.byType(IconButton),
+        );
+        final style = tester.widget<IconButton>(button).style!;
+        final field = tester.widget<TextField>(find.byType(TextField));
+        expect(style.backgroundColor!.resolve({}), field.decoration!.fillColor);
+        expect(style.foregroundColor!.resolve({}), theme.colorScheme.primary);
+        expect(
+          (style.shape!.resolve({})! as RoundedRectangleBorder).borderRadius,
+          (field.decoration!.enabledBorder! as OutlineInputBorder).borderRadius,
+        );
+        expect(tester.getSize(button), const Size(48, 48));
+        await tester.enterText(find.byType(TextField), 'Taylor');
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(client.comprehensiveSearchCallCount, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('online search submit requests the skin submit role', (
     tester,
   ) async {
@@ -469,6 +516,7 @@ void main() {
 
 Widget _buildOnlineSearchApp({
   String? initialKeyword,
+  ThemeData? theme,
   String? initialType,
   OnlineApiClient? client,
   Future<List<OnlinePlatform>>? platformsFuture,
@@ -493,7 +541,7 @@ Widget _buildOnlineSearchApp({
       ),
     ],
     child: MaterialApp(
-      theme: AppTheme.light(citySoundCreatorSkin()),
+      theme: theme ?? AppTheme.light(citySoundCreatorSkin()),
       home: OnlineSearchPage(
         platform: 'qq',
         initialKeyword: initialKeyword,

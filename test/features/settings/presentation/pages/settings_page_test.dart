@@ -1,3 +1,5 @@
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +27,46 @@ import 'package:he_music_flutter/features/settings/presentation/pages/settings_i
 import 'package:toastification/toastification.dart';
 
 void main() {
+  testWidgets(
+    'glass settings uses native page and search controls and opens sections',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(top: 24);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        AppGlassScope(
+          enabled: true,
+          child: GlassAdaptiveScope(
+            minQuality: GlassQuality.minimal,
+            maxQuality: GlassQuality.minimal,
+            child: _buildSettingsApp(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(GlassScaffold), findsOneWidget);
+      expect(find.byType(GlassTextField), findsOneWidget);
+      final appBar = find.byType(GlassAppBar);
+      final search = find.byKey(
+        const ValueKey<String>('settings-search-field'),
+      );
+      expect(
+        tester.getTopLeft(search).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(appBar).dy + 16),
+      );
+      expect(search.hitTestable(), findsOneWidget);
+      await tester.tap(find.text('歌词'));
+      await tester.pumpAndSettle();
+      expect(find.text('歌词大小'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('歌词大小')).dy,
+        greaterThan(tester.getBottomLeft(find.byType(GlassAppBar)).dy),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('setting option labels and descriptions support English', () {
     final config = AppConfigState.initial.copyWith(localeCode: 'en');
 
@@ -437,19 +479,31 @@ void main() {
     );
   });
 
-  testWidgets('wide settings keeps mobile section list', (tester) async {
-    tester.view.physicalSize = const Size(2700, 2700);
-    addTearDown(tester.view.resetPhysicalSize);
+  testWidgets(
+    'wide settings centers content and arranges sections in two columns',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(_buildSettingsApp());
-    await tester.pump();
+      await tester.pumpWidget(_buildSettingsApp());
+      await tester.pump();
 
-    expect(find.byType(NavigationRail), findsNothing);
-    expect(find.text('设置'), findsOneWidget);
-    expect(find.text('外观'), findsOneWidget);
-    expect(find.text('歌词'), findsOneWidget);
-    expect(find.text('主题'), findsNothing);
-  });
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.text('设置'), findsOneWidget);
+      expect(find.text('外观'), findsOneWidget);
+      expect(find.text('歌词'), findsOneWidget);
+      expect(find.text('主题'), findsNothing);
+      expect(tester.getSize(find.byType(Scaffold)).width, 1120);
+      expect(
+        tester.getTopLeft(find.text('外观')).dy,
+        tester.getTopLeft(find.text('播放')).dy,
+      );
+      expect(
+        tester.getTopLeft(find.text('播放')).dx,
+        greaterThan(tester.getTopLeft(find.text('外观')).dx),
+      );
+    },
+  );
 
   testWidgets('desktop search jumps to lyric font preset item', (tester) async {
     tester.view.physicalSize = const Size(2700, 2700);

@@ -1,4 +1,6 @@
 import '../../../../shared/widgets/app_alert_dialog.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import '../../../../app/theme/glass/app_glass_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +18,7 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../shared/widgets/underline_tab.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../../online/presentation/widgets/search_playlist_list_item.dart';
 import '../../../player/presentation/providers/player_providers.dart';
@@ -225,7 +228,7 @@ class _MyPageState extends ConsumerState<MyPage> {
     context.push(
       Uri(
         path: AppRoutes.login,
-        queryParameters: const <String, String>{'redirect': AppRoutes.home},
+        queryParameters: const <String, String>{'redirect': AppRoutes.my},
       ).toString(),
     );
   }
@@ -701,74 +704,19 @@ class _PlaylistTabs extends StatelessWidget {
       spacing: 10,
       runSpacing: 4,
       children: <Widget>[
-        _PlaylistTabButton(
+        UnderlineTab(
+          enabled: true,
           label: AppI18n.tByLocaleCode(localeCode, 'my.playlist.tab.created'),
           selected: selectedIndex == 0,
           onTap: () => onSelected(0),
         ),
-        _PlaylistTabButton(
+        UnderlineTab(
+          enabled: true,
           label: AppI18n.tByLocaleCode(localeCode, 'my.playlist.tab.favorites'),
           selected: selectedIndex == 1,
           onTap: () => onSelected(1),
         ),
       ],
-    );
-  }
-}
-
-class _PlaylistTabButton extends StatelessWidget {
-  const _PlaylistTabButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                style: theme.textTheme.titleSmall!.copyWith(
-                  color: selected
-                      ? colorScheme.onSurface
-                      : colorScheme.onSurfaceVariant,
-                ),
-                child: Text(label),
-              ),
-              const SizedBox(height: 6),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                width: selected ? 26 : 12,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? colorScheme.primary
-                      : colorScheme.outlineVariant.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -787,6 +735,27 @@ class _PlaylistActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    if (AppGlassScope.controlsEnabled(context) &&
+        !MediaQuery.highContrastOf(context)) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 8),
+        child: Tooltip(
+          message: tooltip,
+          child: GlassIconButton(
+            icon: AppSkinIcon(
+              role: iconRole,
+              size: 20,
+              color: colorScheme.onSurface,
+            ),
+            onPressed: onPressed,
+            semanticLabel: tooltip,
+            size: LayoutTokens.controlMinExtent,
+            useOwnLayer: true,
+            quality: AppGlassScope.qualityOf(context),
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: Material(
@@ -798,8 +767,8 @@ class _PlaylistActionButton extends StatelessWidget {
           child: Tooltip(
             message: tooltip,
             child: SizedBox(
-              width: 40,
-              height: 40,
+              width: LayoutTokens.controlMinExtent,
+              height: LayoutTokens.controlMinExtent,
               child: AppSkinIcon(
                 role: iconRole,
                 size: 20,

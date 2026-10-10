@@ -194,18 +194,25 @@ class _DesktopLayout extends ConsumerWidget {
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1120),
+              constraints: const BoxConstraints(
+                maxWidth: LayoutTokens.maxContentWidth,
+              ),
               child: navigationShell,
             ),
           ),
         ),
       ],
     );
-    final miniPlayer = Center(
-      heightFactor: 1,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1120),
-        child: MiniPlayerBar(onOpenFullPlayer: () => openFullPlayer(context)),
+    final miniPlayer = Padding(
+      padding: EdgeInsetsDirectional.only(start: wide ? 160 : 72),
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: LayoutTokens.maxContentWidth,
+          ),
+          child: MiniPlayerBar(onOpenFullPlayer: () => openFullPlayer(context)),
+        ),
       ),
     );
     if (AppGlassScope.isEnabled(context)) {

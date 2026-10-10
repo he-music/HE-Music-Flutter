@@ -76,6 +76,25 @@ enum _DiscoverEntryType { ranking, playlist, artist, video, radio }
 
 const Duration _homeSearchAnimationDuration = Duration(milliseconds: 220);
 
+/// Clip scrolling content below the floating search row without changing layout.
+class _HomeSearchContentClipper extends CustomClipper<Rect> {
+  const _HomeSearchContentClipper(this.topInset);
+
+  final double topInset;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(
+    0,
+    topInset.clamp(0.0, size.height),
+    size.width,
+    size.height,
+  );
+
+  @override
+  bool shouldReclip(_HomeSearchContentClipper oldClipper) =>
+      oldClipper.topInset != topInset;
+}
+
 List<OnlinePlatform> _platformsForPage(
   List<OnlinePlatform> platforms,
   HomePageKind page,
@@ -216,24 +235,48 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                         fit: StackFit.expand,
                         clipBehavior: Clip.hardEdge,
                         children: <Widget>[
-                          PageView(
-                            controller: _pageController,
-                            onPageChanged: (index) {
-                              if (index >= 0 && index < availablePages.length) {
-                                final page = availablePages[index];
-                                unawaited(homeController.selectPage(page));
-                              }
-                            },
-                            children: availablePages
-                                .map(
-                                  (page) => _buildContentPage(
-                                    page: page,
-                                    config: config,
-                                    homePlatforms: homePlatforms,
-                                    globalPlatforms: globalPlatforms,
+                          ValueListenableBuilder<bool>(
+                            valueListenable: _searchVisible,
+                            child: PageView(
+                              controller: _pageController,
+                              onPageChanged: (index) {
+                                if (index >= 0 &&
+                                    index < availablePages.length) {
+                                  final page = availablePages[index];
+                                  unawaited(homeController.selectPage(page));
+                                }
+                              },
+                              children: availablePages
+                                  .map(
+                                    (page) => _buildContentPage(
+                                      page: page,
+                                      config: config,
+                                      homePlatforms: homePlatforms,
+                                      globalPlatforms: globalPlatforms,
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                            ),
+                            builder: (context, visible, child) =>
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween(
+                                    begin: _searchHeight,
+                                    end: visible ? _searchHeight : 0,
                                   ),
-                                )
-                                .toList(growable: false),
+                                  duration:
+                                      MediaQuery.disableAnimationsOf(context)
+                                      ? Duration.zero
+                                      : _homeSearchAnimationDuration,
+                                  curve: Curves.easeOutCubic,
+                                  child: child,
+                                  builder: (context, inset, child) => ClipRect(
+                                    key: const ValueKey<String>(
+                                      'home-content-search-clearance',
+                                    ),
+                                    clipper: _HomeSearchContentClipper(inset),
+                                    child: child,
+                                  ),
+                                ),
                           ),
                           Positioned(
                             top: 0,
@@ -278,7 +321,12 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                                   return IgnorePointer(
                                     ignoring: !visible,
                                     child: AnimatedSlide(
-                                      duration: _homeSearchAnimationDuration,
+                                      duration:
+                                          MediaQuery.disableAnimationsOf(
+                                            context,
+                                          )
+                                          ? Duration.zero
+                                          : _homeSearchAnimationDuration,
                                       curve: Curves.easeOutCubic,
                                       offset: visible
                                           ? Offset.zero

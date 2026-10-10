@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/glass/app_glass_scope.dart';
 import '../../shared/widgets/app_glass_player_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../shared/widgets/app_content_width.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_navigation_service.dart';
@@ -70,21 +71,24 @@ class _RootContentRouteShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final content = AppContentWidth(child: child);
     if (AppGlassScope.isEnabled(context)) {
       return AppGlassPlayerScaffold(
-        body: child,
-        miniPlayer: MiniPlayerBar(
-          onOpenFullPlayer: () => openFullPlayer(context),
+        body: content,
+        miniPlayer: AppContentWidth(
+          child: MiniPlayerBar(onOpenFullPlayer: () => openFullPlayer(context)),
         ),
       );
     }
     // 固定全局迷你播放器；需要避让键盘的页面由内部 Scaffold 自行处理。
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: child,
-      bottomNavigationBar: MiniPlayerBar(
-        bottomSafeArea: true,
-        onOpenFullPlayer: () => openFullPlayer(context),
+      body: content,
+      bottomNavigationBar: AppContentWidth(
+        child: MiniPlayerBar(
+          bottomSafeArea: true,
+          onOpenFullPlayer: () => openFullPlayer(context),
+        ),
       ),
     );
   }

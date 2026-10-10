@@ -31,14 +31,13 @@ class AppGlassScope extends InheritedWidget {
 
   /// Ordinary surfaces default to standard. Persistent playback/navigation
   /// surfaces may request premium, subject to the adaptive quality ceiling.
-  /// An explicit high-quality preference continues to apply to every surface.
+  /// Quality preferences set a ceiling; every active mode can still degrade.
   static GlassQuality qualityOf(
     BuildContext context, {
     bool persistent = false,
   }) => switch (modeOf(context)) {
-    AppGlassMode.automatic =>
+    AppGlassMode.automatic || AppGlassMode.high =>
       persistent ? GlassQuality.premium : GlassQuality.standard,
-    AppGlassMode.high => GlassQuality.premium,
     AppGlassMode.standard || AppGlassMode.powerSaving => GlassQuality.standard,
     AppGlassMode.low || AppGlassMode.off => GlassQuality.minimal,
   };
@@ -101,7 +100,7 @@ class AppGlassPreferences extends ConsumerWidget {
     final mode = ref.watch(
       appConfigProvider.select((state) => state.glassMode),
     );
-    final fixedQuality = switch (mode) {
+    final preferredQuality = switch (mode) {
       AppGlassMode.high => GlassQuality.premium,
       AppGlassMode.standard ||
       AppGlassMode.powerSaving => GlassQuality.standard,
@@ -109,10 +108,10 @@ class AppGlassPreferences extends ConsumerWidget {
       AppGlassMode.automatic => null,
     };
     return GlassAdaptiveScope(
-      initialQuality: fixedQuality ?? GlassQuality.standard,
-      minQuality: fixedQuality ?? GlassQuality.minimal,
-      maxQuality: fixedQuality ?? GlassQuality.premium,
-      allowStepUp: mode == AppGlassMode.automatic,
+      initialQuality: preferredQuality ?? GlassQuality.standard,
+      minQuality: GlassQuality.minimal,
+      maxQuality: preferredQuality ?? GlassQuality.premium,
+      allowStepUp: mode != AppGlassMode.low && mode != AppGlassMode.off,
       child: AppGlassScope(
         enabled: available && mode != AppGlassMode.off,
         mode: mode,

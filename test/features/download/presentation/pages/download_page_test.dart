@@ -11,6 +11,38 @@ import 'package:he_music_flutter/features/download/presentation/pages/download_p
 import 'package:he_music_flutter/features/download/presentation/providers/download_providers.dart';
 
 void main() {
+  testWidgets(
+    'deleting files requires confirmation and cancellation preserves them',
+    (tester) async {
+      final controller = _FilledDownloadController();
+      await _pumpDownloadPage(tester, controllerFactory: () => controller);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('download_more_button_4')));
+      await tester.pumpAndSettle();
+      final destructiveTile = tester.widget<ListTile>(
+        find.byKey(const Key('download_more_remove_task_and_file_4')),
+      );
+      expect(
+        (destructiveTile.title! as Text).style?.color,
+        Theme.of(tester.element(find.byType(DownloadPage))).colorScheme.error,
+      );
+      await tester.tap(find.text('移除任务和文件'));
+      await tester.pumpAndSettle();
+      expect(find.text('删除下载文件？'), findsOneWidget);
+      expect(controller.deletedTaskId, isNull);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(controller.deletedTaskId, isNull);
+      await tester.tap(find.byKey(const Key('download_more_button_4')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('移除任务和文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('移除任务和文件'));
+      await tester.pumpAndSettle();
+      expect(controller.deletedTaskId, '4');
+    },
+  );
+
   testWidgets('download page shows empty state without overview summary', (
     tester,
   ) async {
@@ -277,7 +309,9 @@ Future<void> _pumpDownloadPage(
   Size size = const Size(390, 844),
   TargetPlatform? platform,
   DownloadController Function()? controllerFactory,
-}) {
+}) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -319,6 +353,11 @@ class _EmptyDownloadController extends DownloadController {
 }
 
 class _FilledDownloadController extends DownloadController {
+  String? deletedTaskId;
+
+  @override
+  Future<void> removeTaskAndFile(String taskId) async => deletedTaskId = taskId;
+
   @override
   DownloadState build() {
     return DownloadState(

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,12 +12,14 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/helpers/current_track_helper.dart';
+import '../../../../shared/image/local_artwork_bytes_provider.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/utils/share_link_builder.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_confirmation_dialog.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/online_song_list_item.dart';
 import '../../../player/domain/entities/player_history_item.dart';
@@ -45,8 +46,9 @@ class MyHistoryPage extends ConsumerWidget {
           title: Text(AppI18n.t(config, 'my.history')),
           actions: <Widget>[
             IconButton(
-              onPressed: () =>
-                  ref.read(myHistoryControllerProvider.notifier).clear(),
+              onPressed: state.value?.isNotEmpty == true
+                  ? () => _clearHistory(context, ref)
+                  : null,
               tooltip: AppI18n.t(config, 'my.history.clear'),
               icon: const Icon(Icons.delete_sweep_rounded),
             ),
@@ -76,6 +78,19 @@ class MyHistoryPage extends ConsumerWidget {
     );
   }
 
+  Future<void> _clearHistory(BuildContext context, WidgetRef ref) async {
+    final config = ref.read(appConfigProvider);
+    final confirmed = await confirmAppAction(
+      context,
+      title: AppI18n.t(config, 'my.history.clear'),
+      message: AppI18n.t(config, 'my.history.clear_confirm'),
+      confirmLabel: AppI18n.t(config, 'my.history.clear'),
+    );
+    if (confirmed && context.mounted) {
+      await ref.read(myHistoryControllerProvider.notifier).clear();
+    }
+  }
+
   Future<void> _playHistory(
     BuildContext context,
     WidgetRef ref,
@@ -91,7 +106,7 @@ class MyHistoryPage extends ConsumerWidget {
   }
 }
 
-class _HistoryList extends ConsumerStatefulWidget {
+class _HistoryList extends ConsumerWidget {
   const _HistoryList({
     required this.items,
     required this.emptyText,
@@ -103,107 +118,74 @@ class _HistoryList extends ConsumerStatefulWidget {
   final ValueChanged<int> onTap;
 
   @override
-  ConsumerState<_HistoryList> createState() => _HistoryListState();
-}
-
-class _HistoryListState extends ConsumerState<_HistoryList> {
-  Map<String, Uint8List> _artworkBytes = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _loadArtwork(widget.items);
-  }
-
-  @override
-  void didUpdateWidget(covariant _HistoryList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.items, widget.items)) {
-      _loadArtwork(widget.items);
-    }
-  }
-
-  /// 从磁盘加载本地歌曲的封面字节
-  Future<void> _loadArtwork(List<PlayerHistoryItem> items) async {
-    final map = <String, Uint8List>{};
-    for (final item in items) {
-      final path = item.artworkPath;
-      if (path != null && path.isNotEmpty) {
-        try {
-          final file = File(path);
-          if (await file.exists()) {
-            final bytes = await file.readAsBytes();
-            if (bytes.isNotEmpty) map[item.id] = bytes;
-          }
-        } catch (_) {
-          // 单个文件读取失败跳过
-        }
-      }
-    }
-    if (!mounted) return;
-    setState(() => _artworkBytes = map);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.items.isEmpty) {
-      return Center(child: Text(widget.emptyText));
-    }
-    final currentTrackIdentity = ref.watch(
-      playerControllerProvider.select(
-        (state) => currentTrackIdentityOf(state.displayTrack),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
     );
-    final config = ref.watch(appConfigProvider);
-    final platforms =
-        ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
+    if (items.isEmpty) return Center(child: Text(emptyText));
     return SongListComponent(
-      itemCount: widget.items.length,
+      itemCount: items.length,
       enablePaging: false,
       itemBuilder: (context, index) {
-        final item = widget.items[index];
-        final song = _toSongInfo(item);
-        final coverUrl = _cover(item.artworkUrl);
-        final songId = item.id.trim();
-        final platform = item.platform?.trim() ?? '';
-        final canToggleFavorite =
-            songId.isNotEmpty &&
-            platform.isNotEmpty &&
-            platform.toLowerCase() != 'local';
-        final isLiked = canToggleFavorite
-            ? ref.watch(
-                favoriteSongStatusProvider.select(
-                  (state) => state.songKeys.contains(
-                    buildFavoriteSongKey(songId: songId, platform: platform),
+        final item = items[index];
+        return Consumer(
+          key: ValueKey((item.id, item.platform, item.playedAt)),
+          builder: (context, ref, child) {
+            final song = _toSongInfo(item);
+            final coverUrl = _cover(item.artworkUrl);
+            final songId = item.id.trim();
+            final platform = item.platform?.trim() ?? '';
+            final canToggleFavorite =
+                songId.isNotEmpty &&
+                platform.isNotEmpty &&
+                platform.toLowerCase() != 'local';
+            final isLiked =
+                canToggleFavorite &&
+                ref.watch(
+                  favoriteSongStatusProvider.select(
+                    (state) => state.songKeys.contains(
+                      buildFavoriteSongKey(songId: songId, platform: platform),
+                    ),
                   ),
+                );
+            final isCurrent = ref.watch(
+              playerControllerProvider.select(
+                (state) => isCurrentSongIdentity(
+                  currentTrackIdentityOf(state.displayTrack),
+                  song,
                 ),
-              )
-            : false;
-        return OnlineSongListItem(
-          song: song,
-          coverUrl: coverUrl,
-          coverBytes: _artworkBytes[item.id],
-          subtitleText: _playedText(item.playedAt),
-          isCurrent: isCurrentSongIdentity(currentTrackIdentity, song),
-          isLiked: isLiked,
-          onTap: () => widget.onTap(index),
-          onLikeTap: canToggleFavorite
-              ? () => _toggleSongLike(
-                  ref: ref,
-                  songId: songId,
-                  platform: platform,
-                  liked: isLiked,
-                )
-              : null,
-          onMoreTap: () => _showSongActions(
-            context: context,
-            ref: ref,
-            config: config,
-            platforms: platforms,
-            item: item,
-            song: song,
-            coverUrl: coverUrl,
-          ),
+              ),
+            );
+            final artwork = ref
+                .watch(localArtworkBytesProvider(item.artworkPath ?? ''))
+                .value;
+            return OnlineSongListItem(
+              song: song,
+              coverUrl: coverUrl,
+              coverBytes: artwork,
+              subtitleText: _playedText(item.playedAt, localeCode),
+              isCurrent: isCurrent,
+              isLiked: isLiked,
+              onTap: () => onTap(index),
+              onLikeTap: canToggleFavorite
+                  ? () => _toggleSongLike(
+                      ref: ref,
+                      songId: songId,
+                      platform: platform,
+                      liked: isLiked,
+                    )
+                  : null,
+              onMoreTap: () => _showSongActions(
+                context: context,
+                ref: ref,
+                config: ref.read(appConfigProvider),
+                platforms: ref.read(onlinePlatformsProvider).value ?? const [],
+                item: item,
+                song: song,
+                coverUrl: coverUrl,
+              ),
+            );
+          },
         );
       },
     );
@@ -244,10 +226,14 @@ class _HistoryListState extends ConsumerState<_HistoryList> {
     return null;
   }
 
-  String _playedText(int playedAt) {
+  String _playedText(int playedAt, String localeCode) {
     final safe = playedAt > 10000000000 ? playedAt : playedAt * 1000;
     final time = DateTime.fromMillisecondsSinceEpoch(safe);
-    return '最近播放：${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    final label =
+        '${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    return AppI18n.formatByLocaleCode(localeCode, 'my.history.played_at', {
+      'time': label,
+    });
   }
 
   Future<void> _showSongActions({

@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skins/starlit_melody_skin.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_page_result.dart';
@@ -28,6 +30,64 @@ import 'package:he_music_flutter/shared/widgets/media_grid_card.dart';
 import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'wallpaper glass home clips content behind search while revealing in $brightness',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final skin = starlitMelodySkin();
+        await tester.pumpWidget(
+          _buildScrollableHomeTestApp(
+            glassNavigation: true,
+            theme: brightness == Brightness.light
+                ? AppTheme.light(skin)
+                : AppTheme.dark(skin),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final viewport = find.byKey(
+          const ValueKey<String>('home-content-search-clearance'),
+        );
+        final search = find.byType(HomeSearchField);
+        final pageView = tester.widget<PageView>(find.byType(PageView));
+        void expectClearance() {
+          final clip = tester.widget<ClipRect>(viewport);
+          final bounds = clip.clipper!.getClip(tester.getSize(viewport));
+          expect(
+            tester.getTopLeft(viewport).dy + bounds.top,
+            greaterThanOrEqualTo(tester.getBottomLeft(search).dy),
+          );
+        }
+
+        expectClearance();
+        final scroll = find.descendant(
+          of: find.byKey(const PageStorageKey<String>('home-recommend')),
+          matching: find.byType(CustomScrollView),
+        );
+        await tester.drag(scroll, const Offset(0, -140));
+        await tester.pumpAndSettle();
+        expect(search.hitTestable(), findsNothing);
+        expect(
+          tester
+              .widget<ClipRect>(viewport)
+              .clipper!
+              .getClip(tester.getSize(viewport))
+              .top,
+          0,
+        );
+        await tester.drag(scroll, const Offset(0, 24));
+        await tester.pump(const Duration(milliseconds: 80));
+        expectClearance();
+        await tester.pumpAndSettle();
+        expect(search.hitTestable(), findsOneWidget);
+        expectClearance();
+        expect(tester.widget<PageView>(find.byType(PageView)), same(pageView));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'real home nested scrolling collapses and restores the player accessory',
     (tester) async {
@@ -640,7 +700,10 @@ Widget _buildDiscoverTabTestApp({
   );
 }
 
-Widget _buildScrollableHomeTestApp({bool glassNavigation = false}) {
+Widget _buildScrollableHomeTestApp({
+  bool glassNavigation = false,
+  ThemeData? theme,
+}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
@@ -659,6 +722,7 @@ Widget _buildScrollableHomeTestApp({bool glassNavigation = false}) {
         minQuality: GlassQuality.minimal,
         maxQuality: GlassQuality.minimal,
         child: MaterialApp(
+          theme: theme,
           home: glassNavigation
               ? AppGlassPlayerScaffold(
                   body: const DiscoverHomeTab(),

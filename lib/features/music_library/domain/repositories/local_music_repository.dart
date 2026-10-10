@@ -21,6 +21,9 @@ abstract class LocalMusicRepository {
   /// 监听指定专辑的歌曲
   Stream<List<LocalSong>> watchSongsByAlbum(String albumName);
 
+  /// 监听指定流派的全部歌曲。
+  Stream<List<LocalSong>> watchSongsByGenre(String genreName);
+
   /// 监听按艺术家分组
   Stream<List<ArtistGroup>> watchArtists();
 

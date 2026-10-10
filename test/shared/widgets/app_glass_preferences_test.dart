@@ -77,14 +77,16 @@ void main() {
         AppGlassMode.low || AppGlassMode.off => GlassQuality.minimal,
       };
       expect(scope.maxQuality, expected);
+      expect(scope.minQuality, GlassQuality.minimal);
       expect(
-        scope.minQuality,
-        mode == AppGlassMode.automatic ? GlassQuality.minimal : expected,
+        scope.allowStepUp,
+        mode != AppGlassMode.low && mode != AppGlassMode.off,
       );
-      expect(scope.allowStepUp, mode == AppGlassMode.automatic);
       expect(
         AppGlassScope.qualityOf(context),
-        mode == AppGlassMode.automatic ? GlassQuality.standard : expected,
+        mode == AppGlassMode.automatic || mode == AppGlassMode.high
+            ? GlassQuality.standard
+            : expected,
       );
       expect(AppGlassScope.qualityOf(context, persistent: true), expected);
       expect(AppGlassScope.controlsEnabled(context), mode.usesGlass);

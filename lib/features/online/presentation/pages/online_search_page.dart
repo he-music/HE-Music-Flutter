@@ -23,6 +23,7 @@ import '../../../../shared/helpers/user_playlist_song_action_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/cover_resolver.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_search_field.dart';
 import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../domain/entities/online_platform.dart';
 import '../../../player/domain/entities/player_quality_option.dart';
@@ -1438,6 +1439,8 @@ class _SearchHeader extends ConsumerWidget {
             message: AppI18n.t(config, 'common.back'),
             child: GlassIconButton(
               onPressed: onBack,
+              size: LayoutTokens.controlMinExtent,
+              useOwnLayer: true,
               semanticLabel: AppI18n.t(config, 'common.back'),
               quality: AppGlassScope.qualityOf(context),
               icon: const AppSkinIcon(role: AppSkinIconRole.back),
@@ -1466,6 +1469,8 @@ class _SearchHeader extends ConsumerWidget {
             message: AppI18n.t(config, 'home.search'),
             child: GlassIconButton(
               onPressed: () => unawaited(onSearch()),
+              size: LayoutTokens.controlMinExtent,
+              useOwnLayer: true,
               semanticLabel: AppI18n.t(config, 'home.search'),
               quality: AppGlassScope.qualityOf(context),
               icon: AppSkinIcon(
@@ -1476,21 +1481,26 @@ class _SearchHeader extends ConsumerWidget {
             ),
           )
         else
-          Material(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(
-              alpha: 0.72,
+          IconButton.filledTonal(
+            tooltip: AppI18n.t(config, 'home.search'),
+            constraints: const BoxConstraints.tightFor(
+              width: LayoutTokens.controlMinExtent,
+              height: LayoutTokens.controlMinExtent,
             ),
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              onTap: onSearch,
-              borderRadius: BorderRadius.circular(14),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: AppSkinIcon(
-                  role: AppSkinIconRole.searchSubmit,
-                  size: 18,
+            visualDensity: VisualDensity.standard,
+            style: IconButton.styleFrom(
+              backgroundColor: AppSearchField.materialFillColorFor(context),
+              foregroundColor: theme.colorScheme.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  AppSearchField.radiusFor(context),
                 ),
               ),
+            ),
+            onPressed: () => unawaited(onSearch()),
+            icon: const AppSkinIcon(
+              role: AppSkinIconRole.searchSubmit,
+              size: 20,
             ),
           ),
       ],

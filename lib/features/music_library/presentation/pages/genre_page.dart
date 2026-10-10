@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../features/player/domain/entities/player_track.dart';
-import '../../../../features/player/presentation/providers/player_providers.dart';
+import '../helpers/local_song_playback_helper.dart';
+import '../widgets/local_song_list_item.dart';
+import '../widgets/local_songs_stream_view.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/song_list_component.dart';
 import '../../../../shared/widgets/song_list_item.dart';
@@ -26,22 +27,12 @@ class GenrePage extends ConsumerWidget {
     final repository = ref.watch(localMusicRepositoryProvider);
     return Scaffold(
       appBar: AppBar(leading: const AppBackButton(), title: Text(genreName)),
-      body: StreamBuilder<List<LocalSong>>(
-        stream: repository.watchSongs(searchQuery: genreName),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final songs = snapshot.data ?? [];
-          if (songs.isEmpty) {
-            return Center(
-              child: Text(
-                AppI18n.t(config, 'local.empty.genre'),
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-            );
-          }
-          final genreSongs = songs.where((s) => s.genre == genreName).toList();
+      body: LocalSongsStreamView(
+        sourceKey: (repository, genreName),
+        watchSongs: () => repository.watchSongsByGenre(genreName),
+        localeCode: config.localeCode,
+        emptyText: AppI18n.t(config, 'local.empty.genre'),
+        builder: (context, genreSongs) {
           return ArtworkEnricher(
             songs: genreSongs,
             builder: (context, genreSongs) {
@@ -67,7 +58,8 @@ class GenrePage extends ConsumerWidget {
                       enablePaging: false,
                       itemBuilder: (context, index) {
                         final song = genreSongs[index];
-                        return SongListItem(
+                        return LocalSongListItem(
+                          song: song,
                           data: SongListItemData(
                             title: song.title,
                             artistAlbumText: '${song.artist} - ${song.album}',
@@ -95,30 +87,6 @@ class GenrePage extends ConsumerWidget {
     );
   }
 
-  Future<void> _playSong(
-    WidgetRef ref,
-    List<LocalSong> songs,
-    int index,
-  ) async {
-    if (index < 0 || index >= songs.length) return;
-    final song = songs[index];
-    final extractor = ref.read(localArtworkExtractorProvider);
-    final artworkFile = await extractor.getArtworkFile(song.filePath);
-    final track = PlayerTrack(
-      id: 'local-${song.id}',
-      title: song.title,
-      path: song.filePath,
-      artist: song.artist,
-      album: song.album,
-      url: '',
-      artworkUrl: artworkFile?.path,
-      artworkBytes: song.artworkBytes,
-      format: song.formatLabel.isEmpty ? null : song.formatLabel,
-      bitrate: song.bitrate,
-      sampleRate: song.sampleRate,
-      platform: 'local',
-    );
-    await ref.read(playerControllerProvider.notifier).insertNextAndPlay(track);
-    ref.read(localMusicRepositoryProvider).incrementPlayCount(song.id);
-  }
+  Future<void> _playSong(WidgetRef ref, List<LocalSong> songs, int index) =>
+      playLocalSongs(ref, songs, startIndex: index);
 }

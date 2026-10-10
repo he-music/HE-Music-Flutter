@@ -127,6 +127,15 @@ class LocalMusicDao {
     return query.watch().map((rows) => rows.map(_toEntity).toList());
   }
 
+  Stream<List<LocalSong>> watchSongsByGenre(String genreName) {
+    final query = _db.select(_db.localSongs)
+      ..where(
+        (song) => song.genre.equals(genreName) & song.status.equals('active'),
+      )
+      ..orderBy([(song) => OrderingTerm.asc(song.title)]);
+    return query.watch().map((rows) => rows.map(_toEntity).toList());
+  }
+
   /// 按艺术家分组（使用关联表，支持多歌手）
   Stream<List<ArtistGroup>> watchArtists() {
     return watchArtistsFromRelation();

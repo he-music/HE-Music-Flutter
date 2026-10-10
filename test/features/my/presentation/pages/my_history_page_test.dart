@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:he_music_flutter/shared/image/local_artwork_bytes_provider.dart';
+import 'package:he_music_flutter/shared/widgets/song_list_item.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +23,117 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 
 void main() {
+  testWidgets(
+    'history reads only visible artwork and playback ticks preserve rows',
+    (tester) async {
+      final requested = <String>[];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            localArtworkBytesProvider.overrideWith((ref, path) async {
+              requested.add(path);
+              return null;
+            }),
+          ],
+          child: _buildTestApp(
+            items: List.generate(100, (index) => _historyItem(index)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(requested, contains('/tmp/0.png'));
+      expect(requested.length, lessThan(30));
+      final initialRow = tester.widget<SongListItem>(
+        find.byType(SongListItem).first,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MyHistoryPage)),
+      );
+      final player =
+          container.read(playerControllerProvider.notifier)
+              as _TestPlayerController;
+      player.tick();
+      await tester.pump();
+      expect(
+        tester.widget<SongListItem>(find.byType(SongListItem).first),
+        same(initialRow),
+      );
+    },
+  );
+
+  testWidgets(
+    'late artwork from an old history list never overwrites a new row',
+    (tester) async {
+      final oldArtwork = Completer<Uint8List?>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            localArtworkBytesProvider.overrideWith(
+              (ref, path) =>
+                  path == '/tmp/0.png' ? oldArtwork.future : Future.value(null),
+            ),
+          ],
+          child: _buildTestApp(items: [_historyItem(0)]),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MyHistoryPage)),
+      );
+      final history =
+          container.read(myHistoryControllerProvider.notifier)
+              as _TestMyHistoryController;
+      history.replaceItems([_historyItem(1)]);
+      await tester.pumpAndSettle();
+      oldArtwork.complete(Uint8List.fromList([1, 2, 3]));
+      await tester.pumpAndSettle();
+      final row = tester.widget<SongListItem>(find.byType(SongListItem));
+      expect(row.data.title, '历史歌曲 1');
+      expect(row.data.coverBytes, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('history clear asks for confirmation and cancel keeps history', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildTestApp(
+        items: const [
+          PlayerHistoryItem(
+            id: 'song-1',
+            title: '测试歌曲',
+            artist: '歌手',
+            album: '专辑',
+            artworkUrl: '',
+            url: '',
+            playedAt: 1711711711,
+            platform: 'qq',
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MyHistoryPage)),
+    );
+    final controller =
+        container.read(myHistoryControllerProvider.notifier)
+            as _TestMyHistoryController;
+    await tester.tap(find.byTooltip('清空历史'));
+    await tester.pumpAndSettle();
+    expect(controller.clearCount, 0);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('测试歌曲'), findsOneWidget);
+    await tester.tap(find.byTooltip('清空历史'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '清空历史'));
+    await tester.pumpAndSettle();
+    expect(controller.clearCount, 1);
+    expect(find.text('暂无播放历史'), findsOneWidget);
+  });
+
   testWidgets('online history item opens unified song actions sheet', (
     tester,
   ) async {
@@ -78,6 +194,18 @@ void main() {
   });
 }
 
+PlayerHistoryItem _historyItem(int index) => PlayerHistoryItem(
+  id: 'local-$index',
+  title: '历史歌曲 $index',
+  artist: '歌手',
+  album: '专辑',
+  artworkUrl: '',
+  artworkPath: '/tmp/$index.png',
+  url: '/tmp/$index.mp3',
+  playedAt: 1711711711,
+  platform: 'local',
+);
+
 Widget _buildTestApp({required List<PlayerHistoryItem> items}) {
   return ProviderScope(
     overrides: [
@@ -116,6 +244,14 @@ class _TestMyHistoryController extends MyHistoryController {
   _TestMyHistoryController({required this.items});
 
   final List<PlayerHistoryItem> items;
+  int clearCount = 0;
+  void replaceItems(List<PlayerHistoryItem> items) => state = AsyncData(items);
+
+  @override
+  Future<void> clear() async {
+    clearCount++;
+    state = const AsyncData([]);
+  }
 
   @override
   Future<List<PlayerHistoryItem>> build() async => items;
@@ -158,4 +294,5 @@ class _TestPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+  void tick() => state = state.copyWith(position: const Duration(seconds: 1));
 }

@@ -50,6 +50,7 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.invalidate(downloadedArtworkProvider);
       ref.invalidate(downloadedSongsProvider);
     }
   }
@@ -117,6 +118,12 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
                               ? '${task.effectiveFileExtension.toUpperCase()} · ${task.quality.label}'
                               : text('download.library.missing'),
                           coverBytes: cover,
+                          isCurrent: ref.watch(
+                            playerControllerProvider.select(
+                              (state) =>
+                                  state.displayTrack?.path == song.filePath,
+                            ),
+                          ),
                         ),
                         onTap: song.isAvailable
                             ? () => unawaited(

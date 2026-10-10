@@ -83,7 +83,7 @@ void main() {
       primaryText.style?.fontSize,
       Theme.of(
         tester.element(find.byType(HomeSearchField)),
-      ).textTheme.bodySmall?.fontSize,
+      ).textTheme.bodyMedium?.fontSize,
     );
 
     await tester.tap(find.text('Discover'));

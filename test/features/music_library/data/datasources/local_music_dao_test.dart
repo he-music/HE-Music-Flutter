@@ -151,6 +151,31 @@ void main() {
       });
     });
 
+    test(
+      'genre query includes songs beyond first page and excludes missing files',
+      () async {
+        await dao.upsertSongs(
+          [
+            for (var index = 0; index < 60; index++)
+              buildSong(
+                id: '$index',
+                title: 'Song $index',
+                genre: 'Rock',
+                filePath: '/$index.mp3',
+              ),
+            buildSong(id: 'other', genre: 'Jazz', filePath: '/other.mp3'),
+          ],
+          'macos',
+          'batch-1',
+        );
+        await dao.markFileMissing('0');
+        final songs = await dao.watchSongsByGenre('Rock').first;
+        expect(songs, hasLength(59));
+        expect(songs.every((song) => song.genre == 'Rock'), isTrue);
+        expect(songs.any((song) => song.id == '0'), isFalse);
+      },
+    );
+
     group('watchSongs', () {
       test('offset 和 limit 可读取第 51 首后的歌曲', () async {
         await dao.upsertSongs(

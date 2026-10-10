@@ -219,6 +219,10 @@ typedef _StreamForCall =
     );
 
 class _FakeLocalMusicRepository implements LocalMusicRepository {
+  @override
+  Stream<List<LocalSong>> watchSongsByGenre(String genreName) =>
+      Stream.value(songs.where((song) => song.genre == genreName).toList());
+
   _FakeLocalMusicRepository(this.songs, {this.streamForCall});
 
   final List<LocalSong> songs;

@@ -1,3 +1,12 @@
+import 'dart:io';
+
+import 'package:he_music_flutter/features/music_library/data/datasources/local_artwork_extractor.dart';
+import 'package:he_music_flutter/features/music_library/domain/repositories/local_music_repository.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_queue_source.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
+import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +28,69 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
+
+  testWidgets(
+    'multi-select plays every selected song and updates only playing rows',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildTestApp(controllerFactory: _PopulatedLocalLibraryController.new),
+      );
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text('歌曲 A'));
+      await tester.pump();
+      await tester.tap(find.text('歌曲 B'));
+      await tester.pump();
+      await tester.tap(_findSkinIcon(AppSkinIconRole.batchPlay));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(LocalLibraryPage)),
+      );
+      final player =
+          container.read(playerControllerProvider.notifier)
+              as _TestPlayerController;
+      expect(player.played.map((track) => track.path), [
+        '/tmp/song-a.mp3',
+        '/tmp/song-b.mp3',
+      ]);
+      expect(_songItem(tester, '歌曲 A').data.isCurrent, isTrue);
+      expect(_songItem(tester, '歌曲 B').data.isCurrent, isFalse);
+      final firstRow = _songItem(tester, '歌曲 A');
+      final secondRow = _songItem(tester, '歌曲 B');
+      player.tick();
+      await tester.pump();
+      expect(_songItem(tester, '歌曲 A'), same(firstRow));
+      expect(_songItem(tester, '歌曲 B'), same(secondRow));
+      await _disposePage(tester);
+    },
+  );
+
+  testWidgets(
+    'multi-select appends all songs in order without overlapping queue updates',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildTestApp(controllerFactory: _PopulatedLocalLibraryController.new),
+      );
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text('歌曲 A'));
+      await tester.pump();
+      await tester.tap(find.text('歌曲 B'));
+      await tester.pump();
+      await tester.tap(_findSkinIcon(AppSkinIconRole.batchAddToQueue));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(LocalLibraryPage)),
+      );
+      final player =
+          container.read(playerControllerProvider.notifier)
+              as _TestPlayerController;
+      expect(player.appended.map((track) => track.path), [
+        '/tmp/song-a.mp3',
+        '/tmp/song-b.mp3',
+      ]);
+      expect(tester.takeException(), isNull);
+      await _disposePage(tester);
+    },
+  );
 
   testWidgets(
     'local sort menu uses glass and preserves the selection callback',
@@ -64,23 +136,36 @@ void main() {
     await _disposePage(tester);
   });
 
-  testWidgets('local library search waits for user focus', (tester) async {
-    await tester.pumpWidget(_buildTestApp());
-    await tester.pumpAndSettle();
+  testWidgets(
+    'local library search focuses immediately and back closes search',
+    (tester) async {
+      await tester.pumpWidget(_buildTestApp());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('搜索'));
-    await tester.pump();
+      await tester.tap(find.byTooltip('搜索'));
+      await tester.pump();
 
-    expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isFalse);
-    expect(tester.testTextInput.isVisible, isFalse);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).autofocus,
+        isTrue,
+      );
+      expect(tester.testTextInput.isVisible, isTrue);
 
-    await tester.enterText(find.byType(TextField), '歌曲');
-    await tester.pump();
+      await tester.enterText(find.byType(TextField), '歌曲');
+      await tester.pump();
 
-    expect(_findSkinIcon(AppSkinIconRole.close), findsOneWidget);
+      expect(_findSkinIcon(AppSkinIconRole.close), findsOneWidget);
 
-    await _disposePage(tester);
-  });
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('本地歌曲'), findsOneWidget);
+
+      await _disposePage(tester);
+    },
+  );
 
   testWidgets('local library search typing does not rebuild the song tree', (
     tester,
@@ -197,9 +282,65 @@ void main() {
   });
 }
 
+class _TestPlayerController extends PlayerController {
+  List<PlayerTrack> played = [];
+  final appended = <PlayerTrack>[];
+  bool _appending = false;
+
+  @override
+  Future<void> appendTrack(PlayerTrack track) async {
+    if (_appending) throw StateError('overlapping queue updates');
+    _appending = true;
+    await Future<void>.delayed(Duration.zero);
+    appended.add(track);
+    _appending = false;
+  }
+
+  @override
+  PlayerPlaybackState build() => PlayerPlaybackState.initial(const []);
+
+  @override
+  Future<void> replaceQueue(
+    List<PlayerTrack> tracks, {
+    int startIndex = 0,
+    bool autoplay = true,
+    PlayerQueueSource? queueSource,
+    bool isRadioMode = false,
+    String? currentRadioId,
+    String? currentRadioPlatform,
+    int? currentRadioPageIndex,
+  }) async {
+    played = tracks;
+    state = PlayerPlaybackState.initial(
+      tracks,
+    ).copyWith(currentIndex: startIndex);
+  }
+
+  void tick() => state = state.copyWith(position: const Duration(seconds: 1));
+}
+
+class _TestArtworkExtractor implements LocalArtworkExtractor {
+  @override
+  Future<File?> getArtworkFile(String filePath) async => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _TestLocalRepository implements LocalMusicRepository {
+  @override
+  Future<void> incrementPlayCount(String songId) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 Widget _buildTestApp({LocalLibraryController Function()? controllerFactory}) {
   return ProviderScope(
     overrides: [
+      playerControllerProvider.overrideWith(_TestPlayerController.new),
+      localArtworkExtractorProvider.overrideWithValue(_TestArtworkExtractor()),
+      localMusicRepositoryProvider.overrideWithValue(_TestLocalRepository()),
       localLibraryControllerProvider.overrideWith(
         controllerFactory ?? _EmptyLocalLibraryController.new,
       ),

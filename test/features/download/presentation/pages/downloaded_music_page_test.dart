@@ -88,6 +88,24 @@ void main() {
       await tester.pump();
       expect(player.played.single.path, '/tmp/first.mp3');
       expect(player.played.single.platform, 'qq');
+      expect(
+        tester
+            .widget<SongListItem>(
+              find.byKey(const ValueKey('downloaded-song-first')),
+            )
+            .data
+            .isCurrent,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<SongListItem>(
+              find.byKey(const ValueKey('downloaded-song-missing')),
+            )
+            .data
+            .isCurrent,
+        isFalse,
+      );
     },
   );
 
@@ -239,6 +257,9 @@ class _Player extends PlayerController {
   }) async {
     played = queue;
     source = queueSource;
+    state = PlayerPlaybackState.initial(
+      queue,
+    ).copyWith(currentIndex: startIndex);
   }
 
   @override

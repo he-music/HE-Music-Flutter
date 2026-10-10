@@ -10,6 +10,7 @@ class SongBatchActionBar extends StatelessWidget {
   const SongBatchActionBar({
     required this.enabled,
     this.loading = false,
+    this.showPlaylistAction = true,
     this.onPlayPressed,
     this.onAddToQueuePressed,
     this.onAddToPlaylistPressed,
@@ -19,6 +20,7 @@ class SongBatchActionBar extends StatelessWidget {
 
   final bool enabled;
   final bool loading;
+  final bool showPlaylistAction;
   final VoidCallback? onPlayPressed;
   final VoidCallback? onAddToQueuePressed;
   final VoidCallback? onAddToPlaylistPressed;
@@ -83,14 +85,15 @@ class SongBatchActionBar extends StatelessWidget {
         iconRole: AppSkinIconRole.batchAddToQueue,
         onPressed: onAddToQueuePressed,
       ),
-      _BatchAction(
-        label: AppI18n.tByLocaleCode(
-          localeCode,
-          'detail.batch.add_to_playlist',
+      if (showPlaylistAction)
+        _BatchAction(
+          label: AppI18n.tByLocaleCode(
+            localeCode,
+            'detail.batch.add_to_playlist',
+          ),
+          iconRole: AppSkinIconRole.batchAddToPlaylist,
+          onPressed: onAddToPlaylistPressed,
         ),
-        iconRole: AppSkinIconRole.batchAddToPlaylist,
-        onPressed: onAddToPlaylistPressed,
-      ),
       if (onRemoveFromPlaylistPressed != null)
         _BatchAction(
           label: AppI18n.tByLocaleCode(

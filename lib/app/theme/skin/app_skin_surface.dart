@@ -50,7 +50,8 @@ class AppSkinSurface extends StatelessWidget {
       AppSkinSurfaceRole.bottomSheet => config.colors.bottomSheetBackground,
     };
     final forceOpaque =
-        AppGlassScope.preferOpaqueSurfaces(context) &&
+        (MediaQuery.highContrastOf(context) ||
+            AppGlassScope.preferOpaqueSurfaces(context)) &&
         role != AppSkinSurfaceRole.scrollingContent;
     final opacity = switch (role) {
       AppSkinSurfaceRole.search => config.surfaces.searchOpacity,

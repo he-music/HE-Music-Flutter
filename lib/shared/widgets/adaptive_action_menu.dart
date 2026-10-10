@@ -8,6 +8,7 @@ import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
 import '../utils/platform_utils.dart';
+import '../constants/layout_tokens.dart';
 
 enum AdaptiveActionMenuMobileDensity { regular, compact }
 
@@ -101,7 +102,11 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
       child: IconButton(
         key: widget.menuKey,
         padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
+        visualDensity: VisualDensity.standard,
+        constraints: const BoxConstraints.tightFor(
+          width: LayoutTokens.controlMinExtent,
+          height: LayoutTokens.controlMinExtent,
+        ),
         tooltip: widget.tooltip,
         icon: widget.icon,
         onPressed: widget.items.isEmpty ? null : _openMenu,

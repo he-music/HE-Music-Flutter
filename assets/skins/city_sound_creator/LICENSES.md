@@ -124,23 +124,23 @@ The replacement dark derivative was inspected at full frame and local detail on 
 - Generator: `make skin-previews`, which runs `flutter test --update-goldens test/app/theme/skin_preview_golden_test.dart`.
 - Render contract: actual `MaterialApp.router`, `AppTheme`, `AppSkinBackgroundLayer`, home route, recommend/discover tabs, recommend song list, mini player, bottom navigation, production wallpapers, and production SVG catalog at a fixed `360x640` logical-pixel viewport.
 - Data contract: deterministic Riverpod overrides provide fixed Chinese UI content; no image model redraws or synthesizes application text.
-- UI revision: regenerated on 2026-08-26 after the shared song item layout adjustment; wallpaper, SVG, and Rive assets are unchanged.
+- UI revision: regenerated for unified search fields, tabs and 48-pixel control touch targets; wallpaper, SVG and Rive assets retain their recorded provenance.
 - Test fonts: Roboto Regular, Medium, and Bold plus a 14 KB Chinese glyph subset derived from Android Open Source Project's Droid Sans Fallback, all under Apache License 2.0. The files, subset glyph manifest, provenance, and license are retained under `test/assets/fonts/` and are not declared as runtime assets.
 - Material fallback icons: loaded from the Material Icons font already declared by Flutter's `uses-material-design` contract.
 - Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
-- Approval: the user approved the original real-UI preview stage on 2026-07-17 and the current light/dark preview pair with the replacement dark wallpaper on 2026-07-27.
+- Approval: the user approved the original real-UI preview stage on 2026-07-17 and the light/dark preview pair with the replacement dark wallpaper on 2026-07-27. The latest preview revision updates shared controls under the current UI consistency request.
 
 ### Light real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `25cd4e336d5a231496063742cc53b7104b90234bc02a16ad627bbb133986abe6`.
+- SHA-256: `63c8487a670c02a5c9c6a5e2bacffee0aadce3f3b2ca1d97208df40cce6150da`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `6975223fe326f5b5c89f1877c9ecf0af245ba6eea27e25f328e714ffbcc3a7c9`.
+- SHA-256: `cc2fbd37944d9a12a70df5b30db0a7d80b8b7d8d12708634e62ef959ac64e203`.
 
 ## Rive ambient animation
 

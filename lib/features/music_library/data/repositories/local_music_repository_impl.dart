@@ -160,6 +160,10 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
       _dao.watchSongsByAlbum(albumName);
 
   @override
+  Stream<List<LocalSong>> watchSongsByGenre(String genreName) =>
+      _dao.watchSongsByGenre(genreName);
+
+  @override
   Stream<List<ArtistGroup>> watchArtists() => _dao.watchArtists();
 
   @override

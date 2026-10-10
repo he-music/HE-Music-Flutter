@@ -1,5 +1,4 @@
-import 'dart:io';
-import 'dart:typed_data';
+import '../../../../shared/image/local_artwork_bytes_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,12 +26,4 @@ PlayerTrack downloadedSongToTrack(DownloadedSong song) {
   );
 }
 
-final downloadedArtworkProvider = FutureProvider.autoDispose
-    .family<Uint8List?, String>((ref, path) async {
-      if (path.isEmpty) return null;
-      try {
-        return await File(path).readAsBytes();
-      } on FileSystemException {
-        return null;
-      }
-    });
+final downloadedArtworkProvider = localArtworkBytesProvider;

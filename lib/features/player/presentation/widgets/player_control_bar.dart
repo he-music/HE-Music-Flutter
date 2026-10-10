@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 import '../../domain/entities/player_play_mode.dart';
 
 class PlayerControlBar extends StatelessWidget {
@@ -37,58 +38,98 @@ class PlayerControlBar extends StatelessWidget {
   final VoidCallback onNext;
 
   @override
-  Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          if (showPlayModeButton)
-            _SideControlButton(
-              onPressed: playModeLocked || isTrackTransitioning
-                  ? null
-                  : onCyclePlayMode,
-              tooltip: _modeTooltip(playMode),
-              icon: _modeIcon(playMode),
-              compact: compact,
-            ),
-          if (showPlayModeButton) SizedBox(width: compact ? 4 : 8),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final narrow = constraints.maxWidth < 272;
+      final useCompact = compact || constraints.maxWidth < 340;
+      final modeButton = _SideControlButton(
+        onPressed: playModeLocked || isTrackTransitioning
+            ? null
+            : onCyclePlayMode,
+        tooltip: _modeTooltip(playMode),
+        icon: _modeIcon(playMode),
+        compact: useCompact,
+      );
+      final queueButton = _SideControlButton(
+        onPressed: onOpenQueue,
+        tooltip: AppI18n.tByLocaleCode(localeCode, 'player.queue.open'),
+        icon: Icons.queue_music_rounded,
+        compact: useCompact,
+      );
+      final mainControls = Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: useCompact ? 8 : 14,
+        runSpacing: 8,
+        children: [
           _RoundControlButton(
             onPressed: onPrevious,
+            tooltip: AppI18n.tByLocaleCode(localeCode, 'player.previous'),
             icon: Icons.skip_previous_rounded,
-            size: compact ? 46 : 58,
-            iconSize: compact ? 28 : 34,
+            size: useCompact ? LayoutTokens.controlMinExtent : 58,
+            iconSize: useCompact ? 28 : 34,
           ),
-          SizedBox(width: compact ? 8 : 14),
           _PrimaryControlButton(
             onPressed: isTrackTransitioning ? null : onPlayPause,
+            tooltip: AppI18n.tByLocaleCode(
+              localeCode,
+              isPlaying ? 'player.pause' : 'player.play',
+            ),
             icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-            compact: compact,
+            compact: useCompact,
             isTrackTransitioning: isTrackTransitioning,
             preparingLabel: AppI18n.tByLocaleCode(
               localeCode,
               'player.transition.preparing',
             ),
           ),
-          SizedBox(width: compact ? 8 : 14),
           _RoundControlButton(
             onPressed: onNext,
+            tooltip: AppI18n.tByLocaleCode(localeCode, 'player.next'),
             icon: Icons.skip_next_rounded,
-            size: compact ? 46 : 58,
-            iconSize: compact ? 28 : 34,
+            size: useCompact ? LayoutTokens.controlMinExtent : 58,
+            iconSize: useCompact ? 28 : 34,
           ),
-          SizedBox(width: compact ? 4 : 8),
-          if (showQueueButton)
-            _SideControlButton(
-              onPressed: onOpenQueue,
-              tooltip: AppI18n.tByLocaleCode(localeCode, 'player.queue.open'),
-              icon: Icons.queue_music_rounded,
-              compact: compact,
-            ),
         ],
-      ),
-    );
-  }
+      );
+      if (narrow) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            mainControls,
+            if (showPlayModeButton || showQueueButton)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (showPlayModeButton)
+                    modeButton
+                  else
+                    const SizedBox(width: LayoutTokens.controlMinExtent),
+                  if (showQueueButton)
+                    queueButton
+                  else
+                    const SizedBox(width: LayoutTokens.controlMinExtent),
+                ],
+              ),
+          ],
+        );
+      }
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (showPlayModeButton) ...[
+            modeButton,
+            SizedBox(width: useCompact ? 4 : 8),
+          ],
+          mainControls,
+          if (showQueueButton) ...[
+            SizedBox(width: useCompact ? 4 : 8),
+            queueButton,
+          ],
+        ],
+      );
+    },
+  );
 
   IconData _modeIcon(PlayerPlayMode mode) {
     return switch (mode) {
@@ -119,6 +160,7 @@ class PlayerControlBar extends StatelessWidget {
 class _PrimaryControlButton extends StatelessWidget {
   const _PrimaryControlButton({
     required this.onPressed,
+    required this.tooltip,
     required this.icon,
     required this.compact,
     required this.isTrackTransitioning,
@@ -126,6 +168,7 @@ class _PrimaryControlButton extends StatelessWidget {
   });
 
   final VoidCallback? onPressed;
+  final String tooltip;
   final IconData icon;
   final bool compact;
   final bool isTrackTransitioning;
@@ -138,6 +181,7 @@ class _PrimaryControlButton extends StatelessWidget {
     final foreground = palette?.surfaceDeep ?? Colors.black87;
     return IconButton(
       onPressed: onPressed,
+      tooltip: isTrackTransitioning ? preparingLabel : tooltip,
       icon: isTrackTransitioning
           ? Semantics(
               label: preparingLabel,
@@ -175,12 +219,14 @@ class _PrimaryControlButton extends StatelessWidget {
 class _RoundControlButton extends StatelessWidget {
   const _RoundControlButton({
     required this.onPressed,
+    required this.tooltip,
     required this.icon,
     required this.size,
     required this.iconSize,
   });
 
   final VoidCallback onPressed;
+  final String tooltip;
   final IconData icon;
   final double size;
   final double iconSize;
@@ -189,6 +235,7 @@ class _RoundControlButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onPressed,
+      tooltip: tooltip,
       icon: Icon(icon, size: iconSize),
       color: PlayerScenePalette.maybeOf(context)?.foreground ?? Colors.white,
       style: IconButton.styleFrom(
@@ -227,7 +274,7 @@ class _SideControlButton extends StatelessWidget {
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,
         shadowColor: Colors.transparent,
-        minimumSize: Size.square(compact ? 36 : 48),
+        minimumSize: const Size.square(LayoutTokens.controlMinExtent),
         padding: EdgeInsets.all(compact ? 6 : 10),
       ),
     );

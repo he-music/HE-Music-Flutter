@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../shared/constants/layout_tokens.dart';
+import 'app_status_colors.dart';
 import 'skin/app_skin_models.dart';
 import 'skin/app_skin_theme.dart';
 
@@ -111,6 +113,7 @@ abstract final class AppTheme {
           ? _immersivePageTransitionsTheme
           : _pageTransitionsTheme,
       extensions: <ThemeExtension<dynamic>>[
+        AppStatusColors.fromScheme(colorScheme),
         AppSkinTheme(
           config: config,
           icons: icons,
@@ -192,6 +195,12 @@ abstract final class AppTheme {
           );
         }),
       ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size.square(LayoutTokens.controlMinExtent),
+          visualDensity: VisualDensity.standard,
+        ),
+      ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           elevation: 0,
@@ -199,7 +208,7 @@ abstract final class AppTheme {
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(geometry.controlRadius),
           ),
           textStyle: textTheme.labelLarge,
         ),
@@ -210,7 +219,7 @@ abstract final class AppTheme {
           side: BorderSide(color: colorScheme.outlineVariant),
           foregroundColor: colorScheme.onSurface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(geometry.controlRadius),
           ),
           textStyle: textTheme.labelLarge,
         ),

@@ -22,6 +22,8 @@ import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../features/player/domain/entities/player_track.dart';
 import '../../../../features/player/presentation/providers/player_providers.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_search_field.dart';
+import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../shared/widgets/song_list_item.dart';
 import '../../../../shared/widgets/song_list_component.dart';
 import '../../../../shared/widgets/underline_tab.dart';
@@ -29,6 +31,8 @@ import '../../domain/entities/local_song.dart';
 import '../../domain/repositories/local_music_repository.dart';
 import '../controllers/local_library_controller.dart';
 import '../helpers/local_song_share_action.dart';
+import '../helpers/local_song_playback_helper.dart';
+import '../widgets/local_song_list_item.dart';
 import '../providers/local_library_providers.dart';
 
 enum _LocalLibraryView { songs, artists, albums, genres, folders }
@@ -85,7 +89,9 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
         isSearching: isSearching,
         searchController: _searchController,
         onCloseSearch: () => _closeSearch(controller),
-        onClearSearch: () => _clearSearch(controller),
+        toolbarHeight: isSearching
+            ? AppSearchField.heightFor(context) + 8
+            : kToolbarHeight,
         onShowClearDialog: () =>
             _showClearDialog(context, controller, localeCode),
       ),
@@ -133,25 +139,34 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
             localeCode: localeCode,
             onPlay: (songs) async {
               selectionController.exitMultiSelect();
-              await _playLocalSong(context, ref, songs, 0);
+              await playLocalSongs(ref, songs, replaceQueue: true);
             },
-            onAddToQueue: (songs) {
-              for (final song in songs) {
-                ref
-                    .read(playerControllerProvider.notifier)
-                    .appendTrack(_toPlayerTrack(song));
-              }
+            onAddToQueue: (songs) async {
+              final player = ref.read(playerControllerProvider.notifier);
               selectionController.exitMultiSelect();
+              try {
+                for (final song in songs) {
+                  await player.appendTrack(_toPlayerTrack(song));
+                }
+              } catch (_) {
+                AppMessageService.showError(
+                  AppI18n.tByLocaleCode(localeCode, 'local.queue_failed'),
+                );
+              }
             },
           ),
         ],
       ),
     );
     return PopScope(
-      canPop: !isMultiSelectMode,
+      canPop: !isMultiSelectMode && !isSearching,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && isMultiSelectMode) {
-          selectionController.exitMultiSelect();
+        if (!didPop) {
+          if (isMultiSelectMode) {
+            selectionController.exitMultiSelect();
+          } else if (isSearching) {
+            _closeSearch(controller);
+          }
         }
       },
       child: page,
@@ -164,40 +179,11 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     List<LocalSong> songs,
     int index,
   ) async {
-    if (index < 0 || index >= songs.length) {
-      return;
-    }
-    final song = songs[index];
-    // 从磁盘缓存获取封面文件路径，持久化后可恢复
-    final extractor = ref.read(localArtworkExtractorProvider);
-    final artworkFile = await extractor.getArtworkFile(song.filePath);
-    final track = _toPlayerTrack(song, artworkUrl: artworkFile?.path);
-    await ref.read(playerControllerProvider.notifier).insertNextAndPlay(track);
-    // 记录播放统计
-    ref.read(localMusicRepositoryProvider).incrementPlayCount(song.id);
+    await playLocalSongs(ref, songs, startIndex: index);
   }
 
-  PlayerTrack _toPlayerTrack(LocalSong song, {String? artworkUrl}) {
-    return PlayerTrack(
-      id: 'local-${song.id}',
-      title: song.title,
-      path: song.filePath,
-      artist: song.artist,
-      album: song.album,
-      url: '',
-      artworkUrl: artworkUrl,
-      artworkBytes: song.artworkBytes,
-      format: song.formatLabel.isEmpty ? null : song.formatLabel,
-      bitrate: song.bitrate,
-      sampleRate: song.sampleRate,
-      platform: 'local',
-    );
-  }
-
-  void _clearSearch(LocalLibraryController controller) {
-    _searchController.clear();
-    controller.updateSearchQuery('');
-  }
+  PlayerTrack _toPlayerTrack(LocalSong song, {String? artworkUrl}) =>
+      localSongToTrack(song, artworkUrl: artworkUrl);
 
   void _closeSearch(LocalLibraryController controller) {
     _searchController.clear();
@@ -339,7 +325,7 @@ class _LocalLibraryAppBar extends ConsumerWidget
     required this.isSearching,
     required this.searchController,
     required this.onCloseSearch,
-    required this.onClearSearch,
+    required this.toolbarHeight,
     required this.onShowClearDialog,
   });
 
@@ -349,11 +335,11 @@ class _LocalLibraryAppBar extends ConsumerWidget
   final bool isSearching;
   final TextEditingController searchController;
   final VoidCallback onCloseSearch;
-  final VoidCallback onClearSearch;
+  final double toolbarHeight;
   final VoidCallback onShowClearDialog;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(toolbarHeight);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -391,30 +377,17 @@ class _LocalLibraryAppBar extends ConsumerWidget
     }
     if (isSearching) {
       return AppBar(
+        toolbarHeight: toolbarHeight,
         leading: AppBackButton(onPressed: onCloseSearch),
-        title: TextField(
+        title: AppSearchField(
           controller: searchController,
+          autofocus: true,
           onChanged: controller.updateSearchQuery,
-          decoration: InputDecoration(
-            hintText: AppI18n.tByLocaleCode(localeCode, 'local.search_hint'),
-            border: InputBorder.none,
+          placeholderPrimary: AppI18n.tByLocaleCode(
+            localeCode,
+            'local.search_hint',
           ),
         ),
-        actions: <Widget>[
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: searchController,
-            builder: (context, value, _) {
-              if (value.text.isEmpty) {
-                return const SizedBox.shrink();
-              }
-              return IconButton(
-                onPressed: onClearSearch,
-                icon: const AppSkinIcon(role: AppSkinIconRole.close),
-                tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
-              );
-            },
-          ),
-        ],
       );
     }
     return AppBar(
@@ -463,38 +436,11 @@ class _LocalLibrarySelectionBottomBar extends ConsumerWidget {
     final selectedSongs = songs
         .where((song) => selection.selectedSongIds.contains(song.id))
         .toList(growable: false);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
-      child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: <Widget>[
-            _SelectionActionButton(
-              iconRole: AppSkinIconRole.batchPlay,
-              label: AppI18n.tByLocaleCode(localeCode, 'local.select.play'),
-              onTap: selectedSongs.isEmpty
-                  ? null
-                  : () => unawaited(onPlay(selectedSongs)),
-            ),
-            _SelectionActionButton(
-              iconRole: AppSkinIconRole.batchAddToQueue,
-              label: AppI18n.tByLocaleCode(
-                localeCode,
-                'local.select.add_to_queue',
-              ),
-              onTap: selectedSongs.isEmpty
-                  ? null
-                  : () => onAddToQueue(selectedSongs),
-            ),
-          ],
-        ),
-      ),
+    return SongBatchActionBar(
+      enabled: selectedSongs.isNotEmpty,
+      showPlaylistAction: false,
+      onPlayPressed: () => unawaited(onPlay(selectedSongs)),
+      onAddToQueuePressed: () => onAddToQueue(selectedSongs),
     );
   }
 }
@@ -860,7 +806,8 @@ class _LocalSongRow extends ConsumerWidget {
     );
     return GestureDetector(
       onLongPress: onLongPress,
-      child: SongListItem(
+      child: LocalSongListItem(
+        song: song,
         data: SongListItemData(
           title: song.title,
           artistAlbumText: '${song.artist} - ${song.album}',
@@ -1317,27 +1264,6 @@ class _FolderListItem extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SelectionActionButton extends StatelessWidget {
-  const _SelectionActionButton({
-    required this.iconRole,
-    required this.label,
-    this.onTap,
-  });
-
-  final AppSkinIconRole iconRole;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: AppSkinIcon(role: iconRole),
-      label: Text(label),
     );
   }
 }

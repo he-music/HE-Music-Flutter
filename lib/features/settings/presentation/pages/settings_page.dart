@@ -6,6 +6,11 @@ import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import '../../../../app/theme/glass/app_glass_scope.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../shared/constants/layout_tokens.dart';
+import '../../../../shared/widgets/app_content_width.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_glass_mode.dart';
@@ -19,10 +24,10 @@ import '../../../../app/config/app_theme_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_registry.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_search_field.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/settings_catalog.dart';
 import '../../domain/settings_models.dart';
@@ -67,95 +72,118 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
-    return _buildMobileScaffold(context, config);
+    return _buildScaffold(context, config);
   }
 
-  Widget _buildMobileScaffold(BuildContext context, AppConfigState config) {
+  Widget _buildScaffold(BuildContext context, AppConfigState config) {
     final sectionId = widget.sectionId;
     final showingSection = sectionId != null;
     final title = showingSection
         ? _sectionTitle(config, sectionId)
         : AppI18n.t(config, 'settings.title');
-    return Scaffold(
-      key: ValueKey<String>('settings-page-${sectionId ?? 'home'}'),
-      appBar: AppBar(leading: const AppBackButton(), title: Text(title)),
-      body: showingSection
-          ? _buildSectionPanel(config: config, sectionId: sectionId)
-          : _buildMobileHome(config),
+    final key = ValueKey<String>('settings-page-${sectionId ?? 'home'}');
+    final body = showingSection
+        ? AppContentWidth(
+            maxWidth: 720,
+            child: _buildSectionPanel(config: config, sectionId: sectionId),
+          )
+        : _buildHome(config);
+    if (AppGlassScope.isEnabled(context)) {
+      return AppContentWidth(
+        child: Material(
+          type: MaterialType.transparency,
+          child: GlassScaffold(
+            key: key,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            extendBody: false,
+            appBar: GlassAppBar(
+              toolbarHeight: kToolbarHeight,
+              centerTitle: false,
+              title: Text(title),
+              leading: GlassIconButton(
+                icon: const AppSkinIcon(role: AppSkinIconRole.back),
+                onPressed: () => context.appPopOrGo(),
+                semanticLabel: AppI18n.t(config, 'common.back'),
+                size: LayoutTokens.controlMinExtent,
+                quality: AppGlassScope.qualityOf(context, persistent: true),
+              ),
+            ),
+            body: body,
+          ),
+        ),
+      );
+    }
+    return AppContentWidth(
+      child: Scaffold(
+        key: key,
+        appBar: AppBar(leading: const AppBackButton(), title: Text(title)),
+        body: body,
+      ),
     );
   }
 
-  Widget _buildMobileHome(AppConfigState config) {
-    return ListView(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        16,
-        16,
-        24 + MediaQuery.paddingOf(context).bottom,
-      ),
-      children: <Widget>[
-        _buildSearchField(config),
-        const SizedBox(height: 16),
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _searchController,
-          builder: (context, value, _) {
-            final query = value.text.trim();
-            if (query.isNotEmpty) {
-              return _buildSearchResults(
-                config,
-                query: query,
-                isDesktop: false,
-              );
-            }
-            return Column(
-              children: <Widget>[
-                for (final section in settingsSections) ...<Widget>[
-                  SettingsSectionTile(
-                    icon: section.icon,
-                    iconRole: settingsSectionIconRole(section.id),
-                    title: _sectionTitle(config, section.id),
-                    onTap: () => _openSection(section.id),
-                  ),
-                  const SizedBox(height: 12),
+  Widget _buildHome(AppConfigState config) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= LayoutTokens.desktopBreakpoint
+          ? 2
+          : 1;
+      final tileWidth =
+          (constraints.maxWidth - 32 - (columns - 1) * 12) / columns;
+      return ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          24 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          _buildSearchField(config),
+          const SizedBox(height: 16),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _searchController,
+            builder: (context, value, child) {
+              final query = value.text.trim();
+              if (query.isNotEmpty) {
+                return _buildSearchResults(config, query: query);
+              }
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final section in settingsSections)
+                    SizedBox(
+                      width: tileWidth,
+                      child: SettingsSectionTile(
+                        icon: section.icon,
+                        iconRole: settingsSectionIconRole(section.id),
+                        title: _sectionTitle(config, section.id),
+                        onTap: () => _openSection(section.id),
+                      ),
+                    ),
                 ],
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
+              );
+            },
+          ),
+        ],
+      );
+    },
+  );
 
-  Widget _buildSearchField(AppConfigState config) {
-    return TextField(
-      key: const ValueKey<String>('settings-search-field'),
-      controller: _searchController,
-      decoration: InputDecoration(
-        prefixIcon: AppSkinIcon(
-          role: AppSkinIconRole.search,
-          size: 18,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        hintText: AppI18n.t(config, 'settings.search.hint'),
-        border: const OutlineInputBorder(),
-        isDense: true,
-      ),
-      textInputAction: TextInputAction.search,
-    );
-  }
+  Widget _buildSearchField(AppConfigState config) => AppSearchField(
+    key: const ValueKey<String>('settings-search-field'),
+    controller: _searchController,
+    placeholderPrimary: AppI18n.t(config, 'settings.search.hint'),
+  );
 
-  Widget _buildSearchResults(
-    AppConfigState config, {
-    required String query,
-    required bool isDesktop,
-  }) {
+  Widget _buildSearchResults(AppConfigState config, {required String query}) {
     final results = _searchResults(config, query);
     if (results.isEmpty) {
       return Center(child: Text(AppI18n.t(config, 'settings.search.empty')));
     }
     return ListView.separated(
       padding: EdgeInsets.zero,
-      shrinkWrap: !isDesktop,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: results.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {

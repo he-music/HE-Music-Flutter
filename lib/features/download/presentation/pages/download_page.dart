@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/app_status_colors.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/utils/platform_utils.dart';
 import '../../../../shared/widgets/adaptive_action_menu.dart';
+import '../../../../shared/widgets/app_confirmation_dialog.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../domain/entities/download_task.dart';
 import '../providers/download_providers.dart';
@@ -43,17 +45,22 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
         if (!mounted) return;
         FocusManager.instance.primaryFocus?.unfocus();
         if (_selectedTab == DownloadPageTab.downloaded) {
-          ref.invalidate(downloadedSongsProvider);
+          _refreshDownloaded();
         }
       });
     }
+  }
+
+  void _refreshDownloaded() {
+    ref.invalidate(downloadedArtworkProvider);
+    ref.invalidate(downloadedSongsProvider);
   }
 
   void _selectTab(DownloadPageTab tab) {
     if (tab == _selectedTab) return;
     FocusManager.instance.primaryFocus?.unfocus();
     if (tab == DownloadPageTab.downloaded) {
-      ref.invalidate(downloadedSongsProvider);
+      _refreshDownloaded();
     }
     setState(() {
       _selectedTab = tab;
@@ -76,7 +83,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
                   locale,
                   'download.library.refresh',
                 ),
-                onPressed: () => ref.invalidate(downloadedSongsProvider),
+                onPressed: _refreshDownloaded,
                 icon: const Icon(Icons.refresh_rounded),
               ),
           ],
@@ -356,16 +363,12 @@ class _DownloadTaskRow extends ConsumerWidget {
                     _displayFileName(task),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontSize: 14,
-                      height: 1.15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: theme.textTheme.titleSmall,
                   ),
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
-                  width: 28,
+                  width: LayoutTokens.controlMinExtent,
                   child: Align(
                     alignment: Alignment.topRight,
                     child: _MoreButton(
@@ -392,7 +395,6 @@ class _DownloadTaskRow extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      fontSize: 11,
                       color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
                     ),
@@ -402,7 +404,6 @@ class _DownloadTaskRow extends ConsumerWidget {
                 Text(
                   task.effectiveFileExtension.trim().toUpperCase(),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    fontSize: 11,
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
@@ -411,8 +412,7 @@ class _DownloadTaskRow extends ConsumerWidget {
                 Text(
                   _statusLabel(context, task),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    fontSize: 11,
-                    color: _statusColor(colorScheme, task),
+                    color: _statusColor(context, task),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -478,16 +478,18 @@ class _DownloadTaskRow extends ConsumerWidget {
     }
   }
 
-  Color _statusColor(ColorScheme colorScheme, DownloadTask task) {
+  Color _statusColor(BuildContext context, DownloadTask task) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final statusColors = AppStatusColors.of(context);
     switch (task.status) {
       case DownloadTaskStatus.downloading:
-        return const Color(0xFFCF8A17);
+        return statusColors.warning;
       case DownloadTaskStatus.tagging:
-        return const Color(0xFF278BCB);
+        return statusColors.info;
       case DownloadTaskStatus.failed:
         return colorScheme.error;
       case DownloadTaskStatus.completed:
-        return const Color(0xFF2F9A5A);
+        return statusColors.success;
       case DownloadTaskStatus.queued:
       case DownloadTaskStatus.paused:
         return colorScheme.onSurfaceVariant;
@@ -561,7 +563,11 @@ class _MoreButton extends StatelessWidget {
     return IconButton(
       key: Key(_menuButtonKey),
       padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
+      visualDensity: VisualDensity.standard,
+      constraints: const BoxConstraints.tightFor(
+        width: LayoutTokens.controlMinExtent,
+        height: LayoutTokens.controlMinExtent,
+      ),
       tooltip: AppI18n.tByLocaleCode(localeCode, 'common.more'),
       icon: const Icon(Icons.more_horiz_rounded, size: 18),
       onPressed: () => _showMobileMenu(context, localeCode, platform),
@@ -586,7 +592,21 @@ class _MoreButton extends StatelessWidget {
       case 'remove_task':
         onRemoveTask();
       case 'remove_task_and_file':
-        onRemoveTaskAndFile();
+        final locale = Localizations.localeOf(context).languageCode;
+        final confirmed = await confirmAppAction(
+          context,
+          title: AppI18n.tByLocaleCode(locale, 'download.delete_confirm.title'),
+          message: AppI18n.formatByLocaleCode(
+            locale,
+            'download.delete_confirm.message',
+            {'title': task.title},
+          ),
+          confirmLabel: AppI18n.tByLocaleCode(
+            locale,
+            'download.action.remove_task_and_file',
+          ),
+        );
+        if (confirmed && context.mounted) onRemoveTaskAndFile();
     }
   }
 
@@ -613,9 +633,23 @@ class _MoreButton extends StatelessWidget {
                 for (final item in items)
                   ListTile(
                     key: item.key,
-                    leading: item.icon == null ? null : Icon(item.icon),
+                    leading: item.icon == null
+                        ? null
+                        : Icon(
+                            item.icon,
+                            color: item.destructive
+                                ? Theme.of(sheetContext).colorScheme.error
+                                : null,
+                          ),
                     enabled: item.enabled,
-                    title: Text(item.label),
+                    title: Text(
+                      item.label,
+                      style: item.destructive
+                          ? TextStyle(
+                              color: Theme.of(sheetContext).colorScheme.error,
+                            )
+                          : null,
+                    ),
                     onTap: item.enabled
                         ? () => Navigator.of(sheetContext).pop(item.value)
                         : null,

@@ -72,7 +72,7 @@ void main() {
       ),
     );
     final placeholder = tester.widget<RichText>(
-      find.text('搜索音乐', findRichText: true),
+      find.text('搜索音乐', findRichText: true).last,
     );
     expect(placeholder.textScaler.scale(14), closeTo(44.8, 0.01));
     await tester.enterText(find.byType(TextField), '测试歌曲');

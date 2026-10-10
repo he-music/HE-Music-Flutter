@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/theme/skin/app_skin_icon.dart';
-import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../domain/entities/online_platform.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/underline_tab.dart';
+import '../../../../shared/widgets/app_search_field.dart';
 import 'online_search_models.dart';
 
 class SearchTopBox extends StatelessWidget {
@@ -27,114 +26,15 @@ class SearchTopBox extends StatelessWidget {
   final FocusNode? focusNode;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final borderRadius = BorderRadius.circular(16);
-    final secondary = placeholderSecondary?.trim() ?? '';
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 42),
-      child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: controller,
-        builder: (context, value, child) {
-          return Stack(
-            children: <Widget>[
-              TextField(
-                controller: controller,
-                focusNode: focusNode,
-                autofocus: true,
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: borderRadius,
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: borderRadius,
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: borderRadius,
-                    borderSide: BorderSide.none,
-                  ),
-                  prefixIcon: AppSkinIcon(
-                    role: AppSkinIconRole.search,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 30,
-                    minHeight: 30,
-                  ),
-                  suffixIcon: value.text.trim().isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: MaterialLocalizations.of(
-                            context,
-                          ).deleteButtonTooltip,
-                          onPressed: () {
-                            controller.clear();
-                            onChanged('');
-                            focusNode?.requestFocus();
-                          },
-                          icon: AppSkinIcon(
-                            role: AppSkinIconRole.close,
-                            size: 18,
-                            color: theme.hintColor,
-                          ),
-                        ),
-                  suffixIconConstraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                ),
-                onChanged: onChanged,
-                onSubmitted: (_) => onSubmit(),
-              ),
-              if (value.text.trim().isEmpty)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(34, 0, 16, 0),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: RichText(
-                          textScaler: MediaQuery.textScalerOf(context),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          text: TextSpan(
-                            children: <InlineSpan>[
-                              TextSpan(
-                                text: placeholderPrimary,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.72,
-                                  ),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              if (secondary.isNotEmpty)
-                                TextSpan(
-                                  text: ' $secondary',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AppSearchField(
+    controller: controller,
+    focusNode: focusNode,
+    autofocus: true,
+    placeholderPrimary: placeholderPrimary,
+    placeholderSecondary: placeholderSecondary,
+    onChanged: onChanged,
+    onSubmitted: (_) => onSubmit(),
+  );
 }
 
 class SearchTypeBar extends StatelessWidget {
