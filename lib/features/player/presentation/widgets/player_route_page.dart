@@ -48,6 +48,9 @@ class _PlayerRoute extends PageRouteBuilder<void> {
     controller!.value,
     forward ? 1 : 0,
     controller!.velocity,
+    // Overlay samples opaque at completion; a near-1 spring value leaks the
+    // source page when a transparent skin's next route fades out the player.
+    snapToEnd: true,
   );
 
   @override
@@ -120,6 +123,7 @@ class _PlayerRoute extends PageRouteBuilder<void> {
         controller!.value,
         dismiss ? .0001 : 1,
         velocity,
+        snapToEnd: true,
       );
       await controller!.animateWith(simulation).orCancel;
       if (revision == _revision && canDrag && dismiss) {
