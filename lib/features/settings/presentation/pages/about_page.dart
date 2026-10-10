@@ -149,7 +149,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       context: context,
       config: config,
       release: release,
-      downloadUrl: downloadTarget?.downloadUrl,
+      downloadTarget: downloadTarget,
       onOpenUrl: _openUrl,
     );
   }

@@ -146,10 +146,6 @@ class AppConfigController extends Notifier<AppConfigState> {
     _update(state.copyWith(autoCheckUpdates: value));
   }
 
-  void setGitHubDownloadAccelerationEnabled(bool value) {
-    _update(state.copyWith(githubDownloadAccelerationEnabled: value));
-  }
-
   void setGitHubDownloadProxyAutoUpdateEnabled(bool value) {
     _update(state.copyWith(githubDownloadProxyAutoUpdateEnabled: value));
   }
@@ -358,8 +354,6 @@ class AppConfigController extends Notifier<AppConfigState> {
       enableCellularAudioCache: loaded.enableCellularAudioCache,
       audioCacheLimitBytes: loaded.audioCacheLimitBytes,
       autoCheckUpdates: loaded.autoCheckUpdates,
-      githubDownloadAccelerationEnabled:
-          loaded.githubDownloadAccelerationEnabled,
       githubDownloadProxyAutoUpdateEnabled:
           loaded.githubDownloadProxyAutoUpdateEnabled,
       playerStageId: loaded.playerStageId,

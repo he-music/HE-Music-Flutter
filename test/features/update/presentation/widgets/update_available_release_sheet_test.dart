@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_release.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_version.dart';
+import 'package:he_music_flutter/features/update/domain/services/update_download_resolver.dart';
 import 'package:he_music_flutter/features/update/presentation/widgets/update_available_release_sheet.dart';
 
 void main() {
@@ -29,7 +30,10 @@ void main() {
                     htmlUrl: 'https://example.com/release',
                     publishedAt: DateTime(2026),
                   ),
-                  downloadUrl: 'https://example.com/app.apk',
+                  downloadTarget: const UpdateDownloadTarget(
+                    officialUrl: 'https://example.com/app.apk',
+                    acceleratedUrl: 'https://proxy.example.com/app.apk',
+                  ),
                   onOpenUrl: (_) async {},
                 ),
                 child: const Text('show'),
@@ -56,7 +60,8 @@ void main() {
       expect(find.text('history 1.5.0'), findsOneWidget);
       await tester.tap(find.text('history 1.5.0'));
       await tester.pumpAndSettle();
-      expect(find.text('下载更新'), findsOneWidget);
+      expect(find.text('加速下载'), findsOneWidget);
+      expect(find.text('普通下载'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -69,7 +74,8 @@ void main() {
 
     expect(find.text('取消'), findsOneWidget);
     expect(find.text('前往 GitHub Release'), findsOneWidget);
-    expect(find.text('下载更新'), findsNothing);
+    expect(find.text('普通下载'), findsNothing);
+    expect(find.text('加速下载'), findsNothing);
     expect(find.byTooltip('查看 GitHub Release'), findsNothing);
 
     await tester.tap(find.text('前往 GitHub Release'));
@@ -90,18 +96,128 @@ void main() {
     await _pumpSheetHost(
       tester,
       openedUrls: openedUrls,
-      downloadUrl: downloadUrl,
+      downloadUrl:
+          'https://github.com/owner/repo/releases/download/v1.1.0/app.apk',
+      acceleratedUrl: downloadUrl,
     );
 
     expect(find.text('稍后'), findsOneWidget);
-    expect(find.text('下载更新'), findsOneWidget);
+    expect(find.text('加速下载'), findsOneWidget);
+    expect(find.text('普通下载'), findsOneWidget);
     expect(find.byTooltip('查看 GitHub Release'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('下载更新'));
+    await tester.tap(find.text('加速下载'));
     await tester.pumpAndSettle();
     expect(openedUrls, <String>[downloadUrl]);
   });
+
+  testWidgets('regular download always opens the original package URL', (
+    tester,
+  ) async {
+    final openedUrls = <String>[];
+    const officialUrl =
+        'https://github.com/owner/repo/releases/download/v1.1.0/app.apk';
+    await _pumpSheetHost(
+      tester,
+      openedUrls: openedUrls,
+      downloadUrl: officialUrl,
+      acceleratedUrl: 'https://proxy.example.com/$officialUrl',
+    );
+    await tester.tap(find.text('普通下载'));
+    await tester.pumpAndSettle();
+    expect(openedUrls, [officialUrl]);
+  });
+
+  testWidgets(
+    'unavailable acceleration leaves regular download and later actions',
+    (tester) async {
+      final openedUrls = <String>[];
+      const officialUrl =
+          'https://github.com/owner/repo/releases/download/v1.1.0/app.apk';
+      await _pumpSheetHost(
+        tester,
+        openedUrls: openedUrls,
+        downloadUrl: officialUrl,
+      );
+      expect(find.text('加速下载'), findsNothing);
+      expect(find.text('稍后'), findsOneWidget);
+      await tester.tap(find.text('普通下载'));
+      await tester.pumpAndSettle();
+      expect(openedUrls, [officialUrl]);
+    },
+  );
+
+  testWidgets('later dismisses both download choices without opening a URL', (
+    tester,
+  ) async {
+    final openedUrls = <String>[];
+    await _pumpSheetHost(
+      tester,
+      openedUrls: openedUrls,
+      downloadUrl: 'https://example.com/app.apk',
+      acceleratedUrl: 'https://proxy.example.com/app.apk',
+    );
+    await tester.tap(find.text('稍后'));
+    await tester.pumpAndSettle();
+    expect(openedUrls, isEmpty);
+    expect(find.text('加速下载'), findsNothing);
+  });
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    for (final locale in ['zh', 'en']) {
+      testWidgets(
+        '$platform $locale download actions fit a narrow screen with large text',
+        (tester) async {
+          tester.view.physicalSize = const Size(320, 720);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final openedUrls = <String>[];
+          final officialUrl = platform == TargetPlatform.iOS
+              ? 'https://example.com/app-ios.ipa'
+              : 'https://example.com/app-android-arm64-v8a.apk';
+          await _pumpSheetHost(
+            tester,
+            openedUrls: openedUrls,
+            downloadUrl: officialUrl,
+            acceleratedUrl: 'https://proxy.example.com/$officialUrl',
+            config: AppConfigState.initial.copyWith(localeCode: locale),
+            platform: platform,
+            textScale: 2,
+          );
+          final accelerated = find.text(
+            locale == 'en' ? 'Accelerated Download' : '加速下载',
+          );
+          final regular = find.text(
+            locale == 'en' ? 'Regular Download' : '普通下载',
+          );
+          final later = find.text(locale == 'en' ? 'Later' : '稍后');
+          expect(accelerated, findsOneWidget);
+          expect(regular, findsOneWidget);
+          expect(later, findsOneWidget);
+          expect(
+            tester.getRect(accelerated).bottom,
+            lessThan(tester.getRect(regular).top),
+          );
+          expect(
+            tester.getRect(later).center.dx,
+            lessThan(tester.getRect(regular).center.dx),
+          );
+          expect(tester.takeException(), isNull);
+          await tester.ensureVisible(regular);
+          await tester.pumpAndSettle();
+          expect(regular.hitTestable(), findsOneWidget);
+          expect(later.hitTestable(), findsOneWidget);
+          await tester.ensureVisible(accelerated);
+          await tester.pumpAndSettle();
+          await tester.tap(accelerated);
+          await tester.pumpAndSettle();
+          expect(openedUrls, ['https://proxy.example.com/$officialUrl']);
+        },
+      );
+    }
+  }
 
   testWidgets('official icon always opens the unproxied release page', (
     tester,
@@ -174,15 +290,26 @@ Future<void> _pumpSheetHost(
   required List<String> openedUrls,
   required String? downloadUrl,
   String releaseNotes = '更新内容',
+  String? acceleratedUrl,
+  AppConfigState? config,
+  TargetPlatform platform = TargetPlatform.android,
+  double textScale = 1,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      theme: ThemeData(platform: platform),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Builder(
         builder: (context) => Scaffold(
           body: TextButton(
             onPressed: () => showUpdateAvailableReleaseSheet(
               context: context,
-              config: AppConfigState.initial,
+              config: config ?? AppConfigState.initial,
               release: UpdateRelease(
                 version: UpdateVersion.parse('1.1.0'),
                 versionTag: 'v1.1.0',
@@ -191,7 +318,12 @@ Future<void> _pumpSheetHost(
                 htmlUrl: 'https://github.com/owner/repo/releases/tag/v1.1.0',
                 publishedAt: DateTime.parse('2026-07-27T12:00:00Z'),
               ),
-              downloadUrl: downloadUrl,
+              downloadTarget: downloadUrl == null
+                  ? null
+                  : UpdateDownloadTarget(
+                      officialUrl: downloadUrl,
+                      acceleratedUrl: acceleratedUrl,
+                    ),
               onOpenUrl: (url) async {
                 openedUrls.add(url);
               },

@@ -575,7 +575,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       return defaultTargetPlatform == TargetPlatform.android;
     }
     if (itemId == SettingsItemIds.githubDownloadAcceleration) {
-      return defaultTargetPlatform == TargetPlatform.android;
+      return defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS;
     }
     final loggedIn = config.authToken?.trim().isNotEmpty ?? false;
     if (itemId == SettingsItemIds.accountLogin) {

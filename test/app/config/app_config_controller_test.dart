@@ -134,15 +134,10 @@ void main() {
     final controller = container.read(appConfigProvider.notifier);
     await controller.waitUntilHydrated();
 
-    controller.setGitHubDownloadAccelerationEnabled(true);
     controller.setGitHubDownloadProxyAutoUpdateEnabled(false);
     controller.setGitHubDownloadProxyId(' proxy-1 ');
     await Future<void>.delayed(Duration.zero);
 
-    expect(
-      container.read(appConfigProvider).githubDownloadAccelerationEnabled,
-      isTrue,
-    );
     expect(
       container.read(appConfigProvider).githubDownloadProxyAutoUpdateEnabled,
       isFalse,

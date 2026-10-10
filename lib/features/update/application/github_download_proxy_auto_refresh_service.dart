@@ -3,26 +3,21 @@ import '../domain/entities/github_download_proxy_config.dart';
 
 class GitHubDownloadProxyAutoRefreshService {
   GitHubDownloadProxyAutoRefreshService({
-    required bool Function() isAndroid,
     required Future<GitHubDownloadProxyConfigSnapshot> Function() loadLocal,
     required Future<GitHubDownloadProxyConfigSnapshot> Function() refresh,
     DateTime Function()? now,
-  }) : _isAndroid = isAndroid,
-       _loadLocal = loadLocal,
+  }) : _loadLocal = loadLocal,
        _refresh = refresh,
        _now = now ?? DateTime.now;
 
   static const refreshInterval = Duration(hours: 24);
 
-  final bool Function() _isAndroid;
   final Future<GitHubDownloadProxyConfigSnapshot> Function() _loadLocal;
   final Future<GitHubDownloadProxyConfigSnapshot> Function() _refresh;
   final DateTime Function() _now;
 
   Future<bool> refreshIfNeeded(AppConfigState appConfig) async {
-    if (!_isAndroid() ||
-        !appConfig.githubDownloadAccelerationEnabled ||
-        !appConfig.githubDownloadProxyAutoUpdateEnabled) {
+    if (!appConfig.githubDownloadProxyAutoUpdateEnabled) {
       return false;
     }
     final snapshot = await _loadLocal();

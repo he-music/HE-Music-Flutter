@@ -30,7 +30,6 @@ AppConfigState _config({
     wifiOnlineAudioQualityPreference: wifiPreference,
     cellularOnlineAudioQualityPreference: cellularPreference,
     autoCheckUpdates: true,
-    githubDownloadAccelerationEnabled: false,
     githubDownloadProxyAutoUpdateEnabled: true,
     playerStageId: 'classic',
     playerBackdropId: 'cover_gradient',

@@ -37,23 +37,6 @@ class _GitHubDownloadAccelerationPageState
             children: <Widget>[
               SwitchListTile.adaptive(
                 key: const ValueKey<String>(
-                  'github-download-acceleration-switch',
-                ),
-                value: config.githubDownloadAccelerationEnabled,
-                onChanged: ref
-                    .read(appConfigProvider.notifier)
-                    .setGitHubDownloadAccelerationEnabled,
-                secondary: const Icon(Icons.speed_rounded),
-                title: Text(
-                  AppI18n.t(
-                    config,
-                    'settings.github_download_acceleration.enabled',
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              SwitchListTile.adaptive(
-                key: const ValueKey<String>(
                   'github-download-proxy-auto-update-switch',
                 ),
                 value: config.githubDownloadProxyAutoUpdateEnabled,
@@ -168,9 +151,6 @@ class _GitHubDownloadAccelerationPageState
           RadioGroup<String>(
             groupValue: selectedProxy?.id,
             onChanged: (value) {
-              if (!appConfig.githubDownloadAccelerationEnabled) {
-                return;
-              }
               ref
                   .read(appConfigProvider.notifier)
                   .setGitHubDownloadProxyId(value);
@@ -186,7 +166,6 @@ class _GitHubDownloadAccelerationPageState
                         'github-download-proxy-${proxies[index].id}',
                       ),
                       value: proxies[index].id,
-                      enabled: appConfig.githubDownloadAccelerationEnabled,
                       title: Text(proxies[index].name),
                       subtitle: Text(
                         proxies[index].urlPrefix,

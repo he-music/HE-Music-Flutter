@@ -48,7 +48,6 @@ void main() {
         cellularOnlineAudioQualityPreference: AppOnlineAudioQuality.mp3192,
         lastSelectedOnlineAudioQualityName: 'sq',
         autoCheckUpdates: true,
-        githubDownloadAccelerationEnabled: true,
         githubDownloadProxyAutoUpdateEnabled: false,
         githubDownloadProxyId: 'proxy-1',
         playerLyricsId: AppPlayerLyricsRegistry.partitaId,
@@ -77,7 +76,6 @@ void main() {
     );
     expect(state.lastSelectedOnlineAudioQualityName, 'sq');
     expect(state.autoCheckUpdates, isTrue);
-    expect(state.githubDownloadAccelerationEnabled, isTrue);
     expect(state.githubDownloadProxyAutoUpdateEnabled, isFalse);
     expect(state.githubDownloadProxyId, 'proxy-1');
     expect(state.playerLyricsId, AppPlayerLyricsRegistry.partitaId);
@@ -159,7 +157,6 @@ void main() {
     final state = await dataSource.load();
 
     expect(state.autoCheckUpdates, isTrue);
-    expect(state.githubDownloadAccelerationEnabled, isFalse);
     expect(state.githubDownloadProxyAutoUpdateEnabled, isTrue);
     expect(state.githubDownloadProxyId, isNull);
     expect(state.lyricHighlightMode, AppConfigState.initial.lyricHighlightMode);

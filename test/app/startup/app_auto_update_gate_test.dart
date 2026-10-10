@@ -14,6 +14,7 @@ import 'package:he_music_flutter/features/update/domain/entities/update_release.
 import 'package:he_music_flutter/features/update/domain/entities/update_release_asset.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_state.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_version.dart';
+import 'package:he_music_flutter/features/update/domain/services/update_download_resolver.dart';
 import 'package:he_music_flutter/features/update/presentation/controllers/update_controller.dart';
 import 'package:he_music_flutter/features/update/presentation/providers/update_providers.dart';
 
@@ -24,7 +25,6 @@ void main() {
       final refreshCompleter = Completer<GitHubDownloadProxyConfigSnapshot>();
       var refreshCalls = 0;
       final autoRefreshService = GitHubDownloadProxyAutoRefreshService(
-        isAndroid: () => true,
         loadLocal: () async => _proxySnapshot(),
         refresh: () {
           refreshCalls += 1;
@@ -36,7 +36,6 @@ void main() {
           appConfigDataSourceProvider.overrideWithValue(
             const _FakeAppConfigDataSource(
               autoCheckUpdates: true,
-              githubDownloadAccelerationEnabled: true,
               githubDownloadProxyAutoUpdateEnabled: true,
             ),
           ),
@@ -74,7 +73,6 @@ void main() {
     tester,
   ) async {
     final autoRefreshService = GitHubDownloadProxyAutoRefreshService(
-      isAndroid: () => true,
       loadLocal: () async => _proxySnapshot(),
       refresh: () async => throw StateError('refresh failed'),
     );
@@ -83,7 +81,6 @@ void main() {
         appConfigDataSourceProvider.overrideWithValue(
           const _FakeAppConfigDataSource(
             autoCheckUpdates: true,
-            githubDownloadAccelerationEnabled: true,
             githubDownloadProxyAutoUpdateEnabled: true,
           ),
         ),
@@ -180,7 +177,7 @@ void main() {
         ),
         updateControllerProvider.overrideWith(_AvailableUpdateController.new),
         updateDownloadTargetServiceProvider.overrideWithValue(
-          _nonAndroidDownloadTargetService(),
+          _unsupportedDownloadTargetService(),
         ),
       ],
     );
@@ -218,7 +215,7 @@ void main() {
         ),
         updateControllerProvider.overrideWith(_AvailableUpdateController.new),
         updateDownloadTargetServiceProvider.overrideWithValue(
-          _nonAndroidDownloadTargetService(),
+          _unsupportedDownloadTargetService(),
         ),
       ],
     );
@@ -262,7 +259,7 @@ void main() {
       final navigatorKey = GlobalKey<NavigatorState>();
       var proxyLoads = 0;
       final downloadTargetService = UpdateDownloadTargetService(
-        isAndroid: () => true,
+        platform: () => UpdateDownloadPlatform.android,
         loadSupportedAbis: () async => const <String>['arm64-v8a'],
         loadProxyConfig: () async {
           proxyLoads += 1;
@@ -307,10 +304,11 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('下载更新'), findsOneWidget);
+      expect(find.text('普通下载'), findsOneWidget);
+      expect(find.text('加速下载'), findsNothing);
       expect(find.byTooltip('查看 GitHub Release'), findsOneWidget);
       expect(find.text('前往 GitHub Release'), findsNothing);
-      expect(proxyLoads, 0);
+      expect(proxyLoads, 1);
     },
   );
 }
@@ -318,19 +316,16 @@ void main() {
 class _FakeAppConfigDataSource extends AppConfigDataSource {
   const _FakeAppConfigDataSource({
     required this.autoCheckUpdates,
-    this.githubDownloadAccelerationEnabled = false,
     this.githubDownloadProxyAutoUpdateEnabled = true,
   });
 
   final bool autoCheckUpdates;
-  final bool githubDownloadAccelerationEnabled;
   final bool githubDownloadProxyAutoUpdateEnabled;
 
   @override
   Future<AppConfigState> load() async {
     return AppConfigState.initial.copyWith(
       autoCheckUpdates: autoCheckUpdates,
-      githubDownloadAccelerationEnabled: githubDownloadAccelerationEnabled,
       githubDownloadProxyAutoUpdateEnabled:
           githubDownloadProxyAutoUpdateEnabled,
     );
@@ -349,9 +344,9 @@ GitHubDownloadProxyConfigSnapshot _proxySnapshot({bool refreshed = false}) {
   );
 }
 
-UpdateDownloadTargetService _nonAndroidDownloadTargetService() {
+UpdateDownloadTargetService _unsupportedDownloadTargetService() {
   return UpdateDownloadTargetService(
-    isAndroid: () => false,
+    platform: () => UpdateDownloadPlatform.unsupported,
     loadSupportedAbis: () async => throw StateError('should not load ABI'),
     loadProxyConfig: () async => throw StateError('should not load proxies'),
     owner: 'owner',

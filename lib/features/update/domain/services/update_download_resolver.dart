@@ -1,49 +1,35 @@
 import '../entities/github_download_proxy_config.dart';
 import '../entities/update_release_asset.dart';
 
+enum UpdateDownloadPlatform { android, ios, unsupported }
+
 class UpdateDownloadTarget {
-  const UpdateDownloadTarget({
-    required this.officialUrl,
-    required this.downloadUrl,
-    required this.accelerated,
-  });
+  const UpdateDownloadTarget({required this.officialUrl, this.acceleratedUrl});
 
   final String officialUrl;
-  final String downloadUrl;
-  final bool accelerated;
+  final String? acceleratedUrl;
 }
 
-class AndroidUpdateDownloadResolver {
-  const AndroidUpdateDownloadResolver();
+class UpdateDownloadResolver {
+  const UpdateDownloadResolver();
 
   UpdateDownloadTarget? resolve({
+    required UpdateDownloadPlatform platform,
     required List<UpdateReleaseAsset> assets,
     required List<String> supportedAbis,
     required String owner,
     required String repo,
-    required bool accelerationEnabled,
     required String? selectedProxyId,
     required GitHubDownloadProxyConfig? proxyConfig,
   }) {
-    final asset = _selectAsset(assets, supportedAbis);
+    final asset = _selectAsset(platform, assets, supportedAbis);
     if (asset == null || !_isTrustedAssetUrl(asset, owner, repo)) {
       return null;
     }
     final officialUrl = asset.browserDownloadUrl;
-    if (!accelerationEnabled) {
-      return UpdateDownloadTarget(
-        officialUrl: officialUrl,
-        downloadUrl: officialUrl,
-        accelerated: false,
-      );
-    }
     final proxy = proxyConfig?.resolveProxy(selectedProxyId);
     if (proxy == null) {
-      return UpdateDownloadTarget(
-        officialUrl: officialUrl,
-        downloadUrl: officialUrl,
-        accelerated: false,
-      );
+      return UpdateDownloadTarget(officialUrl: officialUrl);
     }
     final acceleratedUrl = '${proxy.urlPrefix}$officialUrl';
     final acceleratedUri = Uri.tryParse(acceleratedUrl);
@@ -51,29 +37,29 @@ class AndroidUpdateDownloadResolver {
         acceleratedUri.scheme != 'https' ||
         acceleratedUri.host.isEmpty ||
         acceleratedUri.userInfo.isNotEmpty) {
-      return UpdateDownloadTarget(
-        officialUrl: officialUrl,
-        downloadUrl: officialUrl,
-        accelerated: false,
-      );
+      return UpdateDownloadTarget(officialUrl: officialUrl);
     }
     return UpdateDownloadTarget(
       officialUrl: officialUrl,
-      downloadUrl: acceleratedUrl,
-      accelerated: true,
+      acceleratedUrl: acceleratedUrl,
     );
   }
 
   UpdateReleaseAsset? _selectAsset(
+    UpdateDownloadPlatform platform,
     List<UpdateReleaseAsset> assets,
     List<String> supportedAbis,
   ) {
-    for (final rawAbi in supportedAbis) {
-      final abi = rawAbi.trim();
-      if (abi.isEmpty) {
-        continue;
-      }
-      final suffix = '-android-$abi.apk';
+    final suffixes = switch (platform) {
+      UpdateDownloadPlatform.android =>
+        supportedAbis
+            .map((abi) => abi.trim())
+            .where((abi) => abi.isNotEmpty)
+            .map((abi) => '-android-$abi.apk'),
+      UpdateDownloadPlatform.ios => const ['-ios.ipa'],
+      UpdateDownloadPlatform.unsupported => const <String>[],
+    };
+    for (final suffix in suffixes) {
       for (final asset in assets) {
         if (asset.name.endsWith(suffix)) {
           return asset;

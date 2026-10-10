@@ -11,6 +11,7 @@ import '../config/app_config_state.dart';
 import '../i18n/app_i18n.dart';
 import '../../features/update/domain/entities/update_release.dart';
 import '../../features/update/domain/entities/update_state.dart';
+import '../../features/update/domain/services/update_download_resolver.dart';
 import '../../features/update/presentation/providers/update_providers.dart';
 import '../../features/update/presentation/widgets/update_available_release_sheet.dart';
 
@@ -104,11 +105,7 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
     if (!mounted) {
       return;
     }
-    await _showAvailableReleaseSheetNow(
-      config,
-      release,
-      downloadTarget?.downloadUrl,
-    );
+    await _showAvailableReleaseSheetNow(config, release, downloadTarget);
     if (!mounted) {
       return;
     }
@@ -118,7 +115,7 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
   Future<void> _showAvailableReleaseSheetNow(
     AppConfigState config,
     UpdateRelease release,
-    String? downloadUrl,
+    UpdateDownloadTarget? downloadTarget,
   ) async {
     final navigatorContext = widget.navigatorKey.currentContext;
     if (navigatorContext == null) {
@@ -129,7 +126,7 @@ class _AppAutoUpdateGateState extends ConsumerState<AppAutoUpdateGate> {
       context: navigatorContext,
       config: config,
       release: release,
-      downloadUrl: downloadUrl,
+      downloadTarget: downloadTarget,
       onOpenUrl: (rawUrl) => _openReleaseUrl(rawUrl, config),
     );
   }

@@ -4,28 +4,14 @@ import 'package:he_music_flutter/features/update/application/github_download_pro
 import 'package:he_music_flutter/features/update/domain/entities/github_download_proxy_config.dart';
 
 void main() {
-  test('non-Android platform does not load or refresh proxy config', () async {
-    final harness = _AutoRefreshHarness(isAndroid: false);
-
-    final refreshed = await harness.service.refreshIfNeeded(
-      _enabledAppConfig(),
-    );
-
-    expect(refreshed, isFalse);
-    expect(harness.loadCalls, 0);
-    expect(harness.refreshCalls, 0);
-  });
-
-  test('disabled acceleration does not load or refresh proxy config', () async {
+  test('default config refreshes the service list', () async {
     final harness = _AutoRefreshHarness();
-
     final refreshed = await harness.service.refreshIfNeeded(
       AppConfigState.initial,
     );
-
-    expect(refreshed, isFalse);
-    expect(harness.loadCalls, 0);
-    expect(harness.refreshCalls, 0);
+    expect(refreshed, isTrue);
+    expect(harness.loadCalls, 1);
+    expect(harness.refreshCalls, 1);
   });
 
   test(
@@ -88,15 +74,13 @@ void main() {
 
 AppConfigState _enabledAppConfig() {
   return AppConfigState.initial.copyWith(
-    githubDownloadAccelerationEnabled: true,
     githubDownloadProxyAutoUpdateEnabled: true,
   );
 }
 
 class _AutoRefreshHarness {
-  _AutoRefreshHarness({this.isAndroid = true, this.refreshedAt}) {
+  _AutoRefreshHarness({this.refreshedAt}) {
     service = GitHubDownloadProxyAutoRefreshService(
-      isAndroid: () => isAndroid,
       loadLocal: () async {
         loadCalls += 1;
         return _snapshot(refreshedAt: refreshedAt);
@@ -111,7 +95,6 @@ class _AutoRefreshHarness {
 
   static final _now = DateTime.parse('2026-07-28T12:00:00Z');
 
-  final bool isAndroid;
   final DateTime? refreshedAt;
   late final GitHubDownloadProxyAutoRefreshService service;
   int loadCalls = 0;

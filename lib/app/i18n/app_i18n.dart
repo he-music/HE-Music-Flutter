@@ -468,10 +468,8 @@ abstract final class AppI18n {
       'settings.auto_check_updates.desc': '启动应用时自动检查是否有新版本',
       'settings.github_download_acceleration': '安装包下载加速',
       'settings.github_download_acceleration.title': '安装包下载加速',
-      'settings.github_download_acceleration.enabled': '使用下载加速',
+      'settings.github_download_acceleration.desc': '选择加速服务并管理服务列表',
       'settings.github_download_acceleration.auto_update': '自动更新加速服务列表',
-      'settings.github_download_acceleration.enabled_status': '已开启',
-      'settings.github_download_acceleration.disabled_status': '已关闭',
       'settings.github_download_acceleration.services': '加速服务',
       'settings.github_download_acceleration.refresh': '更新加速服务列表',
       'settings.github_download_acceleration.refreshed_at': '最近更新：{time}',
@@ -503,7 +501,8 @@ abstract final class AppI18n {
       'settings.about.release_notes.empty': '当前版本暂无更新说明',
       'settings.about.open_release': '前往 GitHub Release',
       'settings.about.view_release': '查看 GitHub Release',
-      'settings.about.download_update': '下载更新',
+      'settings.about.accelerated_download': '加速下载',
+      'settings.about.regular_download': '普通下载',
       'settings.about.unconfigured': '暂未配置 GitHub 仓库',
       'settings.about.check_failed': '检查更新失败',
       'settings.about.open_failed': '无法打开发布页面',
@@ -1462,12 +1461,10 @@ abstract final class AppI18n {
       'settings.github_download_acceleration': 'Package Download Acceleration',
       'settings.github_download_acceleration.title':
           'Package Download Acceleration',
-      'settings.github_download_acceleration.enabled':
-          'Use Download Acceleration',
+      'settings.github_download_acceleration.desc':
+          'Choose a service and manage the service list',
       'settings.github_download_acceleration.auto_update':
           'Automatically Update Service List',
-      'settings.github_download_acceleration.enabled_status': 'Enabled',
-      'settings.github_download_acceleration.disabled_status': 'Disabled',
       'settings.github_download_acceleration.services': 'Acceleration Services',
       'settings.github_download_acceleration.refresh': 'Update Service List',
       'settings.github_download_acceleration.refreshed_at':
@@ -1504,7 +1501,8 @@ abstract final class AppI18n {
       'settings.about.release_notes.empty': 'No release notes provided.',
       'settings.about.open_release': 'Open GitHub Release',
       'settings.about.view_release': 'View GitHub Release',
-      'settings.about.download_update': 'Download Update',
+      'settings.about.accelerated_download': 'Accelerated Download',
+      'settings.about.regular_download': 'Regular Download',
       'settings.about.unconfigured': 'GitHub repository is not configured yet',
       'settings.about.check_failed': 'Failed to check for updates',
       'settings.about.open_failed': 'Unable to open the release page',

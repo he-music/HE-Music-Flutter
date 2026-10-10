@@ -119,12 +119,8 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
             AppI18n.t(config, 'settings.auto_check_updates.desc'),
       ),
       SettingsItemIds.githubDownloadAcceleration: SettingsItemPresentation(
-        subtitleBuilder: (config) => AppI18n.t(
-          config,
-          config.githubDownloadAccelerationEnabled
-              ? 'settings.github_download_acceleration.enabled_status'
-              : 'settings.github_download_acceleration.disabled_status',
-        ),
+        subtitleBuilder: (config) =>
+            AppI18n.t(config, 'settings.github_download_acceleration.desc'),
       ),
       SettingsItemIds.about: SettingsItemPresentation(
         subtitleBuilder: (config) => AppI18n.t(config, 'settings.about.desc'),

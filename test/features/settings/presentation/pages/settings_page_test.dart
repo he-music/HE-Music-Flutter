@@ -428,7 +428,7 @@ void main() {
     },
   );
 
-  testWidgets('non-Android general settings hide download acceleration', (
+  testWidgets('iOS general settings show download acceleration', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -443,7 +443,8 @@ void main() {
     await tester.tap(find.text('通用'));
     await tester.pumpAndSettle();
 
-    expect(find.text('安装包下载加速'), findsNothing);
+    expect(find.text('安装包下载加速'), findsOneWidget);
+    expect(find.text('选择加速服务并管理服务列表'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
 

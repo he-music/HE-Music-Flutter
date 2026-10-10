@@ -25,10 +25,7 @@ void main() {
     expect(find.text('Primary Proxy'), findsOneWidget);
     expect(repository.loadCalls, 1);
     expect(repository.refreshCalls, 0);
-    expect(
-      container.read(appConfigProvider).githubDownloadAccelerationEnabled,
-      isFalse,
-    );
+    expect(find.text('使用下载加速'), findsNothing);
     expect(
       container.read(appConfigProvider).githubDownloadProxyAutoUpdateEnabled,
       isTrue,
@@ -69,27 +66,23 @@ void main() {
     expect(repository.refreshCalls, 0);
   });
 
-  testWidgets('switch enables proxy selection and persists the selected id', (
-    tester,
-  ) async {
-    final repository = _FakeRepository();
-    final container = _container(repository);
-    addTearDown(container.dispose);
-    await _pumpPage(tester, container);
+  testWidgets(
+    'proxy selection is available immediately and persists the selected id',
+    (tester) async {
+      final repository = _FakeRepository();
+      final container = _container(repository);
+      addTearDown(container.dispose);
+      await _pumpPage(tester, container);
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('github-download-acceleration-switch')),
-    );
-    await tester.pump();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('github-download-proxy-secondary')),
-    );
-    await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('github-download-proxy-secondary')),
+      );
+      await tester.pump();
 
-    final config = container.read(appConfigProvider);
-    expect(config.githubDownloadAccelerationEnabled, isTrue);
-    expect(config.githubDownloadProxyId, 'secondary');
-  });
+      final config = container.read(appConfigProvider);
+      expect(config.githubDownloadProxyId, 'secondary');
+    },
+  );
 
   testWidgets(
     'refresh action is the only remote request and updates timestamp',
@@ -125,10 +118,6 @@ void main() {
     addTearDown(container.dispose);
     await _pumpPage(tester, container);
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('github-download-acceleration-switch')),
-    );
-    await tester.pump();
     await tester.tap(
       find.byKey(const ValueKey<String>('github-download-proxy-primary')),
     );

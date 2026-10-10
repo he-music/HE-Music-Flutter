@@ -34,8 +34,6 @@ const _cellularOnlineAudioQualityPreferenceKey =
 const _lastSelectedOnlineAudioQualityNameKey =
     'app_config.last_selected_online_audio_quality';
 const _autoCheckUpdatesKey = 'app_config.auto_check_updates';
-const _githubDownloadAccelerationEnabledKey =
-    'app_config.github_download_acceleration_enabled';
 const _githubDownloadProxyAutoUpdateEnabledKey =
     'app_config.github_download_proxy_auto_update_enabled';
 const _githubDownloadProxyIdKey = 'app_config.github_download_proxy_id';
@@ -153,8 +151,6 @@ class AppConfigDataSource {
         fallback: AppConfigState.initial.cellularOnlineAudioQualityPreference,
       ),
       autoCheckUpdates: prefs.getBool(_autoCheckUpdatesKey) ?? true,
-      githubDownloadAccelerationEnabled:
-          prefs.getBool(_githubDownloadAccelerationEnabledKey) ?? false,
       githubDownloadProxyAutoUpdateEnabled:
           prefs.getBool(_githubDownloadProxyAutoUpdateEnabledKey) ?? true,
       playerStageId: playerStageId,
@@ -233,10 +229,6 @@ class AppConfigDataSource {
     );
     await prefs.remove(_legacyOnlineAudioQualityPreferenceKey);
     await prefs.setBool(_autoCheckUpdatesKey, state.autoCheckUpdates);
-    await prefs.setBool(
-      _githubDownloadAccelerationEnabledKey,
-      state.githubDownloadAccelerationEnabled,
-    );
     await prefs.setBool(
       _githubDownloadProxyAutoUpdateEnabledKey,
       state.githubDownloadProxyAutoUpdateEnabled,

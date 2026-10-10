@@ -14,6 +14,7 @@ import '../../domain/entities/update_state.dart';
 import '../../domain/repositories/github_download_proxy_repository.dart';
 import '../../domain/entities/update_release_page.dart';
 import '../../domain/repositories/update_repository.dart';
+import '../../domain/services/update_download_resolver.dart';
 import '../controllers/github_download_proxy_controller.dart';
 import '../controllers/update_controller.dart';
 import '../../../../app/config/app_environment.dart';
@@ -94,7 +95,11 @@ final androidSupportedAbisProvider = FutureProvider<List<String>>((ref) async {
 final updateDownloadTargetServiceProvider =
     Provider<UpdateDownloadTargetService>((ref) {
       return UpdateDownloadTargetService(
-        isAndroid: () => defaultTargetPlatform == TargetPlatform.android,
+        platform: () => switch (defaultTargetPlatform) {
+          TargetPlatform.android => UpdateDownloadPlatform.android,
+          TargetPlatform.iOS => UpdateDownloadPlatform.ios,
+          _ => UpdateDownloadPlatform.unsupported,
+        },
         loadSupportedAbis: () => ref.read(androidSupportedAbisProvider.future),
         loadProxyConfig: () =>
             ref.read(gitHubDownloadProxyControllerProvider.future),
@@ -106,7 +111,6 @@ final updateDownloadTargetServiceProvider =
 final gitHubDownloadProxyAutoRefreshServiceProvider =
     Provider<GitHubDownloadProxyAutoRefreshService>((ref) {
       return GitHubDownloadProxyAutoRefreshService(
-        isAndroid: () => defaultTargetPlatform == TargetPlatform.android,
         loadLocal: () => ref.read(gitHubDownloadProxyControllerProvider.future),
         refresh: () =>
             ref.read(gitHubDownloadProxyControllerProvider.notifier).refresh(),

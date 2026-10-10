@@ -26,7 +26,6 @@ class AppConfigState {
     required this.wifiOnlineAudioQualityPreference,
     required this.cellularOnlineAudioQualityPreference,
     required this.autoCheckUpdates,
-    required this.githubDownloadAccelerationEnabled,
     required this.githubDownloadProxyAutoUpdateEnabled,
     required this.playerStageId,
     required this.playerBackdropId,
@@ -63,7 +62,6 @@ class AppConfigState {
   final AppOnlineAudioQuality wifiOnlineAudioQualityPreference;
   final AppOnlineAudioQuality cellularOnlineAudioQualityPreference;
   final bool autoCheckUpdates;
-  final bool githubDownloadAccelerationEnabled;
   final bool githubDownloadProxyAutoUpdateEnabled;
   final String playerStageId;
   final String playerBackdropId;
@@ -109,7 +107,6 @@ class AppConfigState {
     AppOnlineAudioQuality? wifiOnlineAudioQualityPreference,
     AppOnlineAudioQuality? cellularOnlineAudioQualityPreference,
     bool? autoCheckUpdates,
-    bool? githubDownloadAccelerationEnabled,
     bool? githubDownloadProxyAutoUpdateEnabled,
     String? playerStageId,
     String? playerBackdropId,
@@ -165,9 +162,6 @@ class AppConfigState {
           cellularOnlineAudioQualityPreference ??
           this.cellularOnlineAudioQualityPreference,
       autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
-      githubDownloadAccelerationEnabled:
-          githubDownloadAccelerationEnabled ??
-          this.githubDownloadAccelerationEnabled,
       githubDownloadProxyAutoUpdateEnabled:
           githubDownloadProxyAutoUpdateEnabled ??
           this.githubDownloadProxyAutoUpdateEnabled,
@@ -213,7 +207,6 @@ class AppConfigState {
     wifiOnlineAudioQualityPreference: AppOnlineAudioQuality.auto,
     cellularOnlineAudioQualityPreference: AppOnlineAudioQuality.mp3320,
     autoCheckUpdates: true,
-    githubDownloadAccelerationEnabled: false,
     githubDownloadProxyAutoUpdateEnabled: true,
     playerStageId: AppPlayerStageRegistry.classicId,
     playerBackdropId: AppPlayerBackdropRegistry.coverGradientId,

@@ -5,78 +5,113 @@ import 'package:he_music_flutter/features/update/domain/entities/github_download
 import 'package:he_music_flutter/features/update/domain/entities/update_release.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_release_asset.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_version.dart';
+import 'package:he_music_flutter/features/update/domain/services/update_download_resolver.dart';
 
 void main() {
-  test('non-Android resolution does not load ABI or proxy state', () async {
-    var abiLoads = 0;
-    var proxyLoads = 0;
+  test('unsupported platform does not load ABI or proxy state', () async {
     final service = UpdateDownloadTargetService(
-      isAndroid: () => false,
-      loadSupportedAbis: () async {
-        abiLoads += 1;
-        return const <String>['arm64-v8a'];
-      },
-      loadProxyConfig: () async {
-        proxyLoads += 1;
-        return _proxySnapshot();
-      },
+      platform: () => UpdateDownloadPlatform.unsupported,
+      loadSupportedAbis: () async => throw StateError('should not load ABIs'),
+      loadProxyConfig: () async => throw StateError('should not load proxies'),
       owner: 'owner',
       repo: 'repo',
     );
-
-    final target = await service.resolve(
-      _release(),
-      AppConfigState.initial.copyWith(githubDownloadAccelerationEnabled: true),
-    );
-
-    expect(target, isNull);
-    expect(abiLoads, 0);
-    expect(proxyLoads, 0);
+    expect(await service.resolve(_release(), AppConfigState.initial), isNull);
   });
 
-  test(
-    'disabled acceleration resolves official APK without loading proxies',
-    () async {
-      var proxyLoads = 0;
+  for (final platform in [
+    UpdateDownloadPlatform.android,
+    UpdateDownloadPlatform.ios,
+  ]) {
+    test(
+      '$platform offers both downloads with the default app config',
+      () async {
+        var abiLoads = 0;
+        var proxyLoads = 0;
+        final service = UpdateDownloadTargetService(
+          platform: () => platform,
+          loadSupportedAbis: () async {
+            abiLoads += 1;
+            return ['arm64-v8a'];
+          },
+          loadProxyConfig: () async {
+            proxyLoads += 1;
+            return _proxySnapshot();
+          },
+          owner: 'owner',
+          repo: 'repo',
+        );
+        final target = await service.resolve(
+          _release(),
+          AppConfigState.initial,
+        );
+        expect(target, isNotNull);
+        expect(
+          target?.officialUrl,
+          endsWith(
+            platform == UpdateDownloadPlatform.ios
+                ? '-ios.ipa'
+                : '-android-arm64-v8a.apk',
+          ),
+        );
+        expect(
+          target?.acceleratedUrl,
+          'https://proxy.example.com/${target?.officialUrl}',
+        );
+        expect(abiLoads, platform == UpdateDownloadPlatform.android ? 1 : 0);
+        expect(proxyLoads, 1);
+      },
+    );
+
+    test(
+      '$platform proxy load failure preserves only the official URL',
+      () async {
+        final service = UpdateDownloadTargetService(
+          platform: () => platform,
+          loadSupportedAbis: () async => ['arm64-v8a'],
+          loadProxyConfig: () async => throw StateError('cache failed'),
+          owner: 'owner',
+          repo: 'repo',
+        );
+        final target = await service.resolve(
+          _release(),
+          AppConfigState.initial,
+        );
+        expect(target, isNotNull);
+        expect(target?.officialUrl, startsWith('https://github.com/'));
+        expect(target?.acceleratedUrl, isNull);
+      },
+    );
+
+    test('$platform missing package does not load proxy state', () async {
       final service = UpdateDownloadTargetService(
-        isAndroid: () => true,
-        loadSupportedAbis: () async => const <String>['arm64-v8a'],
-        loadProxyConfig: () async {
-          proxyLoads += 1;
-          return _proxySnapshot();
-        },
+        platform: () => platform,
+        loadSupportedAbis: () async => ['arm64-v8a'],
+        loadProxyConfig: () async =>
+            throw StateError('should not load proxies'),
         owner: 'owner',
         repo: 'repo',
       );
+      expect(
+        await service.resolve(_release(assets: []), AppConfigState.initial),
+        isNull,
+      );
+    });
+  }
 
-      final target = await service.resolve(_release(), AppConfigState.initial);
-
-      expect(target?.downloadUrl, target?.officialUrl);
-      expect(proxyLoads, 0);
-    },
-  );
-
-  test('proxy load failure falls back to the official APK URL', () async {
+  test('Android ABI lookup failure leaves the release page fallback', () async {
     final service = UpdateDownloadTargetService(
-      isAndroid: () => true,
-      loadSupportedAbis: () async => const <String>['arm64-v8a'],
-      loadProxyConfig: () async => throw StateError('cache failed'),
+      platform: () => UpdateDownloadPlatform.android,
+      loadSupportedAbis: () async => throw StateError('device info failed'),
+      loadProxyConfig: () async => throw StateError('should not load proxies'),
       owner: 'owner',
       repo: 'repo',
     );
-
-    final target = await service.resolve(
-      _release(),
-      AppConfigState.initial.copyWith(githubDownloadAccelerationEnabled: true),
-    );
-
-    expect(target?.downloadUrl, target?.officialUrl);
-    expect(target?.accelerated, isFalse);
+    expect(await service.resolve(_release(), AppConfigState.initial), isNull);
   });
 }
 
-UpdateRelease _release() {
-  const name = 'HE-Music-v1.1.0-android-arm64-v8a.apk';
+UpdateRelease _release({List<UpdateReleaseAsset>? assets}) {
   return UpdateRelease(
     version: UpdateVersion.parse('1.1.0'),
     versionTag: 'v1.1.0',
@@ -84,13 +119,16 @@ UpdateRelease _release() {
     releaseNotes: 'notes',
     htmlUrl: 'https://github.com/owner/repo/releases/tag/v1.1.0',
     publishedAt: DateTime.parse('2026-07-27T12:00:00Z'),
-    assets: const <UpdateReleaseAsset>[
-      UpdateReleaseAsset(
-        name: name,
-        browserDownloadUrl:
-            'https://github.com/owner/repo/releases/download/v1.1.0/$name',
-      ),
-    ],
+    assets:
+        assets ??
+        [
+          for (final suffix in ['android-arm64-v8a.apk', 'ios.ipa'])
+            UpdateReleaseAsset(
+              name: 'HE-Music-v1.1.0-$suffix',
+              browserDownloadUrl:
+                  'https://github.com/owner/repo/releases/download/v1.1.0/HE-Music-v1.1.0-$suffix',
+            ),
+        ],
   );
 }
 
@@ -100,7 +138,7 @@ GitHubDownloadProxyConfigSnapshot _proxySnapshot() {
       schemaVersion: 1,
       revision: 1,
       defaultProxyId: 'primary',
-      proxies: const <GitHubDownloadProxy>[
+      proxies: const [
         GitHubDownloadProxy(
           id: 'primary',
           name: 'Primary',
