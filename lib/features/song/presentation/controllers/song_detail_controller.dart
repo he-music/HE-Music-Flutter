@@ -47,7 +47,7 @@ class SongDetailController extends Notifier<SongDetailState> {
       state = state.copyWith(
         loading: false,
         content: content,
-        relationsLoading: true,
+        relationsLoading: false,
         clearError: true,
         clearRelationsError: true,
       );
@@ -58,9 +58,9 @@ class SongDetailController extends Notifier<SongDetailState> {
         return;
       }
       if (!supportsSongRelations) {
-        state = state.copyWith(relationsLoading: false);
         return;
       }
+      state = state.copyWith(relationsLoading: true);
       try {
         final relations = await _repository.fetchRelations(request);
         if (!ref.mounted) {
@@ -104,15 +104,15 @@ class SongDetailController extends Notifier<SongDetailState> {
       platforms = ref.read(onlinePlatformsProvider).value;
     }
     if (platforms == null) {
-      return true;
+      return false;
     }
     final platform = platforms
         .where((item) => item.id == platformId)
         .firstOrNull;
     if (platform == null) {
-      return true;
+      return false;
     }
-    // 平台能力信息缺失时默认放行，仅在明确不支持时跳过“歌曲相关”请求。
+    // 仅在确认平台可用且支持“歌曲相关”时请求，能力未知时不展示加载占位。
     return platform.available &&
         platform.supports(PlatformFeatureSupportFlag.listSongRelations);
   }

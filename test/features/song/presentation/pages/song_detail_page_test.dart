@@ -20,6 +20,7 @@ import 'package:he_music_flutter/features/song/domain/entities/song_detail_reque
 import 'package:he_music_flutter/features/song/domain/repositories/song_detail_repository.dart';
 import 'package:he_music_flutter/features/song/presentation/pages/song_detail_page.dart';
 import 'package:he_music_flutter/features/song/presentation/providers/song_detail_providers.dart';
+import 'package:he_music_flutter/features/song/presentation/widgets/song_relations_loading_skeleton.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/detail_loading_skeleton.dart';
 
@@ -110,6 +111,90 @@ void main() {
     await tester.pump();
 
     expect(find.byType(GenericDetailLoadingBody), findsOneWidget);
+  });
+
+  for (final supported in [true, false]) {
+    testWidgets(
+      'relation skeleton appears only after support is confirmed ($supported)',
+      (tester) async {
+        final platformsCompleter = Completer<List<OnlinePlatform>>();
+        final relationsCompleter = Completer<SongDetailRelations>();
+        final repository = _FakeSongDetailRepository(
+          relationsCompleter: relationsCompleter,
+        );
+        await tester.pumpWidget(
+          _buildTestApp(
+            repository: repository,
+            playerController: playerController,
+            platformsController: () =>
+                _PendingOnlinePlatformsController(platformsCompleter),
+            child: const SongDetailPage(
+              id: 'song-1',
+              platform: 'qq',
+              title: '测试歌曲',
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(find.text('测试歌曲'), findsWidgets);
+        expect(find.byType(SongRelationsLoadingSkeleton), findsNothing);
+        expect(repository.fetchRelationsCallCount, 0);
+
+        platformsCompleter.complete([
+          OnlinePlatform(
+            id: 'qq',
+            name: 'QQ 音乐',
+            shortName: 'QQ',
+            status: 1,
+            featureSupportFlag:
+                PlatformFeatureSupportFlag.getSongDetail |
+                (supported
+                    ? PlatformFeatureSupportFlag.listSongRelations
+                    : BigInt.zero),
+          ),
+        ]);
+        await tester.pump();
+        await tester.pump();
+        expect(
+          find.byType(SongRelationsLoadingSkeleton),
+          supported ? findsOneWidget : findsNothing,
+        );
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        expect(repository.fetchRelationsCallCount, supported ? 1 : 0);
+
+        relationsCompleter.complete(_buildRelations());
+        await tester.pump();
+        await tester.pump();
+        expect(find.byType(SongRelationsLoadingSkeleton), findsNothing);
+        expect(find.text('相似歌曲'), supported ? findsWidgets : findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('relation skeleton honors reduced motion on narrow screens', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: const Scaffold(
+            body: SizedBox(width: 240, child: SongRelationsLoadingSkeleton()),
+          ),
+        ),
+      ),
+    );
+    final fade = find.descendant(
+      of: find.byType(SongRelationsLoadingSkeleton),
+      matching: find.byType(FadeTransition),
+    );
+    final initialOpacity = tester.widget<FadeTransition>(fade).opacity.value;
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(tester.widget<FadeTransition>(fade).opacity.value, initialOpacity);
+    expect(tester.binding.hasScheduledFrame, false);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('song detail keeps compact header on wide width', (tester) async {
@@ -499,13 +584,16 @@ Widget _buildTestApp({
   required SongDetailRepository repository,
   required _TestPlayerController playerController,
   required Widget child,
+  OnlinePlatformsController Function()? platformsController,
 }) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       playerControllerProvider.overrideWith(() => playerController),
       songDetailRepositoryProvider.overrideWithValue(repository),
-      onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
+      onlinePlatformsProvider.overrideWith(
+        platformsController ?? _TestOnlinePlatformsController.new,
+      ),
     ],
     child: MaterialApp(home: child),
   );
@@ -633,12 +721,22 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
   }
 }
 
+class _PendingOnlinePlatformsController extends OnlinePlatformsController {
+  _PendingOnlinePlatformsController(this.completer);
+
+  final Completer<List<OnlinePlatform>> completer;
+
+  @override
+  Future<List<OnlinePlatform>> build() => completer.future;
+}
+
 class _FakeSongDetailRepository implements SongDetailRepository {
   _FakeSongDetailRepository({
     SongDetailContent? detail,
     SongDetailRelations? relations,
     this.relationsError,
     this.detailCompleter,
+    this.relationsCompleter,
   }) : _detail = detail ?? _buildDetail(),
        _relations = relations ?? _buildRelations();
 
@@ -646,8 +744,10 @@ class _FakeSongDetailRepository implements SongDetailRepository {
   final SongDetailRelations _relations;
   final String? relationsError;
   final Completer<SongDetailContent>? detailCompleter;
+  final Completer<SongDetailRelations>? relationsCompleter;
 
   int fetchDetailCallCount = 0;
+  int fetchRelationsCallCount = 0;
 
   @override
   Future<SongDetailContent> fetchDetail(SongDetailRequest request) async {
@@ -660,6 +760,10 @@ class _FakeSongDetailRepository implements SongDetailRepository {
 
   @override
   Future<SongDetailRelations> fetchRelations(SongDetailRequest request) async {
+    fetchRelationsCallCount += 1;
+    if (relationsCompleter != null) {
+      return relationsCompleter!.future;
+    }
     if (relationsError != null) {
       throw Exception(relationsError);
     }

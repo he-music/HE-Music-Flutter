@@ -23,6 +23,8 @@ import 'package:he_music_flutter/core/network/token_refresh_interceptor.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_state.dart';
 import 'package:he_music_flutter/features/update/presentation/controllers/update_controller.dart';
 import 'package:he_music_flutter/features/update/presentation/providers/update_providers.dart';
+import 'package:he_music_flutter/features/song/presentation/widgets/song_relations_loading_skeleton.dart';
+import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
 
 void main() {
   setUpAll(AppEnvironment.initialize);
@@ -132,6 +134,94 @@ void main() {
     expect(localizedApp, isNot(same(initialApp)));
     expect(localizedApp.locale, const Locale('en'));
   });
+
+  for (final systemReducedMotion in [false, true]) {
+    testWidgets(
+      'skin animation toggle preserves system motion and page animations ($systemReducedMotion)',
+      (tester) async {
+        tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+            FakeAccessibilityFeatures(disableAnimations: systemReducedMotion);
+        addTearDown(
+          tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+        late _MutableAppConfigController controller;
+        final router = GoRouter(
+          routes: <GoRoute>[
+            GoRoute(
+              path: '/',
+              builder: (context, state) => Scaffold(
+                body: Column(
+                  children: <Widget>[
+                    const SongRelationsLoadingSkeleton(),
+                    UnderlineTab(
+                      label: 'Tab',
+                      selected: true,
+                      enabled: true,
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWith(() {
+                controller = _MutableAppConfigController();
+                return controller;
+              }),
+              appRouterProvider.overrideWithValue(router),
+            ],
+            child: const HeMusicApp(),
+          ),
+        );
+        await tester.pump();
+
+        final skeleton = find.byType(SongRelationsLoadingSkeleton);
+        final fade = find.descendant(
+          of: skeleton,
+          matching: find.byType(FadeTransition),
+        );
+        final underline = find.descendant(
+          of: find.byType(UnderlineTab),
+          matching: find.byType(AnimatedContainer),
+        );
+        for (final skinAnimation in [false, true]) {
+          controller.updateSkinAnimation(skinAnimation);
+          await tester.pump();
+          expect(
+            tester
+                .widget<AppSkinBackgroundLayer>(
+                  find.byType(AppSkinBackgroundLayer),
+                )
+                .enableAnimation,
+            skinAnimation,
+          );
+          expect(
+            MediaQuery.disableAnimationsOf(tester.element(skeleton)),
+            systemReducedMotion,
+          );
+          expect(
+            tester.widget<AnimatedContainer>(underline).duration,
+            systemReducedMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 160),
+          );
+          final opacity = tester.widget<FadeTransition>(fade).opacity.value;
+          await tester.pump(const Duration(milliseconds: 700));
+          expect(
+            tester.widget<FadeTransition>(fade).opacity.value,
+            systemReducedMotion ? opacity : isNot(opacity),
+          );
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   testWidgets('app installs one fixed skin background below route content', (
     tester,
@@ -572,6 +662,10 @@ class _MutableAppConfigController extends AppConfigController {
 
   void updateLocale(String value) {
     state = state.copyWith(localeCode: value);
+  }
+
+  void updateSkinAnimation(bool value) {
+    state = state.copyWith(enableSkinAnimation: value);
   }
 }
 

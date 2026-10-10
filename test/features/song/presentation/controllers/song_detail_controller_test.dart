@@ -32,7 +32,10 @@ void main() {
         title: '测试歌曲',
       );
       final provider = songDetailControllerProvider(request.cacheKey);
-      final subscription = container.listen(provider, (_, _) {});
+      final loadingStates = <bool>[];
+      final subscription = container.listen(provider, (_, next) {
+        loadingStates.add(next.relationsLoading);
+      });
       addTearDown(subscription.close);
 
       await container.read(provider.notifier).initialize(request);
@@ -45,6 +48,7 @@ void main() {
       expect(state.relations, isNull);
       expect(state.relationsLoading, false);
       expect(state.relationsErrorMessage, isNull);
+      expect(loadingStates, isNot(contains(true)));
     },
   );
 
@@ -79,7 +83,7 @@ void main() {
       final loadingState = container.read(provider);
       expect(loadingState.loading, false);
       expect(loadingState.content?.song.title, '测试歌曲');
-      expect(loadingState.relationsLoading, true);
+      expect(loadingState.relationsLoading, false);
       expect(repository.fetchRelationsCallCount, 0);
 
       platformsCompleter.complete(<OnlinePlatform>[
@@ -97,6 +101,104 @@ void main() {
       expect(repository.fetchRelationsCallCount, 0);
     },
   );
+
+  test('relations load only after platform support is confirmed', () async {
+    final relationsCompleter = Completer<SongDetailRelations>();
+    final platformsCompleter = Completer<List<OnlinePlatform>>();
+    final repository = _FakeSongDetailRepository(
+      relationsCompleter: relationsCompleter,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        songDetailRepositoryProvider.overrideWithValue(repository),
+        onlinePlatformsProvider.overrideWith(
+          () => _PendingPlatformsController(platformsCompleter),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    const request = SongDetailRequest(
+      id: 'song-1',
+      platform: 'qq',
+      title: '测试歌曲',
+    );
+    final provider = songDetailControllerProvider(request.cacheKey);
+    final subscription = container.listen(provider, (_, _) {});
+    addTearDown(subscription.close);
+
+    final initializing = container.read(provider.notifier).initialize(request);
+    await container.pump();
+    expect(container.read(provider).content, isNotNull);
+    expect(container.read(provider).relationsLoading, false);
+    expect(repository.fetchRelationsCallCount, 0);
+
+    platformsCompleter.complete([
+      OnlinePlatform(
+        id: 'qq',
+        name: 'QQ 音乐',
+        shortName: 'QQ',
+        status: 1,
+        featureSupportFlag: PlatformFeatureSupportFlag.listSongRelations,
+      ),
+    ]);
+    await repository.relationsStarted.future;
+    expect(container.read(provider).relationsLoading, true);
+    expect(repository.fetchRelationsCallCount, 1);
+
+    relationsCompleter.complete(const SongDetailRelations());
+    await initializing;
+    expect(container.read(provider).relationsLoading, false);
+    expect(container.read(provider).relations, isNotNull);
+  });
+
+  for (final scenario in ['missing', 'unavailable', 'capabilities failed']) {
+    test('relations stay hidden when platform is $scenario', () async {
+      final repository = _FakeSongDetailRepository();
+      final platformsCompleter = Completer<List<OnlinePlatform>>();
+      final container = ProviderContainer(
+        overrides: [
+          songDetailRepositoryProvider.overrideWithValue(repository),
+          onlinePlatformsProvider.overrideWith(
+            () => _PendingPlatformsController(platformsCompleter),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      const request = SongDetailRequest(
+        id: 'song-1',
+        platform: 'qq',
+        title: '测试歌曲',
+      );
+      final provider = songDetailControllerProvider(request.cacheKey);
+      final loadingStates = <bool>[];
+      final subscription = container.listen(provider, (_, next) {
+        loadingStates.add(next.relationsLoading);
+      });
+      addTearDown(subscription.close);
+      final initializing = container
+          .read(provider.notifier)
+          .initialize(request);
+      await container.pump();
+      if (scenario == 'capabilities failed') {
+        platformsCompleter.completeError(StateError('platforms unavailable'));
+      } else {
+        platformsCompleter.complete([
+          if (scenario == 'unavailable')
+            OnlinePlatform(
+              id: 'qq',
+              name: 'QQ 音乐',
+              shortName: 'QQ',
+              status: 0,
+              featureSupportFlag: PlatformFeatureSupportFlag.listSongRelations,
+            ),
+        ]);
+      }
+      await initializing;
+      expect(container.read(provider).content, isNotNull);
+      expect(repository.fetchRelationsCallCount, 0);
+      expect(loadingStates, isNot(contains(true)));
+    });
+  }
 }
 
 class _UnsupportedSongRelationsPlatformsController
@@ -125,6 +227,10 @@ class _PendingPlatformsController extends OnlinePlatformsController {
 }
 
 class _FakeSongDetailRepository implements SongDetailRepository {
+  _FakeSongDetailRepository({this.relationsCompleter});
+
+  final Completer<SongDetailRelations>? relationsCompleter;
+  final relationsStarted = Completer<void>();
   int fetchDetailCallCount = 0;
   int fetchRelationsCallCount = 0;
 
@@ -154,6 +260,12 @@ class _FakeSongDetailRepository implements SongDetailRepository {
   @override
   Future<SongDetailRelations> fetchRelations(SongDetailRequest request) async {
     fetchRelationsCallCount += 1;
+    if (!relationsStarted.isCompleted) {
+      relationsStarted.complete();
+    }
+    if (relationsCompleter != null) {
+      return relationsCompleter!.future;
+    }
     return const SongDetailRelations();
   }
 }

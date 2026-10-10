@@ -37,6 +37,7 @@ import '../../domain/entities/song_detail_relations.dart';
 import '../../domain/entities/song_detail_request.dart';
 import '../../domain/entities/song_detail_state.dart';
 import '../providers/song_detail_providers.dart';
+import '../widgets/song_relations_loading_skeleton.dart';
 
 class SongDetailPage extends ConsumerStatefulWidget {
   const SongDetailPage({
@@ -258,12 +259,7 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
           ),
         ),
       if (relationsLoading && relations == null)
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: LinearProgressIndicator(),
-          ),
-        ),
+        const SliverToBoxAdapter(child: SongRelationsLoadingSkeleton()),
       if (data.similarSongs.isNotEmpty)
         ..._buildSongSectionSlivers(
           title: AppI18n.t(config, 'song.detail.section.similar_songs'),
