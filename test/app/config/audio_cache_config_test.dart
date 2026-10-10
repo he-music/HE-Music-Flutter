@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
@@ -14,26 +15,53 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const dataSource = AppConfigDataSource();
 
-  test('cache defaults load without migrating old configurations', () async {
-    SharedPreferences.setMockInitialValues({});
-    final config = await dataSource.load();
-    expect(config.enablePlaybackAudioCache, isTrue);
-    expect(config.enableCellularAudioCache, isFalse);
-    expect(config.audioCacheLimitBytes, AudioCachePolicy.defaultLimitBytes);
-  });
+  for (final platform in TargetPlatform.values) {
+    final defaultEnabled =
+        platform != TargetPlatform.android && platform != TargetPlatform.iOS;
+    test(
+      'cache default follows $platform without persisting a choice',
+      () async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        SharedPreferences.setMockInitialValues({});
+        final config = await dataSource.load();
+        expect(config.enablePlaybackAudioCache, defaultEnabled);
+        expect(config.enableCellularAudioCache, isFalse);
+        expect(config.audioCacheLimitBytes, AudioCachePolicy.defaultLimitBytes);
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.containsKey('app_config.enable_playback_audio_cache'),
+          isFalse,
+        );
+      },
+    );
 
-  for (final invalid in <Object>['true', 12, <String>[], -1, 0, 2.0]) {
-    test('invalid persisted cache policy falls back: $invalid', () async {
-      SharedPreferences.setMockInitialValues({
-        'app_config.enable_playback_audio_cache': invalid,
-        'app_config.enable_cellular_audio_cache': invalid,
-        'app_config.audio_cache_limit_bytes': invalid,
+    for (final enabled in [false, true]) {
+      test('cache choice $enabled is preserved on $platform', () async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        SharedPreferences.setMockInitialValues({
+          'app_config.enable_playback_audio_cache': enabled,
+        });
+        expect((await dataSource.load()).enablePlaybackAudioCache, enabled);
       });
-      final config = await dataSource.load();
-      expect(config.enablePlaybackAudioCache, isTrue);
-      expect(config.enableCellularAudioCache, isFalse);
-      expect(config.audioCacheLimitBytes, AudioCachePolicy.defaultLimitBytes);
-    });
+    }
+
+    for (final invalid in <Object>['true', 12, <String>[], -1, 0, 2.0]) {
+      test('invalid cache policy uses $platform default: $invalid', () async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        SharedPreferences.setMockInitialValues({
+          'app_config.enable_playback_audio_cache': invalid,
+          'app_config.enable_cellular_audio_cache': invalid,
+          'app_config.audio_cache_limit_bytes': invalid,
+        });
+        final config = await dataSource.load();
+        expect(config.enablePlaybackAudioCache, defaultEnabled);
+        expect(config.enableCellularAudioCache, isFalse);
+        expect(config.audioCacheLimitBytes, AudioCachePolicy.defaultLimitBytes);
+      });
+    }
   }
 
   for (final limit in AudioCachePolicy.limits) {

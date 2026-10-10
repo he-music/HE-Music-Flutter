@@ -54,6 +54,7 @@ class AudioCacheSettingsTile extends ConsumerWidget {
       SettingsItemIds.playbackAudioCache => SwitchListTile.adaptive(
         secondary: icon,
         title: title,
+        subtitle: Text(AppI18n.t(config, 'settings.audio_cache.enabled_desc')),
         value: enabled,
         onChanged: controller.setEnablePlaybackAudioCache,
       ),

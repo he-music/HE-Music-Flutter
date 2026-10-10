@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'app_glass_mode.dart';
 import 'app_lyric_auxiliary_mode.dart';
@@ -58,6 +59,13 @@ const _playbackAudioCacheKey = 'app_config.enable_playback_audio_cache';
 const _cellularAudioCacheKey = 'app_config.enable_cellular_audio_cache';
 const _audioCacheLimitKey = 'app_config.audio_cache_limit_bytes';
 
+bool _defaultPlaybackAudioCacheEnabled() {
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android || TargetPlatform.iOS => false,
+    _ => true,
+  };
+}
+
 class AppConfigDataSource {
   const AppConfigDataSource();
 
@@ -112,7 +120,7 @@ class AppConfigDataSource {
     return AppConfigState.initial.copyWith(
       enablePlaybackAudioCache: switch (prefs.get(_playbackAudioCacheKey)) {
         bool value => value,
-        _ => true,
+        _ => _defaultPlaybackAudioCacheEnabled(),
       },
       enableCellularAudioCache: switch (prefs.get(_cellularAudioCacheKey)) {
         bool value => value,

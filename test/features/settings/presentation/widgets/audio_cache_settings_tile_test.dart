@@ -67,6 +67,8 @@ void main() {
       }
       expect(fixture.store.readHealth, AudioCacheReadHealth.unavailable);
       expect(fixture.store.writeHealth, AudioCacheWriteHealth.unavailable);
+      await tester.ensureVisible(find.text('Clear Audio Cache'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Clear Audio Cache'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Confirm'));
@@ -92,6 +94,7 @@ void main() {
         matching: find.byType(SwitchListTile),
       ),
     );
+    expect(find.textContaining('后台、弱网或省电模式'), findsOneWidget);
     expect(tile('播放时自动缓存').value, isTrue);
     expect(tile('蜂窝网络自动缓存').value, isFalse);
     await tester.tap(find.text('蜂窝网络自动缓存'));
@@ -177,6 +180,8 @@ void main() {
     addTearDown(fixture.dispose);
     await tester.pumpWidget(fixture.app());
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Clear Audio Cache'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Clear Audio Cache'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm'));
@@ -185,6 +190,8 @@ void main() {
     toastification.dismissAll(delayForAnimation: false);
     await tester.pumpAndSettle();
     fixture.store.failClear = true;
+    await tester.ensureVisible(find.text('Clear Audio Cache'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Clear Audio Cache'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm'));
@@ -226,6 +233,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Cache During Playback'), findsOneWidget);
     expect(find.text('Cache on Cellular'), findsOneWidget);
+    expect(
+      find.textContaining('Existing cache remains available'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

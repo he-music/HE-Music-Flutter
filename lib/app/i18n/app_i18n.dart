@@ -298,6 +298,8 @@ abstract final class AppI18n {
       'settings.lyric_cache.automatic': '自动歌词缓存',
       'settings.lyric_cache.manual': '手动选择歌词',
       'settings.audio_cache.enabled': '播放时自动缓存',
+      'settings.audio_cache.enabled_desc':
+          '边播放边缓存，后续优先使用完整缓存。开启后，后台、弱网或省电模式下可能出现播放卡顿并增加耗电；关闭后仍可读取已有缓存。',
       'settings.audio_cache.cellular': '蜂窝网络自动缓存',
       'settings.audio_cache.limit': '缓存空间',
       'settings.audio_cache.limit_desc': '管理目标',
@@ -1247,6 +1249,8 @@ abstract final class AppI18n {
       'settings.lyric_cache.automatic': 'Automatic lyric cache',
       'settings.lyric_cache.manual': 'Manually selected lyrics',
       'settings.audio_cache.enabled': 'Cache During Playback',
+      'settings.audio_cache.enabled_desc':
+          'Caches while playing and reuses complete files later. May cause playback stalls and use more power in the background, on weak networks, or in battery saver mode. Existing cache remains available when disabled.',
       'settings.audio_cache.cellular': 'Cache on Cellular',
       'settings.audio_cache.limit': 'Cache Space',
       'settings.audio_cache.limit_desc': 'Management target',
