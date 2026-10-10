@@ -13,6 +13,7 @@ import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
+import '../../app/theme/skin/app_skin_theme.dart';
 import 'app_back_button.dart';
 
 class MusicDetailSliverAppBar extends StatelessWidget {
@@ -362,21 +363,30 @@ class MusicDetailPlayAllHeaderBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: MusicDetailPlayAllHeader.heightFor(context),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: _MusicDetailPlayAllHeaderContent(
-          countText: countText,
-          onPlayAll: onPlayAll,
-          onBatchAction: onBatchAction,
-          onMore: onMore,
-          enabled: enabled,
-          batchMode: batchMode,
-          selectedCount: selectedCount,
-          allSelected: allSelected,
-          onSelectAll: onSelectAll,
-          onCancelBatch: onCancelBatch,
+    final theme = Theme.of(context);
+    final skinTheme = theme.extension<AppSkinTheme>();
+    final backgroundColor =
+        skinTheme?.config.colors.fixedControlSurface ??
+        theme.colorScheme.surface;
+    return Material(
+      // 吸顶操作行必须遮住从下方滚过的歌曲，不沿用透明页面背景。
+      color: backgroundColor.withValues(alpha: 1),
+      child: SizedBox(
+        height: MusicDetailPlayAllHeader.heightFor(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: _MusicDetailPlayAllHeaderContent(
+            countText: countText,
+            onPlayAll: onPlayAll,
+            onBatchAction: onBatchAction,
+            onMore: onMore,
+            enabled: enabled,
+            batchMode: batchMode,
+            selectedCount: selectedCount,
+            allSelected: allSelected,
+            onSelectAll: onSelectAll,
+            onCancelBatch: onCancelBatch,
+          ),
         ),
       ),
     );
