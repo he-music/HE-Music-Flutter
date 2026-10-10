@@ -129,6 +129,7 @@ class TokenRefreshCoordinator {
     } on DioException catch (error) {
       final invalidRefreshToken =
           tokenHolder.refreshToken == refreshToken &&
+          error.response?.statusCode == 401 &&
           _isInvalidRefreshTokenError(error.response?.data);
       return TokenRefreshResult(invalidRefreshToken: invalidRefreshToken);
     } catch (_) {

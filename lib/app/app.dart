@@ -10,6 +10,7 @@ import 'app_scroll_behavior.dart';
 import 'config/app_config_controller.dart';
 import 'config/app_theme_mode.dart';
 import '../features/lyrics/presentation/providers/lyrics_providers.dart';
+import '../core/network/unauthorized_redirect_interceptor.dart';
 import '../features/lyrics_overlay/presentation/providers/overlay_lyrics_provider.dart';
 import 'i18n/app_i18n.dart';
 import 'router/app_router.dart';
@@ -204,7 +205,7 @@ class _AppStartupGate extends ConsumerWidget {
   }
 
   bool _isUnauthorizedError(Object error) {
-    return error is DioException && error.response?.statusCode == 401;
+    return error is DioException && shouldRedirectUnauthorized(error);
   }
 
   String _describeStartupError(Object error, String localeCode) {

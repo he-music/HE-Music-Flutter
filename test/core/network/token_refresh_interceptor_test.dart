@@ -34,7 +34,13 @@ void main() {
         body: <String, dynamic>{'reason': 'UNAVAILABLE'},
         clear: false,
       ),
+      (
+        status: 500,
+        body: <String, dynamic>{'reason': 'INVALID_REFRESH_TOKEN'},
+        clear: false,
+      ),
       (status: 200, body: <String, dynamic>{}, clear: false),
+      (status: 200, body: <String, dynamic>{'code': 401}, clear: false),
     ]) {
       test('刷新 ${scenario.status} ${scenario.body} 仅明确失效时清除凭据', () async {
         final server = await _TokenRefreshTestServer.start(
@@ -58,6 +64,7 @@ void main() {
             readCurrentLocation: () => '/',
             onUnauthorized: (_) {
               unauthorizedCount++;
+              holder.accessToken = null;
               holder.refreshToken = null;
             },
           ),
@@ -68,10 +75,103 @@ void main() {
             throwsA(isA<DioException>()),
           );
           expect(unauthorizedCount, scenario.clear ? 1 : 0);
+          expect(holder.accessToken, scenario.clear ? isNull : 'expired-token');
           expect(
             holder.refreshToken,
             scenario.clear ? isNull : 'refresh-token',
           );
+        } finally {
+          dio.close(force: true);
+          await server.close();
+        }
+      });
+    }
+
+    for (final stallRefresh in [false, true]) {
+      test('刷新${stallRefresh ? '超时' : '断网'}保留会话并标记不跳登录', () async {
+        final server = await _TokenRefreshTestServer.start(
+          initialRequestTarget: 1,
+          stallRefresh: stallRefresh,
+          disconnectRefresh: !stallRefresh,
+        );
+        final holder = TokenHolder(
+          accessToken: 'expired-token',
+          refreshToken: 'refresh-token',
+        );
+        final refreshedTokens = <String>[];
+        final dio = _createDio(
+          server.baseUrl,
+          holder,
+          TokenRefreshCoordinator(holder),
+          refreshedTokens,
+        );
+        var unauthorizedCount = 0;
+        dio.interceptors.add(
+          UnauthorizedRedirectInterceptor(
+            readCurrentLocation: () => '/',
+            onUnauthorized: (_) => unauthorizedCount++,
+          ),
+        );
+        try {
+          await expectLater(
+            dio.get<dynamic>('/v1/user/info'),
+            throwsA(
+              isA<DioException>().having(
+                (error) =>
+                    error.requestOptions.extra['skipUnauthorizedRedirect'],
+                'skipUnauthorizedRedirect',
+                isTrue,
+              ),
+            ),
+          );
+          expect(unauthorizedCount, 0);
+          expect(holder.accessToken, 'expired-token');
+          expect(holder.refreshToken, 'refresh-token');
+          expect(refreshedTokens, isEmpty);
+          expect(server.refreshRequestCount, 1);
+        } finally {
+          dio.close(force: true);
+          await server.close();
+        }
+      });
+    }
+
+    for (final status in [500, 200]) {
+      test('初始 HTTP$status 含业务401不刷新或清除会话', () async {
+        final server = await _TokenRefreshTestServer.start(
+          protectedResponseStatus: status,
+        );
+        final holder = TokenHolder(
+          accessToken: 'saved-token',
+          refreshToken: 'saved-refresh',
+        );
+        final dio = _createDio(
+          server.baseUrl,
+          holder,
+          TokenRefreshCoordinator(holder),
+          [],
+        );
+        var unauthorizedCount = 0;
+        dio.interceptors.add(
+          UnauthorizedRedirectInterceptor(
+            readCurrentLocation: () => '/',
+            onUnauthorized: (_) => unauthorizedCount++,
+          ),
+        );
+        try {
+          if (status == 200) {
+            final response = await dio.get<dynamic>('/v1/platforms');
+            expect(response.data['code'], 401);
+          } else {
+            await expectLater(
+              dio.get<dynamic>('/v1/platforms'),
+              throwsA(isA<DioException>()),
+            );
+          }
+          expect(unauthorizedCount, 0);
+          expect(server.refreshRequestCount, 0);
+          expect(holder.accessToken, 'saved-token');
+          expect(holder.refreshToken, 'saved-refresh');
         } finally {
           dio.close(force: true);
           await server.close();
@@ -288,6 +388,9 @@ class _TokenRefreshTestServer {
     required this.rejectFreshToken,
     required this.refreshStatus,
     this.refreshBody,
+    this.stallRefresh = false,
+    this.disconnectRefresh = false,
+    this.protectedResponseStatus,
   });
 
   final HttpServer _server;
@@ -295,6 +398,9 @@ class _TokenRefreshTestServer {
   final bool rejectFreshToken;
   final int refreshStatus;
   final Map<String, dynamic>? refreshBody;
+  final bool stallRefresh;
+  final bool disconnectRefresh;
+  final int? protectedResponseStatus;
   final Completer<void> _bothInitialRequestsSeen = Completer<void>();
   final List<String> retriedPaths = <String>[];
   final List<String> retryAuthorizations = <String>[];
@@ -311,6 +417,9 @@ class _TokenRefreshTestServer {
     bool rejectFreshToken = false,
     int refreshStatus = 200,
     Map<String, dynamic>? refreshBody,
+    bool stallRefresh = false,
+    bool disconnectRefresh = false,
+    int? protectedResponseStatus,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final fixture = _TokenRefreshTestServer._(
@@ -319,6 +428,9 @@ class _TokenRefreshTestServer {
       rejectFreshToken: rejectFreshToken,
       refreshStatus: refreshStatus,
       refreshBody: refreshBody,
+      stallRefresh: stallRefresh,
+      disconnectRefresh: disconnectRefresh,
+      protectedResponseStatus: protectedResponseStatus,
     );
     server.listen(fixture._handleRequest);
     return fixture;
@@ -346,6 +458,11 @@ class _TokenRefreshTestServer {
         decoded.map((key, value) => MapEntry('$key', value)),
       );
     }
+    if (stallRefresh) return;
+    if (disconnectRefresh) {
+      (await request.response.detachSocket()).destroy();
+      return;
+    }
     await Future<void>.delayed(const Duration(milliseconds: 50));
     _writeJson(
       request.response,
@@ -361,6 +478,13 @@ class _TokenRefreshTestServer {
 
   Future<void> _handleProtectedRequest(HttpRequest request) async {
     protectedRequestCount++;
+    if (protectedResponseStatus != null) {
+      _writeJson(request.response, <String, dynamic>{
+        'code': 401,
+        'message': 'business failure',
+      }, statusCode: protectedResponseStatus!);
+      return;
+    }
     final authorization = request.headers.value(
       HttpHeaders.authorizationHeader,
     );

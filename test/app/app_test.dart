@@ -19,6 +19,7 @@ import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/startup/app_startup_provider.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/core/network/token_refresh_interceptor.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_state.dart';
 import 'package:he_music_flutter/features/update/presentation/controllers/update_controller.dart';
 import 'package:he_music_flutter/features/update/presentation/providers/update_providers.dart';
@@ -233,6 +234,112 @@ void main() {
     expect(find.text('首页'), findsOneWidget);
     expect(router.state.uri.path, AppRoutes.home);
   });
+
+  for (final scenario in [
+    (
+      name: 'HTTP 500',
+      status: 500,
+      type: DioExceptionType.badResponse,
+      extra: <String, dynamic>{},
+    ),
+    (
+      name: 'timeout',
+      status: null,
+      type: DioExceptionType.receiveTimeout,
+      extra: <String, dynamic>{},
+    ),
+    (
+      name: 'offline',
+      status: null,
+      type: DioExceptionType.connectionError,
+      extra: <String, dynamic>{},
+    ),
+    (
+      name: 'temporary refresh failure',
+      status: 401,
+      type: DioExceptionType.badResponse,
+      extra: <String, dynamic>{'skipUnauthorizedRedirect': true},
+    ),
+    (
+      name: 'replayed request failure',
+      status: 401,
+      type: DioExceptionType.badResponse,
+      extra: <String, dynamic>{'tokenRefreshed': true},
+    ),
+  ]) {
+    testWidgets(
+      'startup ${scenario.name} keeps restored tokens and retries without login',
+      (tester) async {
+        globalTokenHolder.accessToken = null;
+        globalTokenHolder.refreshToken = null;
+        globalTokenHolder.expiresAt = null;
+        addTearDown(() {
+          globalTokenHolder.accessToken = null;
+          globalTokenHolder.refreshToken = null;
+          globalTokenHolder.expiresAt = null;
+        });
+        final router = _createStartupTestRouter();
+        addTearDown(router.dispose);
+        final request = RequestOptions(
+          path: '/v1/platforms',
+          extra: scenario.extra,
+        );
+        final error = DioException(
+          requestOptions: request,
+          type: scenario.type,
+          response: scenario.status == null
+              ? null
+              : Response<void>(
+                  requestOptions: request,
+                  statusCode: scenario.status,
+                ),
+        );
+        var attempts = 0;
+        final container = ProviderContainer(
+          overrides: [
+            appRouterProvider.overrideWithValue(router),
+            appConfigDataSourceProvider.overrideWithValue(
+              const _TestAppConfigDataSource(
+                autoCheckUpdates: false,
+                authToken: 'saved-access',
+                refreshToken: 'saved-refresh',
+              ),
+            ),
+            appStartupProvider.overrideWith((ref) async {
+              if (++attempts == 1) throw error;
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.runAsync(
+          () => container.read(appConfigProvider.notifier).waitUntilHydrated(),
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const HeMusicApp(enableStartupGateInTests: true),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('启动失败'), findsOneWidget);
+        expect(find.text('登录页'), findsNothing);
+        expect(router.routeInformationProvider.value.uri.path, AppRoutes.home);
+        expect(container.read(appConfigProvider).authToken, 'saved-access');
+        expect(container.read(appConfigProvider).refreshToken, 'saved-refresh');
+        expect(globalTokenHolder.accessToken, 'saved-access');
+        expect(globalTokenHolder.refreshToken, 'saved-refresh');
+
+        await tester.tap(find.text('重试'));
+        await tester.pumpAndSettle();
+        expect(find.text('首页'), findsOneWidget);
+        expect(router.state.uri.path, AppRoutes.home);
+        expect(attempts, 2);
+        expect(container.read(appConfigProvider).authToken, 'saved-access');
+        expect(container.read(appConfigProvider).refreshToken, 'saved-refresh');
+      },
+    );
+  }
 
   testWidgets('startup network error retries platforms once then shows home', (
     tester,
@@ -469,13 +576,23 @@ class _MutableAppConfigController extends AppConfigController {
 }
 
 class _TestAppConfigDataSource extends AppConfigDataSource {
-  const _TestAppConfigDataSource({required this.autoCheckUpdates});
+  const _TestAppConfigDataSource({
+    required this.autoCheckUpdates,
+    this.authToken,
+    this.refreshToken,
+  });
 
   final bool autoCheckUpdates;
+  final String? authToken;
+  final String? refreshToken;
 
   @override
   Future<AppConfigState> load() async {
-    return AppConfigState.initial.copyWith(autoCheckUpdates: autoCheckUpdates);
+    return AppConfigState.initial.copyWith(
+      autoCheckUpdates: autoCheckUpdates,
+      authToken: authToken,
+      refreshToken: refreshToken,
+    );
   }
 }
 

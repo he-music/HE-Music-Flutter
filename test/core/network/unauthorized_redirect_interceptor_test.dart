@@ -85,6 +85,48 @@ void main() {
       expect(redirectedLocation, isNull);
     });
 
+    for (final flag in ['skipUnauthorizedRedirect', 'tokenRefreshed']) {
+      test('401 + $flag 保留会话且向后传递原错误', () {
+        var unauthorizedCount = 0;
+        final interceptor = UnauthorizedRedirectInterceptor(
+          readCurrentLocation: () => '/home',
+          onUnauthorized: (_) => unauthorizedCount++,
+        );
+        final handler = _TestErrorInterceptorHandler();
+        final error = _dioException(401, path: '/v1/platforms');
+        error.requestOptions.extra[flag] = true;
+
+        interceptor.onError(error, handler);
+
+        expect(unauthorizedCount, 0);
+        expect(handler.nextCalled, isTrue);
+      });
+    }
+
+    for (final type in [
+      DioExceptionType.connectionTimeout,
+      DioExceptionType.receiveTimeout,
+      DioExceptionType.connectionError,
+    ]) {
+      test('$type 不触发 onUnauthorized', () {
+        var unauthorizedCount = 0;
+        final interceptor = UnauthorizedRedirectInterceptor(
+          readCurrentLocation: () => '/home',
+          onUnauthorized: (_) => unauthorizedCount++,
+        );
+        final handler = _TestErrorInterceptorHandler();
+        interceptor.onError(
+          DioException(
+            requestOptions: RequestOptions(path: '/v1/platforms'),
+            type: type,
+          ),
+          handler,
+        );
+        expect(unauthorizedCount, 0);
+        expect(handler.nextCalled, isTrue);
+      });
+    }
+
     test('始终调用 handler.next', () {
       final interceptor = UnauthorizedRedirectInterceptor(
         readCurrentLocation: () => '/home',

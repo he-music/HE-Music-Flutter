@@ -1,5 +1,18 @@
 import 'package:dio/dio.dart';
 
+final _authExcludedPaths = RegExp(
+  r'/(login|token/refresh|auth/result|auth/qr/result|auth/logout)\b',
+);
+
+/// 启动恢复与请求拦截器共用认证失败判断，保留刷新期间临时失败的会话。
+bool shouldRedirectUnauthorized(DioException error) {
+  final request = error.requestOptions;
+  return error.response?.statusCode == 401 &&
+      !_authExcludedPaths.hasMatch(request.path.trim().toLowerCase()) &&
+      request.extra['skipUnauthorizedRedirect'] != true &&
+      request.extra['tokenRefreshed'] != true;
+}
+
 class UnauthorizedRedirectInterceptor extends Interceptor {
   UnauthorizedRedirectInterceptor({
     required this.readCurrentLocation,
@@ -9,24 +22,11 @@ class UnauthorizedRedirectInterceptor extends Interceptor {
   final String Function() readCurrentLocation;
   final void Function(String redirectLocation) onUnauthorized;
 
-  static final _authExcludedPaths = RegExp(
-    r'/(login|token/refresh|auth/result|auth/qr/result|auth/logout)\b',
-  );
-
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    final statusCode = err.response?.statusCode;
-    if (statusCode == 401 &&
-        !_isLoginRequest(err.requestOptions.path) &&
-        err.requestOptions.extra['skipUnauthorizedRedirect'] != true &&
-        err.requestOptions.extra['tokenRefreshed'] != true) {
+    if (shouldRedirectUnauthorized(err)) {
       onUnauthorized(readCurrentLocation());
     }
     handler.next(err);
-  }
-
-  bool _isLoginRequest(String path) {
-    final normalized = path.trim().toLowerCase();
-    return _authExcludedPaths.hasMatch(normalized);
   }
 }
