@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/widgets/glass_panel.dart';
 import '../../domain/entities/online_feature_state.dart';
 
@@ -436,7 +437,10 @@ class ResultCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          if (state.loading) const LinearProgressIndicator(),
+          if (state.loading)
+            AppLoadingIndicator(
+              label: AppI18n.tByLocaleCode(localeCode, 'home.loading'),
+            ),
           if (state.loading) const SizedBox(height: 12),
           Wrap(
             spacing: 8,

@@ -105,6 +105,7 @@ class _PaintCounter implements Canvas {
   int layers = 0;
   int paragraphs = 0;
   int filters = 0;
+  final drawnParagraphs = <ui.Paragraph>[];
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
@@ -113,12 +114,121 @@ class _PaintCounter implements Canvas {
       final paint = invocation.positionalArguments[1] as Paint;
       if (paint.imageFilter != null || paint.colorFilter != null) filters++;
     }
-    if (invocation.memberName == #drawParagraph) paragraphs++;
+    if (invocation.memberName == #drawParagraph) {
+      paragraphs++;
+      drawnParagraphs.add(invocation.positionalArguments.first as ui.Paragraph);
+    }
     return null;
   }
 }
 
+bool _drawsText(_PaintCounter canvas, TextPainter painter) {
+  final probe = _PaintCounter();
+  painter.paint(probe, Offset.zero);
+  return canvas.drawnParagraphs.contains(probe.drawnParagraphs.single);
+}
+
 void main() {
+  testWidgets('only the playback line and started glyphs use highlight', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(highlightColor: Colors.red));
+    _time(tester, 1500);
+    await tester.pump();
+    var painter = _painter(tester);
+    var current = painter.rows.firstWhere((row) => row.entry.index == 0);
+    var next = painter.rows.firstWhere((row) => row.entry.index == 1);
+    var canvas = _PaintCounter();
+    painter.paint(canvas, const Size(390, 600));
+    expect(_drawsText(canvas, current.glyphs[0].painter), isTrue);
+    expect(_drawsText(canvas, current.glyphs[1].painter), isTrue);
+    expect(_drawsText(canvas, current.glyphs[2].neutralPainter), isTrue);
+    expect(_drawsText(canvas, current.glyphs[2].painter), isFalse);
+    expect(_drawsText(canvas, next.glyphs.first.neutralPainter), isTrue);
+    expect(_drawsText(canvas, next.glyphs.first.painter), isFalse);
+
+    _time(tester, 3700);
+    await tester.pump();
+    painter = _painter(tester);
+    next = painter.rows.firstWhere((row) => row.entry.index == 1);
+    expect(painter.lineFocusAt(1, painter.timeline), greaterThan(0));
+    canvas = _PaintCounter();
+    painter.paint(canvas, const Size(390, 600));
+    expect(_drawsText(canvas, next.glyphs.first.neutralPainter), isTrue);
+    expect(_drawsText(canvas, next.glyphs.first.painter), isFalse);
+
+    _time(tester, 4000);
+    await tester.pump();
+    // Let the smoothed clock catch up to the line boundary.
+    await tester.pump(const Duration(milliseconds: 100));
+    painter = _painter(tester);
+    current = painter.rows.firstWhere((row) => row.entry.index == 1);
+    final passed = painter.rows.firstWhere((row) => row.entry.index == 0);
+    canvas = _PaintCounter();
+    painter.paint(canvas, const Size(390, 600));
+    expect(_drawsText(canvas, current.glyphs.first.painter), isTrue);
+    expect(_drawsText(canvas, current.glyphs[1].neutralPainter), isTrue);
+    expect(_drawsText(canvas, passed.glyphs.last.neutralPainter), isTrue);
+    expect(_drawsText(canvas, passed.glyphs.last.painter), isFalse);
+  });
+
+  testWidgets('fallback highlights respect offset, prelude and explicit end', (
+    tester,
+  ) async {
+    for (final mode in ['plain', 'words-off', 'reduce', 'shaped']) {
+      final text = mode == 'shaped' ? 'مرحبا' : '跃音歌词';
+      final document = LyricDocument(
+        offset: 500,
+        lines: [
+          LyricLine(
+            start: const Duration(seconds: 2),
+            end: const Duration(seconds: 4),
+            text: text,
+            tokens: mode == 'plain'
+                ? const []
+                : [
+                    LyricToken(
+                      text: text,
+                      startOffset: Duration.zero,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  ],
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        _app(
+          document: document,
+          words: mode != 'words-off',
+          reduce: mode == 'reduce',
+        ),
+      );
+      for (final (ms, highlighted) in [
+        (1000, false),
+        (1500, true),
+        (3500, false),
+      ]) {
+        _time(tester, ms);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        final painter = _painter(tester);
+        final row = painter.rows.single;
+        final canvas = _PaintCounter();
+        painter.paint(canvas, const Size(390, 600));
+        expect(
+          _drawsText(canvas, row.fallback),
+          highlighted,
+          reason: '$mode at $ms',
+        );
+        expect(
+          _drawsText(canvas, row.neutralFallback),
+          !highlighted,
+          reason: '$mode at $ms',
+        );
+      }
+    }
+  });
+
   testWidgets(
     'side note halo fades before the viewport clip without moving the note',
     (tester) async {
@@ -143,6 +253,7 @@ void main() {
       expect(pose.point.dx, lessThan(30));
       final withoutNote = KineticLyricPainter(
         rows: painter.rows,
+        layoutEngine: painter.layoutEngine,
         anchor: painter.anchor,
         position: painter.position,
         followPlayback: false,
@@ -194,6 +305,12 @@ void main() {
         final textColor =
             painter.rows.first.glyphs.first.painter.text!.style!.color;
         expect(painter.color, textColor);
+        final glyph = painter.rows.first.glyphs.first;
+        expect(
+          glyph.neutralPainter.text!.style!.color,
+          classicPlayerScenePaletteFallback.foreground,
+        );
+        expect(glyph.neutralPainter.text!.style!.color, isNot(textColor));
         if (previous != null) expect(painter.color, isNot(previous));
         previous = painter.color;
       }
@@ -757,6 +874,12 @@ void main() {
       );
       await tester.pump();
       expect(_painter(tester).anchor, 1);
+      final browsing = _painter(tester);
+      final row = browsing.rows.firstWhere((row) => row.entry.index == 1);
+      final canvas = _PaintCounter();
+      browsing.paint(canvas, const Size(390, 600));
+      expect(_drawsText(canvas, row.neutralFallback), isTrue);
+      expect(_drawsText(canvas, row.fallback), isFalse);
       final origin = tester.getTopLeft(find.byType(KineticLyricRail));
       await tester.tapAt(origin + const Offset(195, 288));
       expect(seeks, [const Duration(milliseconds: 3800)]);
@@ -812,9 +935,13 @@ void main() {
         expect(tester.takeException(), isNull);
       }
       expect(old.fallback.debugDisposed, isTrue);
+      expect(old.neutralFallback.debugDisposed, isTrue);
+      expect(old.glyphs.every((g) => g.neutralPainter.debugDisposed), isTrue);
       final last = _painter(tester).rows.single;
       await tester.pumpWidget(const SizedBox.shrink());
       expect(last.fallback.debugDisposed, isTrue);
+      expect(last.neutralFallback.debugDisposed, isTrue);
+      expect(last.glyphs.every((g) => g.neutralPainter.debugDisposed), isTrue);
       expect(last.glyphs.every((g) => g.painter.debugDisposed), isTrue);
     },
   );

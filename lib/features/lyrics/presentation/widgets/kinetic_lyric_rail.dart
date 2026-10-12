@@ -219,6 +219,7 @@ class _KineticLyricRailState extends ConsumerState<KineticLyricRail>
         color: Color.lerp(widget.palette.foreground, color, .4),
         letterSpacing: 0,
       );
+      final neutralStyle = style.copyWith(color: widget.palette.foreground);
       final scaler = MediaQuery.textScalerOf(context);
       final direction = Directionality.of(context);
       final locale = Localizations.maybeLocaleOf(context);
@@ -227,6 +228,7 @@ class _KineticLyricRailState extends ConsumerState<KineticLyricRail>
       final key = (
         size,
         style,
+        neutralStyle,
         scaler,
         direction,
         locale,
@@ -234,7 +236,7 @@ class _KineticLyricRailState extends ConsumerState<KineticLyricRail>
         wordHighlight,
         _allowed,
       );
-      final contextKey = (size, style, scaler, direction, locale);
+      final contextKey = (size, style, neutralStyle, scaler, direction, locale);
       if (_layoutKey != key) {
         final reusable = _layoutContext == contextKey
             ? {for (final row in _rows) row.entry.index: row}
@@ -261,6 +263,7 @@ class _KineticLyricRailState extends ConsumerState<KineticLyricRail>
             entry: entry,
             size: size,
             style: style,
+            neutralStyle: neutralStyle,
             scaler: scaler,
             direction: direction,
             locale: locale,
@@ -302,6 +305,7 @@ class _KineticLyricRailState extends ConsumerState<KineticLyricRail>
       }
       final painter = KineticLyricPainter(
         rows: _rows,
+        layoutEngine: _engine,
         anchor: _anchor,
         position: _position,
         followPlayback: _manualAnchor == null,

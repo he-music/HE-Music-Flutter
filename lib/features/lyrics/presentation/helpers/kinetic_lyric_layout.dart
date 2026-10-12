@@ -98,12 +98,14 @@ class KineticPaintGlyph {
   KineticPaintGlyph(
     this.source,
     this.painter,
+    this.neutralPainter,
     this.center,
     this.rotation,
     this.rowY,
   );
   final KineticGlyph source;
   final TextPainter painter;
+  final TextPainter neutralPainter;
   final Offset center;
   final double rotation;
   // The camera follows the wrapped baseline, never individual letter jitter.
@@ -116,12 +118,14 @@ class KineticPaintLine implements LyricPaintResources {
     required this.glyphs,
     required this.subtitle,
     required this.fallback,
+    required this.neutralFallback,
   });
   final MonetVisibleLyricLine entry;
   final List<KineticPaintGlyph> glyphs;
   final TextPainter? subtitle;
   // Whole-paragraph fallback preserves shaping for languages with joining letters.
   final TextPainter fallback;
+  final TextPainter neutralFallback;
   double y = 0;
 
   late final double glyphTop = glyphs.isEmpty
@@ -151,8 +155,10 @@ class KineticPaintLine implements LyricPaintResources {
   @override
   Iterable<TextPainter> get textPainters sync* {
     yield fallback;
+    yield neutralFallback;
     for (final glyph in glyphs) {
       yield glyph.painter;
+      yield glyph.neutralPainter;
     }
     if (subtitle != null) yield subtitle!;
   }
@@ -165,6 +171,7 @@ KineticPaintLine layoutKineticLine({
   required MonetVisibleLyricLine entry,
   required Size size,
   required TextStyle style,
+  required TextStyle neutralStyle,
   required TextScaler scaler,
   required TextDirection direction,
   required Locale? locale,
@@ -190,6 +197,12 @@ KineticPaintLine layoutKineticLine({
     style,
     maxLines: math.max(1, (size.height * .48 / (font * 1.3)).floor()),
     // Reserve a gutter for the line-level note, including its flag.
+    maxWidth: math.max(1, size.width - 96),
+  );
+  final neutralFallback = paragraph(
+    entry.line.text,
+    neutralStyle,
+    maxLines: fallback.maxLines,
     maxWidth: math.max(1, size.width - 96),
   );
   final auxiliary = entry.line.translation.trim().isNotEmpty
@@ -229,6 +242,7 @@ KineticPaintLine layoutKineticLine({
         KineticPaintGlyph(
           source,
           painter,
+          paragraph(source.text, neutralStyle),
           Offset(x + dx, rowY + wave + jitter),
           math.sin(i * 13.3 + entry.index) * .045,
           rowY,
@@ -258,6 +272,7 @@ KineticPaintLine layoutKineticLine({
     glyphs: glyphs,
     subtitle: subtitle,
     fallback: fallback,
+    neutralFallback: neutralFallback,
   );
 }
 

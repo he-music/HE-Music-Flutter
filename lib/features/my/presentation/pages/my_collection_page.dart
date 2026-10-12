@@ -11,6 +11,7 @@ import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/song_list_component.dart';
@@ -71,7 +72,12 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage> {
                   .selectType,
             ),
             if (state.loading && state.selectedItems.isNotEmpty)
-              const LinearProgressIndicator(),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: AppLoadingIndicator(
+                  label: AppI18n.t(config, 'home.loading'),
+                ),
+              ),
             if (state.errorMessage != null)
               _ErrorPanel(
                 message: state.errorMessage!,

@@ -17,6 +17,7 @@ import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
+import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../../../online/presentation/providers/online_providers.dart';
@@ -386,9 +387,11 @@ class _AccountCard extends StatelessWidget {
                   ),
                 ),
                 if (loading)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: LinearProgressIndicator(minHeight: 3),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: AppLoadingIndicator(
+                      label: AppI18n.tByLocaleCode(localeCode, 'home.loading'),
+                    ),
                   )
                 else if (!tokenSet) ...<Widget>[
                   const SizedBox(height: 12),

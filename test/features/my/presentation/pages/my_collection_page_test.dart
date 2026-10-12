@@ -13,6 +13,7 @@ import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.da
 import 'package:he_music_flutter/features/my/presentation/controllers/my_collection_controller.dart';
 import 'package:he_music_flutter/features/my/presentation/pages/my_collection_page.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_collection_providers.dart';
+import 'package:he_music_flutter/shared/widgets/app_loading_indicator.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 
 void main() {
@@ -27,7 +28,7 @@ void main() {
     );
     expect(list.initialLoading, isTrue);
     expect(find.text('暂无收藏内容'), findsNothing);
-    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.byType(AppLoadingIndicator), findsNothing);
   });
 
   testWidgets('my collection refresh keeps existing items visible', (
@@ -54,7 +55,7 @@ void main() {
     );
     expect(list.initialLoading, isFalse);
     expect(find.text('保留的歌单'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(AppLoadingIndicator), findsOneWidget);
   });
 
   testWidgets('my collection actions request skin icon roles', (tester) async {

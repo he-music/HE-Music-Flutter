@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../helpers/kinetic_lyric_layout.dart';
+import '../helpers/monet_lyric_layout.dart';
 
 class KineticNotePose {
   const KineticNotePose(
@@ -46,6 +47,7 @@ class _NoteTarget {
 class KineticLyricPainter extends CustomPainter {
   KineticLyricPainter({
     required this.rows,
+    required this.layoutEngine,
     required this.anchor,
     required this.position,
     required this.followPlayback,
@@ -108,6 +110,7 @@ class KineticLyricPainter extends CustomPainter {
   }
 
   final List<KineticPaintLine> rows;
+  final MonetLyricLayoutEngine layoutEngine;
   final int anchor;
   final ValueListenable<Duration> position;
   final bool followPlayback;
@@ -318,6 +321,11 @@ class KineticLyricPainter extends CustomPainter {
       size.height,
     );
     final time = timeline;
+    // Camera focus can move to the next line before playback reaches it.
+    // Resolve from the smoothed clock once per paint, including line-end gaps.
+    final activeIndex = followPlayback
+        ? layoutEngine.resolvePosition(position.value).activeIndex
+        : null;
     for (final row in rows) {
       final isTimed = animated(row);
       final mainTop =
@@ -334,6 +342,8 @@ class KineticLyricPainter extends CustomPainter {
       if (edgeOpacity <= 0) continue;
       final focus = lineFocusAt(row.entry.index, time);
       final active = focus > 0;
+      final isPlaybackLine =
+          row.entry.index == activeIndex && !row.entry.isInterlude;
       final neighborOpacity = row.y + shift < 0 ? .16 : .28;
       final rowOpacity =
           (neighborOpacity + (1 - neighborOpacity) * focus) * edgeOpacity;
@@ -352,7 +362,8 @@ class KineticLyricPainter extends CustomPainter {
         );
       }
       if (!isTimed) {
-        row.fallback.paint(
+        final textPainter = isPlaybackLine ? row.fallback : row.neutralFallback;
+        textPainter.paint(
           canvas,
           Offset(
             (size.width - row.fallback.width) / 2,
@@ -378,6 +389,9 @@ class KineticLyricPainter extends CustomPainter {
         final start = glyph.source.start;
         final age = start == null ? 1000 : (time - start).inMilliseconds;
         final upcoming = age < 0;
+        final textPainter = isPlaybackLine && start != null && time >= start
+            ? glyph.painter
+            : glyph.neutralPainter;
         final wordOpacity = upcoming
             ? .28 + .34 * (1 + age / 500).clamp(0.0, 1.0)
             : 1.0;
@@ -415,7 +429,7 @@ class KineticLyricPainter extends CustomPainter {
             Paint()..color = Colors.white.withValues(alpha: opacity),
           );
         }
-        glyph.painter.paint(
+        textPainter.paint(
           canvas,
           Offset(-glyph.painter.width / 2, -glyph.painter.height / 2),
         );

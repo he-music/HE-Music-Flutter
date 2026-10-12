@@ -12,6 +12,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_asset_resolver.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../controllers/custom_skin_editor_controller.dart';
 
 class CustomSkinEditorPage extends ConsumerStatefulWidget {
@@ -301,88 +302,83 @@ class _EditorWorkbenchState extends State<_EditorWorkbench> {
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 920),
-            child: Stack(
+            child: Column(
               children: <Widget>[
-                Column(
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(
-                          child: _BrightnessPreview(
-                            key: const ValueKey<String>('custom-preview-light'),
-                            label: AppI18n.tByLocaleCode(
-                              widget.localeCode,
-                              'my.theme.light',
-                            ),
-                            brightness: Brightness.light,
-                            bytes: widget.draft.lightPreviewBytes,
-                            assetPath: widget.draft.lightAssetPath,
-                            seedColor: Color(widget.draft.seedColor),
-                            focal: _focal,
-                            sourceWidth: widget.draft.sourceWidth,
-                            sourceHeight: widget.draft.sourceHeight,
-                            aspectRatio: previewAspectRatio,
-                            assetResolver: widget.assetResolver,
-                            enabled: !widget.busy,
-                            onFocalDelta: _moveFocal,
-                            onFocalCommit: _commitFocal,
-                          ),
+                    Expanded(
+                      child: _BrightnessPreview(
+                        key: const ValueKey<String>('custom-preview-light'),
+                        label: AppI18n.tByLocaleCode(
+                          widget.localeCode,
+                          'my.theme.light',
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _BrightnessPreview(
-                            key: const ValueKey<String>('custom-preview-dark'),
-                            label: AppI18n.tByLocaleCode(
-                              widget.localeCode,
-                              'my.theme.dark',
-                            ),
-                            brightness: Brightness.dark,
-                            bytes: widget.draft.darkPreviewBytes,
-                            assetPath: widget.draft.darkAssetPath,
-                            seedColor: Color(widget.draft.seedColor),
-                            focal: _focal,
-                            sourceWidth: widget.draft.sourceWidth,
-                            sourceHeight: widget.draft.sourceHeight,
-                            aspectRatio: previewAspectRatio,
-                            assetResolver: widget.assetResolver,
-                            enabled: !widget.busy,
-                            onFocalDelta: _moveFocal,
-                            onFocalCommit: _commitFocal,
-                          ),
+                        brightness: Brightness.light,
+                        bytes: widget.draft.lightPreviewBytes,
+                        assetPath: widget.draft.lightAssetPath,
+                        seedColor: Color(widget.draft.seedColor),
+                        focal: _focal,
+                        sourceWidth: widget.draft.sourceWidth,
+                        sourceHeight: widget.draft.sourceHeight,
+                        aspectRatio: previewAspectRatio,
+                        assetResolver: widget.assetResolver,
+                        enabled: !widget.busy,
+                        onFocalDelta: _moveFocal,
+                        onFocalCommit: _commitFocal,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _BrightnessPreview(
+                        key: const ValueKey<String>('custom-preview-dark'),
+                        label: AppI18n.tByLocaleCode(
+                          widget.localeCode,
+                          'my.theme.dark',
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    IconButton(
-                      key: const ValueKey<String>(
-                        'swap-custom-skin-brightness',
+                        brightness: Brightness.dark,
+                        bytes: widget.draft.darkPreviewBytes,
+                        assetPath: widget.draft.darkAssetPath,
+                        seedColor: Color(widget.draft.seedColor),
+                        focal: _focal,
+                        sourceWidth: widget.draft.sourceWidth,
+                        sourceHeight: widget.draft.sourceHeight,
+                        aspectRatio: previewAspectRatio,
+                        assetResolver: widget.assetResolver,
+                        enabled: !widget.busy,
+                        onFocalDelta: _moveFocal,
+                        onFocalCommit: _commitFocal,
                       ),
-                      tooltip: AppI18n.tByLocaleCode(
-                        widget.localeCode,
-                        'settings.skin.custom.swap',
-                      ),
-                      onPressed: widget.busy ? null : widget.onSwap,
-                      icon: const Icon(Icons.swap_horiz_rounded),
-                    ),
-                    const SizedBox(height: 12),
-                    _ColorSwatches(
-                      colors: widget.draft.candidateColors,
-                      selected: widget.draft.seedColor,
-                      enabled: !widget.busy,
-                      onSelected: widget.onSeedSelected,
                     ),
                   ],
                 ),
                 if (widget.busy)
-                  const Positioned.fill(
-                    child: IgnorePointer(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: LinearProgressIndicator(minHeight: 2),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: AppLoadingIndicator(
+                      label: AppI18n.tByLocaleCode(
+                        widget.localeCode,
+                        'home.loading',
                       ),
                     ),
                   ),
+                const SizedBox(height: 10),
+                IconButton(
+                  key: const ValueKey<String>('swap-custom-skin-brightness'),
+                  tooltip: AppI18n.tByLocaleCode(
+                    widget.localeCode,
+                    'settings.skin.custom.swap',
+                  ),
+                  onPressed: widget.busy ? null : widget.onSwap,
+                  icon: const Icon(Icons.swap_horiz_rounded),
+                ),
+                const SizedBox(height: 12),
+                _ColorSwatches(
+                  colors: widget.draft.candidateColors,
+                  selected: widget.draft.seedColor,
+                  enabled: !widget.busy,
+                  onSelected: widget.onSeedSelected,
+                ),
               ],
             ),
           ),
