@@ -35,6 +35,7 @@ import '../../../download/presentation/widgets/download_quality_sheet.dart';
 import '../providers/online_providers.dart';
 import 'online_search_actions_handler.dart';
 import 'online_search_bars.dart';
+import 'online_search_browse_entries.dart';
 import 'online_search_hot_panel.dart';
 import 'online_search_models.dart';
 import 'online_search_result_page.dart';
@@ -228,6 +229,10 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                 child: showHotPanel
                     ? OnlineSearchHotPanel(
                         localeCode: config.localeCode,
+                        leading: OnlineSearchBrowseEntries(
+                          localeCode: config.localeCode,
+                          platform: _selectedPlatformId,
+                        ),
                         historyKeywords: _searchHistoryKeywords,
                         hotKeywords: _hotKeywords,
                         loadingHistory: _loadingSearchHistory,

@@ -17,6 +17,7 @@ import 'package:he_music_flutter/features/online/data/datasources/search_history
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_bars.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_hot_panel.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_browse_entries.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_models.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_suggest_panel.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_page.dart';
@@ -30,6 +31,34 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 
 void main() {
+  testWidgets('browse entries appear above history only for an empty search', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildOnlineSearchApp());
+    await tester.pumpAndSettle();
+    final entries = find.byType(OnlineSearchBrowseEntries);
+    expect(entries, findsOneWidget);
+    expect(
+      tester.getBottomLeft(entries).dy,
+      lessThan(tester.getTopLeft(find.text('Search History')).dy),
+    );
+
+    await tester.enterText(find.byType(TextField), 'Taylor');
+    await tester.pumpAndSettle();
+    expect(entries, findsNothing);
+    expect(find.byType(OnlineSearchSuggestPanel), findsOneWidget);
+
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(entries, findsNothing);
+    expect(find.byType(OnlineSearchResultPage), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    expect(entries, findsOneWidget);
+    expect(find.byType(OnlineSearchHotPanel), findsOneWidget);
+  });
+
   testWidgets('suggestion loading and results preserve the search page shell', (
     tester,
   ) async {

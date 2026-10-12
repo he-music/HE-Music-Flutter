@@ -14,6 +14,7 @@ class OnlineSearchHotPanel extends StatelessWidget {
     required this.loadingHot,
     required this.onTapKeyword,
     required this.onClearHistory,
+    this.leading,
     super.key,
   });
 
@@ -24,6 +25,7 @@ class OnlineSearchHotPanel extends StatelessWidget {
   final bool loadingHot;
   final ValueChanged<String> onTapKeyword;
   final VoidCallback onClearHistory;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,7 @@ class OnlineSearchHotPanel extends StatelessWidget {
         2 + MediaQuery.paddingOf(context).bottom,
       ),
       children: <Widget>[
+        if (leading != null) ...<Widget>[leading!, const SizedBox(height: 14)],
         // 没有搜索历史且不在加载中时，隐藏整个历史栏目
         if (loadingHistory) ...<Widget>[
           _SectionHeader(
