@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'app_glass_surface.dart';
+import '../../app/theme/skin/app_skin_surface.dart';
 import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
@@ -34,37 +36,39 @@ class SongBatchActionBar extends StatelessWidget {
     final labelHeight =
         MediaQuery.textScalerOf(context).scale(labelStyle?.fontSize ?? 11) *
         (labelStyle?.height ?? 1.5);
-    final height = math.max(72.0, 24 + 3 + labelHeight * 2 + 6);
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      elevation: 6,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: SizedBox(
-                height: height,
-                child: loading
-                    ? const Center(
-                        child: SizedBox.square(
-                          dimension: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : Row(
-                        children: <Widget>[
-                          for (final action in actions)
-                            Expanded(
-                              child: _BatchActionButton(
-                                action: action,
-                                enabled: enabled && action.onPressed != null,
+    final height = math.max(68.0, 24 + 3 + labelHeight * 2 + 6);
+    return AppGlassSurface(
+      role: AppSkinSurfaceRole.navigation,
+      child: Material(
+        type: MaterialType.transparency,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: SizedBox(
+                  height: height,
+                  child: loading
+                      ? const Center(
+                          child: SizedBox.square(
+                            dimension: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : Row(
+                          children: <Widget>[
+                            for (final action in actions)
+                              Expanded(
+                                child: _BatchActionButton(
+                                  action: action,
+                                  enabled: enabled && action.onPressed != null,
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
+                          ],
+                        ),
+                ),
               ),
             ),
           ),
