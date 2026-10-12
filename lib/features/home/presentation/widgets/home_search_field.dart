@@ -4,7 +4,6 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../../../../app/theme/glass/app_glass_scope.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
-import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/widgets/app_search_field.dart';
 
@@ -86,19 +85,18 @@ class HomeSearchField extends StatelessWidget {
               shape: LiquidRoundedRectangle(borderRadius: radius),
               useOwnLayer: true,
               quality: AppGlassScope.qualityOf(context),
+              settings: AppSearchField.glassSettingsFor(context),
               child: content,
             );
           }
-          return AppSkinSurface(
-            role: AppSkinSurfaceRole.search,
+          return Material(
+            color: AppSearchField.materialFillColorFor(context),
             borderRadius: BorderRadius.circular(radius),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(radius),
-                child: content,
-              ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(radius),
+              child: content,
             ),
           );
         },

@@ -48,13 +48,38 @@ class AppSearchField extends StatefulWidget {
 
   static Color materialFillColorFor(BuildContext context) {
     final theme = Theme.of(context);
-    final color =
+    final baseColor =
         theme.inputDecorationTheme.fillColor ??
         theme.colorScheme.surfaceContainerHigh;
+    final isDark = theme.brightness == Brightness.dark;
+    final color = Color.alphaBlend(
+      theme.colorScheme.onSurface.withValues(alpha: isDark ? 0.08 : 0.04),
+      baseColor.withValues(alpha: 1),
+    );
     return MediaQuery.highContrastOf(context) ||
             AppGlassScope.preferOpaqueSurfaces(context)
-        ? color.withValues(alpha: 1)
-        : color;
+        ? color
+        : color.withValues(alpha: math.max(baseColor.a, 0.92));
+  }
+
+  static LiquidGlassSettings glassSettingsFor(BuildContext context) {
+    final baseSettings =
+        InheritedLiquidGlass.of(context) ??
+        LiquidGlassWidgets.globalSettings ??
+        GlassThemeData.of(
+          context,
+        ).settingsFor(context)?.applyTo(const LiquidGlassSettings()) ??
+        const LiquidGlassSettings();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Adaptive tint preserves backdrop luminance, making the search surface
+    // disappear against bright wallpapers. Clear keeps optical glass effects
+    // while blending the skin's fill directly over the backdrop.
+    return baseSettings.copyWith(
+      bodyMode: GlassBodyMode.clear,
+      glassColor: materialFillColorFor(
+        context,
+      ).withValues(alpha: isDark ? 0.38 : 0.42),
+    );
   }
 
   static Widget placeholder(
@@ -170,6 +195,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
               shape: LiquidRoundedRectangle(borderRadius: radius),
               useOwnLayer: true,
               quality: AppGlassScope.qualityOf(context),
+              settings: AppSearchField.glassSettingsFor(context),
               onChanged: widget.onChanged,
               onSubmitted: widget.onSubmitted,
             );

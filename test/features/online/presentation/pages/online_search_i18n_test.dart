@@ -227,11 +227,18 @@ void main() {
         matching: find.byType(InputDecorator),
       ),
     );
+    final configuredFill = Theme.of(
+      tester.element(find.byType(SearchTopBox)),
+    ).inputDecorationTheme.fillColor!;
+    final searchFill = inputDecorator.decoration.fillColor!;
+    expect(searchFill.a, greaterThan(configuredFill.a));
     expect(
-      inputDecorator.decoration.fillColor,
-      Theme.of(
-        tester.element(find.byType(SearchTopBox)),
-      ).inputDecorationTheme.fillColor,
+      searchFill.computeLuminance(),
+      lessThan(configuredFill.computeLuminance()),
+    );
+    expect(
+      inputDecorator.decoration.enabledBorder!.borderSide,
+      BorderSide.none,
     );
     final placeholder = find.byWidgetPredicate(
       (widget) => widget is RichText && widget.text.toPlainText() == '搜索',

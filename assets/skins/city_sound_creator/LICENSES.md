@@ -124,23 +124,23 @@ The replacement dark derivative was inspected at full frame and local detail on 
 - Generator: `make skin-previews`, which runs `flutter test --update-goldens test/app/theme/skin_preview_golden_test.dart`.
 - Render contract: actual `MaterialApp.router`, `AppTheme`, `AppSkinBackgroundLayer`, home route, recommend/discover tabs, recommend song list, mini player, bottom navigation, production wallpapers, and production SVG catalog at a fixed `360x640` logical-pixel viewport.
 - Data contract: deterministic Riverpod overrides provide fixed Chinese UI content; no image model redraws or synthesizes application text.
-- UI revision: regenerated for unified search fields, tabs and 48-pixel control touch targets; wallpaper, SVG and Rive assets retain their recorded provenance.
+- UI revision: regenerated for stronger borderless search fills in light and dark mode; wallpaper, SVG and Rive assets retain their recorded provenance.
 - Test fonts: Roboto Regular, Medium, and Bold plus a 14 KB Chinese glyph subset derived from Android Open Source Project's Droid Sans Fallback, all under Apache License 2.0. The files, subset glyph manifest, provenance, and license are retained under `test/assets/fonts/` and are not declared as runtime assets.
 - Material fallback icons: loaded from the Material Icons font already declared by Flutter's `uses-material-design` contract.
 - Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
-- Approval: the user approved the original real-UI preview stage on 2026-07-17 and the light/dark preview pair with the replacement dark wallpaper on 2026-07-27. The latest preview revision updates shared controls under the current UI consistency request.
+- Approval: the user approved the original real-UI preview stage on 2026-07-17 and the light/dark preview pair with the replacement dark wallpaper on 2026-07-27. The latest preview revision adjusts search fills for the user's requested in-app trial without adding outlines.
 
 ### Light real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `63c8487a670c02a5c9c6a5e2bacffee0aadce3f3b2ca1d97208df40cce6150da`.
+- SHA-256: `70334e1b1e7dcafcf727ec6f84859eefb083744c06735a63ea13f57c3cba1f86`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `cc2fbd37944d9a12a70df5b30db0a7d80b8b7d8d12708634e62ef959ac64e203`.
+- SHA-256: `ab1f851ac668b81bb5436057c29dd50e58267111bcc6f41ea12553affbd9e08a`.
 
 ## Rive ambient animation
 
