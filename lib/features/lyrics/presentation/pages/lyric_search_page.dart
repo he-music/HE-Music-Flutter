@@ -308,33 +308,37 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
               ),
             ),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: platformsAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => TextButton(
+              child: platformsAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: TextButton(
                     onPressed: () => ref.invalidate(onlinePlatformsProvider),
                     child: const Text('平台加载失败，重试'),
                   ),
-                  data: (_) => platforms.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('暂无可用的歌词搜索平台'),
-                        )
-                      : ExcludeFocus(
-                          excluding: _selecting != null,
-                          child: AbsorbPointer(
-                            absorbing: _selecting != null,
-                            child: OnlinePlatformTabs(
-                              platforms: platforms,
-                              selectedId: _platform,
-                              requiredFeatureFlag:
-                                  PlatformFeatureSupportFlag.searchLyric,
-                              onSelected: _changePlatform,
-                            ),
+                ),
+                data: (_) => platforms.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        child: Text('暂无可用的歌词搜索平台'),
+                      )
+                    : ExcludeFocus(
+                        excluding: _selecting != null,
+                        child: AbsorbPointer(
+                          absorbing: _selecting != null,
+                          child: OnlinePlatformTabs(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            platforms: platforms,
+                            selectedId: _platform,
+                            requiredFeatureFlag:
+                                PlatformFeatureSupportFlag.searchLyric,
+                            onSelected: _changePlatform,
                           ),
                         ),
-                ),
+                      ),
               ),
             ),
             SliverToBoxAdapter(

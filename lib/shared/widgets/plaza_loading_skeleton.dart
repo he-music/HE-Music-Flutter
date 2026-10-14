@@ -22,19 +22,23 @@ class SectionTitleSkeleton extends StatelessWidget {
 class PlazaPlatformTabsSkeleton extends StatelessWidget {
   const PlazaPlatformTabsSkeleton({
     this.itemWidths = const <double>[48, 52, 44, 58],
+    this.padding = EdgeInsets.zero,
     super.key,
   });
 
   final List<double> itemWidths;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
       child: SizedBox(
+        width: double.infinity,
         height: 28,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          padding: padding,
           child: Row(
             children: <Widget>[
               for (
@@ -93,7 +97,12 @@ class PlazaFilterPanelSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+      padding: EdgeInsets.fromLTRB(
+        trailingButton ? 12 : 0,
+        6,
+        trailingButton ? 12 : 0,
+        8,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: List<Widget>.generate(rowCount, (index) {
@@ -107,6 +116,9 @@ class PlazaFilterPanelSkeleton extends StatelessWidget {
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: trailingButton ? 0 : 12,
+                    ),
                     child: Row(
                       children: widths
                           .map(

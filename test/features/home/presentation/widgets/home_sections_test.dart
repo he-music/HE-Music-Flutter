@@ -277,8 +277,33 @@ void main() {
     expect(position.maxScrollExtent, greaterThan(0));
 
     final listRect = tester.getRect(horizontalList);
+    final firstCard = find.byType(MediaGridCard).first;
     final nextCardRect = tester.getRect(find.byType(MediaGridCard).at(3));
-    expect(listRect.right - nextCardRect.left, closeTo(26, 0.01));
+    expect(listRect.left, 0);
+    expect(listRect.right, surfaceWidth);
+    expect(tester.getRect(firstCard).left, LayoutTokens.compactPageGutter);
+    expect(
+      listRect.right - nextCardRect.left,
+      closeTo(26 + LayoutTokens.compactPageGutter, 0.01),
+    );
+    expect(
+      tester.getSize(firstCard).width,
+      closeTo((366 - 8 * 3 - 26) / 3, 0.01),
+    );
+
+    await tester.drag(horizontalList, const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    final scrolledFirstCardRect = tester.getRect(firstCard);
+    expect(scrolledFirstCardRect.left, lessThan(listRect.left));
+    expect(scrolledFirstCardRect.right, greaterThan(listRect.left));
+
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final lastCardRect = tester.getRect(find.byType(MediaGridCard).last);
+    expect(
+      listRect.right - lastCardRect.right,
+      closeTo(LayoutTokens.compactPageGutter, 0.01),
+    );
   });
 
   testWidgets('移动端按宽度展示不同数量卡片并固定露出下一张', (tester) async {
@@ -312,7 +337,7 @@ void main() {
       expect(cardSize.height, cardSize.width);
       expect(
         listRect.right - nextCardRect.left,
-        closeTo(26, 0.01),
+        closeTo(26 + LayoutTokens.compactPageGutter, 0.01),
         reason: '${testCase.surfaceWidth}dp 宽度应露出下一张卡片',
       );
     }

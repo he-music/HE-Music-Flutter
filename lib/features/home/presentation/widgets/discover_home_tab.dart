@@ -414,16 +414,11 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                       ),
                     ),
                   const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: LayoutTokens.compactPageGutter + 4,
-                    ),
-                    sliver: SliverToBoxAdapter(
-                      child: _PlatformBar(
-                        selectedPlatformId: content.selectedPlatformId,
-                        onSelected: homeController.selectPlatform,
-                        chips: platformChips,
-                      ),
+                  SliverToBoxAdapter(
+                    child: _PlatformBar(
+                      selectedPlatformId: content.selectedPlatformId,
+                      onSelected: homeController.selectPlatform,
+                      chips: platformChips,
                     ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 14)),
@@ -1776,10 +1771,13 @@ class _PlatformBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
+    return SizedBox(
+      width: double.infinity,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(
+          horizontal: LayoutTokens.compactPageGutter + 4,
+        ),
         child: Row(
           children: chips
               .map(

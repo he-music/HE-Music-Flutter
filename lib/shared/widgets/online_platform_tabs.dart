@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
 import '../../features/online/domain/entities/online_platform.dart';
+import '../constants/layout_tokens.dart';
 
 class OnlinePlatformTabs extends ConsumerWidget {
   const OnlinePlatformTabs({
@@ -11,6 +12,9 @@ class OnlinePlatformTabs extends ConsumerWidget {
     required this.selectedId,
     required this.requiredFeatureFlag,
     required this.onSelected,
+    this.padding = const EdgeInsets.symmetric(
+      horizontal: LayoutTokens.compactPageGutter,
+    ),
     super.key,
   });
 
@@ -18,22 +22,27 @@ class OnlinePlatformTabs extends ConsumerWidget {
   final String? selectedId;
   final BigInt requiredFeatureFlag;
   final ValueChanged<String> onSelected;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     if (platforms.isEmpty) {
-      return Text(
-        AppI18n.t(config, 'ranking.no_platform'),
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).hintColor),
+      return Padding(
+        padding: padding,
+        child: Text(
+          AppI18n.t(config, 'ranking.no_platform'),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).hintColor),
+        ),
       );
     }
-    return Align(
-      alignment: Alignment.centerLeft,
+    return SizedBox(
+      width: double.infinity,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: padding,
         child: Row(
           children: platforms
               .map(

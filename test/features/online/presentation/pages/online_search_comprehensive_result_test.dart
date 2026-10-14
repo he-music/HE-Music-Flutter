@@ -64,6 +64,24 @@ void main() {
         (widget) =>
             widget is ListView && widget.scrollDirection == Axis.horizontal,
       );
+      final resultRect = tester.getRect(
+        find.byType(OnlineSearchComprehensiveResult),
+      );
+      final listRect = tester.getRect(list);
+      expect(listRect.left, resultRect.left);
+      expect(listRect.right, resultRect.right);
+      final card = find
+          .descendant(
+            of: list,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is SizedBox &&
+                  widget.width == 120 &&
+                  widget.height == null,
+            ),
+          )
+          .first;
+      expect(tester.getRect(card).left - listRect.left, 16);
       final subtitle = find.descendant(
         of: list,
         matching: find.text('Taylor Swift'),

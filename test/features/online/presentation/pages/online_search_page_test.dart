@@ -38,6 +38,13 @@ void main() {
     await tester.pumpAndSettle();
     final entries = find.byType(OnlineSearchBrowseEntries);
     expect(entries, findsOneWidget);
+    final pageRect = tester.getRect(find.byType(OnlineSearchPage));
+    expect(tester.getRect(entries).left, pageRect.left);
+    expect(tester.getRect(entries).right, pageRect.right);
+    expect(
+      tester.getTopLeft(find.text('Search History')).dx,
+      pageRect.left + 14,
+    );
     expect(
       tester.getBottomLeft(entries).dy,
       lessThan(tester.getTopLeft(find.text('Search History')).dy),
@@ -52,6 +59,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(entries, findsNothing);
     expect(find.byType(OnlineSearchResultPage), findsOneWidget);
+    for (final bar in [
+      find.byType(SearchTypeBar),
+      find.byType(SearchPlatformBar),
+    ]) {
+      final scroll = find.descendant(
+        of: bar,
+        matching: find.byType(SingleChildScrollView),
+      );
+      expect(tester.getRect(scroll).left, pageRect.left);
+      expect(tester.getRect(scroll).right, pageRect.right);
+    }
 
     await tester.enterText(find.byType(TextField), '');
     await tester.pumpAndSettle();

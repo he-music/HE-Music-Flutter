@@ -180,6 +180,68 @@ void main() {
   });
 
   group('PlazaFiltersPanel', () {
+    testWidgets('过滤栏全宽横滑且首尾留白随内容滚动', (tester) async {
+      String? selected;
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 320,
+            child: PlazaFiltersPanel(
+              filterGroups: [
+                FilterInfo(
+                  id: 'region',
+                  platform: 'qq',
+                  options: List.generate(
+                    8,
+                    (index) => FilterOptionInfo(
+                      value: '$index',
+                      label: 'Region $index',
+                    ),
+                  ),
+                ),
+              ],
+              selectedFilters: const {'region': '0'},
+              onSelectFilter: (_, value) => selected = value,
+            ),
+          ),
+        ),
+      );
+      final scroll = find.byType(SingleChildScrollView);
+      final listRect = tester.getRect(scroll);
+      final panelRect = tester.getRect(find.byType(PlazaFiltersPanel));
+      expect(listRect.left, panelRect.left);
+      expect(listRect.right, panelRect.right);
+      expect(listRect.width, 320);
+      expect(
+        tester.getRect(find.byType(ChoiceChip).first).left - listRect.left,
+        12,
+      );
+      await tester.drag(scroll, const Offset(-40, 0));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(ChoiceChip).first).left,
+        lessThan(listRect.left),
+      );
+      expect(
+        tester.getRect(find.byType(ChoiceChip).first).right,
+        greaterThan(listRect.left),
+      );
+      final scrollable = find.descendant(
+        of: scroll,
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(
+        listRect.right - tester.getRect(find.byType(ChoiceChip).last).right,
+        closeTo(18, 0.01),
+      );
+      await tester.tap(find.text('Region 7'));
+      expect(selected, '7');
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('空 filterGroups 应返回空 widget', (tester) async {
       await tester.pumpWidget(
         _wrap(

@@ -222,26 +222,26 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
               ),
             ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: LayoutTokens.compactPageGutter,
-                ),
-                child: showHotPanel
-                    ? OnlineSearchHotPanel(
+              child: showHotPanel
+                  ? OnlineSearchHotPanel(
+                      localeCode: config.localeCode,
+                      leading: OnlineSearchBrowseEntries(
                         localeCode: config.localeCode,
-                        leading: OnlineSearchBrowseEntries(
-                          localeCode: config.localeCode,
-                          platform: _selectedPlatformId,
-                        ),
-                        historyKeywords: _searchHistoryKeywords,
-                        hotKeywords: _hotKeywords,
-                        loadingHistory: _loadingSearchHistory,
-                        loadingHot: _loadingHotKeywords,
-                        onTapKeyword: _onTapSuggestedKeyword,
-                        onClearHistory: () => unawaited(_clearSearchHistory()),
-                      )
-                    : showSuggestPanel
-                    ? ValueListenableBuilder(
+                        platform: _selectedPlatformId,
+                      ),
+                      historyKeywords: _searchHistoryKeywords,
+                      hotKeywords: _hotKeywords,
+                      loadingHistory: _loadingSearchHistory,
+                      loadingHot: _loadingHotKeywords,
+                      onTapKeyword: _onTapSuggestedKeyword,
+                      onClearHistory: () => unawaited(_clearSearchHistory()),
+                    )
+                  : showSuggestPanel
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: LayoutTokens.compactPageGutter,
+                      ),
+                      child: ValueListenableBuilder(
                         valueListenable: _suggestions,
                         builder: (context, suggestions, child) =>
                             OnlineSearchSuggestPanel(
@@ -249,41 +249,41 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                               suggestions: suggestions.keywords,
                               onTapKeyword: _onTapSuggestedKeyword,
                             ),
-                      )
-                    : OnlineSearchResultPage(
-                        localeCode: config.localeCode,
-                        selectedType: _selectedType,
-                        onTypeChanged: _onTypeChanged,
-                        loadingPlatforms: loadingPlatforms,
-                        platforms: platforms,
-                        selectedPlatformId: _selectedPlatformId,
-                        onPlatformChanged: _onPlatformChanged,
-                        availableTypes: availableTypes,
-                        loading: loading,
-                        results: results,
-                        songResults: songResults,
-                        searchKeyword: effectiveKeyword,
-                        comprehensiveResult: comprehensiveResult,
-                        error: error,
-                        initialLoading: initialLoading,
-                        likedSongKeys: const <String>{},
-                        onTapItem: (type, item) => openSearchDetail(
-                          context: context,
-                          type: type,
-                          item: item,
-                          fallbackPlatformId: _selectedPlatformId,
-                          localeCode: ref.read(appConfigProvider).localeCode,
-                          onError: AppMessageService.showWarning,
-                        ),
-                        onTapSongItem: (song) => unawaited(_playSong(song)),
-                        onLikeSongItem: _toggleSongLike,
-                        onMoreSongItem: _showSongActions,
-                        onMoreSection: _openMoreSection,
-                        onLoadMore: _loadMore,
-                        loadingMore: loadingMore,
-                        hasMore: hasMore,
                       ),
-              ),
+                    )
+                  : OnlineSearchResultPage(
+                      localeCode: config.localeCode,
+                      selectedType: _selectedType,
+                      onTypeChanged: _onTypeChanged,
+                      loadingPlatforms: loadingPlatforms,
+                      platforms: platforms,
+                      selectedPlatformId: _selectedPlatformId,
+                      onPlatformChanged: _onPlatformChanged,
+                      availableTypes: availableTypes,
+                      loading: loading,
+                      results: results,
+                      songResults: songResults,
+                      searchKeyword: effectiveKeyword,
+                      comprehensiveResult: comprehensiveResult,
+                      error: error,
+                      initialLoading: initialLoading,
+                      likedSongKeys: const <String>{},
+                      onTapItem: (type, item) => openSearchDetail(
+                        context: context,
+                        type: type,
+                        item: item,
+                        fallbackPlatformId: _selectedPlatformId,
+                        localeCode: ref.read(appConfigProvider).localeCode,
+                        onError: AppMessageService.showWarning,
+                      ),
+                      onTapSongItem: (song) => unawaited(_playSong(song)),
+                      onLikeSongItem: _toggleSongLike,
+                      onMoreSongItem: _showSongActions,
+                      onMoreSection: _openMoreSection,
+                      onLoadMore: _loadMore,
+                      loadingMore: loadingMore,
+                      hasMore: hasMore,
+                    ),
             ),
           ],
         ),

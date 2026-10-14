@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/models/he_music_models.dart';
 import 'online_search_bars.dart';
 import 'online_search_comprehensive_result.dart';
@@ -84,21 +85,26 @@ class OnlineSearchResultPage extends StatelessWidget {
         Expanded(
           child: selectedType == SearchType.comprehensive
               ? _buildComprehensive()
-              : OnlineSearchResultList(
-                  type: selectedType,
-                  results: results,
-                  songResults: songResults,
-                  searchKeyword: searchKeyword,
-                  error: error,
-                  initialLoading: initialLoading,
-                  likedSongKeys: likedSongKeys,
-                  onTapItem: (item) => onTapItem(selectedType, item),
-                  onTapSongItem: onTapSongItem,
-                  onLikeSongItem: onLikeSongItem,
-                  onMoreSongItem: onMoreSongItem,
-                  onLoadMore: onLoadMore,
-                  loadingMore: loadingMore,
-                  hasMore: hasMore,
+              : Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: LayoutTokens.compactPageGutter,
+                  ),
+                  child: OnlineSearchResultList(
+                    type: selectedType,
+                    results: results,
+                    songResults: songResults,
+                    searchKeyword: searchKeyword,
+                    error: error,
+                    initialLoading: initialLoading,
+                    likedSongKeys: likedSongKeys,
+                    onTapItem: (item) => onTapItem(selectedType, item),
+                    onTapSongItem: onTapSongItem,
+                    onLikeSongItem: onLikeSongItem,
+                    onMoreSongItem: onMoreSongItem,
+                    onLoadMore: onLoadMore,
+                    loadingMore: loadingMore,
+                    hasMore: hasMore,
+                  ),
                 ),
         ),
       ],
@@ -118,7 +124,12 @@ class OnlineSearchResultPage extends StatelessWidget {
       );
     }
     if (initialLoading) {
-      return const OnlineSearchComprehensiveSkeleton();
+      return const Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: LayoutTokens.compactPageGutter,
+        ),
+        child: OnlineSearchComprehensiveSkeleton(),
+      );
     }
     final result = comprehensiveResult;
     if (result == null) {

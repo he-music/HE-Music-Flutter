@@ -48,7 +48,7 @@ class _RankingListPageState extends ConsumerState<RankingListPage> {
         body: Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
               child: platformsAsync.when(
                 data: (platforms) {
                   _syncPlatform(platforms);
@@ -59,10 +59,15 @@ class _RankingListPageState extends ConsumerState<RankingListPage> {
                     onSelected: (id) => setState(() => _platformId = id),
                   );
                 },
-                loading: () => const PlazaPlatformTabsSkeleton(),
-                error: (error, _) => _PlatformsErrorView(
-                  onRetry: () =>
-                      ref.read(onlinePlatformsProvider.notifier).refresh(),
+                loading: () => const PlazaPlatformTabsSkeleton(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                ),
+                error: (error, _) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _PlatformsErrorView(
+                    onRetry: () =>
+                        ref.read(onlinePlatformsProvider.notifier).refresh(),
+                  ),
                 ),
               ),
             ),

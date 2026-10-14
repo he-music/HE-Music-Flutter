@@ -237,32 +237,30 @@ List<Widget> _buildResourceSlivers({
 
     if (section.entries.length > quickEntryGridSpec.crossAxisCount) {
       return <Widget>[
-        SliverPadding(
-          padding: horizontalPadding,
-          sliver: SliverToBoxAdapter(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final itemExtent = _resolveHomeQuickEntryHorizontalExtent(
-                  maxWidth: constraints.maxWidth,
-                  gridSpec: quickEntryGridSpec,
-                );
-                return SizedBox(
-                  height: itemExtent,
-                  child: ListView.separated(
-                    primary: false,
-                    padding: EdgeInsets.zero,
-                    scrollDirection: Axis.horizontal,
-                    itemCount: section.entries.length,
-                    separatorBuilder: (_, _) =>
-                        SizedBox(width: quickEntryGridSpec.crossAxisSpacing),
-                    itemBuilder: (context, index) => SizedBox.square(
-                      dimension: itemExtent,
-                      child: buildEntryCard(context, index),
-                    ),
+        SliverToBoxAdapter(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final itemExtent = _resolveHomeQuickEntryHorizontalExtent(
+                maxWidth: constraints.maxWidth - horizontalPadding.horizontal,
+                gridSpec: quickEntryGridSpec,
+              );
+              return SizedBox(
+                height: itemExtent,
+                child: ListView.separated(
+                  primary: false,
+                  // 留白随内容滚动，避免在页面两侧提前裁切卡片。
+                  padding: horizontalPadding,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: section.entries.length,
+                  separatorBuilder: (_, _) =>
+                      SizedBox(width: quickEntryGridSpec.crossAxisSpacing),
+                  itemBuilder: (context, index) => SizedBox.square(
+                    dimension: itemExtent,
+                    child: buildEntryCard(context, index),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         ),
       ];

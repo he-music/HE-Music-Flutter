@@ -4,6 +4,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 
 class OnlineSearchHotPanel extends StatelessWidget {
   const OnlineSearchHotPanel({
@@ -31,49 +32,62 @@ class OnlineSearchHotPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: EdgeInsets.fromLTRB(
+        0,
         2,
-        2,
-        2,
+        0,
         2 + MediaQuery.paddingOf(context).bottom,
       ),
       children: <Widget>[
         if (leading != null) ...<Widget>[leading!, const SizedBox(height: 14)],
-        // 没有搜索历史且不在加载中时，隐藏整个历史栏目
-        if (loadingHistory) ...<Widget>[
-          _SectionHeader(
-            title: AppI18n.tByLocaleCode(localeCode, 'search.history.title'),
-            trailing: IconButton(
-              onPressed: onClearHistory,
-              tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
-              icon: const AppSkinIcon(role: AppSkinIconRole.searchHistoryClear),
+        ...<Widget>[
+          // 没有搜索历史且不在加载中时，隐藏整个历史栏目
+          if (loadingHistory) ...<Widget>[
+            _SectionHeader(
+              title: AppI18n.tByLocaleCode(localeCode, 'search.history.title'),
+              trailing: IconButton(
+                onPressed: onClearHistory,
+                tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
+                icon: const AppSkinIcon(
+                  role: AppSkinIconRole.searchHistoryClear,
+                ),
+              ),
             ),
-          ),
-          const KeywordWrapSkeleton(
-            itemWidths: <double>[86, 72, 94, 68, 88, 76],
-          ),
-        ] else if (historyKeywords.isNotEmpty) ...<Widget>[
-          _SectionHeader(
-            title: AppI18n.tByLocaleCode(localeCode, 'search.history.title'),
-            trailing: IconButton(
-              onPressed: onClearHistory,
-              tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
-              icon: const AppSkinIcon(role: AppSkinIconRole.searchHistoryClear),
+            const KeywordWrapSkeleton(
+              itemWidths: <double>[86, 72, 94, 68, 88, 76],
             ),
+          ] else if (historyKeywords.isNotEmpty) ...<Widget>[
+            _SectionHeader(
+              title: AppI18n.tByLocaleCode(localeCode, 'search.history.title'),
+              trailing: IconButton(
+                onPressed: onClearHistory,
+                tooltip: AppI18n.tByLocaleCode(localeCode, 'common.clear'),
+                icon: const AppSkinIcon(
+                  role: AppSkinIconRole.searchHistoryClear,
+                ),
+              ),
+            ),
+            _KeywordWrap(items: historyKeywords, onTap: onTapKeyword),
+          ],
+          const SizedBox(height: 14),
+          _SectionHeader(
+            title: AppI18n.tByLocaleCode(localeCode, 'search.hot.title'),
           ),
-          _KeywordWrap(items: historyKeywords, onTap: onTapKeyword),
-        ],
-        const SizedBox(height: 14),
-        _SectionHeader(
-          title: AppI18n.tByLocaleCode(localeCode, 'search.hot.title'),
+          if (loadingHot)
+            const HotKeywordListSkeleton()
+          else if (hotKeywords.isEmpty)
+            _SectionEmpty(
+              text: AppI18n.tByLocaleCode(localeCode, 'search.hot.empty'),
+            )
+          else
+            _HotKeywordList(items: hotKeywords, onTap: onTapKeyword),
+        ].map(
+          (child) => Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: LayoutTokens.compactPageGutter + 2,
+            ),
+            child: child,
+          ),
         ),
-        if (loadingHot)
-          const HotKeywordListSkeleton()
-        else if (hotKeywords.isEmpty)
-          _SectionEmpty(
-            text: AppI18n.tByLocaleCode(localeCode, 'search.hot.empty'),
-          )
-        else
-          _HotKeywordList(items: hotKeywords, onTap: onTapKeyword),
       ],
     );
   }

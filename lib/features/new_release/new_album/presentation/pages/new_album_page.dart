@@ -65,9 +65,11 @@ class _NewAlbumPageState extends ConsumerState<NewAlbumPage> {
         body: Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
               child: state.tabsLoading && state.platforms.isEmpty
-                  ? const PlazaPlatformTabsSkeleton()
+                  ? const PlazaPlatformTabsSkeleton(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                    )
                   : OnlinePlatformTabs(
                       platforms: state.platforms,
                       selectedId: state.selectedPlatformId,

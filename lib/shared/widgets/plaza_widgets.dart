@@ -200,6 +200,7 @@ class PlazaFilterChipRow extends StatelessWidget {
       width: double.infinity,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: group.options
@@ -268,7 +269,7 @@ class PlazaFiltersPanel extends StatelessWidget {
         .where((group) => group.options.isNotEmpty)
         .toList(growable: false);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Column(

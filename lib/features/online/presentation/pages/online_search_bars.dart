@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
 import '../../domain/entities/online_platform.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../../../../shared/widgets/app_search_field.dart';
@@ -53,18 +54,24 @@ class SearchTypeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: types
-            .map(
-              (tab) => _SimpleTab(
-                label: AppI18n.tByLocaleCode(localeCode, tab.labelKey),
-                selected: selectedType == tab,
-                onTap: () => onChanged(tab),
-              ),
-            )
-            .toList(growable: false),
+    return SizedBox(
+      width: double.infinity,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(
+          horizontal: LayoutTokens.compactPageGutter,
+        ),
+        child: Row(
+          children: types
+              .map(
+                (tab) => _SimpleTab(
+                  label: AppI18n.tByLocaleCode(localeCode, tab.labelKey),
+                  selected: selectedType == tab,
+                  onTap: () => onChanged(tab),
+                ),
+              )
+              .toList(growable: false),
+        ),
       ),
     );
   }
@@ -89,12 +96,20 @@ class SearchPlatformBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading && platforms.isEmpty) {
-      return const PlazaPlatformTabsSkeleton();
+      return const Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: LayoutTokens.compactPageGutter,
+        ),
+        child: PlazaPlatformTabsSkeleton(),
+      );
     }
-    return Align(
-      alignment: Alignment.centerLeft,
+    return SizedBox(
+      width: double.infinity,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(
+          horizontal: LayoutTokens.compactPageGutter,
+        ),
         child: Row(
           children: platforms
               .map((platform) {

@@ -45,7 +45,7 @@ class _RadioPlazaPageState extends ConsumerState<RadioPlazaPage> {
         body: Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+              padding: const EdgeInsets.fromLTRB(0, 6, 0, 4),
               child: platformsAsync.when(
                 data: (platforms) {
                   final supportedPlatforms = _supportedPlatforms(platforms);
@@ -59,11 +59,16 @@ class _RadioPlazaPageState extends ConsumerState<RadioPlazaPage> {
                         .selectPlatform(id),
                   );
                 },
-                loading: () => const PlazaPlatformTabsSkeleton(),
-                error: (error, _) => PlazaPlatformsErrorView(
-                  onRetry: () =>
-                      ref.read(onlinePlatformsProvider.notifier).refresh(),
-                  i18nKey: 'radio.platform_load_failed',
+                loading: () => const PlazaPlatformTabsSkeleton(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                ),
+                error: (error, _) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: PlazaPlatformsErrorView(
+                    onRetry: () =>
+                        ref.read(onlinePlatformsProvider.notifier).refresh(),
+                    i18nKey: 'radio.platform_load_failed',
+                  ),
                 ),
               ),
             ),
@@ -250,13 +255,14 @@ class _GroupTabsState extends State<_GroupTabs> {
   Widget build(BuildContext context) {
     final normalizedSelectedGroupName = widget.selectedGroupName.trim();
 
-    return Align(
-      alignment: Alignment.centerLeft,
+    return SizedBox(
+      width: double.infinity,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+        padding: const EdgeInsets.only(top: 6, bottom: 8),
         child: SingleChildScrollView(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: widget.groups
                 .map((group) {
@@ -370,8 +376,9 @@ class _RadioPlazaLoadingView extends StatelessWidget {
     return const Column(
       children: <Widget>[
         Padding(
-          padding: EdgeInsets.fromLTRB(12, 6, 12, 8),
+          padding: EdgeInsets.only(top: 6, bottom: 8),
           child: PlazaPlatformTabsSkeleton(
+            padding: EdgeInsets.symmetric(horizontal: 12),
             itemWidths: <double>[48, 52, 44, 58, 50, 62, 46, 56],
           ),
         ),

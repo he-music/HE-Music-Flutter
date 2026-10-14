@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 
@@ -60,8 +61,14 @@ class OnlineSearchBrowseEntries extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(
+          horizontal: LayoutTokens.compactPageGutter + 2,
+        ),
         child: SizedBox(
-          width: math.max(constraints.maxWidth, minItemWidth * _entries.length),
+          width: math.max(
+            constraints.maxWidth - (LayoutTokens.compactPageGutter + 2) * 2,
+            minItemWidth * _entries.length,
+          ),
           child: Material(
             color: Colors.transparent,
             child: Row(

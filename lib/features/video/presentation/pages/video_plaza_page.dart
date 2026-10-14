@@ -58,7 +58,7 @@ class _VideoPlazaPageState extends ConsumerState<VideoPlazaPage> {
         body: Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+              padding: const EdgeInsets.fromLTRB(0, 6, 0, 4),
               child: platformsAsync.when(
                 data: (platforms) {
                   final supportedPlatforms = _supportedPlatforms(platforms);
@@ -72,11 +72,16 @@ class _VideoPlazaPageState extends ConsumerState<VideoPlazaPage> {
                         .selectPlatform(id),
                   );
                 },
-                loading: () => const PlazaPlatformTabsSkeleton(),
-                error: (error, _) => PlazaPlatformsErrorView(
-                  onRetry: () =>
-                      ref.read(onlinePlatformsProvider.notifier).refresh(),
-                  i18nKey: 'video.platform_load_failed',
+                loading: () => const PlazaPlatformTabsSkeleton(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                ),
+                error: (error, _) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: PlazaPlatformsErrorView(
+                    onRetry: () =>
+                        ref.read(onlinePlatformsProvider.notifier).refresh(),
+                    i18nKey: 'video.platform_load_failed',
+                  ),
                 ),
               ),
             ),

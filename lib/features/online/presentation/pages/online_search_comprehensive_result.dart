@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
+import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
@@ -199,12 +200,15 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
             ),
           ),
         // 各分类搜索结果 section
-        SliverList.separated(
-          itemCount: sections.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 14),
-          itemBuilder: (context, index) {
-            return sections[index];
-          },
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: LayoutTokens.compactPageGutter,
+          ),
+          sliver: SliverList.separated(
+            itemCount: sections.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 14),
+            itemBuilder: (context, index) => sections[index],
+          ),
         ),
         SliverToBoxAdapter(
           child: SizedBox(height: 12 + MediaQuery.paddingOf(context).bottom),
@@ -260,7 +264,9 @@ class _BestMatchBlock extends ConsumerWidget {
       children: <Widget>[
         // 标题
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: LayoutTokens.compactPageGutter + 4,
+          ),
           child: Text(
             AppI18n.tByLocaleCode(localeCode, 'search.best_match.title'),
             style: Theme.of(
@@ -270,14 +276,19 @@ class _BestMatchBlock extends ConsumerWidget {
         ),
         const SizedBox(height: 6),
         // primary 全宽列表项
-        _BestMatchPrimaryItem(
-          item: primary,
-          searchKeyword: searchKeyword,
-          likedSongKeys: likedSongKeys,
-          onTapItem: onTapItem,
-          onTapSongItem: onTapSongItem,
-          onLikeSongItem: onLikeSongItem,
-          onMoreSongItem: onMoreSongItem,
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: LayoutTokens.compactPageGutter,
+          ),
+          child: _BestMatchPrimaryItem(
+            item: primary,
+            searchKeyword: searchKeyword,
+            likedSongKeys: likedSongKeys,
+            onTapItem: onTapItem,
+            onTapSongItem: onTapSongItem,
+            onLikeSongItem: onLikeSongItem,
+            onMoreSongItem: onMoreSongItem,
+          ),
         ),
         // 其余推荐横向滚动
         if (recommendations.isNotEmpty) ...[
@@ -286,7 +297,9 @@ class _BestMatchBlock extends ConsumerWidget {
             height: _bestMatchCardHeight(context),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: LayoutTokens.compactPageGutter + 4,
+              ),
               itemCount: recommendations.length,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
