@@ -1276,6 +1276,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     showPlayerStyledBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      fitContent: true,
       showDragHandle: true,
       builder: (context) => const PlayerSleepTimerSheet(),
     );
@@ -1288,57 +1289,61 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   ) {
     showPlayerStyledBottomSheet<void>(
       context: context,
+      fitContent: true,
+      heightFactor: LayoutTokens.playerActionSheetHeightFactor,
       showDragHandle: true,
       builder: (sheetContext) {
         var value = current.clamp(0.5, 2.0);
         return StatefulBuilder(
           builder: (context, setState) {
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            AppI18n.t(
-                              ref.read(appConfigProvider),
-                              'player.action.speed',
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              AppI18n.t(
+                                ref.read(appConfigProvider),
+                                'player.action.speed',
+                              ),
                             ),
                           ),
-                        ),
-                        Text('${value.toStringAsFixed(2)}x'),
-                      ],
-                    ),
-                    Slider(
-                      value: value,
-                      min: 0.5,
-                      max: 2.0,
-                      divisions: 30,
-                      label: '${value.toStringAsFixed(2)}x',
-                      onChanged: (next) {
-                        setState(() => value = next);
-                      },
-                      onChangeEnd: (next) {
-                        controller.setSpeed(next);
-                      },
-                    ),
-                    const SizedBox(height: 6),
-                    FilledButton(
-                      onPressed: () {
-                        controller.setSpeed(1.0);
-                        Navigator.of(sheetContext).pop();
-                      },
-                      child: Text(
-                        AppI18n.t(
-                          ref.read(appConfigProvider),
-                          'player.reset.speed',
+                          Text('${value.toStringAsFixed(2)}x'),
+                        ],
+                      ),
+                      Slider(
+                        value: value,
+                        min: 0.5,
+                        max: 2.0,
+                        divisions: 30,
+                        label: '${value.toStringAsFixed(2)}x',
+                        onChanged: (next) {
+                          setState(() => value = next);
+                        },
+                        onChangeEnd: (next) {
+                          controller.setSpeed(next);
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      FilledButton(
+                        onPressed: () {
+                          controller.setSpeed(1.0);
+                          Navigator.of(sheetContext).pop();
+                        },
+                        child: Text(
+                          AppI18n.t(
+                            ref.read(appConfigProvider),
+                            'player.reset.speed',
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -1447,57 +1452,61 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   ) {
     showPlayerStyledBottomSheet<void>(
       context: context,
+      fitContent: true,
+      heightFactor: LayoutTokens.playerActionSheetHeightFactor,
       showDragHandle: true,
       builder: (sheetContext) {
         var value = current.clamp(0.0, 1.0);
         return StatefulBuilder(
           builder: (context, setState) {
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            AppI18n.t(
-                              ref.read(appConfigProvider),
-                              'player.action.volume',
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              AppI18n.t(
+                                ref.read(appConfigProvider),
+                                'player.action.volume',
+                              ),
                             ),
                           ),
-                        ),
-                        Text('${(value * 100).round()}%'),
-                      ],
-                    ),
-                    Slider(
-                      value: value,
-                      min: 0.0,
-                      max: 1.0,
-                      divisions: 20,
-                      label: '${(value * 100).round()}%',
-                      onChanged: (next) {
-                        setState(() => value = next);
-                      },
-                      onChangeEnd: (next) {
-                        controller.setVolume(next);
-                      },
-                    ),
-                    const SizedBox(height: 6),
-                    FilledButton(
-                      onPressed: () {
-                        controller.setVolume(1.0);
-                        Navigator.of(sheetContext).pop();
-                      },
-                      child: Text(
-                        AppI18n.t(
-                          ref.read(appConfigProvider),
-                          'player.reset.volume',
+                          Text('${(value * 100).round()}%'),
+                        ],
+                      ),
+                      Slider(
+                        value: value,
+                        min: 0.0,
+                        max: 1.0,
+                        divisions: 20,
+                        label: '${(value * 100).round()}%',
+                        onChanged: (next) {
+                          setState(() => value = next);
+                        },
+                        onChangeEnd: (next) {
+                          controller.setVolume(next);
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      FilledButton(
+                        onPressed: () {
+                          controller.setVolume(1.0);
+                          Navigator.of(sheetContext).pop();
+                        },
+                        child: Text(
+                          AppI18n.t(
+                            ref.read(appConfigProvider),
+                            'player.reset.volume',
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );

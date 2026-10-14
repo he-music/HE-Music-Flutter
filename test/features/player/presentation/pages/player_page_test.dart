@@ -13,6 +13,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/router/app_route_observers.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
@@ -119,6 +122,138 @@ const _monetFixtureDocument = LyricDocument(
 );
 
 void main() {
+  for (final glass in [true, false]) {
+    for (final action in ['Speed', 'Volume']) {
+      for (final size in [const Size(390, 844), const Size(844, 390)]) {
+        testWidgets('$action sheet fits content at $size with glass=$glass', (
+          tester,
+        ) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.padding = const FakeViewPadding(bottom: 34);
+          addTearDown(tester.view.reset);
+          late _SheetControlsPlayerController controller;
+          await tester.pumpWidget(
+            AppGlassScope(
+              enabled: glass,
+              mode: glass ? AppGlassMode.low : AppGlassMode.off,
+              child: GlassAdaptiveScope(
+                minQuality: GlassQuality.minimal,
+                maxQuality: GlassQuality.minimal,
+                child: _buildPlayerTestApp(
+                  controllerFactory: () =>
+                      controller = _SheetControlsPlayerController(),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+          await tester.pumpAndSettle();
+          await _scrollPlayerMoreSheetTo(tester, action);
+          await tester.tap(find.text(action));
+          await tester.pumpAndSettle();
+          final surface = glass
+              ? find.byKey(const Key('glass_modal_sheet_fill'))
+              : find.byType(BottomSheet);
+          final rect = tester.getRect(surface);
+          if (glass) {
+            expect(rect.left, closeTo(8, .1));
+            expect(rect.right, closeTo(382, .1));
+          }
+          expect(rect.height, lessThan(844 * .3));
+          tester.view.physicalSize = size;
+          await tester.pumpAndSettle();
+          final slider = find.descendant(
+            of: find.byType(glass ? GlassModalSheet : BottomSheet),
+            matching: find.byType(Slider),
+          );
+          await tester.drag(slider, const Offset(50, 0));
+          await tester.pumpAndSettle();
+          expect(
+            action == 'Speed' ? controller.lastSpeed : controller.lastVolume,
+            isNotNull,
+          );
+          // Changing accessibility text size while open must keep reset reachable.
+          tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await tester.pumpAndSettle();
+          final reset = find.text(
+            action == 'Speed'
+                ? 'Reset to Default (1.0x)'
+                : 'Reset to Default (100%)',
+          );
+          await tester.ensureVisible(reset);
+          await tester.pumpAndSettle();
+          expect(reset.hitTestable(), findsOneWidget);
+          await tester.tap(reset);
+          await tester.pumpAndSettle();
+          expect(
+            action == 'Speed' ? controller.lastSpeed : controller.lastVolume,
+            1,
+          );
+          expect(reset, findsNothing);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
+  testWidgets(
+    'glass sleep timer sheets fit content and custom picker scrolls',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        AppGlassScope(
+          enabled: true,
+          mode: AppGlassMode.low,
+          child: GlassAdaptiveScope(
+            minQuality: GlassQuality.minimal,
+            maxQuality: GlassQuality.minimal,
+            child: _buildPlayerTestApp(
+              controllerFactory: _OnlineTrackPlayerController.new,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+      await tester.pumpAndSettle();
+      await _scrollPlayerMoreSheetTo(tester, 'Sleep Timer');
+      await tester.tap(find.text('Sleep Timer'));
+      await tester.pumpAndSettle();
+      final fill = find.byKey(const Key('glass_modal_sheet_fill'));
+      final presetRect = tester.getRect(fill);
+      final list = find.byKey(const ValueKey('player-sleep-timer-sheet-list'));
+      expect(presetRect.bottom - tester.getBottomLeft(list).dy, lessThan(24));
+      expect(
+        presetRect.bottom - tester.getBottomLeft(find.text('Custom')).dy,
+        lessThan(48),
+      );
+      await _scrollSleepTimerSheetTo(tester, 'Custom');
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+      final customFill = find.byKey(const Key('glass_modal_sheet_fill')).last;
+      final customRect = tester.getRect(customFill);
+      expect(
+        customRect.bottom - tester.getBottomLeft(find.byType(FilledButton)).dy,
+        lessThan(24),
+      );
+      expect(find.byType(CupertinoPicker), findsNWidgets(2));
+      tester.view.physicalSize = const Size(844, 390);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      expect(find.byType(GlassModalSheet), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final (label, detailPath) in <(String, String)>[
     ('View Album', AppRoutes.albumDetail),
     ('View Artist', AppRoutes.artistDetail),
@@ -3537,6 +3672,17 @@ class _OnlineTrackPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _SheetControlsPlayerController extends _OnlineTrackPlayerController {
+  double? lastSpeed;
+  double? lastVolume;
+
+  @override
+  Future<void> setSpeed(double value) async => lastSpeed = value;
+
+  @override
+  Future<void> setVolume(double value) async => lastVolume = value;
 }
 
 class _NavigationTrackPlayerController extends _OnlineTrackPlayerController {

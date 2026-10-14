@@ -6,6 +6,9 @@ import 'app_glass_scope.dart';
 import 'app_glass_material.dart';
 import '../skin/app_skin_theme.dart';
 
+// Keep the rounded sheet floating on all sides, matching the package's modal
+// defaults. These margins define its shape; glass rendering does not need them.
+const _sheetHorizontalMargin = 8.0;
 const _sheetBottomMargin = 8.0;
 
 /// A modal route whose glass and barrier resolve the live navigator theme.
@@ -120,6 +123,7 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
                 initialState: GlassSheetState.half,
                 detents: const {GlassSheetDetent.medium},
                 halfSize: fittedHeightFactor,
+                horizontalMargin: _sheetHorizontalMargin,
                 bottomMargin: _sheetBottomMargin,
                 topBorderRadius: 56,
                 fullTopBorderRadius: 46,
@@ -219,7 +223,13 @@ class _MeasuredGlassSheetPageState extends State<_MeasuredGlassSheetPage> {
             }
           },
           child: Padding(
-            padding: EdgeInsets.only(top: widget.showDragHandle ? 20 : 0),
+            // Measure wrapping at the visible sheet's inset content width.
+            padding: EdgeInsets.fromLTRB(
+              _sheetHorizontalMargin,
+              widget.showDragHandle ? 20 : 0,
+              _sheetHorizontalMargin,
+              0,
+            ),
             child: widget.contentBuilder(context),
           ),
         ),

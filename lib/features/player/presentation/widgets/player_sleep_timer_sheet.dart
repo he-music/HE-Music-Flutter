@@ -192,6 +192,8 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
         : const Duration(minutes: 30);
     final selected = await showPlayerStyledBottomSheet<Duration>(
       context: context,
+      fitContent: true,
+      heightFactor: LayoutTokens.playerActionSheetHeightFactor,
       showDragHandle: true,
       builder: (context) => _SleepTimerCustomDurationSheet(
         config: ref.read(appConfigProvider),
@@ -282,76 +284,81 @@ class _SleepTimerCustomDurationSheetState
     final config = widget.config;
     final theme = Theme.of(context);
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                AppI18n.t(config, 'player.sleep_timer.custom'),
-                style: theme.textTheme.titleLarge,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  AppI18n.t(config, 'player.sleep_timer.custom'),
+                  style: theme.textTheme.titleLarge,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 180,
-              child: Row(
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 180,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildPicker(
+                        controller: _hourController,
+                        childCount: _maxHours + 1,
+                        onSelectedItemChanged: (value) {
+                          setState(() => _hours = value);
+                        },
+                      ),
+                    ),
+                    _PickerUnitLabel(
+                      label: AppI18n.t(config, 'player.sleep_timer.hour_unit'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildPicker(
+                        controller: _minuteController,
+                        childCount: _maxMinutes + 1,
+                        onSelectedItemChanged: (value) {
+                          setState(() => _minutes = value);
+                        },
+                      ),
+                    ),
+                    _PickerUnitLabel(
+                      label: AppI18n.t(
+                        config,
+                        'player.sleep_timer.minute_unit',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
                 children: <Widget>[
                   Expanded(
-                    child: _buildPicker(
-                      controller: _hourController,
-                      childCount: _maxHours + 1,
-                      onSelectedItemChanged: (value) {
-                        setState(() => _hours = value);
-                      },
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(AppI18n.t(config, 'common.cancel')),
                     ),
-                  ),
-                  _PickerUnitLabel(
-                    label: AppI18n.t(config, 'player.sleep_timer.hour_unit'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildPicker(
-                      controller: _minuteController,
-                      childCount: _maxMinutes + 1,
-                      onSelectedItemChanged: (value) {
-                        setState(() => _minutes = value);
-                      },
+                    child: FilledButton(
+                      onPressed: _hasDuration
+                          ? () {
+                              Navigator.of(
+                                context,
+                              ).pop(Duration(hours: _hours, minutes: _minutes));
+                            }
+                          : null,
+                      child: Text(AppI18n.t(config, 'common.confirm')),
                     ),
-                  ),
-                  _PickerUnitLabel(
-                    label: AppI18n.t(config, 'player.sleep_timer.minute_unit'),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(AppI18n.t(config, 'common.cancel')),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _hasDuration
-                        ? () {
-                            Navigator.of(
-                              context,
-                            ).pop(Duration(hours: _hours, minutes: _minutes));
-                          }
-                        : null,
-                    child: Text(AppI18n.t(config, 'common.confirm')),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

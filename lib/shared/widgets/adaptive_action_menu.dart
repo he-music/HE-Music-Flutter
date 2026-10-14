@@ -164,6 +164,7 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
     return showAppThemedBottomSheet<T>(
       context: context,
       useRootNavigator: true,
+      fitContent: true,
       builder: (bottomSheetContext) => _AdaptiveActionMenuBottomSheetBody<T>(
         items: widget.items,
         onSelected: (value) => Navigator.of(bottomSheetContext).pop(value),
@@ -244,6 +245,7 @@ Future<T?> showAdaptiveActionMenu<T>({
   return showAppThemedBottomSheet<T>(
     context: context,
     useRootNavigator: true,
+    fitContent: true,
     builder: (bottomSheetContext) => _AdaptiveActionMenuBottomSheetBody<T>(
       items: items,
       onSelected: (value) => Navigator.of(bottomSheetContext).pop(value),
