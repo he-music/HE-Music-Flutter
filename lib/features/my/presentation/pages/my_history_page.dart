@@ -39,7 +39,8 @@ class MyHistoryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
+    ref.watch(appConfigProvider.select((config) => config.localeCode));
+    final config = ref.read(appConfigProvider);
     final state = ref.watch(myHistoryControllerProvider);
     return DetailPageShell(
       child: Scaffold(

@@ -73,22 +73,69 @@ void main() {
 
     final initialGrid = tester.widget<GridView>(find.byType(GridView));
     expect(
-      tester.widget<MediaGridCard>(find.byType(MediaGridCard)).selected,
+      tester.widget<MediaGridCard>(find.byType(MediaGridCard).first).selected,
       isFalse,
     );
 
     playerController.updateRadio(id: 'radio-1', platform: 'qq');
     await tester.pump();
 
+    expect(tester.widget<GridView>(find.byType(GridView)), same(initialGrid));
     expect(
-      tester.widget<GridView>(find.byType(GridView)),
-      isNot(same(initialGrid)),
-    );
-    expect(
-      tester.widget<MediaGridCard>(find.byType(MediaGridCard)).selected,
+      tester.widget<MediaGridCard>(find.byType(MediaGridCard).first).selected,
       isTrue,
     );
   });
+  testWidgets('radio selection updates only the old and new cards', (
+    tester,
+  ) async {
+    final player = _TestPlayerController();
+    await tester.pumpWidget(_buildReadyRadioPlaza(player));
+    await tester.pump();
+    await tester.pump();
+    final grid = tester.widget<GridView>(find.byType(GridView));
+    List<MediaGridCard> cards() =>
+        tester.widgetList<MediaGridCard>(find.byType(MediaGridCard)).toList();
+    final initial = cards();
+    expect(initial, hasLength(3));
+    player.updateRadio(id: 'radio-1', platform: 'qq');
+    await tester.pump();
+    final firstSelection = cards();
+    expect(firstSelection[0].selected, isTrue);
+    expect(firstSelection[1], same(initial[1]));
+    expect(firstSelection[2], same(initial[2]));
+    player.updateRadio(id: 'radio-2', platform: 'qq');
+    await tester.pump();
+    final secondSelection = cards();
+    expect(secondSelection[0].selected, isFalse);
+    expect(secondSelection[1].selected, isTrue);
+    expect(secondSelection[2], same(initial[2]));
+    expect(tester.widget<GridView>(find.byType(GridView)), same(grid));
+  });
+
+  testWidgets(
+    'brightness changes preserve the radio grid and locale still updates',
+    (tester) async {
+      await tester.pumpWidget(_buildReadyRadioPlaza(_TestPlayerController()));
+      await tester.pump();
+      await tester.pump();
+      final grid = tester.widget<GridView>(find.byType(GridView));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(RadioPlazaPage)),
+      );
+      final config =
+          container.read(appConfigProvider.notifier)
+              as _TestAppConfigController;
+      for (var index = 0; index < 10; index++) {
+        config.setLyricPhotoBrightness(0.9 - index * 0.01, persist: false);
+        await tester.pump();
+        expect(tester.widget<GridView>(find.byType(GridView)), same(grid));
+      }
+      config.updateLocale('en');
+      await tester.pump();
+      expect(find.text('Radio'), findsOneWidget);
+    },
+  );
 }
 
 Widget _buildReadyRadioPlaza(_TestPlayerController playerController) {
@@ -127,6 +174,8 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
 class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() => AppConfigState.initial;
+  void updateLocale(String locale) =>
+      state = state.copyWith(localeCode: locale);
 }
 
 class _TestRadioPlazaController extends RadioPlazaController {
@@ -142,6 +191,8 @@ class _TestRadioPlazaController extends RadioPlazaController {
           platform: 'qq',
           radios: <RadioInfo>[
             RadioInfo(name: '测试电台', id: 'radio-1', cover: '', platform: 'qq'),
+            RadioInfo(name: '第二电台', id: 'radio-2', cover: '', platform: 'qq'),
+            RadioInfo(name: '第三电台', id: 'radio-3', cover: '', platform: 'qq'),
           ],
         ),
       ],

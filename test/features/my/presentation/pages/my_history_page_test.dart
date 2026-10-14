@@ -27,6 +27,31 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
   testWidgets(
+    'brightness changes preserve history rows and locale still updates',
+    (tester) async {
+      await tester.pumpWidget(_buildTestApp(items: [_historyItem(0)]));
+      await tester.pumpAndSettle();
+      final row = tester.widget<SongListItem>(find.byType(SongListItem));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MyHistoryPage)),
+      );
+      final config =
+          container.read(appConfigProvider.notifier)
+              as _TestAppConfigController;
+      for (var index = 0; index < 10; index++) {
+        config.setLyricPhotoBrightness(0.9 - index * 0.01, persist: false);
+        await tester.pump();
+        expect(
+          tester.widget<SongListItem>(find.byType(SongListItem)),
+          same(row),
+        );
+      }
+      config.updateLocale('en');
+      await tester.pump();
+      expect(find.text('Play History'), findsOneWidget);
+    },
+  );
+  testWidgets(
     'history play all keeps displayed order and resolves online URLs',
     (tester) async {
       final online = PlayerHistoryItem(
@@ -289,6 +314,9 @@ class _TestAppConfigController extends AppConfigController {
       authToken: 'token',
     );
   }
+
+  void updateLocale(String locale) =>
+      state = state.copyWith(localeCode: locale);
 }
 
 class _TestMyHistoryController extends MyHistoryController {

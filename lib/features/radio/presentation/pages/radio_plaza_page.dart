@@ -34,7 +34,8 @@ class _RadioPlazaPageState extends ConsumerState<RadioPlazaPage> {
   Widget build(BuildContext context) {
     final platformsAsync = ref.watch(onlinePlatformsProvider);
     final state = ref.watch(radioPlazaControllerProvider);
-    final config = ref.watch(appConfigProvider);
+    ref.watch(appConfigProvider.select((config) => config.localeCode));
+    final config = ref.read(appConfigProvider);
 
     return DetailPageShell(
       child: Scaffold(
@@ -323,15 +324,6 @@ class _RadioGrid extends ConsumerWidget {
       final config = ref.read(appConfigProvider);
       return _EmptyState(label: AppI18n.t(config, 'radio.empty'));
     }
-    final radioPlayback = ref.watch(
-      playerControllerProvider.select(
-        (state) => (
-          isRadioMode: state.isRadioMode,
-          radioId: state.currentRadioId,
-          radioPlatform: state.currentRadioPlatform,
-        ),
-      ),
-    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final spec = resolveAdaptiveMediaGridSpec(
@@ -348,18 +340,26 @@ class _RadioGrid extends ConsumerWidget {
           itemCount: radios.length,
           itemBuilder: (context, index) {
             final radio = radios[index];
-            final isPlaying =
-                radioPlayback.isRadioMode &&
-                radioPlayback.radioId == radio.id.trim() &&
-                radioPlayback.radioPlatform == radio.platform.trim();
-            return MediaGridCard(
-              kind: MediaGridCardKind.playlist,
-              title: radio.name,
-              subtitle: '',
-              coverUrl: radio.cover,
-              selected: isPlaying,
-              showCenterPlayIcon: isPlaying,
-              onTap: () => onTapRadio(radio),
+            return Consumer(
+              builder: (context, ref, _) {
+                final selected = ref.watch(
+                  playerControllerProvider.select(
+                    (state) =>
+                        state.isRadioMode &&
+                        state.currentRadioId == radio.id.trim() &&
+                        state.currentRadioPlatform == radio.platform.trim(),
+                  ),
+                );
+                return MediaGridCard(
+                  kind: MediaGridCardKind.playlist,
+                  title: radio.name,
+                  subtitle: '',
+                  coverUrl: radio.cover,
+                  selected: selected,
+                  showCenterPlayIcon: selected,
+                  onTap: () => onTapRadio(radio),
+                );
+              },
             );
           },
         );

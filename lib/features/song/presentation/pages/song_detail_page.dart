@@ -30,7 +30,6 @@ import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
-import '../../../player/domain/entities/player_track.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/song_detail_content.dart';
 import '../../domain/entities/song_detail_relations.dart';
@@ -117,38 +116,18 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
     required SongDetailState state,
     required SongDetailContent content,
   }) {
-    final config = ref.watch(appConfigProvider);
+    ref.watch(
+      appConfigProvider.select(
+        (config) => (config.localeCode, config.apiBaseUrl, config.authToken),
+      ),
+    );
+    final config = ref.read(appConfigProvider);
     final theme = Theme.of(context);
     final song = content.song;
-    final isPlaying = ref.watch(
-      playerControllerProvider.select((player) => player.isPlaying),
-    );
-    final currentTrack = ref.watch(
-      playerControllerProvider.select((player) => player.displayTrack),
-    );
     final platforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
     final coverUrl = _songActions.resolveCoverUrl(song);
     final publishDate = _formatPublishDate(content.publishTime);
-    final isFavorited = ref.watch(
-      favoriteSongStatusProvider.select(
-        (favorite) => favorite.songKeys.contains(
-          buildFavoriteSongKey(
-            songId: song.id,
-            platform: _songActions.resolvePlatformId(song),
-          ),
-        ),
-      ),
-    );
-    final isCurrentSong = isCurrentSongTrack(currentTrack, song);
-    final showPauseAction = isCurrentSong && isPlaying;
-    final morePlayActionLabel = AppI18n.t(
-      config,
-      showPauseAction ? 'player.action.pause' : 'song.action.play',
-    );
-    final onPrimaryPlay = isCurrentSong
-        ? () => ref.read(playerControllerProvider.notifier).togglePlayPause()
-        : () => _songActions.playSongNow(song);
 
     const useWideLayout = false;
     return SafeArea(
@@ -158,65 +137,106 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: _SongHeroCard(
-                key: const ValueKey<String>('song-detail-header-compact'),
-                config: config,
-                useWideLayout: useWideLayout,
-                title: song.title.trim().isEmpty ? widget.title : song.title,
-                coverUrl: coverUrl,
-                platformLabel: resolvePlatformLabel(
-                  song.platform.isEmpty ? widget.platform : song.platform,
-                  platforms: platforms,
-                ),
-                publishTime: publishDate.isEmpty ? '-' : publishDate,
-                language: content.language.trim().isEmpty
-                    ? '-'
-                    : content.language,
-                duration: formatDurationSecondsLabel('${song.duration}'),
-                artistLabel: song.artist,
-                albumLabel: (song.album?.name.trim().isEmpty ?? true)
-                    ? '-'
-                    : song.album!.name.trim(),
-                isFavorited: isFavorited,
-                showPauseAction: showPauseAction,
-                onBack: () => context.appPopOrGo(),
-                onPlay: onPrimaryPlay,
-                onPlayNext: () => _songActions.playNextSong(song),
-                onToggleFavorite: () =>
-                    _toggleSongFavorite(isFavorited, song: song),
-                onMore: (anchorContext) => _songActions.showSongActions(
-                  context: anchorContext,
-                  song: song,
-                  coverUrl: coverUrl,
-                  playActionLabel: morePlayActionLabel,
-                  onPlay: onPrimaryPlay,
-                  anchorContext: anchorContext,
-                  includeViewDetail: false,
-                  forceBottomSheet: true,
-                ),
-                onTapArtist: song.artists.isEmpty
-                    ? null
-                    : () => unawaited(
-                        openSongArtistSelection(
-                          context: context,
-                          platformId: _songActions.resolvePlatformId(song),
-                          artists: song.artists,
-                          onError: (message) =>
-                              AppMessageService.showError(message),
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final playback = ref.watch(
+                    playerControllerProvider.select((player) {
+                      final isCurrent = isCurrentSongTrack(
+                        player.displayTrack,
+                        song,
+                      );
+                      return (
+                        isCurrent: isCurrent,
+                        showPause: isCurrent && player.isPlaying,
+                      );
+                    }),
+                  );
+                  final isFavorited = ref.watch(
+                    favoriteSongStatusProvider.select(
+                      (favorite) => favorite.songKeys.contains(
+                        buildFavoriteSongKey(
+                          songId: song.id,
+                          platform: _songActions.resolvePlatformId(song),
                         ),
                       ),
-                onTapAlbum: hasValidAlbumId(song.album?.id ?? '')
-                    ? () => context.push(
-                        Uri(
-                          path: AppRoutes.albumDetail,
-                          queryParameters: <String, String>{
-                            'id': song.album!.id,
-                            'platform': _songActions.resolvePlatformId(song),
-                            'title': song.album!.name,
-                          },
-                        ).toString(),
-                      )
-                    : null,
+                    ),
+                  );
+                  final onPrimaryPlay = playback.isCurrent
+                      ? () => ref
+                            .read(playerControllerProvider.notifier)
+                            .togglePlayPause()
+                      : () => _songActions.playSongNow(song);
+                  final morePlayActionLabel = AppI18n.t(
+                    config,
+                    playback.showPause
+                        ? 'player.action.pause'
+                        : 'song.action.play',
+                  );
+                  return _SongHeroCard(
+                    key: const ValueKey<String>('song-detail-header-compact'),
+                    config: config,
+                    useWideLayout: useWideLayout,
+                    title: song.title.trim().isEmpty
+                        ? widget.title
+                        : song.title,
+                    coverUrl: coverUrl,
+                    platformLabel: resolvePlatformLabel(
+                      song.platform.isEmpty ? widget.platform : song.platform,
+                      platforms: platforms,
+                    ),
+                    publishTime: publishDate.isEmpty ? '-' : publishDate,
+                    language: content.language.trim().isEmpty
+                        ? '-'
+                        : content.language,
+                    duration: formatDurationSecondsLabel('${song.duration}'),
+                    artistLabel: song.artist,
+                    albumLabel: (song.album?.name.trim().isEmpty ?? true)
+                        ? '-'
+                        : song.album!.name.trim(),
+                    isFavorited: isFavorited,
+                    showPauseAction: playback.showPause,
+                    onBack: () => context.appPopOrGo(),
+                    onPlay: onPrimaryPlay,
+                    onPlayNext: () => _songActions.playNextSong(song),
+                    onToggleFavorite: () =>
+                        _toggleSongFavorite(isFavorited, song: song),
+                    onMore: (anchorContext) => _songActions.showSongActions(
+                      context: anchorContext,
+                      song: song,
+                      coverUrl: coverUrl,
+                      playActionLabel: morePlayActionLabel,
+                      onPlay: onPrimaryPlay,
+                      anchorContext: anchorContext,
+                      includeViewDetail: false,
+                      forceBottomSheet: true,
+                    ),
+                    onTapArtist: song.artists.isEmpty
+                        ? null
+                        : () => unawaited(
+                            openSongArtistSelection(
+                              context: context,
+                              platformId: _songActions.resolvePlatformId(song),
+                              artists: song.artists,
+                              onError: (message) =>
+                                  AppMessageService.showError(message),
+                            ),
+                          ),
+                    onTapAlbum: hasValidAlbumId(song.album?.id ?? '')
+                        ? () => context.push(
+                            Uri(
+                              path: AppRoutes.albumDetail,
+                              queryParameters: <String, String>{
+                                'id': song.album!.id,
+                                'platform': _songActions.resolvePlatformId(
+                                  song,
+                                ),
+                                'title': song.album!.name,
+                              },
+                            ).toString(),
+                          )
+                        : null,
+                  );
+                },
               ),
             ),
           ),
@@ -224,7 +244,6 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
             context: context,
             config: config,
             theme: theme,
-            currentTrack: currentTrack,
             relations: state.relations,
             relationsLoading: state.relationsLoading,
             relationsErrorMessage: state.relationsErrorMessage,
@@ -239,7 +258,6 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
     required BuildContext context,
     required AppConfigState config,
     required ThemeData theme,
-    required PlayerTrack? currentTrack,
     required SongDetailRelations? relations,
     required bool relationsLoading,
     required String? relationsErrorMessage,
@@ -264,13 +282,11 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
         ..._buildSongSectionSlivers(
           title: AppI18n.t(config, 'song.detail.section.similar_songs'),
           songs: data.similarSongs,
-          currentTrack: currentTrack,
         ),
       if (data.otherVersionSongs.isNotEmpty)
         ..._buildSongSectionSlivers(
           title: AppI18n.t(config, 'song.detail.section.other_versions'),
           songs: data.otherVersionSongs,
-          currentTrack: currentTrack,
         ),
       if (data.relatedPlaylists.isNotEmpty)
         SliverToBoxAdapter(
@@ -316,7 +332,6 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
   List<Widget> _buildSongSectionSlivers({
     required String title,
     required List<SongInfo> songs,
-    required PlayerTrack? currentTrack,
   }) {
     return <Widget>[
       SliverPadding(
@@ -329,29 +344,43 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
               itemBuilder: (context, index) {
                 final song = songs[index];
                 final coverUrl = _songActions.resolveCoverUrl(song);
-                return OnlineSongListItem(
-                  song: song,
-                  coverUrl: coverUrl.isEmpty ? null : coverUrl,
-                  subtitleText: song.displaySubtitle,
-                  isCurrent: isCurrentSongTrack(currentTrack, song),
-                  isLiked: ref.watch(
-                    favoriteSongStatusProvider.select(
-                      (favorite) => favorite.songKeys.contains(
-                        buildFavoriteSongKey(
-                          songId: song.id,
-                          platform: _songActions.resolvePlatformId(song),
+                return Consumer(
+                  builder: (context, ref, _) {
+                    final isCurrent = ref.watch(
+                      playerControllerProvider.select(
+                        (player) =>
+                            isCurrentSongTrack(player.displayTrack, song),
+                      ),
+                    );
+                    final isLiked = ref.watch(
+                      favoriteSongStatusProvider.select(
+                        (favorite) => favorite.songKeys.contains(
+                          buildFavoriteSongKey(
+                            songId: song.id,
+                            platform: _songActions.resolvePlatformId(song),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  onTap: () =>
-                      _songActions.playAll(context, songs, startIndex: index),
-                  onLikeTap: () => _songActions.toggleSongFavorite(song),
-                  onMoreTap: () => _songActions.showSongActions(
-                    context: context,
-                    song: song,
-                    coverUrl: coverUrl,
-                  ),
+                    );
+                    return OnlineSongListItem(
+                      song: song,
+                      coverUrl: coverUrl.isEmpty ? null : coverUrl,
+                      subtitleText: song.displaySubtitle,
+                      isCurrent: isCurrent,
+                      isLiked: isLiked,
+                      onTap: () => _songActions.playAll(
+                        context,
+                        songs,
+                        startIndex: index,
+                      ),
+                      onLikeTap: () => _songActions.toggleSongFavorite(song),
+                      onMoreTap: () => _songActions.showSongActions(
+                        context: context,
+                        song: song,
+                        coverUrl: coverUrl,
+                      ),
+                    );
+                  },
                 );
               },
             ),

@@ -23,6 +23,10 @@ import 'package:he_music_flutter/features/song/presentation/providers/song_detai
 import 'package:he_music_flutter/features/song/presentation/widgets/song_relations_loading_skeleton.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/detail_loading_skeleton.dart';
+import 'package:he_music_flutter/features/my/domain/entities/favorite_song_status_state.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/favorite_song_status_providers.dart';
+import 'package:he_music_flutter/shared/utils/favorite_song_key.dart';
+import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 
 void main() {
   late _TestPlayerController playerController;
@@ -31,6 +35,159 @@ void main() {
     playerController = _TestPlayerController();
   });
 
+  testWidgets(
+    'brightness changes preserve song detail and locale still updates',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildTestApp(
+          repository: _FakeSongDetailRepository(),
+          playerController: playerController,
+          child: const SongDetailPage(
+            id: 'song-1',
+            platform: 'qq',
+            title: '测试歌曲',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      final scrollView = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SongDetailPage)),
+      );
+      final config =
+          container.read(appConfigProvider.notifier)
+              as _TestAppConfigController;
+      for (var index = 0; index < 10; index++) {
+        config.setLyricPhotoBrightness(0.9 - index * 0.01, persist: false);
+        await tester.pump();
+        expect(
+          tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+          same(scrollView),
+        );
+      }
+      config.updateLocale('en');
+      await tester.pump();
+      expect(
+        tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+        isNot(same(scrollView)),
+      );
+      expect(find.text('Play'), findsWidgets);
+    },
+  );
+
+  testWidgets('unrelated playback preserves song detail and header', (
+    tester,
+  ) async {
+    playerController.initialState = PlayerPlaybackState.initial(
+      const <PlayerTrack>[
+        PlayerTrack(
+          id: 'other',
+          title: 'Other',
+          artist: 'Other',
+          platform: 'qq',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _buildTestApp(
+        repository: _FakeSongDetailRepository(),
+        playerController: playerController,
+        child: const SongDetailPage(
+          id: 'song-1',
+          platform: 'qq',
+          title: '测试歌曲',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final scrollView = tester.widget<CustomScrollView>(
+      find.byType(CustomScrollView),
+    );
+    final header = tester.widget(
+      find.byKey(const ValueKey<String>('song-detail-header-compact')),
+    );
+    playerController.updatePlaying(true);
+    await tester.pump();
+    expect(
+      tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+      same(scrollView),
+    );
+    expect(
+      tester.widget(
+        find.byKey(const ValueKey<String>('song-detail-header-compact')),
+      ),
+      same(header),
+    );
+    expect(find.text('暂停'), findsNothing);
+  });
+
+  testWidgets(
+    'related song favorite and playback update only the affected row',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildTestApp(
+          repository: _FakeSongDetailRepository(
+            relations: SongDetailRelations(
+              similarSongs: [
+                ..._buildRelations().similarSongs,
+                _buildDetail().song,
+              ],
+            ),
+          ),
+          playerController: playerController,
+          child: const SongDetailPage(
+            id: 'song-1',
+            platform: 'qq',
+            title: '测试歌曲',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SongDetailPage)),
+      );
+      final favorites =
+          container.read(favoriteSongStatusProvider.notifier)
+              as _TestFavoriteSongStatusController;
+      final scrollView = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView),
+      );
+      OnlineSongListItem row(String id) => tester
+          .widgetList<OnlineSongListItem>(find.byType(OnlineSongListItem))
+          .singleWhere((row) => row.song.id == id);
+      final unchangedRow = row('song-1');
+      favorites.like('similar-1');
+      await tester.pump();
+      expect(row('similar-1').isLiked, isTrue);
+      expect(row('song-1'), same(unchangedRow));
+      expect(
+        tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+        same(scrollView),
+      );
+      playerController.showTrack(
+        const PlayerTrack(
+          id: 'similar-1',
+          title: '相似歌曲',
+          artist: '歌手',
+          platform: 'qq',
+        ),
+      );
+      await tester.pump();
+      expect(row('similar-1').isCurrent, isTrue);
+      expect(row('song-1'), same(unchangedRow));
+      expect(
+        tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+        same(scrollView),
+      );
+    },
+  );
   testWidgets('song detail route opens page when params are valid', (
     tester,
   ) async {
@@ -498,49 +655,50 @@ void main() {
     );
   });
 
-  testWidgets('song detail rebuilds for current playback state changes', (
-    tester,
-  ) async {
-    playerController.initialState =
-        PlayerPlaybackState.initial(const <PlayerTrack>[
-          PlayerTrack(
+  testWidgets(
+    'current playback updates the header without rebuilding song detail',
+    (tester) async {
+      playerController.initialState =
+          PlayerPlaybackState.initial(const <PlayerTrack>[
+            PlayerTrack(
+              id: 'song-1',
+              title: '测试歌曲',
+              artist: '测试歌手',
+              platform: 'qq',
+              links: <LinkInfo>[],
+            ),
+          ]);
+      final repository = _FakeSongDetailRepository();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          repository: repository,
+          playerController: playerController,
+          child: const SongDetailPage(
             id: 'song-1',
-            title: '测试歌曲',
-            artist: '测试歌手',
             platform: 'qq',
-            links: <LinkInfo>[],
+            title: '测试歌曲',
           ),
-        ]);
-    final repository = _FakeSongDetailRepository();
-
-    await tester.pumpWidget(
-      _buildTestApp(
-        repository: repository,
-        playerController: playerController,
-        child: const SongDetailPage(
-          id: 'song-1',
-          platform: 'qq',
-          title: '测试歌曲',
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    final initialScrollView = tester.widget<CustomScrollView>(
-      find.byType(CustomScrollView),
-    );
-    expect(find.text('播放'), findsWidgets);
+      final initialScrollView = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView),
+      );
+      expect(find.text('播放'), findsWidgets);
 
-    playerController.updatePlaying(true);
-    await tester.pump();
+      playerController.updatePlaying(true);
+      await tester.pump();
 
-    expect(
-      tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
-      isNot(same(initialScrollView)),
-    );
-    expect(find.text('暂停'), findsOneWidget);
-  });
+      expect(
+        tester.widget<CustomScrollView>(find.byType(CustomScrollView)),
+        same(initialScrollView),
+      );
+      expect(find.text('暂停'), findsOneWidget);
+    },
+  );
 
   testWidgets('song detail more actions shows pause for current playing song', (
     tester,
@@ -593,6 +751,9 @@ Widget _buildTestApp({
       songDetailRepositoryProvider.overrideWithValue(repository),
       onlinePlatformsProvider.overrideWith(
         platformsController ?? _TestOnlinePlatformsController.new,
+      ),
+      favoriteSongStatusProvider.overrideWith(
+        _TestFavoriteSongStatusController.new,
       ),
     ],
     child: MaterialApp(home: child),
@@ -656,6 +817,21 @@ class _TestAppConfigController extends AppConfigController {
   AppConfigState build() {
     return AppConfigState.initial;
   }
+
+  void updateLocale(String locale) =>
+      state = state.copyWith(localeCode: locale);
+}
+
+class _TestFavoriteSongStatusController extends FavoriteSongStatusController {
+  @override
+  FavoriteSongStatusState build() => FavoriteSongStatusState.initial;
+
+  void like(String id) => state = state.copyWith(
+    songKeys: {
+      ...state.songKeys,
+      buildFavoriteSongKey(songId: id, platform: 'qq'),
+    },
+  );
 }
 
 class _TestPlayerController extends PlayerController {
@@ -697,6 +873,10 @@ class _TestPlayerController extends PlayerController {
 
   void updatePosition(Duration position) {
     state = state.copyWith(position: position);
+  }
+
+  void showTrack(PlayerTrack track) {
+    state = state.copyWith(queue: [track], currentIndex: 0);
   }
 
   void updatePlaying(bool isPlaying) {
