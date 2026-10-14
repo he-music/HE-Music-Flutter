@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/theme/glass/app_glass_scope.dart';
+import '../../../../app/theme/skin/app_skin_theme.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
@@ -24,6 +27,7 @@ import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_loading_skeleton.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
+import '../../../../shared/widgets/music_control_surface.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
@@ -167,6 +171,17 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
       );
     }
 
+    final expandedHeight = _ArtistSliverHeader.expandedHeightFor(
+      context,
+      subtitle: content.subtitle,
+      description: content.description,
+    );
+    final collapseExtent = expandedHeight - kToolbarHeight;
+    final tabLabels = <String>[
+      AppI18n.t(ref.read(appConfigProvider), 'artist.tab.song'),
+      AppI18n.t(ref.read(appConfigProvider), 'artist.tab.album'),
+      AppI18n.t(ref.read(appConfigProvider), 'artist.tab.video'),
+    ];
     final title = content.title.trim().isEmpty ? widget.title : content.title;
     final coverUrl = resolveTemplateCoverUrl(
       platforms: platforms,
@@ -199,6 +214,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return <Widget>[
             _ArtistSliverHeader(
+              expandedHeight: expandedHeight,
               title: title,
               subtitle: content.subtitle.trim(),
               coverUrl: coverUrl,
@@ -243,8 +259,15 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
             SliverPersistentHeader(
               pinned: true,
               delegate: _ArtistTabBarHeader(
-                child: Material(
-                  color: Theme.of(context).scaffoldBackgroundColor,
+                child: _ArtistControlSurface(
+                  collapseExtent: collapseExtent,
+                  joinsCover: true,
+                  glassBuilder: (settings, quality) => _ArtistGlassTabs(
+                    controller: _tabController,
+                    labels: tabLabels,
+                    settings: settings,
+                    quality: quality,
+                  ),
                   child: TabBar(
                     controller: _tabController,
                     isScrollable: false,
@@ -255,26 +278,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
                         ?.copyWith(fontWeight: FontWeight.w500),
                     unselectedLabelStyle: Theme.of(context).textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w500),
-                    tabs: <Tab>[
-                      Tab(
-                        text: AppI18n.t(
-                          ref.read(appConfigProvider),
-                          'artist.tab.song',
-                        ),
-                      ),
-                      Tab(
-                        text: AppI18n.t(
-                          ref.read(appConfigProvider),
-                          'artist.tab.album',
-                        ),
-                      ),
-                      Tab(
-                        text: AppI18n.t(
-                          ref.read(appConfigProvider),
-                          'artist.tab.video',
-                        ),
-                      ),
-                    ],
+                    tabs: tabLabels.map((label) => Tab(text: label)).toList(),
                   ),
                 ),
               ),
@@ -285,6 +289,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
           controller: _tabController,
           children: <Widget>[
             _ArtistSongsTab(
+              collapseExtent: collapseExtent,
               songs: _songs,
               loading: _songsLoading,
               error: _songsError,
@@ -692,6 +697,88 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   }
 }
 
+class _ArtistGlassTabs extends StatelessWidget {
+  const _ArtistGlassTabs({
+    required this.controller,
+    required this.labels,
+    required this.settings,
+    required this.quality,
+  });
+
+  final TabController controller;
+  final List<String> labels;
+  final LiquidGlassSettings settings;
+  final GlassQuality quality;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: FontWeight.w500,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) => GlassTabBar.inline(
+          tabs: labels.map((label) => GlassTab(label: label)).toList(),
+          selectedIndex: controller.index,
+          onTabSelected: (index) => controller.animateTo(
+            index,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : null,
+          ),
+          barHeight: 48,
+          barBorderRadius: 0,
+          tabWidth: constraints.maxWidth / labels.length,
+          tabPadding: EdgeInsets.zero,
+          indicatorBorderRadius: 12,
+          indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.10),
+          selectedLabelStyle: labelStyle?.copyWith(
+            color: theme.colorScheme.primary,
+          ),
+          unselectedLabelStyle: labelStyle?.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+          selectedLabelColor: theme.colorScheme.primary,
+          unselectedLabelColor: theme.colorScheme.onSurface,
+          settings: settings,
+          quality: quality,
+          backgroundQuality: quality,
+        ),
+      ),
+    );
+  }
+}
+
+/// 两条固定控件共用材质；滚动只更新背景，控件和歌曲列表保留为 child。
+class _ArtistControlSurface extends StatelessWidget {
+  const _ArtistControlSurface({
+    required this.collapseExtent,
+    required this.child,
+    this.joinsCover = false,
+    this.glassBuilder,
+  });
+
+  final double collapseExtent;
+  final Widget child;
+  final bool joinsCover;
+  final Widget Function(LiquidGlassSettings settings, GlassQuality quality)?
+  glassBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final scroll = context.findAncestorStateOfType<NestedScrollViewState>()!;
+    return MusicControlSurface(
+      scrollController: scroll.outerController,
+      collapseExtent: collapseExtent,
+      joinsCover: joinsCover,
+      glassBuilder: glassBuilder,
+      child: child,
+    );
+  }
+}
+
 class _ArtistTabBarHeader extends SliverPersistentHeaderDelegate {
   const _ArtistTabBarHeader({required this.child});
 
@@ -720,6 +807,7 @@ class _ArtistTabBarHeader extends SliverPersistentHeaderDelegate {
 
 class _ArtistSliverHeader extends StatelessWidget {
   const _ArtistSliverHeader({
+    required this.expandedHeight,
     required this.title,
     required this.subtitle,
     required this.coverUrl,
@@ -735,6 +823,7 @@ class _ArtistSliverHeader extends StatelessWidget {
 
   static const double _defaultExpandedHeight = 308;
 
+  final double expandedHeight;
   final String title;
   final String subtitle;
   final String coverUrl;
@@ -747,8 +836,11 @@ class _ArtistSliverHeader extends StatelessWidget {
   final VoidCallback onShowDescription;
   final List<Widget> actions;
 
-  @override
-  Widget build(BuildContext context) {
+  static double expandedHeightFor(
+    BuildContext context, {
+    required String subtitle,
+    required String description,
+  }) {
     final theme = Theme.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     final titleStyle = theme.textTheme.titleLarge;
@@ -765,10 +857,15 @@ class _ArtistSliverHeader extends StatelessWidget {
         math.max(14, bodyHeight) * 3 +
         16 +
         (description.trim().isNotEmpty ? bodyHeight + 8 : 0);
-    final expandedHeight = math.max(
+    return math.max(
       _defaultExpandedHeight,
       kToolbarHeight + 18 + metadataHeight,
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SliverAppBar(
       pinned: true,
       expandedHeight: expandedHeight,
@@ -817,9 +914,21 @@ class _ArtistSliverHeader extends StatelessWidget {
                       ? collapsedOverlayStyle
                       : SystemUiOverlayStyle.light)
                   .copyWith(statusBarColor: Colors.transparent);
-          final bottomPanelColor = theme.colorScheme.surface.withValues(
-            alpha: 0.94 - 0.18 * collapse,
-          );
+          final softControls =
+              theme.scaffoldBackgroundColor.a < 1 &&
+              AppGlassScope.controlsEnabled(context) &&
+              !MediaQuery.highContrastOf(context);
+          final bottomPanelColor = softControls
+              ? (theme
+                            .extension<AppSkinTheme>()
+                            ?.config
+                            .colors
+                            .fixedControlSurface ??
+                        theme.colorScheme.surface)
+                    .withValues(alpha: 0.72 - 0.05 * collapse)
+              : theme.colorScheme.surface.withValues(
+                  alpha: 0.94 - 0.18 * collapse,
+                );
           return AnnotatedRegion<SystemUiOverlayStyle>(
             value: overlayStyle,
             child: Stack(
@@ -1139,6 +1248,7 @@ class _ArtistHeaderImage extends StatelessWidget {
 
 class _ArtistSongsTab extends StatelessWidget {
   const _ArtistSongsTab({
+    required this.collapseExtent,
     required this.songs,
     required this.loading,
     required this.error,
@@ -1158,6 +1268,7 @@ class _ArtistSongsTab extends StatelessWidget {
     required this.onMoreSong,
   });
 
+  final double collapseExtent;
   final List<ArtistDetailSong> songs;
   final bool loading;
   final String? error;
@@ -1199,6 +1310,8 @@ class _ArtistSongsTab extends StatelessWidget {
         <String, String>{'count': '${songs.length}'},
       ),
       onPlayAll: onPlayAll,
+      headerSurfaceBuilder: (context, child) =>
+          _ArtistControlSurface(collapseExtent: collapseExtent, child: child),
       batchMode: batchMode,
       selectedSongKeys: selectedSongKeys,
       selectedCount: selectedCount,

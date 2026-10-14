@@ -369,6 +369,7 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
     }
     if (_comments.isEmpty) {
       return RefreshIndicator(
+        elevation: 0,
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -380,6 +381,7 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
       );
     }
     return RefreshIndicator(
+      elevation: 0,
       onRefresh: _refresh,
       child: ListView.separated(
         controller: _scrollController,
@@ -1012,6 +1014,7 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
             const Divider(height: 1),
             Expanded(
               child: RefreshIndicator(
+                elevation: 0,
                 onRefresh: _refresh,
                 child: _buildReplyList(context),
               ),

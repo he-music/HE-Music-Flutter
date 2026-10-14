@@ -5,8 +5,133 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/music_detail_slivers.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
+import 'package:he_music_flutter/shared/widgets/music_control_surface.dart';
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'play all sliver frosts and keeps actions usable in $brightness',
+      (tester) async {
+        var played = 0;
+        var batched = 0;
+        await tester.pumpWidget(
+          _buildControlTestApp(
+            brightness: brightness,
+            body: CustomScrollView(
+              slivers: [
+                const SliverToBoxAdapter(child: SizedBox(height: 240)),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: MusicDetailPlayAllHeader(
+                    height: 56,
+                    countText: 'Play All 30',
+                    onPlayAll: () => played++,
+                    onBatchAction: () => batched++,
+                  ),
+                ),
+                SliverList.builder(
+                  itemCount: 30,
+                  itemBuilder: (_, index) =>
+                      SizedBox(height: 64, child: Text('Track $index')),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final expandedTint = tester
+            .widget<GlassContainer>(find.byType(GlassContainer))
+            .settings!
+            .backerColor!
+            .a;
+        expect(expandedTint, inExclusiveRange(0, 1));
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+        await tester.pumpAndSettle();
+        final pinnedTint = tester
+            .widget<GlassContainer>(find.byType(GlassContainer))
+            .settings!
+            .backerColor!
+            .a;
+        expect(pinnedTint, greaterThan(expandedTint));
+        expect(pinnedTint, lessThan(1));
+        await tester.tap(find.text('Play All 30'));
+        await tester.tap(find.text('Batch'));
+        expect(played, 1);
+        expect(batched, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'fixed play all uses same material and preserves trailing action',
+    (tester) async {
+      var played = false;
+      var shuffled = false;
+      await tester.pumpWidget(
+        _buildControlTestApp(
+          body: Column(
+            children: [
+              MusicDetailPlayAllHeaderBox(
+                countText: 'Play All 30',
+                onPlayAll: () => played = true,
+                trailing: TextButton(
+                  onPressed: () => shuffled = true,
+                  child: const Text('Shuffle'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<MusicControlSurface>(find.byType(MusicControlSurface))
+            .collapseProgress,
+        1,
+      );
+      expect(find.byType(GlassContainer), findsOneWidget);
+      await tester.tap(find.text('Play All 30'));
+      await tester.tap(find.text('Shuffle'));
+      expect(played, isTrue);
+      expect(shuffled, isTrue);
+    },
+  );
+
+  for (final fallback in ['classic', 'off', 'powerSaving', 'highContrast']) {
+    testWidgets('play all falls back to opaque material for $fallback', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildControlTestApp(
+          fallback: fallback,
+          body: MusicDetailPlayAllHeaderBox(
+            countText: 'Play All 1',
+            onPlayAll: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(GlassContainer), findsNothing);
+      expect(
+        tester
+            .widgetList<Material>(
+              find.ancestor(
+                of: find.text('Play All 1'),
+                matching: find.byType(Material),
+              ),
+            )
+            .any((material) => material.color?.a == 1),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final batchMode in [false, true]) {
     testWidgets('large text fits pinned playback actions, batch=$batchMode', (
       tester,
@@ -249,6 +374,38 @@ void main() {
       expect(overlayStyle.statusBarIconBrightness, Brightness.dark);
       expect(overlayStyle.statusBarBrightness, Brightness.light);
     },
+  );
+}
+
+Widget _buildControlTestApp({
+  required Widget body,
+  Brightness brightness = Brightness.light,
+  String? fallback,
+}) {
+  final skin = citySoundCreatorSkin();
+  final theme = brightness == Brightness.light
+      ? AppTheme.light(skin)
+      : AppTheme.dark(skin);
+  final mode = switch (fallback) {
+    'off' => AppGlassMode.off,
+    'powerSaving' => AppGlassMode.powerSaving,
+    _ => AppGlassMode.low,
+  };
+  return AppGlassScope(
+    enabled: mode != AppGlassMode.off,
+    mode: mode,
+    child: GlassAdaptiveScope(
+      minQuality: GlassQuality.minimal,
+      maxQuality: GlassQuality.minimal,
+      initialQuality: GlassQuality.minimal,
+      child: MaterialApp(
+        theme: fallback == 'classic' ? ThemeData() : theme,
+        home: MediaQuery(
+          data: MediaQueryData(highContrast: fallback == 'highContrast'),
+          child: DetailPageShell(child: body),
+        ),
+      ),
+    ),
   );
 }
 

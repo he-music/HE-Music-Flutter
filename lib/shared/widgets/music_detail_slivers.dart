@@ -15,6 +15,7 @@ import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
 import '../../app/theme/skin/app_skin_theme.dart';
 import 'app_back_button.dart';
+import 'music_control_surface.dart';
 
 class MusicDetailSliverAppBar extends StatelessWidget {
   const MusicDetailSliverAppBar({
@@ -299,23 +300,19 @@ class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final theme = Theme.of(context);
-    // 重要：SliverPersistentHeader 的 extent 必须与 child 的真实高度一致，
-    // 否则会触发 “layoutExtent exceeds paintExtent” 的断言并导致页面崩溃。
-    return Material(
-      color: theme.scaffoldBackgroundColor,
-      child: MusicDetailPlayAllHeaderBox(
-        countText: countText,
-        onPlayAll: onPlayAll,
-        onBatchAction: onBatchAction,
-        onMore: onMore,
-        enabled: enabled,
-        batchMode: batchMode,
-        selectedCount: selectedCount,
-        allSelected: allSelected,
-        onSelectAll: onSelectAll,
-        onCancelBatch: onCancelBatch,
-      ),
+    // extent 与操作栏高度保持一致，避免 layoutExtent 超出 paintExtent。
+    return MusicDetailPlayAllHeaderBox(
+      collapseProgress: (shrinkOffset / height).clamp(0.0, 1.0),
+      countText: countText,
+      onPlayAll: onPlayAll,
+      onBatchAction: onBatchAction,
+      onMore: onMore,
+      enabled: enabled,
+      batchMode: batchMode,
+      selectedCount: selectedCount,
+      allSelected: allSelected,
+      onSelectAll: onSelectAll,
+      onCancelBatch: onCancelBatch,
     );
   }
 
@@ -347,6 +344,9 @@ class MusicDetailPlayAllHeaderBox extends StatelessWidget {
     this.allSelected = false,
     this.onSelectAll,
     this.onCancelBatch,
+    this.surfaceBuilder,
+    this.collapseProgress = 1,
+    this.trailing,
     super.key,
   });
 
@@ -361,34 +361,39 @@ class MusicDetailPlayAllHeaderBox extends StatelessWidget {
   final VoidCallback? onSelectAll;
   final VoidCallback? onCancelBatch;
 
+  /// 可替换固定操作栏的背景材质，默认使用统一的音乐控件材质。
+  final Widget Function(BuildContext context, Widget child)? surfaceBuilder;
+  final double collapseProgress;
+  final Widget? trailing;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final skinTheme = theme.extension<AppSkinTheme>();
-    final backgroundColor =
-        skinTheme?.config.colors.fixedControlSurface ??
-        theme.colorScheme.surface;
-    return Material(
-      // 吸顶操作行必须遮住从下方滚过的歌曲，不沿用透明页面背景。
-      color: backgroundColor.withValues(alpha: 1),
-      child: SizedBox(
-        height: MusicDetailPlayAllHeader.heightFor(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: _MusicDetailPlayAllHeaderContent(
-            countText: countText,
-            onPlayAll: onPlayAll,
-            onBatchAction: onBatchAction,
-            onMore: onMore,
-            enabled: enabled,
-            batchMode: batchMode,
-            selectedCount: selectedCount,
-            allSelected: allSelected,
-            onSelectAll: onSelectAll,
-            onCancelBatch: onCancelBatch,
-          ),
+    final child = SizedBox(
+      height: MusicDetailPlayAllHeader.heightFor(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: _MusicDetailPlayAllHeaderContent(
+          countText: countText,
+          onPlayAll: onPlayAll,
+          onBatchAction: onBatchAction,
+          onMore: onMore,
+          enabled: enabled,
+          batchMode: batchMode,
+          selectedCount: selectedCount,
+          allSelected: allSelected,
+          onSelectAll: onSelectAll,
+          onCancelBatch: onCancelBatch,
+          trailing: trailing,
         ),
       ),
+    );
+    if (surfaceBuilder != null) {
+      return surfaceBuilder!(context, child);
+    }
+    return MusicControlSurface(
+      collapseProgress: collapseProgress,
+      joinsCover: collapseProgress < 1,
+      child: child,
     );
   }
 }
@@ -405,6 +410,7 @@ class _MusicDetailPlayAllHeaderContent extends StatelessWidget {
     required this.allSelected,
     required this.onSelectAll,
     required this.onCancelBatch,
+    this.trailing,
   });
 
   final String countText;
@@ -417,6 +423,7 @@ class _MusicDetailPlayAllHeaderContent extends StatelessWidget {
   final bool allSelected;
   final VoidCallback? onSelectAll;
   final VoidCallback? onCancelBatch;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -515,6 +522,13 @@ class _MusicDetailPlayAllHeaderContent extends StatelessWidget {
                 ),
               ),
             ),
+          if (trailing != null)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth * 0.45,
+              ),
+              child: trailing!,
+            ),
           if (onMore != null)
             IconButton(
               onPressed: onMore,
@@ -557,9 +571,18 @@ class _HeroBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalizedFade = fade.clamp(0.0, 1.0);
     final theme = Theme.of(context);
-    final bottomPanelColor = theme.colorScheme.surface.withValues(
-      alpha: 0.94 - 0.18 * normalizedFade,
-    );
+    final softControls =
+        theme.scaffoldBackgroundColor.a < 1 &&
+        AppGlassScope.controlsEnabled(context) &&
+        !MediaQuery.highContrastOf(context);
+    final controlSurface =
+        theme.extension<AppSkinTheme>()?.config.colors.fixedControlSurface ??
+        theme.colorScheme.surface;
+    final bottomPanelColor = softControls
+        ? controlSurface.withValues(alpha: 0.72 - 0.05 * normalizedFade)
+        : theme.colorScheme.surface.withValues(
+            alpha: 0.94 - 0.18 * normalizedFade,
+          );
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[

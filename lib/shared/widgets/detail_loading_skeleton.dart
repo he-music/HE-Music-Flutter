@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/layout_tokens.dart';
 import 'animated_skeleton.dart';
+import 'music_control_surface.dart';
 import 'song_list_component.dart';
 
 class GenericDetailLoadingBody extends StatelessWidget {
@@ -307,12 +308,11 @@ class _PinnedPlayAllSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
+    return const MusicControlSurface(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
         child: Row(
-          children: const <Widget>[
+          children: <Widget>[
             SkeletonBox(width: 24, height: 24, radius: 12),
             SizedBox(width: 10),
             SkeletonBox(width: 106, height: 16, radius: 8),
@@ -328,14 +328,16 @@ class _InlinePlayAllSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(12, 6, 12, 4),
-      child: Row(
-        children: <Widget>[
-          SkeletonBox(width: 22, height: 22, radius: 11),
-          SizedBox(width: 8),
-          SkeletonBox(width: 92, height: 16, radius: 8),
-        ],
+    return const MusicControlSurface(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12, 6, 12, 4),
+        child: Row(
+          children: <Widget>[
+            SkeletonBox(width: 22, height: 22, radius: 11),
+            SizedBox(width: 8),
+            SkeletonBox(width: 92, height: 16, radius: 8),
+          ],
+        ),
       ),
     );
   }
@@ -346,9 +348,8 @@ class _ArtistTabBarSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: const Padding(
+    return const MusicControlSurface(
+      child: Padding(
         padding: EdgeInsets.fromLTRB(12, 10, 12, 8),
         child: Row(
           children: <Widget>[

@@ -1,7 +1,17 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/rendering.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/app/theme/skins/custom_image_skin.dart';
+import 'package:he_music_flutter/shared/widgets/song_info_list_section.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +34,115 @@ import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_loading_skeleton.dart';
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets('artist image controls blend and remain usable in $brightness', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _cacheArtistPhoto(tester);
+      await tester.pumpWidget(_buildGlassArtistApp(brightness: brightness));
+      await tester.runAsync(
+        () => precacheImage(
+          AssetImage(
+            'assets/skins/city_sound_creator/wallpaper_${brightness.name}.png',
+          ),
+          tester.element(find.byKey(_artistPreviewKey)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GlassTabBar), findsOneWidget);
+      expect(find.byType(GlassContainer), findsOneWidget);
+      final expandedTint = tester
+          .widget<GlassTabBar>(find.byType(GlassTabBar))
+          .settings!
+          .backerColor!
+          .a;
+      expect(expandedTint, inExclusiveRange(0, 1));
+      await _saveArtistPreview(tester, '${brightness.name}-expanded');
+      final songs = tester.widget<SongInfoListSection>(
+        find.byType(SongInfoListSection),
+      );
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      final pinnedTint = tester
+          .widget<GlassTabBar>(find.byType(GlassTabBar))
+          .settings!
+          .backerColor!
+          .a;
+      expect(pinnedTint, greaterThan(expandedTint));
+      expect(pinnedTint, lessThan(1));
+      expect(
+        tester
+            .widget<GlassContainer>(find.byType(GlassContainer))
+            .settings!
+            .backerColor!
+            .a,
+        pinnedTint,
+      );
+      expect(
+        identical(
+          songs,
+          tester.widget<SongInfoListSection>(find.byType(SongInfoListSection)),
+        ),
+        isTrue,
+      );
+      await _saveArtistPreview(tester, '${brightness.name}-pinned');
+
+      await tester.tap(find.text('专辑').hitTestable().first);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<GlassTabBar>(find.byType(GlassTabBar)).selectedIndex,
+        1,
+      );
+      expect(find.text('暂无专辑'), findsOneWidget);
+      await tester.drag(find.byType(TabBarView), const Offset(350, 0));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<GlassTabBar>(find.byType(GlassTabBar)).selectedIndex,
+        0,
+      );
+      tester
+          .state<NestedScrollViewState>(find.byType(NestedScrollView))
+          .outerController
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('批量操作'));
+      await tester.pumpAndSettle();
+      expect(find.text('已选 0 首'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final highContrast in [false, true]) {
+    testWidgets(
+      'artist controls keep opaque fallback, contrast=$highContrast',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildGlassArtistApp(
+            highContrast: highContrast,
+            glassEnabled: highContrast,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(GlassTabBar), findsNothing);
+        expect(find.byType(GlassContainer), findsNothing);
+        for (final target in [find.byType(TabBar), find.text('全部播放 20')]) {
+          final materials = tester.widgetList<Material>(
+            find.ancestor(of: target, matching: find.byType(Material)),
+          );
+          expect(materials.any((material) => material.color?.a == 1), isTrue);
+        }
+        await tester.tap(find.text('专辑'));
+        await tester.pumpAndSettle();
+        expect(find.text('暂无专辑'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final scale in [2.0, 3.2]) {
     testWidgets('artist detail metadata fits narrow screens at scale $scale', (
       tester,
@@ -414,6 +533,172 @@ void main() {
 
     expect(find.text('已选 1 首'), findsNothing);
   });
+}
+
+const _artistPreviewKey = ValueKey<String>('artist-controls-preview');
+const _artistPhotoUrl = 'https://example.test/artist-controls.png';
+
+Future<ByteData> _artistFontData(String path) async =>
+    ByteData.sublistView(await File(path).readAsBytes());
+
+Future<void> _cacheArtistPhoto(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    if (const bool.fromEnvironment('GENERATE_ARTIST_PREVIEWS')) {
+      final text = FontLoader('ArtistPreview')
+        ..addFont(_artistFontData('test/assets/fonts/Roboto-Regular.ttf'))
+        ..addFont(_artistFontData('test/assets/fonts/Roboto-Medium.ttf'));
+      final cjk = FontLoader('ArtistPreviewCjk')
+        ..addFont(
+          _artistFontData(
+            Platform.isMacOS
+                ? '/System/Library/Fonts/STHeiti Light.ttc'
+                : 'test/assets/fonts/DroidSansFallback-PreviewSubset.ttf',
+          ),
+        );
+      final icons = FontLoader('MaterialIcons')
+        ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+      await Future.wait([text.load(), cjk.load(), icons.load()]);
+    }
+    final bytes = await File(
+      'test/assets/player/artist_photo.png',
+    ).readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    codec.dispose();
+    PaintingBinding.instance.imageCache.putIfAbsent(
+      const NetworkImage(_artistPhotoUrl),
+      () => OneFrameImageStreamCompleter(
+        Future.value(ImageInfo(image: frame.image)),
+      ),
+    );
+  });
+  addTearDown(() => PaintingBinding.instance.imageCache.clear());
+}
+
+Future<void> _saveArtistPreview(WidgetTester tester, String name) async {
+  if (!const bool.fromEnvironment('GENERATE_ARTIST_PREVIEWS')) return;
+  await tester.runAsync(() async {
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(_artistPreviewKey),
+    );
+    final image = await boundary.toImage(pixelRatio: 2);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    final output = File('build/artist_detail_previews/$name.png');
+    await output.parent.create(recursive: true);
+    await output.writeAsBytes(bytes!.buffer.asUint8List());
+  });
+}
+
+Widget _buildGlassArtistApp({
+  Brightness brightness = Brightness.light,
+  bool highContrast = false,
+  bool glassEnabled = true,
+}) {
+  final skin = customImageSkin(
+    AppCustomSkinConfig(
+      revision: 'artist-controls',
+      lightAssetPath: 'skins/custom_image/artist-controls/wallpaper_light.png',
+      darkAssetPath: 'skins/custom_image/artist-controls/wallpaper_dark.png',
+      candidateColors: const [0xFF007C91],
+      seedColor: 0xFF007C91,
+      focalX: 0,
+      focalY: 0,
+      sourceWidth: 390,
+      sourceHeight: 844,
+    ),
+  );
+  final theme = brightness == Brightness.light
+      ? AppTheme.light(skin)
+      : AppTheme.dark(skin);
+  final previewTheme = const bool.fromEnvironment('GENERATE_ARTIST_PREVIEWS')
+      ? theme.copyWith(
+          textTheme: theme.textTheme.apply(
+            fontFamily: 'ArtistPreview',
+            fontFamilyFallback: const ['ArtistPreviewCjk'],
+          ),
+        )
+      : theme;
+  return ProviderScope(
+    overrides: [
+      appConfigProvider.overrideWith(_TestAppConfigController.new),
+      playerControllerProvider.overrideWith(_TestPlayerController.new),
+      artistDetailRepositoryProvider.overrideWithValue(
+        _GlassArtistDetailRepository(),
+      ),
+      onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
+    ],
+    child: _buildTestApp(
+      localeCode: 'zh',
+      theme: previewTheme,
+      child: AppGlassScope(
+        enabled: glassEnabled,
+        mode: glassEnabled ? AppGlassMode.low : AppGlassMode.off,
+        child: GlassAdaptiveScope(
+          minQuality: GlassQuality.minimal,
+          maxQuality: GlassQuality.minimal,
+          initialQuality: GlassQuality.minimal,
+          child: MediaQuery(
+            data: MediaQueryData(
+              highContrast: highContrast,
+              disableAnimations: true,
+            ),
+            child: RepaintBoundary(
+              key: _artistPreviewKey,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    'assets/skins/city_sound_creator/wallpaper_${brightness.name}.png',
+                    fit: BoxFit.cover,
+                  ),
+                  const ArtistDetailPage(
+                    id: 'artist-1',
+                    platform: 'qq',
+                    title: '梁静茹',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _GlassArtistDetailRepository extends _TestArtistDetailRepository {
+  @override
+  Future<ArtistDetailContent> fetchDetail(ArtistDetailRequest request) async {
+    return ArtistDetailContent(
+      info: const ArtistInfo(
+        id: 'artist-1',
+        name: '梁静茹',
+        cover: _artistPhotoUrl,
+        platform: 'qq',
+        description: '广告里这样诉说：告诉你一段感情故事，听梁静茹。',
+        mvCount: '189',
+        songCount: '20',
+        albumCount: '39',
+        alias: 'Fish Leong',
+      ),
+      songs: List.generate(
+        20,
+        (index) => SongInfo(
+          name: '${['情歌', '暖暖', '勇气', '宁夏', '会呼吸的痛'][index % 5]} ${index + 1}',
+          subtitle: '',
+          id: 'song-$index',
+          duration: 240,
+          mvId: '',
+          album: const SongInfoAlbumInfo(name: '情歌', id: 'album-1'),
+          artists: const [SongInfoArtistInfo(id: 'artist-1', name: '梁静茹')],
+          links: const [],
+          platform: 'qq',
+          cover: '',
+        ),
+      ),
+    );
+  }
 }
 
 double _nearestOpacity(WidgetTester tester, Key key) {

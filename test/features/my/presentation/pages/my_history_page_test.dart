@@ -21,8 +21,59 @@ import 'package:he_music_flutter/features/player/domain/entities/player_playback
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_queue_source.dart';
+import 'package:he_music_flutter/shared/widgets/music_detail_slivers.dart';
+import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
+  testWidgets(
+    'history play all keeps displayed order and resolves online URLs',
+    (tester) async {
+      final online = PlayerHistoryItem(
+        id: 'online-1',
+        title: '在线歌曲',
+        artist: '歌手',
+        album: '专辑',
+        albumId: 'album-1',
+        artists: const [SongInfoArtistInfo(id: 'artist-1', name: '歌手')],
+        artworkUrl: '',
+        url: 'https://expired.example/song.mp3',
+        playedAt: 1711711711,
+        platform: 'qq',
+        isRadioMode: true,
+        currentRadioId: 'radio-1',
+      );
+      await tester.pumpWidget(_buildTestApp(items: [_historyItem(0), online]));
+      await tester.pumpAndSettle();
+      expect(find.text('全部播放 2'), findsOneWidget);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MyHistoryPage)),
+      );
+      final player =
+          container.read(playerControllerProvider.notifier)
+              as _TestPlayerController;
+      await tester.tap(find.text('全部播放 2'));
+      await tester.pumpAndSettle();
+      expect(player.played.map((track) => track.id), ['local-0', 'online-1']);
+      expect(player.played.first.url, '/tmp/0.mp3');
+      expect(player.played.last.url, isEmpty);
+      expect(player.played.last.albumId, 'album-1');
+      expect(player.played.last.artists, online.artists);
+      expect(player.queueSource?.routePath, '/my/history');
+
+      await tester.tap(find.text('在线歌曲'));
+      await tester.pumpAndSettle();
+      expect(player.singleHistoryItem, same(online));
+      final history =
+          container.read(myHistoryControllerProvider.notifier)
+              as _TestMyHistoryController;
+      history.replaceItems([]);
+      await tester.pumpAndSettle();
+      expect(find.byType(MusicDetailPlayAllHeaderBox), findsNothing);
+      expect(find.text('暂无播放历史'), findsOneWidget);
+    },
+  );
+
   testWidgets(
     'history reads only visible artwork and playback ticks preserve rows',
     (tester) async {
@@ -280,6 +331,30 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
 }
 
 class _TestPlayerController extends PlayerController {
+  List<PlayerTrack> played = [];
+  PlayerQueueSource? queueSource;
+  PlayerHistoryItem? singleHistoryItem;
+
+  @override
+  Future<void> replaceQueue(
+    List<PlayerTrack> queue, {
+    int startIndex = 0,
+    bool autoplay = true,
+    bool isRadioMode = false,
+    String? currentRadioId,
+    String? currentRadioPlatform,
+    int? currentRadioPageIndex,
+    PlayerQueueSource? queueSource,
+  }) async {
+    played = queue;
+    this.queueSource = queueSource;
+  }
+
+  @override
+  Future<void> playHistoryItem(PlayerHistoryItem item) async {
+    singleHistoryItem = item;
+  }
+
   @override
   PlayerPlaybackState build() {
     return PlayerPlaybackState.initial(const <PlayerTrack>[

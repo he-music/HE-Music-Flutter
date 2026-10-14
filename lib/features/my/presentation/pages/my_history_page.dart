@@ -22,6 +22,8 @@ import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_confirmation_dialog.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/online_song_list_item.dart';
+import '../../../../shared/widgets/music_detail_slivers.dart';
+import '../../../player/domain/entities/player_queue_source.dart';
 import '../../../player/domain/entities/player_history_item.dart';
 import '../../../player/domain/entities/player_track.dart';
 import '../../../player/presentation/providers/player_providers.dart';
@@ -123,6 +125,33 @@ class _HistoryList extends ConsumerWidget {
       appConfigProvider.select((config) => config.localeCode),
     );
     if (items.isEmpty) return Center(child: Text(emptyText));
+    return Column(
+      children: <Widget>[
+        MusicDetailPlayAllHeaderBox(
+          countText: AppI18n.formatByLocaleCode(
+            localeCode,
+            'detail.play_all_count',
+            {'count': '${items.length}'},
+          ),
+          onPlayAll: () => unawaited(
+            ref
+                .read(playerControllerProvider.notifier)
+                .replaceQueue(
+                  items.map(_toTrack).toList(growable: false),
+                  queueSource: PlayerQueueSource(
+                    routePath: AppRoutes.myHistory,
+                    queryParameters: const <String, String>{},
+                    title: AppI18n.tByLocaleCode(localeCode, 'my.history'),
+                  ),
+                ),
+          ),
+        ),
+        Expanded(child: _buildSongs(ref, localeCode)),
+      ],
+    );
+  }
+
+  Widget _buildSongs(WidgetRef ref, String localeCode) {
     return SongListComponent(
       itemCount: items.length,
       enablePaging: false,
@@ -441,6 +470,8 @@ class _HistoryList extends ConsumerWidget {
       title: item.title.isEmpty ? item.id : item.title,
       artist: item.artist,
       album: item.album.isEmpty ? null : item.album,
+      albumId: item.albumId,
+      artists: item.artists,
       url: platform.toLowerCase() == 'local' ? item.url : '',
       artworkUrl: item.artworkUrl.isEmpty ? null : item.artworkUrl,
       platform: platform.isEmpty ? null : platform,

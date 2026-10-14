@@ -44,6 +44,7 @@ class SongInfoListSection extends StatelessWidget {
     this.empty,
     this.countText,
     this.onPlayAll,
+    this.headerSurfaceBuilder,
     this.batchMode = false,
     this.selectedSongKeys = const <String>{},
     this.selectedCount = 0,
@@ -75,6 +76,8 @@ class SongInfoListSection extends StatelessWidget {
   final Widget? empty;
   final String? countText;
   final VoidCallback? onPlayAll;
+  final Widget Function(BuildContext context, Widget child)?
+  headerSurfaceBuilder;
   final bool batchMode;
   final Set<String> selectedSongKeys;
   final int selectedCount;
@@ -90,8 +93,9 @@ class SongInfoListSection extends StatelessWidget {
       children: <Widget>[
         if (countText != null)
           Material(
-            color: Theme.of(context).scaffoldBackgroundColor,
+            type: MaterialType.transparency,
             child: MusicDetailPlayAllHeaderBox(
+              surfaceBuilder: headerSurfaceBuilder,
               countText: countText!,
               enabled: songs.isNotEmpty,
               onPlayAll: onPlayAll ?? () {},
