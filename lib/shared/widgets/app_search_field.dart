@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../app/theme/glass/app_glass_scope.dart';
@@ -122,159 +123,230 @@ class AppSearchField extends StatefulWidget {
 class _AppSearchFieldState extends State<AppSearchField> {
   final _localFocus = FocusNode();
   FocusNode get _focus => widget.focusNode ?? _localFocus;
+  bool _tabNavigation = false;
+  bool _showFocusRing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_handleFocusChanged);
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldFocus = oldWidget.focusNode ?? _localFocus;
+    if (oldFocus != _focus) {
+      oldFocus.removeListener(_handleFocusChanged);
+      _focus.addListener(_handleFocusChanged);
+      _tabNavigation = false;
+      _showFocusRing = false;
+    }
+  }
+
+  bool _handleKeyEvent(KeyEvent event) {
+    if (event is KeyUpEvent) return false;
+    // Modifier presses alone must not dismiss a Tab navigation indicator.
+    if (const [
+      LogicalKeyboardKey.shiftLeft,
+      LogicalKeyboardKey.shiftRight,
+      LogicalKeyboardKey.controlLeft,
+      LogicalKeyboardKey.controlRight,
+      LogicalKeyboardKey.altLeft,
+      LogicalKeyboardKey.altRight,
+      LogicalKeyboardKey.metaLeft,
+      LogicalKeyboardKey.metaRight,
+    ].contains(event.logicalKey)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    _tabNavigation =
+        event.logicalKey == LogicalKeyboardKey.tab &&
+        !keyboard.isControlPressed &&
+        !keyboard.isAltPressed &&
+        !keyboard.isMetaPressed;
+    _updateFocusFeedback();
+    // Observe navigation without consuming editing keys or shortcuts.
+    return false;
+  }
+
+  void _handleFocusChanged() {
+    if (!_focus.hasFocus) _tabNavigation = false;
+    _updateFocusFeedback();
+  }
+
+  void _updateFocusFeedback() {
+    final show = _focus.hasFocus && _tabNavigation;
+    if (show != _showFocusRing) setState(() => _showFocusRing = show);
+  }
+
+  void _hideFocusFeedback() {
+    _tabNavigation = false;
+    _updateFocusFeedback();
+  }
+
+  void _handleChanged(String value) {
+    _hideFocusFeedback();
+    widget.onChanged?.call(value);
+  }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    _focus.removeListener(_handleFocusChanged);
     _localFocus.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ValueListenableBuilder<TextEditingValue>(
-        valueListenable: widget.controller,
-        builder: (context, value, child) {
-          final theme = Theme.of(context);
-          final radius = AppSearchField.radiusFor(context);
-          final height = AppSearchField.heightFor(context);
-          final hint = [
-            widget.placeholderPrimary,
-            widget.placeholderSecondary?.trim(),
-          ].whereType<String>().where((text) => text.isNotEmpty).join(' ');
-          final prefix = AppSkinIcon(
-            role: AppSkinIconRole.search,
-            size: LayoutTokens.searchIconSize,
-            color: theme.colorScheme.primary,
-          );
-          final suffix = value.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: MaterialLocalizations.of(
-                    context,
-                  ).deleteButtonTooltip,
-                  constraints: const BoxConstraints.tightFor(
-                    width: LayoutTokens.controlMinExtent,
-                    height: LayoutTokens.controlMinExtent,
-                  ),
-                  visualDensity: VisualDensity.standard,
-                  padding: EdgeInsets.zero,
-                  icon: AppSkinIcon(
-                    role: AppSkinIconRole.close,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: () {
-                    widget.controller.clear();
-                    widget.onChanged?.call('');
-                    _focus.requestFocus();
-                  },
-                );
-          final transparentHintStyle = theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.transparent,
-          );
-          final Widget input;
-          if (AppGlassScope.controlsEnabled(context) &&
-              !MediaQuery.highContrastOf(context)) {
-            input = GlassTextField(
-              controller: widget.controller,
-              focusNode: _focus,
-              autofocus: widget.autofocus,
-              placeholder: hint,
-              placeholderStyle: transparentHintStyle,
-              textStyle: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface,
+  Widget build(
+    BuildContext context,
+  ) => ValueListenableBuilder<TextEditingValue>(
+    valueListenable: widget.controller,
+    builder: (context, value, child) {
+      final theme = Theme.of(context);
+      final radius = AppSearchField.radiusFor(context);
+      final height = AppSearchField.heightFor(context);
+      final hint = [
+        widget.placeholderPrimary,
+        widget.placeholderSecondary?.trim(),
+      ].whereType<String>().where((text) => text.isNotEmpty).join(' ');
+      final prefix = AppSkinIcon(
+        role: AppSkinIconRole.search,
+        size: LayoutTokens.searchIconSize,
+        color: theme.colorScheme.primary,
+      );
+      final suffix = value.text.isEmpty
+          ? null
+          : IconButton(
+              tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+              constraints: const BoxConstraints.tightFor(
+                width: LayoutTokens.controlMinExtent,
+                height: LayoutTokens.controlMinExtent,
               ),
-              textInputAction: TextInputAction.search,
-              height: height,
-              padding: const EdgeInsets.symmetric(
+              visualDensity: VisualDensity.standard,
+              padding: EdgeInsets.zero,
+              icon: AppSkinIcon(
+                role: AppSkinIconRole.close,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              onPressed: () {
+                widget.controller.clear();
+                widget.onChanged?.call('');
+                _focus.requestFocus();
+              },
+            );
+      final transparentHintStyle = theme.textTheme.bodyMedium?.copyWith(
+        color: Colors.transparent,
+      );
+      final Widget input;
+      if (AppGlassScope.controlsEnabled(context) &&
+          !MediaQuery.highContrastOf(context)) {
+        input = GlassTextField(
+          controller: widget.controller,
+          focusNode: _focus,
+          showFocusRing: _showFocusRing,
+          autofocus: widget.autofocus,
+          placeholder: hint,
+          placeholderStyle: transparentHintStyle,
+          textStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+          textInputAction: TextInputAction.search,
+          height: height,
+          padding: const EdgeInsets.symmetric(
+            horizontal: LayoutTokens.controlHorizontalPadding,
+          ),
+          iconSpacing: 8,
+          prefixIcon: SizedBox(width: 24, child: prefix),
+          suffixIcon: suffix,
+          shape: LiquidRoundedRectangle(borderRadius: radius),
+          useOwnLayer: true,
+          quality: AppGlassScope.qualityOf(context),
+          settings: AppSearchField.glassSettingsFor(context),
+          onChanged: _handleChanged,
+          onSubmitted: widget.onSubmitted,
+        );
+      } else {
+        input = SizedBox(
+          height: height,
+          child: TextField(
+            controller: widget.controller,
+            focusNode: _focus,
+            autofocus: widget.autofocus,
+            style: theme.textTheme.bodyMedium,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: AppSearchField.materialFillColorFor(context),
+              hintText: hint,
+              hintStyle: transparentHintStyle,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: LayoutTokens.controlHorizontalPadding,
+                vertical: 12,
               ),
-              iconSpacing: 8,
-              prefixIcon: SizedBox(width: 24, child: prefix),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(radius),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(radius),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(radius),
+                borderSide: _showFocusRing || MediaQuery.highContrastOf(context)
+                    ? BorderSide(color: theme.colorScheme.primary, width: 1.2)
+                    : BorderSide.none,
+              ),
+              prefixIcon: prefix,
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: LayoutTokens.searchIconSlot - 4,
+                minHeight: LayoutTokens.controlMinExtent,
+              ),
               suffixIcon: suffix,
-              shape: LiquidRoundedRectangle(borderRadius: radius),
-              useOwnLayer: true,
-              quality: AppGlassScope.qualityOf(context),
-              settings: AppSearchField.glassSettingsFor(context),
-              onChanged: widget.onChanged,
-              onSubmitted: widget.onSubmitted,
-            );
-          } else {
-            input = SizedBox(
-              height: height,
-              child: TextField(
-                controller: widget.controller,
-                focusNode: _focus,
-                autofocus: widget.autofocus,
-                style: theme.textTheme.bodyMedium,
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppSearchField.materialFillColorFor(context),
-                  hintText: hint,
-                  hintStyle: transparentHintStyle,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: LayoutTokens.controlHorizontalPadding,
-                    vertical: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(radius),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(radius),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(radius),
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.primary,
-                      width: 1.2,
-                    ),
-                  ),
-                  prefixIcon: prefix,
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: LayoutTokens.searchIconSlot - 4,
-                    minHeight: LayoutTokens.controlMinExtent,
-                  ),
-                  suffixIcon: suffix,
-                  suffixIconConstraints: const BoxConstraints(
-                    minWidth: LayoutTokens.controlMinExtent,
-                    minHeight: LayoutTokens.controlMinExtent,
-                  ),
-                ),
-                onChanged: widget.onChanged,
-                onSubmitted: widget.onSubmitted,
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: LayoutTokens.controlMinExtent,
+                minHeight: LayoutTokens.controlMinExtent,
               ),
-            );
-          }
-          return Stack(
-            children: [
-              input,
-              if (value.text.isEmpty)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: ExcludeSemantics(
-                      child: Padding(
-                        padding: const EdgeInsetsDirectional.only(
-                          start: LayoutTokens.searchIconSlot,
-                          end: 12,
-                        ),
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: AppSearchField.placeholder(
-                            context,
-                            widget.placeholderPrimary,
-                            widget.placeholderSecondary,
-                          ),
+            ),
+            onChanged: _handleChanged,
+            onSubmitted: widget.onSubmitted,
+          ),
+        );
+      }
+      return Listener(
+        onPointerDown: (_) => _hideFocusFeedback(),
+        child: Stack(
+          children: [
+            input,
+            if (value.text.isEmpty)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ExcludeSemantics(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        start: LayoutTokens.searchIconSlot,
+                        end: 12,
+                      ),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: AppSearchField.placeholder(
+                          context,
+                          widget.placeholderPrimary,
+                          widget.placeholderSecondary,
                         ),
                       ),
                     ),
                   ),
                 ),
-            ],
-          );
-        },
+              ),
+          ],
+        ),
       );
+    },
+  );
 }

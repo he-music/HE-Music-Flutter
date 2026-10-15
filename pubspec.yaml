@@ -100,6 +100,8 @@ dev_dependencies:
 dependency_overrides:
   audiotags:
     path: third_party/audiotags
+  liquid_glass_widgets:
+    path: third_party/liquid_glass_widgets
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

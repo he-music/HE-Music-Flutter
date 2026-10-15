@@ -47,8 +47,8 @@ void main() {
         final field = tester.widget<TextField>(find.byType(TextField));
         expect(field.decoration!.fillColor!.a, 1);
         expect(
-          field.decoration!.focusedBorder!.borderSide.width,
-          greaterThan(0),
+          field.decoration!.focusedBorder!.borderSide.style,
+          highContrast ? BorderStyle.solid : BorderStyle.none,
         );
         await tester.tap(find.byType(TextField));
         await tester.pump();
