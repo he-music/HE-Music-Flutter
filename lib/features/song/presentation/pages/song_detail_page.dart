@@ -30,11 +30,11 @@ import '../../../online/presentation/providers/online_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/song_detail_content.dart';
-import '../../domain/entities/song_detail_field.dart';
 import '../../domain/entities/song_detail_section.dart';
 import '../../domain/entities/song_detail_request.dart';
 import '../providers/song_detail_providers.dart';
 import '../widgets/song_detail_section_sliver.dart';
+import '../widgets/song_detail_info_cards.dart';
 
 class SongDetailPage extends ConsumerStatefulWidget {
   const SongDetailPage({
@@ -139,7 +139,6 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
     final coverUrl = _songActions.resolveCoverUrl(song);
 
-    const useWideLayout = false;
     return LayoutBuilder(
       builder: (context, constraints) => SafeArea(
         bottom: false,
@@ -148,105 +147,51 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final playback = ref.watch(
-                      playerControllerProvider.select((player) {
-                        final isCurrent = isCurrentSongTrack(
-                          player.displayTrack,
-                          song,
-                        );
-                        return (
-                          isCurrent: isCurrent,
-                          showPause: isCurrent && player.isPlaying,
-                        );
-                      }),
-                    );
-                    final isFavorited = ref.watch(
-                      favoriteSongStatusProvider.select(
-                        (favorite) => favorite.songKeys.contains(
-                          buildFavoriteSongKey(
-                            songId: song.id,
-                            platform: _songActions.resolvePlatformId(song),
+                child: _SongHeroCard(
+                  key: const ValueKey<String>('song-detail-header-compact'),
+                  config: config,
+                  title: song.title.trim().isEmpty ? widget.title : song.title,
+                  coverUrl: coverUrl,
+                  artistLabel: song.artist,
+                  albumLabel: song.album?.name.trim() ?? '',
+                  onBack: () => context.appPopOrGo(),
+                  actions: _buildPrimaryActions(song, config),
+                  onMore: (anchorContext) =>
+                      _showMoreSongActions(anchorContext, song, coverUrl),
+                  onTapArtist: song.artists.isEmpty
+                      ? null
+                      : () => unawaited(
+                          openSongArtistSelection(
+                            context: context,
+                            platformId: _songActions.resolvePlatformId(song),
+                            artists: song.artists,
+                            onError: AppMessageService.showError,
                           ),
                         ),
-                      ),
-                    );
-                    final onPrimaryPlay = playback.isCurrent
-                        ? () => ref
-                              .read(playerControllerProvider.notifier)
-                              .togglePlayPause()
-                        : () => _songActions.playSongNow(song);
-                    final morePlayActionLabel = AppI18n.t(
-                      config,
-                      playback.showPause
-                          ? 'player.action.pause'
-                          : 'song.action.play',
-                    );
-                    return _SongHeroCard(
-                      key: const ValueKey<String>('song-detail-header-compact'),
-                      config: config,
-                      useWideLayout: useWideLayout,
-                      title: song.title.trim().isEmpty
-                          ? widget.title
-                          : song.title,
-                      coverUrl: coverUrl,
-                      platformLabel: resolvePlatformLabel(
-                        song.platform.isEmpty ? widget.platform : song.platform,
-                        platforms: platforms,
-                      ),
-                      fields: content.fields,
-                      duration: formatDurationSecondsLabel('${song.duration}'),
-                      artistLabel: song.artist,
-                      albumLabel: (song.album?.name.trim().isEmpty ?? true)
-                          ? '-'
-                          : song.album!.name.trim(),
-                      isFavorited: isFavorited,
-                      showPauseAction: playback.showPause,
-                      onBack: () => context.appPopOrGo(),
-                      onPlay: onPrimaryPlay,
-                      onPlayNext: () => _songActions.playNextSong(song),
-                      onToggleFavorite: () =>
-                          _toggleSongFavorite(isFavorited, song: song),
-                      onMore: (anchorContext) => _songActions.showSongActions(
-                        context: anchorContext,
-                        song: song,
-                        coverUrl: coverUrl,
-                        playActionLabel: morePlayActionLabel,
-                        onPlay: onPrimaryPlay,
-                        anchorContext: anchorContext,
-                        includeViewDetail: false,
-                        forceBottomSheet: true,
-                      ),
-                      onTapArtist: song.artists.isEmpty
-                          ? null
-                          : () => unawaited(
-                              openSongArtistSelection(
-                                context: context,
-                                platformId: _songActions.resolvePlatformId(
-                                  song,
-                                ),
-                                artists: song.artists,
-                                onError: (message) =>
-                                    AppMessageService.showError(message),
-                              ),
-                            ),
-                      onTapAlbum: hasValidAlbumId(song.album?.id ?? '')
-                          ? () => context.push(
-                              Uri(
-                                path: AppRoutes.albumDetail,
-                                queryParameters: <String, String>{
-                                  'id': song.album!.id,
-                                  'platform': _songActions.resolvePlatformId(
-                                    song,
-                                  ),
-                                  'title': song.album!.name,
-                                },
-                              ).toString(),
-                            )
-                          : null,
-                    );
-                  },
+                  onTapAlbum: hasValidAlbumId(song.album?.id ?? '')
+                      ? () => context.pushAlbumDetail(
+                          id: song.album!.id,
+                          platform: _songActions.resolvePlatformId(song),
+                          title: song.album!.name,
+                        )
+                      : null,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+                child: SongDetailInfoCards(
+                  source: resolvePlatformLabel(
+                    song.platform.trim().isEmpty
+                        ? widget.platform
+                        : song.platform,
+                    platforms: platforms,
+                  ),
+                  duration: formatDurationSecondsLabel('${song.duration}'),
+                  fields: content.fields,
+                  sourceLabel: AppI18n.t(config, 'song.detail.meta.source'),
+                  durationLabel: AppI18n.t(config, 'song.detail.meta.duration'),
                 ),
               ),
             ),
@@ -258,6 +203,67 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPrimaryActions(SongInfo song, AppConfigState config) => Consumer(
+    builder: (context, ref, _) {
+      final playback = ref.watch(
+        playerControllerProvider.select((player) {
+          final isCurrent = isCurrentSongTrack(player.displayTrack, song);
+          return (
+            isCurrent: isCurrent,
+            showPause: isCurrent && player.isPlaying,
+          );
+        }),
+      );
+      final isFavorited = ref.watch(
+        favoriteSongStatusProvider.select(
+          (favorite) => favorite.songKeys.contains(
+            buildFavoriteSongKey(
+              songId: song.id,
+              platform: _songActions.resolvePlatformId(song),
+            ),
+          ),
+        ),
+      );
+      return _HeroActions(
+        key: const ValueKey<String>('song-detail-actions-compact'),
+        config: config,
+        isFavorited: isFavorited,
+        showPauseAction: playback.showPause,
+        onPlay: playback.isCurrent
+            ? () =>
+                  ref.read(playerControllerProvider.notifier).togglePlayPause()
+            : () => _songActions.playSongNow(song),
+        onToggleFavorite: () => _toggleSongFavorite(isFavorited, song: song),
+      );
+    },
+  );
+
+  void _showMoreSongActions(
+    BuildContext anchorContext,
+    SongInfo song,
+    String coverUrl,
+  ) {
+    final player = ref.read(playerControllerProvider);
+    final isCurrent = isCurrentSongTrack(player.displayTrack, song);
+    _songActions.showSongActions(
+      context: anchorContext,
+      song: song,
+      coverUrl: coverUrl,
+      playActionLabel: AppI18n.t(
+        ref.read(appConfigProvider),
+        isCurrent && player.isPlaying
+            ? 'player.action.pause'
+            : 'song.action.play',
+      ),
+      onPlay: isCurrent
+          ? () => ref.read(playerControllerProvider.notifier).togglePlayPause()
+          : () => _songActions.playSongNow(song),
+      anchorContext: anchorContext,
+      includeViewDetail: false,
+      forceBottomSheet: true,
     );
   }
 
@@ -378,20 +384,12 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
 class _SongHeroCard extends StatelessWidget {
   const _SongHeroCard({
     required this.config,
-    required this.useWideLayout,
     required this.title,
     required this.coverUrl,
-    required this.platformLabel,
-    required this.fields,
-    required this.duration,
     required this.artistLabel,
     required this.albumLabel,
-    required this.isFavorited,
-    required this.showPauseAction,
+    required this.actions,
     required this.onBack,
-    required this.onPlay,
-    required this.onPlayNext,
-    required this.onToggleFavorite,
     required this.onMore,
     this.onTapArtist,
     this.onTapAlbum,
@@ -399,164 +397,103 @@ class _SongHeroCard extends StatelessWidget {
   });
 
   final AppConfigState config;
-  final bool useWideLayout;
   final String title;
   final String coverUrl;
-  final String platformLabel;
-  final List<SongDetailField> fields;
-  final String duration;
   final String artistLabel;
   final String albumLabel;
-  final bool isFavorited;
-  final bool showPauseAction;
+  final Widget actions;
   final VoidCallback onBack;
-  final VoidCallback onPlay;
-  final VoidCallback onPlayNext;
-  final VoidCallback onToggleFavorite;
   final ValueChanged<BuildContext> onMore;
   final VoidCallback? onTapArtist;
   final VoidCallback? onTapAlbum;
 
   @override
-  Widget build(BuildContext context) {
-    final meta = <_MetaItem>[
-      _MetaItem(
-        label: AppI18n.t(config, 'player.meta.artist'),
-        value: artistLabel.isEmpty ? '-' : artistLabel,
-        onTap: onTapArtist,
-      ),
-      _MetaItem(
-        label: AppI18n.t(config, 'player.meta.album'),
-        value: albumLabel.isEmpty ? '-' : albumLabel,
-        onTap: onTapAlbum,
-      ),
-      _MetaItem(
-        label: AppI18n.t(config, 'song.detail.meta.platform'),
-        value: platformLabel.isEmpty ? '-' : platformLabel,
-      ),
-      _MetaItem(
-        label: AppI18n.t(config, 'song.detail.meta.duration'),
-        value: duration,
-      ),
-    ];
-    final titleSection = _HeroInfo(
-      config: config,
-      title: title,
-      artistLabel: artistLabel,
-      albumLabel: albumLabel,
-      onTapArtist: onTapArtist,
-      onTapAlbum: onTapAlbum,
-      compact: true,
-    );
-    final actionSection = _HeroActions(
-      key: const ValueKey<String>('song-detail-actions-compact'),
-      config: config,
-      isFavorited: isFavorited,
-      showPauseAction: showPauseAction,
-      onPlay: onPlay,
-      onPlayNext: onPlayNext,
-      onToggleFavorite: onToggleFavorite,
-      compact: true,
-    );
-    final metaSection = _HeroMetaSection(
-      key: const ValueKey<String>('song-detail-meta-compact'),
-      meta: meta,
-      compact: true,
-    );
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          SizedBox(
-            key: const ValueKey<String>('song-detail-top-bar'),
-            height: kToolbarHeight,
-            child: AppBar(
-              automaticallyImplyLeading: false,
-              toolbarHeight: kToolbarHeight,
-              leadingWidth: 40,
-              titleSpacing: 0,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              leading: AppBackButton(onPressed: onBack),
-              title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              actions: <Widget>[
-                Builder(
-                  builder: (buttonContext) => IconButton(
-                    onPressed: () => onMore(buttonContext),
-                    icon: const Icon(Icons.more_horiz_rounded),
-                  ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 2),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(
+          key: const ValueKey<String>('song-detail-top-bar'),
+          height: kToolbarHeight,
+          child: AppBar(
+            automaticallyImplyLeading: false,
+            toolbarHeight: kToolbarHeight,
+            leadingWidth: 40,
+            titleSpacing: 0,
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            leading: AppBackButton(onPressed: onBack),
+            title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            actions: <Widget>[
+              Builder(
+                builder: (buttonContext) => IconButton(
+                  onPressed: () => onMore(buttonContext),
+                  icon: const Icon(Icons.more_horiz_rounded),
+                  tooltip: AppI18n.t(config, 'common.more'),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final coverSize = (constraints.maxWidth * 0.27)
-                  .clamp(82.0, 104.0)
-                  .toDouble();
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+        ),
+        const SizedBox(height: 2),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final coverSize = (constraints.maxWidth * 0.27)
+                .clamp(72.0, 104.0)
+                .toDouble();
+            return Row(
+              key: const ValueKey<String>('song-detail-hero-row'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _HeroCover(coverUrl: coverUrl, size: coverSize),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    key: const ValueKey<String>('song-detail-info-compact'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      _HeroCover(
-                        coverUrl: coverUrl,
-                        size: coverSize,
-                        compact: true,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: coverSize,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              titleSection,
-                              const SizedBox(height: 8),
-                              actionSection,
-                            ],
-                          ),
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
                         ),
+                      ),
+                      const SizedBox(height: 6),
+                      _HeroInfoLine(
+                        key: const ValueKey<String>('song-detail-artist'),
+                        value: artistLabel.isEmpty ? '-' : artistLabel,
+                        onTap: onTapArtist,
+                      ),
+                      const SizedBox(height: 2),
+                      _HeroInfoLine(
+                        key: const ValueKey<String>('song-detail-album'),
+                        value: albumLabel.isEmpty ? '-' : albumLabel,
+                        onTap: onTapAlbum,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  metaSection,
-                  if (fields.isNotEmpty)
-                    _HeroMetaSection(
-                      key: const ValueKey<String>('song-detail-fields'),
-                      meta: [
-                        for (final field in fields)
-                          _MetaItem(label: field.label, value: field.value),
-                      ],
-                      compact: true,
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        actions,
+      ],
+    ),
+  );
 }
 
 class _HeroCover extends StatelessWidget {
-  const _HeroCover({
-    required this.coverUrl,
-    this.size = 180,
-    this.compact = false,
-  });
+  const _HeroCover({required this.coverUrl, required this.size});
 
   final String coverUrl;
   final double size;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -565,16 +502,16 @@ class _HeroCover extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(compact ? size / 2 : 24),
+        shape: BoxShape.circle,
       ),
       child: Icon(
         Icons.music_note_rounded,
-        size: compact ? 28 : 48,
+        size: 28,
         color: Theme.of(context).hintColor,
       ),
     );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(compact ? size / 2 : 24),
+    return ClipOval(
+      key: const ValueKey<String>('song-detail-cover'),
       child: coverUrl.trim().isEmpty
           ? fallback
           : AppNetworkImage(
@@ -589,97 +526,33 @@ class _HeroCover extends StatelessWidget {
   }
 }
 
-class _HeroInfo extends StatelessWidget {
-  const _HeroInfo({
-    required this.config,
-    required this.title,
-    required this.artistLabel,
-    required this.albumLabel,
-    this.compact = false,
-    this.onTapArtist,
-    this.onTapAlbum,
-  });
+class _HeroInfoLine extends StatelessWidget {
+  const _HeroInfoLine({required this.value, this.onTap, super.key});
 
-  final AppConfigState config;
-  final String title;
-  final String artistLabel;
-  final String albumLabel;
-  final bool compact;
-  final VoidCallback? onTapArtist;
-  final VoidCallback? onTapAlbum;
+  final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      key: ValueKey<String>(
-        compact ? 'song-detail-info-compact' : 'song-detail-info-wide',
+    final text = Text(
+      value,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        height: 1.3,
       ),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style:
-              (compact
-                      ? theme.textTheme.titleLarge
-                      : theme.textTheme.headlineMedium)
-                  ?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: compact ? 1.1 : 1.05,
-                  ),
-        ),
-        if (!compact) ...<Widget>[
-          const SizedBox(height: 16),
-          _InfoLine(
-            label: AppI18n.t(config, 'player.meta.artist'),
-            value: artistLabel,
-            onTap: onTapArtist,
-            compact: compact,
-          ),
-          const SizedBox(height: 8),
-          _InfoLine(
-            label: AppI18n.t(config, 'player.meta.album'),
-            value: albumLabel,
-            onTap: onTapAlbum,
-            compact: compact,
-          ),
-        ],
-      ],
     );
-  }
-}
-
-class _HeroMetaSection extends StatelessWidget {
-  const _HeroMetaSection({required this.meta, this.compact = false, super.key});
-
-  final List<_MetaItem> meta;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: meta
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: _MetaLine(item),
-              ),
-            )
-            .toList(growable: false),
-      );
-    }
-    return Wrap(
-      alignment: WrapAlignment.start,
-      spacing: 12,
-      runSpacing: 10,
-      children: meta
-          .map((item) => _MetaLabel(item, compact: compact))
-          .toList(growable: false),
-    );
+    return onTap == null
+        ? text
+        : InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: text,
+            ),
+          );
   }
 }
 
@@ -689,9 +562,7 @@ class _HeroActions extends StatelessWidget {
     required this.isFavorited,
     required this.showPauseAction,
     required this.onPlay,
-    required this.onPlayNext,
     required this.onToggleFavorite,
-    this.compact = false,
     super.key,
   });
 
@@ -699,215 +570,34 @@ class _HeroActions extends StatelessWidget {
   final bool isFavorited;
   final bool showPauseAction;
   final VoidCallback onPlay;
-  final VoidCallback onPlayNext;
   final VoidCallback onToggleFavorite;
-  final bool compact;
 
   @override
-  Widget build(BuildContext context) {
-    final playLabel = AppI18n.t(
-      config,
-      showPauseAction ? 'player.action.pause' : 'song.action.play',
-    );
-    final favoriteLabel = AppI18n.t(
-      config,
-      isFavorited ? 'detail.favorite.remove_song' : 'detail.favorite.add_song',
-    );
-    if (compact) {
-      return Row(
-        key: const ValueKey<String>('song-detail-actions-row-compact'),
-        children: <Widget>[
-          FilledButton(
-            onPressed: onPlay,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            child: Text(playLabel),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: onToggleFavorite,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            child: Text(favoriteLabel),
-          ),
-        ],
-      );
-    }
-    final playNextLabel = AppI18n.t(config, 'song.action.play_next');
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: <Widget>[
-        FilledButton(onPressed: onPlay, child: Text(playLabel)),
-        OutlinedButton(onPressed: onPlayNext, child: Text(playNextLabel)),
-        OutlinedButton(onPressed: onToggleFavorite, child: Text(favoriteLabel)),
-      ],
-    );
-  }
-}
-
-class _MetaItem {
-  const _MetaItem({required this.label, required this.value, this.onTap});
-
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-}
-
-class _MetaLabel extends StatelessWidget {
-  const _MetaLabel(this.item, {this.compact = false});
-
-  final _MetaItem item;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    if (compact) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.36,
-          ),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          child: Text(
-            '${item.label} ${item.value}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontSize: 13,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      );
-    }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.48,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 12 : 14,
-          vertical: compact ? 10 : 9,
-        ),
+  Widget build(BuildContext context) => Wrap(
+    key: const ValueKey<String>('song-detail-actions-row-compact'),
+    spacing: 8,
+    runSpacing: 8,
+    children: <Widget>[
+      FilledButton(
+        onPressed: onPlay,
         child: Text(
-          '${item.label}：${item.value}',
-          maxLines: compact ? 2 : 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+          AppI18n.t(
+            config,
+            showPauseAction ? 'player.action.pause' : 'song.action.play',
           ),
         ),
       ),
-    );
-  }
-}
-
-class _MetaLine extends StatelessWidget {
-  const _MetaLine(this.item);
-
-  final _MetaItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final content = RichText(
-      text: TextSpan(
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontSize: 13,
-          color: theme.colorScheme.onSurface,
-          height: 1.25,
-        ),
-        children: <InlineSpan>[
-          TextSpan(
-            text: '${item.label}：',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontSize: 13,
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
+      OutlinedButton(
+        onPressed: onToggleFavorite,
+        child: Text(
+          AppI18n.t(
+            config,
+            isFavorited
+                ? 'detail.favorite.remove_song'
+                : 'detail.favorite.add_song',
           ),
-          TextSpan(text: item.value),
-        ],
+        ),
       ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-    if (item.onTap == null) {
-      return content;
-    }
-    return InkWell(
-      onTap: item.onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-        child: content,
-      ),
-    );
-  }
-}
-
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({
-    required this.label,
-    required this.value,
-    this.compact = false,
-    this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final bool compact;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Text(
-      '$label：$value',
-      maxLines: compact ? 2 : 1,
-      overflow: TextOverflow.ellipsis,
-      style:
-          (compact
-                  ? Theme.of(context).textTheme.bodyLarge
-                  : Theme.of(context).textTheme.titleMedium)
-              ?.copyWith(height: 1.3),
-    );
-    if (onTap == null) {
-      return child;
-    }
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: child,
-      ),
-    );
-  }
+    ],
+  );
 }

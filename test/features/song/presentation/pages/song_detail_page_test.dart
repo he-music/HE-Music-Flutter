@@ -23,6 +23,7 @@ import 'package:he_music_flutter/features/song/domain/entities/song_detail_secti
 import 'package:he_music_flutter/features/song/domain/entities/song_detail_request.dart';
 import 'package:he_music_flutter/features/song/domain/repositories/song_detail_repository.dart';
 import 'package:he_music_flutter/features/song/presentation/pages/song_detail_page.dart';
+import 'package:he_music_flutter/features/song/presentation/widgets/song_detail_info_cards.dart';
 import 'package:he_music_flutter/features/song/presentation/providers/song_detail_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/detail_loading_skeleton.dart';
@@ -536,6 +537,129 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'header artist and album navigate using the current song identity',
+    (tester) async {
+      Uri? destination;
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const SongDetailPage(
+              id: 'song-1',
+              platform: 'qq',
+              title: '测试歌曲',
+            ),
+          ),
+          for (final path in [AppRoutes.artistDetail, AppRoutes.albumDetail])
+            GoRoute(
+              path: path,
+              builder: (_, state) {
+                destination = state.uri;
+                return const Scaffold(body: Text('头部资源详情'));
+              },
+            ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        _buildTestApp(
+          repository: _FakeSongDetailRepository(),
+          playerController: playerController,
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.text('测试专辑'));
+      await tester.pumpAndSettle();
+      expect(destination!.path, AppRoutes.albumDetail);
+      expect(destination!.queryParameters['id'], 'album-1');
+      expect(destination!.queryParameters['platform'], 'qq');
+      router.pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('测试歌手'));
+      await tester.pumpAndSettle();
+      expect(destination!.path, AppRoutes.artistDetail);
+      expect(destination!.queryParameters['id'], 'artist-1');
+      expect(destination!.queryParameters['platform'], 'qq');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final scenario in [
+    (width: 240.0, scale: 1.0),
+    (width: 390.0, scale: 1.0),
+    (width: 320.0, scale: 2.0),
+  ]) {
+    testWidgets(
+      'header places text beside cover and actions below at ${scenario.width}/${scenario.scale}',
+      (tester) async {
+        await tester.binding.setSurfaceSize(Size(scenario.width, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final song = SongInfo.fromMap({
+          'id': 'song-1',
+          'name': '一首名字比较长但需要正常展示的歌曲名称',
+          'platform': 'qq',
+          'duration': 215,
+          'artists': [
+            {'id': 'artist-1', 'name': '名字比较长的测试歌手'},
+          ],
+          'album': {'id': 'album-1', 'name': '名字比较长的测试专辑'},
+        });
+        await tester.pumpWidget(
+          _buildTestApp(
+            repository: _FakeSongDetailRepository(
+              detail: SongDetailContent(song: song),
+            ),
+            playerController: playerController,
+            child: MediaQuery(
+              data: MediaQueryData(
+                textScaler: TextScaler.linear(scenario.scale),
+              ),
+              child: const SongDetailPage(
+                id: 'song-1',
+                platform: 'qq',
+                title: '测试歌曲',
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        final cover = tester.getRect(
+          find.byKey(const ValueKey<String>('song-detail-cover')),
+        );
+        final info = tester.getRect(
+          find.byKey(const ValueKey<String>('song-detail-info-compact')),
+        );
+        final hero = tester.getRect(
+          find.byKey(const ValueKey<String>('song-detail-hero-row')),
+        );
+        final actions = tester.getRect(
+          find.byKey(const ValueKey<String>('song-detail-actions-compact')),
+        );
+        final bar = tester.getRect(
+          find.byKey(const ValueKey<String>('song-detail-top-bar')),
+        );
+        expect(info.left, greaterThan(cover.right));
+        expect(info.top, cover.top);
+        expect(actions.top, greaterThan(hero.bottom));
+        expect(
+          bar.contains(tester.getCenter(find.byIcon(Icons.more_horiz_rounded))),
+          true,
+        );
+        expect(find.text('名字比较长的测试歌手'), findsOneWidget);
+        expect(find.text('名字比较长的测试专辑'), findsOneWidget);
+        expect(find.text('来源'), findsOneWidget);
+        expect(find.text('QQ音乐'), findsOneWidget);
+        expect(find.text('平台'), findsNothing);
+        expect(find.text('03:35'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('song detail keeps compact header on wide width', (tester) async {
     final repository = _FakeSongDetailRepository();
     await tester.binding.setSurfaceSize(const Size(320, 844));
@@ -660,6 +784,8 @@ void main() {
         find.byKey(const ValueKey<String>('song-detail-fields')),
         findsNothing,
       );
+      expect(find.text('来源'), findsOneWidget);
+      expect(find.text('03:35'), findsOneWidget);
       expect(find.text('相似歌曲'), findsOneWidget);
       expect(find.text('播放'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -708,12 +834,17 @@ void main() {
 
       expect(_richTextContains('测试歌手'), findsOneWidget);
       expect(_richTextContains('测试专辑'), findsOneWidget);
-      expect(_richTextContains('服务端时间：1704067200'), findsOneWidget);
-      expect(_richTextContains('自定义信息： 国语 '), findsOneWidget);
-      expect(_richTextContains('2024-01-01'), findsNothing);
+      expect(find.text('服务端时间'), findsOneWidget);
+      expect(find.text('1704067200'), findsOneWidget);
+      expect(find.text('自定义信息'), findsOneWidget);
+      expect(find.text(' 国语 '), findsOneWidget);
+      expect(find.text('2024-01-01'), findsNothing);
+      final first = find.byKey(const ValueKey<String>('song-detail-field-0'));
+      final second = find.byKey(const ValueKey<String>('song-detail-field-1'));
+      expect(tester.getTopLeft(first).dy, tester.getTopLeft(second).dy);
       expect(
-        tester.getTopLeft(_richTextContains('服务端时间：')).dy,
-        lessThan(tester.getTopLeft(_richTextContains('自定义信息：')).dy),
+        tester.getTopLeft(first).dx,
+        lessThan(tester.getTopLeft(second).dx),
       );
       expect(find.text('播放'), findsOneWidget);
     },
@@ -926,6 +1057,12 @@ void main() {
         find.byType(CustomScrollView),
       );
       expect(find.text('播放'), findsWidgets);
+      final initialHeader = tester.widget(
+        find.byKey(const ValueKey<String>('song-detail-header-compact')),
+      );
+      final initialCards = tester.widget<SongDetailInfoCards>(
+        find.byType(SongDetailInfoCards),
+      );
 
       playerController.updatePlaying(true);
       await tester.pump();
@@ -935,6 +1072,33 @@ void main() {
         same(initialScrollView),
       );
       expect(find.text('暂停'), findsOneWidget);
+      expect(
+        tester.widget(
+          find.byKey(const ValueKey<String>('song-detail-header-compact')),
+        ),
+        same(initialHeader),
+      );
+      expect(
+        tester.widget<SongDetailInfoCards>(find.byType(SongDetailInfoCards)),
+        same(initialCards),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SongDetailPage)),
+      );
+      (container.read(favoriteSongStatusProvider.notifier)
+              as _TestFavoriteSongStatusController)
+          .like('song-1');
+      await tester.pump();
+      expect(
+        tester.widget(
+          find.byKey(const ValueKey<String>('song-detail-header-compact')),
+        ),
+        same(initialHeader),
+      );
+      expect(
+        tester.widget<SongDetailInfoCards>(find.byType(SongDetailInfoCards)),
+        same(initialCards),
+      );
     },
   );
 
@@ -1153,7 +1317,7 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
     return <OnlinePlatform>[
       OnlinePlatform(
         id: 'qq',
-        name: 'QQ 音乐',
+        name: 'QQ音乐',
         shortName: 'QQ',
         status: 1,
         featureSupportFlag: PlatformFeatureSupportFlag.getSongDetail,

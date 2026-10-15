@@ -211,10 +211,11 @@ class _DetailHeroSkeleton extends StatelessWidget {
                       const SizedBox(height: 12),
                       const SkeletonBox(width: 112, height: 14, radius: 7),
                       const SizedBox(height: 16),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: const <Widget>[
                           SkeletonBox(width: 62, height: 22, radius: 11),
-                          SizedBox(width: 8),
                           SkeletonBox(width: 74, height: 22, radius: 11),
                         ],
                       ),
