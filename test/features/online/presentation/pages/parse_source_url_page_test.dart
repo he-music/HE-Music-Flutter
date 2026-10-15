@@ -109,6 +109,7 @@ void main() {
 
     expect(find.text('QQ  ·  歌曲'), findsOneWidget);
     expect(find.text('qq  ·  歌曲'), findsNothing);
+    expect(tester.widget<ListTile>(find.byType(ListTile)).onTap, isNull);
   });
 }
 

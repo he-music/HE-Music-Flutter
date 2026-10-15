@@ -918,9 +918,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 searchPlatformId != null;
             final config = ref.read(appConfigProvider);
             final platforms =
-                ref.read(onlinePlatformsProvider).value ??
+                ref.watch(onlinePlatformsProvider).value ??
                 const <OnlinePlatform>[];
-            final canViewDetail = canOnline && track != null;
+            final canViewDetail =
+                track != null &&
+                canOpenSongDetail(
+                  songId: track.id,
+                  platformId: onlinePlatformId,
+                  platforms: platforms,
+                );
             final canViewAlbum =
                 canOnline &&
                 hasValidAlbumId(track?.albumId) &&

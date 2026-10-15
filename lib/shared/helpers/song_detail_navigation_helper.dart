@@ -13,7 +13,11 @@ bool platformSupportsSongDetail({
   required String platformId,
   required List<OnlinePlatform> platforms,
 }) {
-  return isOnlineSongPlatform(platformId);
+  return _platformSupports(
+    platformId: platformId,
+    platforms: platforms,
+    featureFlag: PlatformFeatureSupportFlag.getSongDetail,
+  );
 }
 
 bool platformSupportsAlbumDetail({

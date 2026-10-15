@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/helpers/song_detail_navigation_helper.dart';
+import '../../domain/entities/online_platform.dart';
 import '../../../../shared/helpers/root_route_navigation_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/share_link_builder.dart';
@@ -14,6 +16,7 @@ void openSearchDetail({
   required SearchType type,
   required Map<String, dynamic> item,
   required String fallbackPlatformId,
+  required List<OnlinePlatform> platforms,
   required String localeCode,
   required ValueChanged<String> onError,
 }) {
@@ -23,6 +26,15 @@ void openSearchDetail({
     return;
   }
   final platform = resolveSearchPlatform(item, fallbackPlatformId);
+  if ((type == SearchType.song || type == SearchType.lyric) &&
+      !canOpenSongDetail(
+        songId: id,
+        platformId: platform,
+        platforms: platforms,
+      )) {
+    onError(AppI18n.tByLocaleCode(localeCode, 'search.invalid_detail'));
+    return;
+  }
   final title = displayTitle(type, item);
   switch (type) {
     case SearchType.playlist:

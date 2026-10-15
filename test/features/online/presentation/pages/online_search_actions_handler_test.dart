@@ -22,6 +22,7 @@ void main() {
                 item: {'id': 'book-1', 'name': '故事'},
                 fallbackPlatformId: 'qq',
                 localeCode: 'zh-CN',
+                platforms: const [],
                 onError: (message) => fail(message),
               ),
               child: const Text('Open'),

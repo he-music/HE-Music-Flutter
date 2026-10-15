@@ -273,6 +273,9 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                         type: type,
                         item: item,
                         fallbackPlatformId: _selectedPlatformId,
+                        platforms:
+                            ref.read(onlinePlatformsProvider).value ??
+                            const <OnlinePlatform>[],
                         localeCode: ref.read(appConfigProvider).localeCode,
                         onError: AppMessageService.showWarning,
                       ),

@@ -23,7 +23,7 @@ import 'package:he_music_flutter/core/network/token_refresh_interceptor.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_state.dart';
 import 'package:he_music_flutter/features/update/presentation/controllers/update_controller.dart';
 import 'package:he_music_flutter/features/update/presentation/providers/update_providers.dart';
-import 'package:he_music_flutter/features/song/presentation/widgets/song_relations_loading_skeleton.dart';
+import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
 
 void main() {
@@ -152,7 +152,12 @@ void main() {
               builder: (context, state) => Scaffold(
                 body: Column(
                   children: <Widget>[
-                    const SongRelationsLoadingSkeleton(),
+                    Builder(
+                      builder: (context) => TickerMode(
+                        enabled: !MediaQuery.disableAnimationsOf(context),
+                        child: const SkeletonBox(width: 104, height: 20),
+                      ),
+                    ),
                     UnderlineTab(
                       label: 'Tab',
                       selected: true,
@@ -180,11 +185,14 @@ void main() {
         );
         await tester.pump();
 
-        final skeleton = find.byType(SongRelationsLoadingSkeleton);
-        final fade = find.descendant(
+        final skeleton = find.byType(SkeletonBox);
+        final animationBuilder = find.descendant(
           of: skeleton,
-          matching: find.byType(FadeTransition),
+          matching: find.byType(AnimatedBuilder),
         );
+        final animation =
+            tester.widget<AnimatedBuilder>(animationBuilder).listenable
+                as Animation<double>;
         final underline = find.descendant(
           of: find.byType(UnderlineTab),
           matching: find.byType(AnimatedContainer),
@@ -210,11 +218,11 @@ void main() {
                 ? Duration.zero
                 : const Duration(milliseconds: 160),
           );
-          final opacity = tester.widget<FadeTransition>(fade).opacity.value;
+          final progress = animation.value;
           await tester.pump(const Duration(milliseconds: 700));
           expect(
-            tester.widget<FadeTransition>(fade).opacity.value,
-            systemReducedMotion ? opacity : isNot(opacity),
+            animation.value,
+            systemReducedMotion ? progress : isNot(progress),
           );
         }
         expect(tester.takeException(), isNull);

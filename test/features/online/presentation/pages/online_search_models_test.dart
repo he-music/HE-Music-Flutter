@@ -19,7 +19,7 @@ void main() {
     );
     expect(
       PlatformFeatureSupportFlag.searchLyricSong,
-      BigInt.parse('281474976710656'),
+      BigInt.parse('140737488355328'),
     );
   });
 }

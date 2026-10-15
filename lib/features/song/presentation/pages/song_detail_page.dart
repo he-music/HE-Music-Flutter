@@ -18,25 +18,23 @@ import '../../../../shared/helpers/platform_label_helper.dart';
 import '../../../../shared/helpers/song_artist_navigation_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
-import '../../../../shared/utils/publish_date_formatter.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
-import '../../../../shared/widgets/media_grid_card.dart';
-import '../../../../shared/widgets/online_song_list_item.dart';
-import '../../../../shared/widgets/video_item.dart';
+import '../../../../shared/helpers/root_route_navigation_helper.dart';
+import '../../../../shared/utils/cover_resolver.dart';
 import '../../../my/presentation/providers/favorite_song_status_providers.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/song_detail_content.dart';
-import '../../domain/entities/song_detail_relations.dart';
+import '../../domain/entities/song_detail_field.dart';
+import '../../domain/entities/song_detail_section.dart';
 import '../../domain/entities/song_detail_request.dart';
-import '../../domain/entities/song_detail_state.dart';
 import '../providers/song_detail_providers.dart';
-import '../widgets/song_relations_loading_skeleton.dart';
+import '../widgets/song_detail_section_sliver.dart';
 
 class SongDetailPage extends ConsumerStatefulWidget {
   const SongDetailPage({
@@ -55,12 +53,24 @@ class SongDetailPage extends ConsumerStatefulWidget {
 }
 
 class _SongDetailPageState extends ConsumerState<SongDetailPage> {
-  late final SongDetailRequest _request;
-  late final DetailSongActionHandler _songActions;
+  late SongDetailRequest _request;
+  late DetailSongActionHandler _songActions;
 
   @override
   void initState() {
     super.initState();
+    _initializeSong();
+  }
+
+  @override
+  void didUpdateWidget(covariant SongDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.id != widget.id || oldWidget.platform != widget.platform) {
+      _initializeSong();
+    }
+  }
+
+  void _initializeSong() {
     _request = SongDetailRequest(
       id: widget.id,
       platform: widget.platform,
@@ -78,11 +88,14 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
         title: widget.title,
       ),
     );
-    Future.microtask(
-      () => ref
-          .read(songDetailControllerProvider(_request.cacheKey).notifier)
-          .initialize(_request),
-    );
+    final request = _request;
+    Future.microtask(() {
+      if (mounted && request.cacheKey == _request.cacheKey) {
+        ref
+            .read(songDetailControllerProvider(request.cacheKey).notifier)
+            .initialize(request);
+      }
+    });
   }
 
   @override
@@ -107,13 +120,12 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
     }
 
     return DetailPageShell(
-      child: _buildBody(context: context, state: state, content: content),
+      child: _buildBody(context: context, content: content),
     );
   }
 
   Widget _buildBody({
     required BuildContext context,
-    required SongDetailState state,
     required SongDetailContent content,
   }) {
     ref.watch(
@@ -122,184 +134,173 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
       ),
     );
     final config = ref.read(appConfigProvider);
-    final theme = Theme.of(context);
     final song = content.song;
     final platforms =
         ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
     final coverUrl = _songActions.resolveCoverUrl(song);
-    final publishDate = _formatPublishDate(content.publishTime);
 
     const useWideLayout = false;
-    return SafeArea(
-      bottom: false,
-      child: CustomScrollView(
-        slivers: <Widget>[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Consumer(
-                builder: (context, ref, _) {
-                  final playback = ref.watch(
-                    playerControllerProvider.select((player) {
-                      final isCurrent = isCurrentSongTrack(
-                        player.displayTrack,
-                        song,
-                      );
-                      return (
-                        isCurrent: isCurrent,
-                        showPause: isCurrent && player.isPlaying,
-                      );
-                    }),
-                  );
-                  final isFavorited = ref.watch(
-                    favoriteSongStatusProvider.select(
-                      (favorite) => favorite.songKeys.contains(
-                        buildFavoriteSongKey(
-                          songId: song.id,
-                          platform: _songActions.resolvePlatformId(song),
+    return LayoutBuilder(
+      builder: (context, constraints) => SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: <Widget>[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final playback = ref.watch(
+                      playerControllerProvider.select((player) {
+                        final isCurrent = isCurrentSongTrack(
+                          player.displayTrack,
+                          song,
+                        );
+                        return (
+                          isCurrent: isCurrent,
+                          showPause: isCurrent && player.isPlaying,
+                        );
+                      }),
+                    );
+                    final isFavorited = ref.watch(
+                      favoriteSongStatusProvider.select(
+                        (favorite) => favorite.songKeys.contains(
+                          buildFavoriteSongKey(
+                            songId: song.id,
+                            platform: _songActions.resolvePlatformId(song),
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                  final onPrimaryPlay = playback.isCurrent
-                      ? () => ref
-                            .read(playerControllerProvider.notifier)
-                            .togglePlayPause()
-                      : () => _songActions.playSongNow(song);
-                  final morePlayActionLabel = AppI18n.t(
-                    config,
-                    playback.showPause
-                        ? 'player.action.pause'
-                        : 'song.action.play',
-                  );
-                  return _SongHeroCard(
-                    key: const ValueKey<String>('song-detail-header-compact'),
-                    config: config,
-                    useWideLayout: useWideLayout,
-                    title: song.title.trim().isEmpty
-                        ? widget.title
-                        : song.title,
-                    coverUrl: coverUrl,
-                    platformLabel: resolvePlatformLabel(
-                      song.platform.isEmpty ? widget.platform : song.platform,
-                      platforms: platforms,
-                    ),
-                    publishTime: publishDate.isEmpty ? '-' : publishDate,
-                    language: content.language.trim().isEmpty
-                        ? '-'
-                        : content.language,
-                    duration: formatDurationSecondsLabel('${song.duration}'),
-                    artistLabel: song.artist,
-                    albumLabel: (song.album?.name.trim().isEmpty ?? true)
-                        ? '-'
-                        : song.album!.name.trim(),
-                    isFavorited: isFavorited,
-                    showPauseAction: playback.showPause,
-                    onBack: () => context.appPopOrGo(),
-                    onPlay: onPrimaryPlay,
-                    onPlayNext: () => _songActions.playNextSong(song),
-                    onToggleFavorite: () =>
-                        _toggleSongFavorite(isFavorited, song: song),
-                    onMore: (anchorContext) => _songActions.showSongActions(
-                      context: anchorContext,
-                      song: song,
+                    );
+                    final onPrimaryPlay = playback.isCurrent
+                        ? () => ref
+                              .read(playerControllerProvider.notifier)
+                              .togglePlayPause()
+                        : () => _songActions.playSongNow(song);
+                    final morePlayActionLabel = AppI18n.t(
+                      config,
+                      playback.showPause
+                          ? 'player.action.pause'
+                          : 'song.action.play',
+                    );
+                    return _SongHeroCard(
+                      key: const ValueKey<String>('song-detail-header-compact'),
+                      config: config,
+                      useWideLayout: useWideLayout,
+                      title: song.title.trim().isEmpty
+                          ? widget.title
+                          : song.title,
                       coverUrl: coverUrl,
-                      playActionLabel: morePlayActionLabel,
+                      platformLabel: resolvePlatformLabel(
+                        song.platform.isEmpty ? widget.platform : song.platform,
+                        platforms: platforms,
+                      ),
+                      fields: content.fields,
+                      duration: formatDurationSecondsLabel('${song.duration}'),
+                      artistLabel: song.artist,
+                      albumLabel: (song.album?.name.trim().isEmpty ?? true)
+                          ? '-'
+                          : song.album!.name.trim(),
+                      isFavorited: isFavorited,
+                      showPauseAction: playback.showPause,
+                      onBack: () => context.appPopOrGo(),
                       onPlay: onPrimaryPlay,
-                      anchorContext: anchorContext,
-                      includeViewDetail: false,
-                      forceBottomSheet: true,
-                    ),
-                    onTapArtist: song.artists.isEmpty
-                        ? null
-                        : () => unawaited(
-                            openSongArtistSelection(
-                              context: context,
-                              platformId: _songActions.resolvePlatformId(song),
-                              artists: song.artists,
-                              onError: (message) =>
-                                  AppMessageService.showError(message),
-                            ),
-                          ),
-                    onTapAlbum: hasValidAlbumId(song.album?.id ?? '')
-                        ? () => context.push(
-                            Uri(
-                              path: AppRoutes.albumDetail,
-                              queryParameters: <String, String>{
-                                'id': song.album!.id,
-                                'platform': _songActions.resolvePlatformId(
+                      onPlayNext: () => _songActions.playNextSong(song),
+                      onToggleFavorite: () =>
+                          _toggleSongFavorite(isFavorited, song: song),
+                      onMore: (anchorContext) => _songActions.showSongActions(
+                        context: anchorContext,
+                        song: song,
+                        coverUrl: coverUrl,
+                        playActionLabel: morePlayActionLabel,
+                        onPlay: onPrimaryPlay,
+                        anchorContext: anchorContext,
+                        includeViewDetail: false,
+                        forceBottomSheet: true,
+                      ),
+                      onTapArtist: song.artists.isEmpty
+                          ? null
+                          : () => unawaited(
+                              openSongArtistSelection(
+                                context: context,
+                                platformId: _songActions.resolvePlatformId(
                                   song,
                                 ),
-                                'title': song.album!.name,
-                              },
-                            ).toString(),
-                          )
-                        : null,
-                  );
-                },
+                                artists: song.artists,
+                                onError: (message) =>
+                                    AppMessageService.showError(message),
+                              ),
+                            ),
+                      onTapAlbum: hasValidAlbumId(song.album?.id ?? '')
+                          ? () => context.push(
+                              Uri(
+                                path: AppRoutes.albumDetail,
+                                queryParameters: <String, String>{
+                                  'id': song.album!.id,
+                                  'platform': _songActions.resolvePlatformId(
+                                    song,
+                                  ),
+                                  'title': song.album!.name,
+                                },
+                              ).toString(),
+                            )
+                          : null,
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-          ..._buildRelationSlivers(
-            context: context,
-            config: config,
-            theme: theme,
-            relations: state.relations,
-            relationsLoading: state.relationsLoading,
-            relationsErrorMessage: state.relationsErrorMessage,
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+            ..._buildSectionSlivers(
+              sections: content.sections,
+              gridWidth: constraints.maxWidth - 32,
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
+        ),
       ),
     );
   }
 
-  List<Widget> _buildRelationSlivers({
-    required BuildContext context,
-    required AppConfigState config,
-    required ThemeData theme,
-    required SongDetailRelations? relations,
-    required bool relationsLoading,
-    required String? relationsErrorMessage,
+  List<Widget> _buildSectionSlivers({
+    required List<SongDetailSection> sections,
+    required double gridWidth,
   }) {
-    final data = relations ?? const SongDetailRelations();
+    final gridSpec = resolveAdaptiveMediaGridSpec(maxWidth: gridWidth);
     return <Widget>[
-      if (relationsErrorMessage != null)
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Text(
-              AppI18n.t(config, 'song.detail.relations_failed'),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.error,
-              ),
+      for (var index = 0; index < sections.length; index++)
+        if (!sections[index].isEmpty)
+          buildSongDetailSectionSliver(
+            key: ValueKey<String>('song-sections-${_request.cacheKey}-$index'),
+            section: sections[index],
+            gridSpec: gridSpec,
+            onTapSong: (songs, index) =>
+                _songActions.playAll(context, songs, startIndex: index),
+            onTapAlbum: (album) => context.pushAlbumDetail(
+              id: album.id,
+              platform: album.platform,
+              title: album.name,
             ),
+            onTapPlaylist: (playlist) => context.pushPlaylistDetail(
+              id: playlist.id,
+              platform: playlist.platform,
+              title: playlist.name,
+            ),
+            onTapMv: (mv) => _openResource(
+              AppRoutes.videoDetail,
+              mv.id,
+              mv.platform,
+              mv.name,
+            ),
+            onMoreSong: (song) => _songActions.showSongActions(
+              context: context,
+              song: song,
+              coverUrl: _songActions.resolveCoverUrl(song),
+            ),
+            onLikeSong: _songActions.toggleSongFavorite,
+            buildSongStatus: _buildSongStatus,
+            resolveSongCover: _songActions.resolveCoverUrl,
+            resolveCover: _resolveResourceCover,
           ),
-        ),
-      if (relationsLoading && relations == null)
-        const SliverToBoxAdapter(child: SongRelationsLoadingSkeleton()),
-      if (data.similarSongs.isNotEmpty)
-        ..._buildSongSectionSlivers(
-          title: AppI18n.t(config, 'song.detail.section.similar_songs'),
-          songs: data.similarSongs,
-        ),
-      if (data.otherVersionSongs.isNotEmpty)
-        ..._buildSongSectionSlivers(
-          title: AppI18n.t(config, 'song.detail.section.other_versions'),
-          songs: data.otherVersionSongs,
-        ),
-      if (data.relatedPlaylists.isNotEmpty)
-        SliverToBoxAdapter(
-          child: _PlaylistSection(
-            title: AppI18n.t(config, 'song.detail.section.related_playlists'),
-            playlists: data.relatedPlaylists,
-          ),
-        ),
-      if (data.relatedMvs.isNotEmpty)
-        ..._buildVideoSectionSlivers(
-          title: AppI18n.t(config, 'song.detail.section.related_videos'),
-          videos: data.relatedMvs,
-        ),
     ];
   }
 
@@ -326,116 +327,51 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
     }
   }
 
-  String _formatPublishDate(String raw) => formatPublishDateOrEmpty(raw);
-
-  /// 歌曲列表区域，使用 SliverList.builder 懒加载
-  List<Widget> _buildSongSectionSlivers({
-    required String title,
-    required List<SongInfo> songs,
-  }) {
-    return <Widget>[
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-        sliver: SliverMainAxisGroup(
-          slivers: <Widget>[
-            SliverToBoxAdapter(child: _SectionTitle(title: title)),
-            SliverList.builder(
-              itemCount: songs.length,
-              itemBuilder: (context, index) {
-                final song = songs[index];
-                final coverUrl = _songActions.resolveCoverUrl(song);
-                return Consumer(
-                  builder: (context, ref, _) {
-                    final isCurrent = ref.watch(
-                      playerControllerProvider.select(
-                        (player) =>
-                            isCurrentSongTrack(player.displayTrack, song),
-                      ),
-                    );
-                    final isLiked = ref.watch(
-                      favoriteSongStatusProvider.select(
-                        (favorite) => favorite.songKeys.contains(
-                          buildFavoriteSongKey(
-                            songId: song.id,
-                            platform: _songActions.resolvePlatformId(song),
-                          ),
-                        ),
-                      ),
-                    );
-                    return OnlineSongListItem(
-                      song: song,
-                      coverUrl: coverUrl.isEmpty ? null : coverUrl,
-                      subtitleText: song.displaySubtitle,
-                      isCurrent: isCurrent,
-                      isLiked: isLiked,
-                      onTap: () => _songActions.playAll(
-                        context,
-                        songs,
-                        startIndex: index,
-                      ),
-                      onLikeTap: () => _songActions.toggleSongFavorite(song),
-                      onMoreTap: () => _songActions.showSongActions(
-                        context: context,
-                        song: song,
-                        coverUrl: coverUrl,
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ],
+  Widget _buildSongStatus(
+    BuildContext context,
+    SongInfo song,
+    Widget Function(bool isLiked, bool isCurrent) builder,
+  ) => Consumer(
+    builder: (context, ref, _) {
+      final isCurrent = ref.watch(
+        playerControllerProvider.select(
+          (player) => isCurrentSongTrack(player.displayTrack, song),
         ),
-      ),
-    ];
-  }
+      );
+      final isLiked = ref.watch(
+        favoriteSongStatusProvider.select(
+          (favorite) => favorite.songKeys.contains(
+            buildFavoriteSongKey(
+              songId: song.id,
+              platform: _songActions.resolvePlatformId(song),
+            ),
+          ),
+        ),
+      );
+      return builder(isLiked, isCurrent);
+    },
+  );
 
-  /// 相关视频使用发现型网格，便于一行展示多个视频。
-  List<Widget> _buildVideoSectionSlivers({
-    required String title,
-    required List<MvInfo> videos,
-  }) {
-    const gridSpec = AdaptiveMediaGridSpec(
-      crossAxisCount: 2,
-      itemWidth: 0,
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      childAspectRatio: videoGridItemChildAspectRatio,
+  String _resolveResourceCover(String cover, String platform) =>
+      resolveTemplateCoverUrl(
+        platforms:
+            ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[],
+        platformId: platform,
+        cover: cover,
+        size: 300,
+      );
+
+  void _openResource(String path, String id, String platform, String title) {
+    context.push(
+      Uri(
+        path: path,
+        queryParameters: <String, String>{
+          'id': id,
+          'platform': platform,
+          'title': title,
+        },
+      ).toString(),
     );
-    return <Widget>[
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-        sliver: SliverMainAxisGroup(
-          slivers: <Widget>[
-            SliverToBoxAdapter(child: _SectionTitle(title: title)),
-            SliverGrid.builder(
-              itemCount: videos.length,
-              gridDelegate: gridSpec.sliverDelegate,
-              itemBuilder: (context, index) {
-                final video = videos[index];
-                return VideoGridItem(
-                  title: video.name,
-                  creator: video.creator,
-                  duration: '${video.duration}',
-                  coverUrl: video.cover,
-                  playCount: video.playCount,
-                  onTap: () => context.push(
-                    Uri(
-                      path: AppRoutes.videoDetail,
-                      queryParameters: <String, String>{
-                        'id': video.id,
-                        'platform': video.platform,
-                        'title': video.name,
-                      },
-                    ).toString(),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    ];
   }
 }
 
@@ -446,8 +382,7 @@ class _SongHeroCard extends StatelessWidget {
     required this.title,
     required this.coverUrl,
     required this.platformLabel,
-    required this.publishTime,
-    required this.language,
+    required this.fields,
     required this.duration,
     required this.artistLabel,
     required this.albumLabel,
@@ -468,8 +403,7 @@ class _SongHeroCard extends StatelessWidget {
   final String title;
   final String coverUrl;
   final String platformLabel;
-  final String publishTime;
-  final String language;
+  final List<SongDetailField> fields;
   final String duration;
   final String artistLabel;
   final String albumLabel;
@@ -499,14 +433,6 @@ class _SongHeroCard extends StatelessWidget {
       _MetaItem(
         label: AppI18n.t(config, 'song.detail.meta.platform'),
         value: platformLabel.isEmpty ? '-' : platformLabel,
-      ),
-      _MetaItem(
-        label: AppI18n.t(config, 'song.detail.meta.publish_time'),
-        value: publishTime,
-      ),
-      _MetaItem(
-        label: AppI18n.t(config, 'song.detail.meta.language'),
-        value: language,
       ),
       _MetaItem(
         label: AppI18n.t(config, 'song.detail.meta.duration'),
@@ -602,6 +528,15 @@ class _SongHeroCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   metaSection,
+                  if (fields.isNotEmpty)
+                    _HeroMetaSection(
+                      key: const ValueKey<String>('song-detail-fields'),
+                      meta: [
+                        for (final field in fields)
+                          _MetaItem(label: field.label, value: field.value),
+                      ],
+                      compact: true,
+                    ),
                 ],
               );
             },
@@ -726,7 +661,6 @@ class _HeroMetaSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (compact) {
       return Column(
-        key: const ValueKey<String>('song-detail-meta-lines-compact'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: meta
             .map(
@@ -973,78 +907,6 @@ class _InfoLine extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: child,
-      ),
-    );
-  }
-}
-
-class _PlaylistSection extends ConsumerWidget {
-  const _PlaylistSection({required this.title, required this.playlists});
-
-  final String title;
-  final List<PlaylistInfo> playlists;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final gridSpec = resolveAdaptiveMediaGridSpec(
-          maxWidth: constraints.maxWidth - 32,
-        );
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              _SectionTitle(title: title),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: playlists.length,
-                gridDelegate: gridSpec.sliverDelegate,
-                itemBuilder: (context, index) {
-                  final playlist = playlists[index];
-                  return MediaGridCard(
-                    kind: MediaGridCardKind.playlist,
-                    title: playlist.name,
-                    subtitle: playlist.creator,
-                    coverUrl: playlist.cover,
-                    playCount: playlist.playCount,
-                    onTap: () => context.push(
-                      Uri(
-                        path: AppRoutes.playlistDetail,
-                        queryParameters: <String, String>{
-                          'id': playlist.id,
-                          'platform': playlist.platform,
-                          'title': playlist.name,
-                        },
-                      ).toString(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }

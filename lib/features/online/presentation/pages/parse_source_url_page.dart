@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../domain/entities/online_platform.dart';
@@ -67,6 +68,16 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
     final result = _result;
     if (result == null) return;
 
+    if (result.type == 'song' &&
+        !canOpenSongDetail(
+          songId: result.id,
+          platformId: result.platform,
+          platforms:
+              ref.read(onlinePlatformsProvider).value ??
+              const <OnlinePlatform>[],
+        )) {
+      return;
+    }
     final route = switch (result.type) {
       'song' => AppRoutes.songDetail,
       'playlist' => AppRoutes.playlistDetail,
@@ -189,12 +200,19 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
     }
     final platformName = _platformDisplayName(result.platform, platforms);
 
+    final canOpen =
+        result.type != 'song' ||
+        canOpenSongDetail(
+          songId: result.id,
+          platformId: result.platform,
+          platforms: platforms,
+        );
     return Card(
       child: ListTile(
         title: Text('$platformName  ·  ${_typeName(result.type, localeCode)}'),
         subtitle: Text('ID: ${result.id}'),
-        trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: _navigateToDetail,
+        trailing: canOpen ? const Icon(Icons.chevron_right_rounded) : null,
+        onTap: canOpen ? _navigateToDetail : null,
       ),
     );
   }

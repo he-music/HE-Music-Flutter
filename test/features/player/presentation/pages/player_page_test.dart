@@ -1430,7 +1430,7 @@ void main() {
   });
 
   testWidgets(
-    'player more sheet hides album artist comments when platform flags are unsupported',
+    'player more sheet hides detail album artist comments when platform flags are unsupported',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(430, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1451,9 +1451,9 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.more_horiz_rounded));
       await tester.pumpAndSettle();
-      await _scrollPlayerMoreSheetTo(tester, 'View Detail');
+      await _scrollPlayerMoreSheetTo(tester, 'Watch MV');
 
-      expect(find.text('View Detail'), findsOneWidget);
+      expect(find.text('View Detail'), findsNothing);
       expect(find.text('View Album'), findsNothing);
       expect(find.text('View Artist'), findsNothing);
       expect(find.text('View Comments'), findsNothing);
@@ -3520,7 +3520,8 @@ Widget _buildPlayerTestApp({
               featureSupportFlag ??
               (PlatformFeatureSupportFlag.getAlbumInfo |
                   PlatformFeatureSupportFlag.getSingerInfo |
-                  PlatformFeatureSupportFlag.getCommentList),
+                  PlatformFeatureSupportFlag.getCommentList |
+                  PlatformFeatureSupportFlag.getSongDetail),
         ),
       ),
     ],

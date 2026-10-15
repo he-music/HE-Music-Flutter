@@ -4,7 +4,7 @@ import 'package:he_music_flutter/shared/helpers/song_detail_navigation_helper.da
 
 void main() {
   group('canOpenSongDetail', () {
-    test('returns true for online song without checking feature flag', () {
+    test('returns false when getSongDetail is absent', () {
       expect(
         canOpenSongDetail(
           songId: 'song-1',
@@ -19,9 +19,42 @@ void main() {
             ),
           ],
         ),
-        isTrue,
+        isFalse,
       );
     });
+    test(
+      'entry requires detail capability, available platform and song identity',
+      () {
+        for (final enabled in [false, true]) {
+          for (final available in [false, true]) {
+            for (final id in ['', 'song-1']) {
+              expect(
+                canOpenSongDetail(
+                  songId: id,
+                  platformId: 'qq',
+                  platforms: [
+                    OnlinePlatform(
+                      id: 'qq',
+                      name: 'QQ',
+                      shortName: 'QQ',
+                      status: available ? 1 : 0,
+                      featureSupportFlag: enabled
+                          ? PlatformFeatureSupportFlag.getSongDetail
+                          : BigInt.zero,
+                    ),
+                  ],
+                ),
+                enabled && available && id.isNotEmpty,
+              );
+            }
+          }
+        }
+        expect(
+          canOpenSongDetail(songId: 's', platformId: 'unknown', platforms: []),
+          false,
+        );
+      },
+    );
 
     test('returns false for local song', () {
       expect(

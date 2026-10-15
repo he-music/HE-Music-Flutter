@@ -98,12 +98,12 @@ void main() {
     },
   );
 
-  test('candidate capability bit 49 is distinct from song-by-lyric bit 48', () {
+  test('candidate capability bit 48 is distinct from song-by-lyric bit 47', () {
     final platform = OnlinePlatform.fromMap({
       'id': 'qq',
       'name': 'QQ',
       'status': 1,
-      'feature_support_flag': (BigInt.one << 49).toString(),
+      'feature_support_flag': (BigInt.one << 48).toString(),
     });
     expect(platform.supports(PlatformFeatureSupportFlag.searchLyric), isTrue);
     expect(
