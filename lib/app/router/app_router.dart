@@ -46,6 +46,7 @@ import '../../features/settings/domain/settings_catalog.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/settings/presentation/pages/skin_selection_page.dart';
 import '../../features/song/presentation/pages/song_detail_page.dart';
+import '../../features/sheet_music/presentation/pages/sheet_music_page.dart';
 import '../../features/update/presentation/pages/release_history_page.dart';
 import '../../features/settings/presentation/pages/about_page.dart';
 import '../../features/settings/presentation/pages/account_password_page.dart';
@@ -267,6 +268,23 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
     builder: (context, state) => SongDetailPage(
       id: _readQuery(state, 'id'),
       platform: _readQuery(state, 'platform'),
+      title: _readOptionalQuery(state, 'title') ?? '',
+    ),
+  ),
+  _rootContentRoute(
+    path: AppRoutes.songSheetMusic,
+    builder: (context, state) => SheetMusicListPage(
+      platform: _readQuery(state, 'platform'),
+      songId: _readQuery(state, 'song_id'),
+      title: _readOptionalQuery(state, 'title') ?? '',
+    ),
+  ),
+  _rootContentRoute(
+    path: AppRoutes.sheetMusicDetail,
+    builder: (context, state) => SheetMusicDetailPage(
+      platform: _readQuery(state, 'platform'),
+      songId: _readQuery(state, 'song_id'),
+      id: _readQuery(state, 'id'),
       title: _readOptionalQuery(state, 'title') ?? '',
     ),
   ),

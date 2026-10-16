@@ -1138,6 +1138,29 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                       );
                     },
                   ),
+                if (track != null &&
+                    canListSongSheetMusic(
+                      songId: track.id,
+                      platformId: onlinePlatformId,
+                      platforms: platforms,
+                    ))
+                  PlayerSheetActionTile(
+                    icon: Icons.library_music_outlined,
+                    title: AppI18n.t(config, 'song.action.view_sheet_music'),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _goToDetail(
+                        Uri(
+                          path: AppRoutes.songSheetMusic,
+                          queryParameters: {
+                            'platform': onlinePlatformId,
+                            'song_id': track.id,
+                            'title': track.title,
+                          },
+                        ).toString(),
+                      );
+                    },
+                  ),
                 if (canViewComments)
                   PlayerSheetActionTile(
                     icon: Icons.chat_bubble_outline_rounded,

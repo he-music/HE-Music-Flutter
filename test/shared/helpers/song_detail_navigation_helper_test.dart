@@ -131,4 +131,69 @@ void main() {
       );
     });
   });
+  test('sheet music list and detail capabilities are independent', () {
+    for (final platformId in ['qq', 'netease', 'future']) {
+      for (final list in [false, true]) {
+        for (final detail in [false, true]) {
+          for (final status in [0, 1]) {
+            final platforms = [
+              OnlinePlatform(
+                id: platformId,
+                name: platformId,
+                shortName: platformId,
+                status: status,
+                featureSupportFlag:
+                    (list
+                        ? PlatformFeatureSupportFlag.listSheetMusic
+                        : BigInt.zero) |
+                    (detail
+                        ? PlatformFeatureSupportFlag.getSheetMusic
+                        : BigInt.zero),
+              ),
+            ];
+            expect(
+              canListSongSheetMusic(
+                songId: '001',
+                platformId: platformId,
+                platforms: platforms,
+              ),
+              list && status == 1,
+            );
+            expect(
+              canGetSongSheetMusic(
+                songId: '001',
+                platformId: platformId,
+                platforms: platforms,
+              ),
+              detail && status == 1,
+            );
+            expect(
+              canListSongSheetMusic(
+                songId: ' ',
+                platformId: platformId,
+                platforms: platforms,
+              ),
+              false,
+            );
+            expect(
+              canGetSongSheetMusic(
+                songId: '',
+                platformId: platformId,
+                platforms: platforms,
+              ),
+              false,
+            );
+            expect(
+              canListSongSheetMusic(
+                songId: '001',
+                platformId: 'local',
+                platforms: platforms,
+              ),
+              false,
+            );
+          }
+        }
+      }
+    }
+  });
 }

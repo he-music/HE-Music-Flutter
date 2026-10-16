@@ -48,6 +48,8 @@ class PlatformFeatureSupportFlag {
   static final BigInt getSearchDefault = BigInt.one << 46;
   static final BigInt searchLyricSong = BigInt.one << 47;
   static final BigInt searchLyric = BigInt.one << 48;
+  static final BigInt listSheetMusic = BigInt.one << 49;
+  static final BigInt getSheetMusic = BigInt.one << 50;
 }
 
 class OnlinePlatform {

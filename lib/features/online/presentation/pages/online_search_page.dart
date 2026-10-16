@@ -871,6 +871,19 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
             )
           : null,
       onViewComment: canViewComment ? () => _openCommentPage(song) : null,
+      onViewSheetMusic:
+          canListSongSheetMusic(
+            songId: song.id,
+            platformId: platform,
+            platforms: platforms,
+          )
+          ? () => openSongSheetMusicPage(
+              context: context,
+              songId: song.id,
+              platformId: platform,
+              title: song.title,
+            )
+          : null,
       albumActionLabel: canViewAlbum
           ? AppI18n.t(config, 'player.action.view_album')
           : null,

@@ -9,6 +9,8 @@ void main() {
     PlatformFeatureSupportFlag.getSearchDefault: 70368744177664,
     PlatformFeatureSupportFlag.searchLyricSong: 140737488355328,
     PlatformFeatureSupportFlag.searchLyric: 281474976710656,
+    PlatformFeatureSupportFlag.listSheetMusic: 562949953421312,
+    PlatformFeatureSupportFlag.getSheetMusic: 1125899906842624,
   };
   for (final entry in capabilities.entries) {
     test('JSON capability ${entry.value} controls only its high bit', () {
@@ -35,7 +37,7 @@ void main() {
   test('combined JSON high and low bits survive numeric parsing', () {
     final platform = OnlinePlatform.fromMap(
       jsonDecode(
-            '{"id":"qq","name":"QQ","status":1,"feature_support_flag":545357767376898}',
+            '{"id":"qq","name":"QQ","status":1,"feature_support_flag":2234207627640834}',
           )
           as Map<String, dynamic>,
     );

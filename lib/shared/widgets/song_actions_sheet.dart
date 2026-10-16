@@ -78,6 +78,7 @@ Future<void> showSongActionsSheet({
   required VoidCallback onWatchMv,
   VoidCallback? onViewDetail,
   VoidCallback? onViewComment,
+  VoidCallback? onViewSheetMusic,
   String? albumActionLabel,
   VoidCallback? onViewAlbum,
   String? artistActionLabel,
@@ -152,6 +153,15 @@ Future<void> showSongActionsSheet({
           ),
           iconRole: AppSkinIconRole.songComments,
         ),
+      if (onViewSheetMusic != null)
+        AdaptiveActionMenuItem<VoidCallback>(
+          value: onViewSheetMusic,
+          label: AppI18n.tByLocaleCode(
+            localeCode,
+            'song.action.view_sheet_music',
+          ),
+          icon: Icons.library_music_outlined,
+        ),
       if (albumActionLabel != null && onViewAlbum != null)
         AdaptiveActionMenuItem<VoidCallback>(
           value: onViewAlbum,
@@ -225,6 +235,7 @@ Future<void> showSongActionsSheet({
           onWatchMv: onWatchMv,
           onViewDetail: onViewDetail,
           onViewComment: onViewComment,
+          onViewSheetMusic: onViewSheetMusic,
           albumActionLabel: albumActionLabel,
           onViewAlbum: onViewAlbum,
           artistActionLabel: artistActionLabel,
@@ -295,6 +306,7 @@ class _SongActionsSheetBody extends StatelessWidget {
     required this.onWatchMv,
     required this.onViewDetail,
     required this.onViewComment,
+    required this.onViewSheetMusic,
     required this.albumActionLabel,
     required this.onViewAlbum,
     required this.artistActionLabel,
@@ -321,6 +333,7 @@ class _SongActionsSheetBody extends StatelessWidget {
   final VoidCallback onWatchMv;
   final VoidCallback? onViewDetail;
   final VoidCallback? onViewComment;
+  final VoidCallback? onViewSheetMusic;
   final String? albumActionLabel;
   final VoidCallback? onViewAlbum;
   final String? artistActionLabel;
@@ -451,6 +464,20 @@ class _SongActionsSheetBody extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).pop();
                   onViewComment?.call();
+                },
+              ),
+            if (onViewSheetMusic != null)
+              ListTile(
+                leading: const Icon(Icons.library_music_outlined),
+                title: Text(
+                  AppI18n.tByLocaleCode(
+                    localeCode,
+                    'song.action.view_sheet_music',
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onViewSheetMusic?.call();
                 },
               ),
             if (albumActionLabel != null && onViewAlbum != null)

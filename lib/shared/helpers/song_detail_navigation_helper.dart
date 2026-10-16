@@ -53,6 +53,30 @@ bool platformSupportsSongComment({
   );
 }
 
+bool canListSongSheetMusic({
+  required String songId,
+  required String platformId,
+  required List<OnlinePlatform> platforms,
+}) =>
+    songId.trim().isNotEmpty &&
+    _platformSupports(
+      platformId: platformId,
+      platforms: platforms,
+      featureFlag: PlatformFeatureSupportFlag.listSheetMusic,
+    );
+
+bool canGetSongSheetMusic({
+  required String songId,
+  required String platformId,
+  required List<OnlinePlatform> platforms,
+}) =>
+    songId.trim().isNotEmpty &&
+    _platformSupports(
+      platformId: platformId,
+      platforms: platforms,
+      featureFlag: PlatformFeatureSupportFlag.getSheetMusic,
+    );
+
 bool canOpenSongDetail({
   required String songId,
   required String platformId,
@@ -94,4 +118,22 @@ void openSongDetailPage({
     },
   );
   context.push(uri.toString());
+}
+
+void openSongSheetMusicPage({
+  required BuildContext context,
+  required String songId,
+  required String platformId,
+  required String title,
+}) {
+  context.push(
+    Uri(
+      path: AppRoutes.songSheetMusic,
+      queryParameters: {
+        'platform': platformId,
+        'song_id': songId,
+        'title': title,
+      },
+    ).toString(),
+  );
 }
