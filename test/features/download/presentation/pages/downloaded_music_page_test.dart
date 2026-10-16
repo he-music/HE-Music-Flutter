@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:he_music_flutter/app/router/app_routes.dart';
+import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
+import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_glass_mode.dart';
@@ -156,6 +160,45 @@ void main() {
     expect(player.appended?.id, 'song-1');
   });
 
+  for (final supported in [true, false]) {
+    testWidgets('已下载歌曲曲谱入口遵循平台能力 $supported 并携带原歌曲信息', (tester) async {
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (context, state) => const DownloadPage()),
+          GoRoute(
+            path: AppRoutes.songSheetMusic,
+            builder: (context, state) => const Text('曲谱目标页'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        _app(_Player(), router: router, sheetMusic: supported),
+      );
+      await tester.pumpAndSettle();
+      // 音频文件失效不影响按在线歌曲身份查看曲谱。
+      await ProviderScope.containerOf(
+        tester.element(find.byType(DownloadPage)),
+      ).read(onlinePlatformsProvider.future);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
+      await tester.pumpAndSettle();
+      expect(find.text('查看曲谱'), supported ? findsOneWidget : findsNothing);
+      if (supported) {
+        await tester.tap(find.text('查看曲谱'));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.path, AppRoutes.songSheetMusic);
+        expect(router.state.uri.queryParameters, {
+          'platform': 'qq',
+          'song_id': 'song-1',
+          'title': '失效歌曲',
+        });
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets('playback progress does not rebuild downloaded song rows', (
     tester,
   ) async {
@@ -193,30 +236,61 @@ Widget _app(
   String locale = 'zh',
   double textScale = 1,
   _Tasks? tasks,
+  GoRouter? router,
+  bool sheetMusic = false,
 }) => ProviderScope(
   overrides: [
     appConfigProvider.overrideWith(() => _Config(locale)),
     playerControllerProvider.overrideWith(() => player),
     downloadedMusicRepositoryProvider.overrideWithValue(_Repository()),
     downloadControllerProvider.overrideWith(() => tasks ?? _Tasks()),
-  ],
-  child: MaterialApp(
-    locale: Locale(locale),
-    supportedLocales: const [Locale('zh'), Locale('en')],
-    localizationsDelegates: const [
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(
-        context,
-      ).copyWith(textScaler: TextScaler.linear(textScale)),
-      child: child!,
+    onlinePlatformsProvider.overrideWith(
+      () => _Platforms(sheetMusic: sheetMusic),
     ),
-    home: const DownloadPage(),
-  ),
+  ],
+  child: router != null
+      ? MaterialApp.router(
+          locale: Locale(locale),
+          supportedLocales: const [Locale('zh'), Locale('en')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          routerConfig: router,
+        )
+      : MaterialApp(
+          locale: Locale(locale),
+          supportedLocales: const [Locale('zh'), Locale('en')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          home: const DownloadPage(),
+        ),
 );
+
+class _Platforms extends OnlinePlatformsController {
+  _Platforms({required this.sheetMusic});
+
+  final bool sheetMusic;
+
+  @override
+  Future<List<OnlinePlatform>> build() async => [
+    OnlinePlatform(
+      id: 'qq',
+      name: 'QQ',
+      shortName: 'QQ',
+      status: 1,
+      featureSupportFlag: sheetMusic
+          ? PlatformFeatureSupportFlag.listSheetMusic
+          : BigInt.zero,
+    ),
+  ];
+}
 
 class _Tasks extends DownloadController {
   DownloadTask? redownloaded;

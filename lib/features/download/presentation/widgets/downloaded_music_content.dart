@@ -7,8 +7,11 @@ import '../../../../app/app_message_service.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_list_item.dart';
+import '../../../online/domain/entities/online_platform.dart';
+import '../../../online/presentation/providers/online_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/downloaded_song.dart';
@@ -163,6 +166,15 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
   }
 
   Future<void> _showActions(DownloadedSong song) async {
+    final songId = song.task.songId?.trim() ?? '';
+    final platform = song.task.platform?.trim() ?? '';
+    final platforms =
+        ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
+    final canViewSheetMusic = canListSongSheetMusic(
+      songId: songId,
+      platformId: platform,
+      platforms: platforms,
+    );
     final action = await showAppThemedBottomSheet<String>(
       context: context,
       fitContent: true,
@@ -174,6 +186,12 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
               leading: const Icon(Icons.queue_music_rounded),
               title: Text(text('download.library.add_to_queue')),
               onTap: () => Navigator.of(sheetContext).pop('queue'),
+            ),
+          if (canViewSheetMusic)
+            ListTile(
+              leading: const Icon(Icons.library_music_outlined),
+              title: Text(text('song.action.view_sheet_music')),
+              onTap: () => Navigator.of(sheetContext).pop('sheet_music'),
             ),
           ListTile(
             enabled: !_busySongs.contains(song.id),
@@ -201,6 +219,13 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
               text('download.library.added_to_queue'),
             );
           }
+        case 'sheet_music':
+          openSongSheetMusicPage(
+            context: context,
+            songId: songId,
+            platformId: platform,
+            title: song.task.title,
+          );
         case 'redownload':
           if (!_busySongs.add(song.id)) return;
           try {

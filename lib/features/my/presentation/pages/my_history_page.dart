@@ -316,6 +316,19 @@ class _HistoryList extends ConsumerWidget {
               title: song.title,
             )
           : null,
+      onViewSheetMusic:
+          canListSongSheetMusic(
+            songId: item.id,
+            platformId: platform,
+            platforms: platforms,
+          )
+          ? () => openSongSheetMusicPage(
+              context: context,
+              songId: item.id,
+              platformId: platform,
+              title: song.title,
+            )
+          : null,
       onCopySongName: () => unawaited(
         _copyText(
           context: context,

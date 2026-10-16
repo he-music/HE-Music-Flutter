@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/features/my/domain/entities/favorite_song_status_state.dart';
@@ -210,6 +212,63 @@ void main() {
     expect(find.text('暂无播放历史'), findsOneWidget);
   });
 
+  for (final supported in [true, false]) {
+    testWidgets('历史歌曲曲谱入口遵循平台能力 $supported 并携带歌曲信息', (tester) async {
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const MyHistoryPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.songSheetMusic,
+            builder: (context, state) => const Text('曲谱目标页'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        _buildTestApp(
+          items: const [
+            PlayerHistoryItem(
+              id: 'song-1',
+              title: '夜航星',
+              artist: '不才',
+              album: '',
+              artworkUrl: '',
+              url: '',
+              playedAt: 1711711711,
+              platform: 'qq',
+            ),
+          ],
+          router: router,
+          sheetMusic: supported,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await ProviderScope.containerOf(
+        tester.element(find.byType(MyHistoryPage)),
+      ).read(onlinePlatformsProvider.future);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.text('查看曲谱'), supported ? findsOneWidget : findsNothing);
+      if (supported) {
+        await tester.ensureVisible(find.text('查看曲谱'));
+        await tester.tap(find.text('查看曲谱'));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.path, AppRoutes.songSheetMusic);
+        expect(router.state.uri.queryParameters, {
+          'platform': 'qq',
+          'song_id': 'song-1',
+          'title': '夜航星',
+        });
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets('online history item opens unified song actions sheet', (
     tester,
   ) async {
@@ -244,6 +303,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _buildTestApp(
+        sheetMusic: true,
         items: const <PlayerHistoryItem>[
           PlayerHistoryItem(
             id: 'local-1',
@@ -267,6 +327,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('下载'), findsNothing);
+    expect(find.text('查看曲谱'), findsNothing);
   });
 }
 
@@ -282,7 +343,11 @@ PlayerHistoryItem _historyItem(int index) => PlayerHistoryItem(
   platform: 'local',
 );
 
-Widget _buildTestApp({required List<PlayerHistoryItem> items}) {
+Widget _buildTestApp({
+  required List<PlayerHistoryItem> items,
+  GoRouter? router,
+  bool sheetMusic = false,
+}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
@@ -292,16 +357,26 @@ Widget _buildTestApp({required List<PlayerHistoryItem> items}) {
       favoriteSongStatusProvider.overrideWith(
         _TestFavoriteSongStatusController.new,
       ),
-      onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
+      onlinePlatformsProvider.overrideWith(
+        () => _TestOnlinePlatformsController(sheetMusic: sheetMusic),
+      ),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
     ],
-    child: MaterialApp(
-      theme: ThemeData(platform: TargetPlatform.android),
-      locale: const Locale('zh'),
-      supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: const MyHistoryPage(),
-    ),
+    child: router != null
+        ? MaterialApp.router(
+            theme: ThemeData(platform: TargetPlatform.android),
+            locale: const Locale('zh'),
+            supportedLocales: const [Locale('zh'), Locale('en')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            routerConfig: router,
+          )
+        : MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.android),
+            locale: const Locale('zh'),
+            supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            home: const MyHistoryPage(),
+          ),
   );
 }
 
@@ -344,6 +419,9 @@ class _TestFavoriteSongStatusController extends FavoriteSongStatusController {
 }
 
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
+  _TestOnlinePlatformsController({this.sheetMusic = false});
+
+  final bool sheetMusic;
   @override
   Future<List<OnlinePlatform>> build() async {
     return <OnlinePlatform>[
@@ -352,7 +430,11 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
         name: 'QQ',
         shortName: 'QQ',
         status: 1,
-        featureSupportFlag: PlatformFeatureSupportFlag.getCommentList,
+        featureSupportFlag:
+            PlatformFeatureSupportFlag.getCommentList |
+            (sheetMusic
+                ? PlatformFeatureSupportFlag.listSheetMusic
+                : BigInt.zero),
       ),
     ];
   }

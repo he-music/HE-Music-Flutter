@@ -960,6 +960,19 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
               title: title,
             )
           : null,
+      onViewSheetMusic:
+          canListSongSheetMusic(
+            songId: song.id,
+            platformId: platformId,
+            platforms: platforms,
+          )
+          ? () => openSongSheetMusicPage(
+              context: context,
+              songId: song.id,
+              platformId: platformId,
+              title: title,
+            )
+          : null,
       albumActionLabel: canViewAlbum
           ? AppI18n.t(config, 'player.action.view_album')
           : null,

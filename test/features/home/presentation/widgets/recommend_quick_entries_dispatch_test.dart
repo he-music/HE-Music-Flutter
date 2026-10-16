@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -105,6 +106,70 @@ void main() {
     expect(player.currentRadioPlatform, 'qq');
     expect(player.queue.single.id, 'radio-song');
   });
+
+  for (final page in HomePageKind.values) {
+    for (final supported in [true, false]) {
+      testWidgets('首页 $page 曲谱入口遵循平台能力 $supported 并携带歌曲信息', (tester) async {
+        final router = GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (context, state) =>
+                  const Scaffold(body: DiscoverHomeTab()),
+            ),
+            GoRoute(
+              path: AppRoutes.songSheetMusic,
+              builder: (context, state) => const Text('曲谱目标页'),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWith(_TestAppConfigController.new),
+              homePageControllerProvider.overrideWith(
+                () => _TestSongHomePageController(page),
+              ),
+              onlinePlatformsProvider.overrideWith(
+                () => _TestOnlinePlatformsController(sheetMusic: supported),
+              ),
+              searchDefaultPlaceholderProvider.overrideWith(
+                _TestSearchPlaceholderController.new,
+              ),
+              playerControllerProvider.overrideWith(
+                _RecordingPlayerController.new,
+              ),
+            ],
+            child: MaterialApp.router(
+              locale: const Locale('zh'),
+              supportedLocales: const [Locale('zh'), Locale('en')],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              theme: ThemeData(platform: TargetPlatform.android),
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
+        await tester.pumpAndSettle();
+        expect(find.text('查看曲谱'), supported ? findsOneWidget : findsNothing);
+        if (supported) {
+          await tester.ensureVisible(find.text('查看曲谱'));
+          await tester.tap(find.text('查看曲谱'));
+          await tester.pumpAndSettle();
+          expect(router.state.uri.path, AppRoutes.songSheetMusic);
+          expect(router.state.uri.queryParameters, {
+            'platform': 'qq',
+            'song_id': 'song-1',
+            'title': '首页歌曲',
+          });
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      });
+    }
+  }
 }
 
 class _TestAppConfigController extends AppConfigController {
@@ -180,7 +245,51 @@ class _TestHomePageController extends HomePageController {
   Future<void> initialize() async {}
 }
 
+class _TestSongHomePageController extends _TestHomePageController {
+  _TestSongHomePageController(this.page);
+
+  final HomePageKind page;
+
+  @override
+  HomePageState build() {
+    final content = HomeContentState.initial.copyWith(
+      initialized: true,
+      selectedPlatformId: 'qq',
+      sections: const [
+        HomePageSection(
+          sectionTypeCode: 2,
+          sectionType: HomeSectionType.newSongs,
+          resourceType: HomeResourceType.song,
+          title: '推荐单曲',
+          songs: [
+            SongInfo(
+              id: 'song-1',
+              name: '首页歌曲',
+              subtitle: '',
+              duration: 200,
+              mvId: '',
+              album: null,
+              artists: [],
+              links: [],
+              platform: 'qq',
+              cover: '',
+            ),
+          ],
+        ),
+      ],
+    );
+    return super.build().copyWith(
+      selectedPage: page,
+      recommend: content,
+      discover: content,
+    );
+  }
+}
+
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
+  _TestOnlinePlatformsController({this.sheetMusic = false});
+
+  final bool sheetMusic;
   @override
   Future<List<OnlinePlatform>> build() async {
     return <OnlinePlatform>[
@@ -189,7 +298,12 @@ class _TestOnlinePlatformsController extends OnlinePlatformsController {
         name: 'QQ 音乐',
         shortName: 'QQ',
         status: 1,
-        featureSupportFlag: PlatformFeatureSupportFlag.getRecommendPage,
+        featureSupportFlag:
+            PlatformFeatureSupportFlag.getRecommendPage |
+            PlatformFeatureSupportFlag.getDiscoverPage |
+            (sheetMusic
+                ? PlatformFeatureSupportFlag.listSheetMusic
+                : BigInt.zero),
       ),
     ];
   }
