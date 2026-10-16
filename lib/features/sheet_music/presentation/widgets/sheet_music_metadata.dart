@@ -17,6 +17,17 @@ String sheetMusicTitle(SheetMusicInfo sheet, String locale) =>
     ? sheet.songName
     : AppI18n.tByLocaleCode(locale, 'sheet_music.untitled');
 
+String _sheetMusicKey(String originalKey, String locale) {
+  final value = originalKey.trim();
+  final key = value.endsWith('调')
+      ? value.substring(0, value.length - 1).trimRight()
+      : value;
+  if (key.isEmpty) return '';
+  return AppI18n.formatByLocaleCode(locale, 'sheet_music.key_short', {
+    'key': key,
+  });
+}
+
 class SheetMusicMetadata extends StatelessWidget {
   const SheetMusicMetadata({
     required this.sheet,
@@ -35,15 +46,9 @@ class SheetMusicMetadata extends StatelessWidget {
         '${AppI18n.tByLocaleCode(locale, key)}$value';
     final tags = sheetMusicTags(sheet);
     if (!showDetail) {
-      final originalKey = sheet.originalKey.trim();
-      final key = originalKey.endsWith('调')
-          ? originalKey.substring(0, originalKey.length - 1).trimRight()
-          : originalKey;
+      final key = _sheetMusicKey(sheet.originalKey, locale);
       final summary = [
-        if (key.isNotEmpty)
-          AppI18n.formatByLocaleCode(locale, 'sheet_music.key_short', {
-            'key': key,
-          }),
+        if (key.isNotEmpty) key,
         if (sheet.pageCount > 0)
           AppI18n.formatByLocaleCode(locale, 'sheet_music.pages_short', {
             'count': '${sheet.pageCount}',
@@ -54,14 +59,14 @@ class SheetMusicMetadata extends StatelessWidget {
         style: Theme.of(context).textTheme.bodyMedium,
       );
     }
+    final key = _sheetMusicKey(sheet.originalKey, locale);
     final lines = [
       if (sheet.songName.isNotEmpty &&
           sheet.songName != sheetMusicTitle(sheet, locale))
         sheet.songName,
       if (sheet.uploader.isNotEmpty)
         field('sheet_music.uploader', sheet.uploader),
-      if (sheet.originalKey.isNotEmpty)
-        field('sheet_music.original_key', sheet.originalKey),
+      if (key.isNotEmpty) field('sheet_music.original_key', key),
       if (sheet.bpm > 0) field('sheet_music.bpm', '${sheet.bpm} BPM'),
       if (sheet.pageCount > 0)
         field('sheet_music.page_count', '${sheet.pageCount}'),

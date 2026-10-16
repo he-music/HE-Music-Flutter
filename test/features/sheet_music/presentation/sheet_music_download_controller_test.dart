@@ -48,6 +48,30 @@ void main() {
   );
 
   test(
+    'cancelling after a successful save returns no new completion',
+    () async {
+      final repository = _Repository();
+      final container = ProviderContainer(
+        overrides: [
+          sheetMusicDownloadRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      final provider = sheetMusicDownloadProvider(request);
+      final subscription = container.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
+      final controller = container.read(provider.notifier);
+      final saved = await controller.download(sheet);
+      expect(saved?.finished, true);
+      expect(saved?.savedCount, 3);
+      repository.cancelSelection = true;
+      expect(await controller.download(sheet, pageIndex: 0), isNull);
+      expect(container.read(provider), same(saved));
+      expect(repository.pages, [0, 1, 2]);
+    },
+  );
+
+  test(
     'duplicate presses do not start another task and current-page save keeps original page index',
     () async {
       final pending = Completer<void>();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 
 class SheetMusicListSkeleton extends StatelessWidget {
@@ -15,32 +16,35 @@ class SheetMusicListSkeleton extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       itemCount: 6,
       separatorBuilder: (_, _) => const Divider(height: 24),
-      itemBuilder: (_, _) => const SizedBox(
-        height: 96,
-        child: Row(
-          children: [
-            SkeletonBox(width: 56, height: 72),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SkeletonBox(width: double.infinity, height: 16),
-                  SizedBox(height: 10),
-                  FractionallySizedBox(
-                    widthFactor: 0.72,
-                    child: SkeletonBox(width: double.infinity, height: 12),
-                  ),
-                  SizedBox(height: 8),
-                  FractionallySizedBox(
-                    widthFactor: 0.46,
-                    child: SkeletonBox(width: double.infinity, height: 12),
-                  ),
-                ],
+      itemBuilder: (_, _) => const AppSkinContentSurface(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: SizedBox(
+          height: 96,
+          child: Row(
+            children: [
+              SkeletonBox(width: 56, height: 72),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonBox(width: double.infinity, height: 16),
+                    SizedBox(height: 10),
+                    FractionallySizedBox(
+                      widthFactor: 0.72,
+                      child: SkeletonBox(width: double.infinity, height: 12),
+                    ),
+                    SizedBox(height: 8),
+                    FractionallySizedBox(
+                      widthFactor: 0.46,
+                      child: SkeletonBox(width: double.infinity, height: 12),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),

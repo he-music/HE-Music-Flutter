@@ -303,9 +303,7 @@ class _SheetMusicReaderState extends State<SheetMusicReader> {
         pageController: _controller,
         itemCount: widget.pageUrls.length,
         backgroundDecoration: BoxDecoration(
-          color: widget.fullscreen
-              ? Colors.black
-              : Theme.of(context).colorScheme.surfaceContainerLow,
+          color: widget.fullscreen ? Colors.black : Colors.transparent,
         ),
         onPageChanged: (index) {
           setState(() => _page = index);

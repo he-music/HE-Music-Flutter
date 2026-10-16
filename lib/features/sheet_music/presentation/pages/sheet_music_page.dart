@@ -104,7 +104,7 @@ class SheetMusicDetailPage extends ConsumerWidget {
     final state = ref.watch(provider);
     final sheet = state.asData?.value;
     return _SheetMusicShell(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      compactHeader: true,
       subtitle: sheet == null ? null : sheetMusicTags(sheet),
       title: sheet == null
           ? (title.isEmpty
@@ -170,24 +170,20 @@ class _SheetMusicDetailContent extends StatelessWidget {
                     'sheet_music.resources_unavailable',
                   ),
                 )
-              : ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  child: SheetMusicReader(
-                    pageUrls: sheet.pageUrls,
-                    title: sheetMusicTitle(sheet, locale),
+              : SheetMusicReader(
+                  pageUrls: sheet.pageUrls,
+                  title: sheetMusicTitle(sheet, locale),
+                  locale: locale,
+                  trailingAction: download,
+                  downloadStatus: SheetMusicDownloadStatus(
+                    request: request,
                     locale: locale,
-                    trailingAction: download,
-                    downloadStatus: SheetMusicDownloadStatus(
-                      request: request,
-                      locale: locale,
-                    ),
-                    currentPageActionBuilder: (index) =>
-                        SheetMusicDownloadButton(
-                          request: request,
-                          sheet: sheet,
-                          locale: locale,
-                          pageIndex: index,
-                        ),
+                  ),
+                  currentPageActionBuilder: (index) => SheetMusicDownloadButton(
+                    request: request,
+                    sheet: sheet,
+                    locale: locale,
+                    pageIndex: index,
                   ),
                 ),
         ),
@@ -273,27 +269,26 @@ class _SheetMusicShell extends StatelessWidget {
     required this.title,
     required this.child,
     this.subtitle,
-    this.backgroundColor,
+    this.compactHeader = false,
   });
 
   final String title;
   final Widget child;
   final String? subtitle;
-  final Color? backgroundColor;
+  final bool compactHeader;
 
   @override
   Widget build(BuildContext context) {
-    final page = DetailPageShell(
+    return DetailPageShell(
       child: Column(
         children: [
           AppBar(
-            backgroundColor: backgroundColor,
             surfaceTintColor: Colors.transparent,
             centerTitle: false,
-            leadingWidth: backgroundColor == null ? null : 48,
-            titleSpacing: backgroundColor == null ? null : 0,
+            leadingWidth: !compactHeader ? null : 48,
+            titleSpacing: !compactHeader ? null : 0,
             leading: const AppBackButton(iconSize: 22),
-            title: backgroundColor == null
+            title: !compactHeader
                 ? Text(title)
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,8 +325,5 @@ class _SheetMusicShell extends StatelessWidget {
         ],
       ),
     );
-    return backgroundColor == null
-        ? page
-        : Material(color: backgroundColor, child: page);
   }
 }

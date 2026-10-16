@@ -13,11 +13,14 @@ class SheetMusicDownloadController extends Notifier<SheetMusicDownloadState> {
   @override
   SheetMusicDownloadState build() => const SheetMusicDownloadState();
 
-  Future<void> download(SheetMusicInfo sheet, {int? pageIndex}) async {
-    if (state.running || sheet.pageUrls.isEmpty) return;
+  Future<SheetMusicDownloadState?> download(
+    SheetMusicInfo sheet, {
+    int? pageIndex,
+  }) async {
+    if (state.running || sheet.pageUrls.isEmpty) return null;
     if (pageIndex != null &&
         (pageIndex < 0 || pageIndex >= sheet.pageUrls.length)) {
-      return;
+      return null;
     }
     final previousSheet = _sheet;
     final previousDestination = _destination;
@@ -25,7 +28,7 @@ class SheetMusicDownloadController extends Notifier<SheetMusicDownloadState> {
     _sheet = sheet;
     _destination = null;
     _saved.clear();
-    await _run(
+    return _run(
       pageIndex == null
           ? List.generate(sheet.pageUrls.length, (index) => index)
           : [pageIndex],
@@ -39,12 +42,17 @@ class SheetMusicDownloadController extends Notifier<SheetMusicDownloadState> {
     );
   }
 
-  Future<void> retryFailed() async {
-    if (state.running || _sheet == null || state.failedPages.isEmpty) return;
-    await _run(state.failedPages);
+  Future<SheetMusicDownloadState?> retryFailed() async {
+    if (state.running || _sheet == null || state.failedPages.isEmpty) {
+      return null;
+    }
+    return _run(state.failedPages);
   }
 
-  Future<void> _run(List<int> pages, {void Function()? onCancel}) async {
+  Future<SheetMusicDownloadState?> _run(
+    List<int> pages, {
+    void Function()? onCancel,
+  }) async {
     final sheet = _sheet!;
     final repository = ref.read(sheetMusicDownloadRepositoryProvider);
     // 关闭阅读器也让用户已发起的保存完成；任务结束后恢复自动释放。
@@ -59,12 +67,12 @@ class SheetMusicDownloadController extends Notifier<SheetMusicDownloadState> {
       _destination ??= await repository.prepare(
         sheet.title.isEmpty ? sheet.songName : sheet.title,
       );
-      if (!ref.mounted) return;
+      if (!ref.mounted) return null;
       final destination = _destination;
       if (destination == null) {
         onCancel?.call();
         state = previous;
-        return;
+        return null;
       }
       final failed = <int>[];
       Object? lastError;
@@ -82,7 +90,7 @@ class SheetMusicDownloadController extends Notifier<SheetMusicDownloadState> {
           failed.add(index);
           lastError = error;
         }
-        if (!ref.mounted) return;
+        if (!ref.mounted) return null;
         state = SheetMusicDownloadState(
           running: true,
           processed: ++processed,
@@ -113,5 +121,6 @@ class SheetMusicDownloadController extends Notifier<SheetMusicDownloadState> {
     } finally {
       keepAlive.close();
     }
+    return ref.mounted ? state : null;
   }
 }

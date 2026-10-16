@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/app_message_service.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../domain/entities/sheet_music_info.dart';
@@ -65,12 +66,24 @@ class SheetMusicDownloadButton extends ConsumerWidget {
         ),
         onPressed: state.running || sheet.pageUrls.isEmpty
             ? null
-            : () {
-                if (retry) {
-                  controller.retryFailed();
-                } else {
-                  controller.download(sheet, pageIndex: pageIndex);
+            : () async {
+                final result = retry
+                    ? await controller.retryFailed()
+                    : await controller.download(sheet, pageIndex: pageIndex);
+                if (result == null ||
+                    !result.finished ||
+                    result.error != null) {
+                  return;
                 }
+                AppMessageService.showSuccess(
+                  AppI18n.formatByLocaleCode(
+                    locale,
+                    result.directoryPath == null
+                        ? 'sheet_music.saved_gallery'
+                        : 'sheet_music.saved_directory',
+                    {'count': '${result.savedCount}'},
+                  ),
+                );
               },
       ),
     );
@@ -90,27 +103,18 @@ class SheetMusicDownloadStatus extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(sheetMusicDownloadProvider(request));
-    if (state.running || (state.total == 0 && state.error == null)) {
+    final error = state.error;
+    if (state.running || error == null) {
       return const SizedBox.shrink();
     }
-    final error = state.error;
-    final errorMessage = error == null
-        ? null
-        : error is SheetMusicSaveException
+    final errorMessage = error is SheetMusicSaveException
         ? AppI18n.tByLocaleCode(locale, error.messageKey)
         : NetworkErrorMessage.resolve(error, localeCode: locale);
-    final message = error != null
-        ? AppI18n.formatByLocaleCode(locale, 'sheet_music.download_partial', {
-            'saved': '${state.savedCount}',
-            'failed': '${state.failedPages.length}',
-          })
-        : AppI18n.formatByLocaleCode(
-            locale,
-            state.directoryPath == null
-                ? 'sheet_music.saved_gallery'
-                : 'sheet_music.saved_directory',
-            {'count': '${state.savedCount}'},
-          );
+    final message = AppI18n.formatByLocaleCode(
+      locale,
+      'sheet_music.download_partial',
+      {'saved': '${state.savedCount}', 'failed': '${state.failedPages.length}'},
+    );
     return Semantics(
       liveRegion: true,
       child: Padding(
@@ -122,9 +126,7 @@ class SheetMusicDownloadStatus extends ConsumerWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: error == null
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.error,
+              color: Theme.of(context).colorScheme.error,
             ),
           ),
         ),

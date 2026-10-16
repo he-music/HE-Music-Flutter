@@ -1620,7 +1620,7 @@ abstract final class AppI18n {
       'sheet_music.original_key': 'Original key: ',
       'sheet_music.bpm': 'Tempo: ',
       'sheet_music.page_count': 'Pages: ',
-      'sheet_music.key_short': 'Key {key}',
+      'sheet_music.key_short': '{key}',
       'sheet_music.pages_short': '{count} pages',
       'sheet_music.page': 'Page {current} / {total}',
       'sheet_music.read_hint':

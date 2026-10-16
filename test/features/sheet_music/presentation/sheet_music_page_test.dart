@@ -11,7 +11,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'cache_sheet_images.dart';
+import 'package:he_music_flutter/app/app_navigation_service.dart';
+import 'package:toastification/toastification.dart';
 import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/config/app_theme_accent.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/theme/skins/classic_skin.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
 import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
@@ -40,6 +46,187 @@ import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/features/sheet_music/presentation/widgets/sheet_music_loading.dart';
 
 void main() {
+  for (final brightness in Brightness.values) {
+    for (final glassMode in [AppGlassMode.off, AppGlassMode.standard]) {
+      testWidgets(
+        'classic detail surfaces match the list background ($brightness $glassMode)',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(390, 844));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          const urls = ['https://example.com/classic-sheet.png'];
+          await cacheSheetImages(tester, urls);
+          final repository = _Repository();
+          repository.listResult = () async => const [
+            SheetMusicInfo(id: '001', title: '曲谱'),
+          ];
+          repository.detailResult = () async => const SheetMusicInfo(
+            title: '曲谱',
+            uploader: '上传者',
+            notationTypes: ['简谱'],
+            pageCount: 1,
+            pageUrls: urls,
+          );
+          final skin = classicSkinForAccent(AppThemeAccent.violet);
+          final theme = brightness == Brightness.dark
+              ? AppTheme.dark(skin)
+              : AppTheme.light(skin);
+          final router = await _pump(
+            tester,
+            repository,
+            theme: theme,
+            glassMode: glassMode,
+            capturePreview: true,
+          );
+          await tester.pumpAndSettle();
+
+          Future<List<Color>> colorsAt(List<Offset> points) async {
+            return (await tester.runAsync(() async {
+              final boundary = tester.renderObject<RenderRepaintBoundary>(
+                find.byKey(const ValueKey('sheet-layout-preview')),
+              );
+              final image = await boundary.toImage();
+              final bytes = (await image.toByteData())!;
+              final colors = <Color>[];
+              for (final point in points) {
+                final offset =
+                    (point.dy.toInt() * image.width + point.dx.toInt()) * 4;
+                colors.add(
+                  Color.fromARGB(
+                    bytes.getUint8(offset + 3),
+                    bytes.getUint8(offset),
+                    bytes.getUint8(offset + 1),
+                    bytes.getUint8(offset + 2),
+                  ),
+                );
+              }
+              image.dispose();
+              return colors;
+            }))!;
+          }
+
+          final listBackground = (await colorsAt([
+            const Offset(2, 200),
+          ])).single;
+          expect(
+            listBackground.toARGB32(),
+            theme.scaffoldBackgroundColor.toARGB32(),
+          );
+          router.push(
+            '${AppRoutes.sheetMusicDetail}?platform=qq&song_id=000123&id=001',
+          );
+          await tester.pumpAndSettle();
+          final metadata = find.byKey(const ValueKey('sheet-music-metadata'));
+          final pager = find.byKey(const ValueKey('sheet-reader-pager'));
+          final fit = find.byKey(const ValueKey('sheet-fit-toggle'));
+          final points = [
+            Offset(2, tester.getCenter(find.byType(AppBar)).dy),
+            Offset(2, tester.getCenter(metadata).dy),
+            tester.getTopLeft(pager) + const Offset(2, 2),
+            Offset(2, tester.getCenter(fit).dy),
+          ];
+          expect(await colorsAt(points), everyElement(listBackground));
+          if (const bool.fromEnvironment('GENERATE_SHEET_MUSIC_PREVIEWS')) {
+            await _saveSheetLayout(
+              tester,
+              'classic-${brightness.name}-${glassMode.name}',
+            );
+          }
+          await tester.tap(find.byTooltip('全屏阅读'));
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          final fullscreen = tester.widget<PhotoViewGallery>(
+            find.byKey(const ValueKey('sheet-fullscreen-pager')),
+          );
+          expect(fullscreen.backgroundDecoration?.color, Colors.black);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'list and skeleton update shared content surfaces in $brightness',
+      (tester) async {
+        final skin = classicSkinForAccent(AppThemeAccent.violet);
+        ThemeData theme(bool showBackground) => brightness == Brightness.dark
+            ? AppTheme.dark(skin, showContentBackground: showBackground)
+            : AppTheme.light(skin, showContentBackground: showBackground);
+        final themes = ValueNotifier(theme(false));
+        addTearDown(themes.dispose);
+        final pending = Completer<List<SheetMusicInfo>>();
+        final repository = _Repository()..listResult = () => pending.future;
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWith(
+                () => _Config(skinAnimation: true),
+              ),
+              onlinePlatformsProvider.overrideWith(
+                () => _Platforms(
+                  PlatformFeatureSupportFlag.listSheetMusic |
+                      PlatformFeatureSupportFlag.getSheetMusic,
+                ),
+              ),
+              sheetMusicRepositoryProvider.overrideWithValue(repository),
+            ],
+            child: ValueListenableBuilder<ThemeData>(
+              valueListenable: themes,
+              builder: (_, theme, _) => MaterialApp(
+                theme: theme,
+                home: const SheetMusicListPage(
+                  platform: 'qq',
+                  songId: '000123',
+                ),
+              ),
+            ),
+          ),
+        );
+        for (final loading in [true, false]) {
+          if (!loading) {
+            pending.complete(const [
+              SheetMusicInfo(id: '001', title: '曲谱', pageCount: 3),
+            ]);
+            await tester.pumpAndSettle();
+          }
+          for (final showBackground in [false, true, false]) {
+            themes.value = theme(showBackground);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 300));
+            final content = find.byType(AppSkinContentSurface);
+            expect(content, loading ? findsWidgets : findsOneWidget);
+            final surface = find.descendant(
+              of: content,
+              matching: find.byType(AppSkinSurface),
+            );
+            expect(surface, showBackground ? findsWidgets : findsNothing);
+            for (final widget in tester.widgetList<AppSkinContentSurface>(
+              content,
+            )) {
+              expect(
+                widget.padding,
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              );
+            }
+            for (final widget in tester.widgetList<AppSkinSurface>(surface)) {
+              expect(widget.role, AppSkinSurfaceRole.scrollingContent);
+            }
+            if (loading) {
+              expect(find.byType(SheetMusicListSkeleton), findsOneWidget);
+            } else {
+              expect(find.text('3页'), findsOneWidget);
+              expect(
+                tester.widget<ListTile>(find.byType(ListTile)).onTap,
+                isNotNull,
+              );
+            }
+          }
+        }
+        expect(repository.listCalls, hasLength(1));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('list loading resolves to a genuine empty state', (tester) async {
     final pending = Completer<List<SheetMusicInfo>>();
     final repository = _Repository()..listResult = () => pending.future;
@@ -543,7 +730,17 @@ void main() {
       expect(downloads.pages, [0, 1, 1]);
       expect(downloads.prepareCalls, 1);
       expect(find.text('已保存 2 页到相册'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text('已保存 2 页到相册'),
+          matching: find.byType(ToastificationTheme),
+        ),
+        findsOneWidget,
+      );
       expect(readerBuilds, 0);
+      toastification.dismissAll(delayForAnimation: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
     },
   );
 
@@ -585,7 +782,17 @@ void main() {
       await tester.tap(find.text('保存当前页'));
       await tester.pumpAndSettle();
       expect(downloads.pages, [1]);
-      expect(find.text('已保存 1 页到相册'), findsAtLeastNWidgets(1));
+      expect(find.text('已保存 1 页到相册'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text('已保存 1 页到相册'),
+          matching: find.byType(ToastificationTheme),
+        ),
+        findsOneWidget,
+      );
+      toastification.dismissAll(delayForAnimation: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
       await tester.tap(find.byTooltip('关闭'));
       await tester.pumpAndSettle();
     },
@@ -784,10 +991,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final bar = find.byType(AppBar);
-      expect(
-        tester.widget<AppBar>(bar).backgroundColor,
-        scheme.surfaceContainerLow,
-      );
+      expect(tester.widget<AppBar>(bar).backgroundColor, isNull);
       expect(
         find.descendant(of: bar, matching: find.text('简谱 · 六线谱 · 弹唱版')),
         findsOneWidget,
@@ -894,6 +1098,7 @@ Future<GoRouter> _pump(
   Widget shell(Widget page) =>
       layoutPlayer == null ? page : _LayoutPlayerShell(child: page);
   final router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: actionHost
         ? '/'
         : '${detail ? AppRoutes.sheetMusicDetail : AppRoutes.songSheetMusic}?platform=qq&song_id=000123&id=001',
