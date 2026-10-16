@@ -16,6 +16,7 @@ import '../../../../shared/helpers/current_track_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/platform_label_helper.dart';
 import '../../../../shared/helpers/song_artist_navigation_helper.dart';
+import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
@@ -144,62 +145,85 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
         bottom: false,
         child: CustomScrollView(
           slivers: <Widget>[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: _SongHeroCard(
-                  key: const ValueKey<String>('song-detail-header-compact'),
-                  config: config,
-                  title: song.title.trim().isEmpty ? widget.title : song.title,
-                  coverUrl: coverUrl,
-                  artistLabel: song.artist,
-                  albumLabel: song.album?.name.trim() ?? '',
-                  onBack: () => context.appPopOrGo(),
-                  actions: _buildPrimaryActions(song, config),
-                  onMore: (anchorContext) =>
-                      _showMoreSongActions(anchorContext, song, coverUrl),
-                  onTapArtist: song.artists.isEmpty
-                      ? null
-                      : () => unawaited(
-                          openSongArtistSelection(
-                            context: context,
-                            platformId: _songActions.resolvePlatformId(song),
-                            artists: song.artists,
-                            onError: AppMessageService.showError,
-                          ),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
+              sliver: SliverMainAxisGroup(
+                slivers: <Widget>[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: _SongHeroCard(
+                        key: const ValueKey<String>(
+                          'song-detail-header-compact',
                         ),
-                  onTapAlbum: hasValidAlbumId(song.album?.id ?? '')
-                      ? () => context.pushAlbumDetail(
-                          id: song.album!.id,
-                          platform: _songActions.resolvePlatformId(song),
-                          title: song.album!.name,
-                        )
-                      : null,
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
-                child: SongDetailInfoCards(
-                  source: resolvePlatformLabel(
-                    song.platform.trim().isEmpty
-                        ? widget.platform
-                        : song.platform,
-                    platforms: platforms,
+                        config: config,
+                        title: song.title.trim().isEmpty
+                            ? widget.title
+                            : song.title,
+                        coverUrl: coverUrl,
+                        artistLabel: song.artist,
+                        albumLabel: song.album?.name.trim() ?? '',
+                        onBack: () => context.appPopOrGo(),
+                        actions: _buildPrimaryActions(song, config),
+                        onMore: (anchorContext) =>
+                            _showMoreSongActions(anchorContext, song, coverUrl),
+                        onTapArtist: song.artists.isEmpty
+                            ? null
+                            : () => unawaited(
+                                openSongArtistSelection(
+                                  context: context,
+                                  platformId: _songActions.resolvePlatformId(
+                                    song,
+                                  ),
+                                  artists: song.artists,
+                                  onError: AppMessageService.showError,
+                                ),
+                              ),
+                        onTapAlbum: hasValidAlbumId(song.album?.id ?? '')
+                            ? () => context.pushAlbumDetail(
+                                id: song.album!.id,
+                                platform: _songActions.resolvePlatformId(song),
+                                title: song.album!.name,
+                              )
+                            : null,
+                      ),
+                    ),
                   ),
-                  duration: formatDurationSecondsLabel('${song.duration}'),
-                  fields: content.fields,
-                  sourceLabel: AppI18n.t(config, 'song.detail.meta.source'),
-                  durationLabel: AppI18n.t(config, 'song.detail.meta.duration'),
-                ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+                      child: SongDetailInfoCards(
+                        source: resolvePlatformLabel(
+                          song.platform.trim().isEmpty
+                              ? widget.platform
+                              : song.platform,
+                          platforms: platforms,
+                        ),
+                        duration: formatDurationSecondsLabel(
+                          '${song.duration}',
+                        ),
+                        fields: content.fields,
+                        sourceLabel: AppI18n.t(
+                          config,
+                          'song.detail.meta.source',
+                        ),
+                        durationLabel: AppI18n.t(
+                          config,
+                          'song.detail.meta.duration',
+                        ),
+                      ),
+                    ),
+                  ),
+                  ..._buildSectionSlivers(
+                    sections: content.sections,
+                    song: song,
+                    gridWidth: constraints.maxWidth - 32,
+                  ),
+                ],
               ),
             ),
-            ..._buildSectionSlivers(
-              sections: content.sections,
-              gridWidth: constraints.maxWidth - 32,
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
       ),
@@ -269,6 +293,7 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
 
   List<Widget> _buildSectionSlivers({
     required List<SongDetailSection> sections,
+    required SongInfo song,
     required double gridWidth,
   }) {
     final gridSpec = resolveAdaptiveMediaGridSpec(maxWidth: gridWidth);
@@ -279,6 +304,15 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
             key: ValueKey<String>('song-sections-${_request.cacheKey}-$index'),
             section: sections[index],
             gridSpec: gridSpec,
+            songId: _request.id,
+            platform: _request.platform,
+            moreLabel: AppI18n.t(ref.read(appConfigProvider), 'common.more'),
+            onMoreSheetMusic: () => openSongSheetMusicPage(
+              context: context,
+              songId: _request.id,
+              platformId: _request.platform,
+              title: song.title.trim().isEmpty ? widget.title : song.title,
+            ),
             onTapSong: (songs, index) =>
                 _songActions.playAll(context, songs, startIndex: index),
             onTapAlbum: (album) => context.pushAlbumDetail(

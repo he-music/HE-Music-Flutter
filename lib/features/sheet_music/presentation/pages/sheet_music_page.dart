@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/router/app_routes.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../widgets/sheet_music_download_button.dart';
 import '../widgets/sheet_music_reader.dart';
-import '../../../../shared/helpers/song_detail_navigation_helper.dart';
+import '../widgets/sheet_music_list.dart';
+import '../widgets/sheet_music_metadata.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../widgets/sheet_music_loading.dart';
-import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/entities/sheet_music_info.dart';
@@ -40,15 +38,6 @@ class SheetMusicListPage extends ConsumerWidget {
     final request = (platform: platform, songId: songId);
     final provider = sheetMusicListProvider(request);
     final state = ref.watch(provider);
-    final canGet = ref.watch(
-      onlinePlatformsProvider.select(
-        (state) => canGetSongSheetMusic(
-          songId: songId,
-          platformId: platform,
-          platforms: state.value ?? const [],
-        ),
-      ),
-    );
     final pageTitle = AppI18n.tByLocaleCode(locale, 'sheet_music.title');
     return _SheetMusicShell(
       title: title.isEmpty ? pageTitle : '$title · $pageTitle',
@@ -73,53 +62,17 @@ class SheetMusicListPage extends ConsumerWidget {
               message: AppI18n.tByLocaleCode(locale, 'sheet_music.empty'),
             );
           }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: sheets.length,
-            separatorBuilder: (_, _) => const Divider(height: 24),
-            itemBuilder: (context, index) {
-              final sheet = sheets[index];
-              final enabled = canGet && sheet.id.isNotEmpty;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: AppNetworkImage(
-                    url: sheet.cover,
-                    width: 56,
-                    height: 72,
-                    fit: BoxFit.cover,
-                    fallback: const SizedBox(
-                      width: 56,
-                      height: 72,
-                      child: Icon(Icons.library_music_outlined),
-                    ),
-                  ),
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SheetMusicListSliver(
+                  sheets: sheets,
+                  platform: platform,
+                  songId: songId,
                 ),
-                title: Text(
-                  _sheetTitle(sheet, locale),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: _SheetMusicMetadata(sheet: sheet, locale: locale),
-                trailing: enabled
-                    ? const Icon(Icons.chevron_right_rounded)
-                    : null,
-                onTap: enabled
-                    ? () => context.push(
-                        Uri(
-                          path: AppRoutes.sheetMusicDetail,
-                          queryParameters: {
-                            'platform': platform,
-                            'song_id': songId,
-                            'id': sheet.id,
-                            'title': _sheetTitle(sheet, locale),
-                          },
-                        ).toString(),
-                      )
-                    : null,
-              );
-            },
+              ),
+            ],
           );
         },
       ),
@@ -152,12 +105,12 @@ class SheetMusicDetailPage extends ConsumerWidget {
     final sheet = state.asData?.value;
     return _SheetMusicShell(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-      subtitle: sheet == null ? null : _sheetTags(sheet),
+      subtitle: sheet == null ? null : sheetMusicTags(sheet),
       title: sheet == null
           ? (title.isEmpty
                 ? AppI18n.tByLocaleCode(locale, 'sheet_music.title')
                 : title)
-          : _sheetTitle(sheet, locale),
+          : sheetMusicTitle(sheet, locale),
       child: state.when(
         skipLoadingOnRefresh: false,
         loading: () => SheetMusicDetailSkeleton(
@@ -207,7 +160,7 @@ class _SheetMusicDetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SheetMusicMetadata(sheet: sheet, locale: locale, showDetail: true),
+        SheetMusicMetadata(sheet: sheet, locale: locale, showDetail: true),
         SheetMusicDownloadStatus(request: request, locale: locale),
         Expanded(
           child: sheet.pageUrls.isEmpty
@@ -221,7 +174,7 @@ class _SheetMusicDetailContent extends StatelessWidget {
                   color: Theme.of(context).colorScheme.surfaceContainerLow,
                   child: SheetMusicReader(
                     pageUrls: sheet.pageUrls,
-                    title: _sheetTitle(sheet, locale),
+                    title: sheetMusicTitle(sheet, locale),
                     locale: locale,
                     trailingAction: download,
                     downloadStatus: SheetMusicDownloadStatus(
@@ -244,88 +197,6 @@ class _SheetMusicDetailContent extends StatelessWidget {
             child: Align(alignment: Alignment.centerRight, child: download),
           ),
       ],
-    );
-  }
-}
-
-String _sheetTags(SheetMusicInfo sheet) => [
-  ...sheet.instruments,
-  ...sheet.notationTypes,
-  sheet.arrangementType,
-  sheet.difficulty,
-].where((value) => value.isNotEmpty).join(' · ');
-
-String _sheetTitle(SheetMusicInfo sheet, String locale) =>
-    sheet.title.isNotEmpty
-    ? sheet.title
-    : sheet.songName.isNotEmpty
-    ? sheet.songName
-    : AppI18n.tByLocaleCode(locale, 'sheet_music.untitled');
-
-class _SheetMusicMetadata extends StatelessWidget {
-  const _SheetMusicMetadata({
-    required this.sheet,
-    required this.locale,
-    this.showDetail = false,
-  });
-
-  final SheetMusicInfo sheet;
-  final String locale;
-  final bool showDetail;
-
-  @override
-  Widget build(BuildContext context) {
-    String field(String key, String value) =>
-        '${AppI18n.tByLocaleCode(locale, key)}$value';
-    final tags = _sheetTags(sheet);
-    if (!showDetail) {
-      final summary = [
-        if (sheet.originalKey.isNotEmpty)
-          AppI18n.formatByLocaleCode(locale, 'sheet_music.key_short', {
-            'key': sheet.originalKey,
-          }),
-        if (sheet.pageCount > 0)
-          AppI18n.formatByLocaleCode(locale, 'sheet_music.pages_short', {
-            'count': '${sheet.pageCount}',
-          }),
-      ].join(' · ');
-      return Text(
-        [tags, summary].where((line) => line.isNotEmpty).join('\n'),
-        style: Theme.of(context).textTheme.bodyMedium,
-      );
-    }
-    final lines = [
-      if (sheet.songName.isNotEmpty &&
-          sheet.songName != _sheetTitle(sheet, locale))
-        sheet.songName,
-      if (sheet.uploader.isNotEmpty)
-        field('sheet_music.uploader', sheet.uploader),
-      if (sheet.originalKey.isNotEmpty)
-        field('sheet_music.original_key', sheet.originalKey),
-      if (sheet.bpm > 0) field('sheet_music.bpm', '${sheet.bpm} BPM'),
-      if (sheet.pageCount > 0)
-        field('sheet_music.page_count', '${sheet.pageCount}'),
-    ];
-    if (lines.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    return Padding(
-      key: const ValueKey('sheet-music-metadata'),
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 6,
-        children: [
-          for (final line in lines)
-            Text(
-              line,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

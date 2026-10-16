@@ -220,6 +220,12 @@ void main() {
         SheetMusicInfo(id: 'two', title: '只有页数', pageCount: 10),
         SheetMusicInfo(id: 'three', title: '只有调', originalKey: 'G'),
         SheetMusicInfo(id: 'four', title: '都没有'),
+        SheetMusicInfo(
+          id: 'five',
+          title: '带调后缀',
+          originalKey: 'C调',
+          pageCount: 3,
+        ),
       ];
     await _pump(tester, repository);
     await tester.pumpAndSettle();
@@ -228,6 +234,7 @@ void main() {
       ('只有页数', '10页'),
       ('只有调', 'G调'),
       ('都没有', ''),
+      ('带调后缀', 'C调 · 3页'),
     ]) {
       final row = find.widgetWithText(ListTile, item.$1);
       expect(

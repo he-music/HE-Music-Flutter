@@ -64,6 +64,50 @@ void main() {
     },
   );
 
+  test(
+    'sheet_music sections decode the shared sheet model from sheet_music',
+    () async {
+      final result = await _client({
+        'song': song,
+        'sections': [
+          _section('sheet_music', '这首歌的曲谱', 'sheet_music', [
+            {
+              'id': '0009007199254740993',
+              'title': '吉他弹唱谱',
+              'song_name': '歌曲',
+              'cover': 'https://example.com/sheet.jpg',
+              'platform': 'netease',
+              'instruments': ['吉他'],
+              'notation_types': ['六线谱'],
+              'original_key': 'C',
+              'page_count': 3,
+            },
+            null,
+            'invalid',
+            {'id': 'second', 'title': '钢琴谱'},
+          ]),
+        ],
+      }).fetchDetail(request);
+      final section = result.sections.single;
+      expect(section.resourceType, 'sheet_music');
+      expect(section.title, '这首歌的曲谱');
+      expect(section.isEmpty, false);
+      expect(section.sheetMusic.map((sheet) => sheet.id), [
+        '0009007199254740993',
+        'second',
+      ]);
+      final sheet = section.sheetMusic.first;
+      expect(sheet.title, '吉他弹唱谱');
+      expect(sheet.songName, '歌曲');
+      expect(sheet.cover, 'https://example.com/sheet.jpg');
+      expect(sheet.platform, 'netease');
+      expect(sheet.instruments, ['吉他']);
+      expect(sheet.notationTypes, ['六线谱']);
+      expect(sheet.originalKey, 'C');
+      expect(sheet.pageCount, 3);
+    },
+  );
+
   for (final fields in <Map<String, dynamic>>[
     {},
     {'fields': null},
@@ -99,6 +143,16 @@ void main() {
           {'label': '信息', 'value': '仍可展示'},
         ],
         'sections': [
+          {'resource_type': 'sheet_music', 'title': '缺失曲谱'},
+          {
+            'resource_type': 'sheet_music',
+            'title': 'null曲谱',
+            'sheet_music': null,
+          },
+          _section('sheet_music', '空曲谱', 'sheet_music', []),
+          _section('sheet_music', '不匹配曲谱', 'songs', [
+            {'id': 's', 'name': '歌曲'},
+          ]),
           {'resource_type': 'song', 'title': '缺失'},
           {'resource_type': 'album', 'title': 'null', 'albums': null},
           _section('mv', '空', 'mvs', []),
@@ -116,6 +170,7 @@ void main() {
         expect(section.albums, isEmpty);
         expect(section.mvs, isEmpty);
         expect(section.playlists, isEmpty);
+        expect(section.sheetMusic, isEmpty);
       }
     },
   );

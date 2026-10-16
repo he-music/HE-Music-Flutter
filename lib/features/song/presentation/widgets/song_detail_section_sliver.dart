@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../sheet_music/presentation/widgets/sheet_music_list.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/models/he_music_models.dart';
@@ -19,6 +20,10 @@ Widget buildSongDetailSectionSliver({
   required Key key,
   required SongDetailSection section,
   required AdaptiveMediaGridSpec gridSpec,
+  required String songId,
+  required String platform,
+  required String moreLabel,
+  required VoidCallback onMoreSheetMusic,
   required void Function(List<SongInfo> songs, int index) onTapSong,
   required ValueChanged<AlbumInfo> onTapAlbum,
   required ValueChanged<PlaylistInfo> onTapPlaylist,
@@ -30,6 +35,11 @@ Widget buildSongDetailSectionSliver({
   required String Function(String cover, String platform) resolveCover,
 }) {
   final Widget resources = switch (section.resourceType) {
+    'sheet_music' => SheetMusicListSliver(
+      sheets: section.sheetMusic,
+      platform: platform,
+      songId: songId,
+    ),
     'song' => SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
         final song = section.songs[index];
@@ -116,13 +126,26 @@ Widget buildSongDetailSectionSliver({
           ),
           sliver: SliverToBoxAdapter(
             child: Builder(
-              builder: (context) => Text(
-                section.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+              builder: (context) => Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      section.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (section.resourceType == 'sheet_music')
+                    TextButton.icon(
+                      onPressed: onMoreSheetMusic,
+                      iconAlignment: IconAlignment.end,
+                      icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                      label: Text(moreLabel),
+                    ),
+                ],
               ),
             ),
           ),

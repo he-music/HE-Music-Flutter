@@ -1,3 +1,4 @@
+import '../../../sheet_music/domain/entities/sheet_music_info.dart';
 import '../../../../shared/models/he_music_models.dart';
 
 class SongDetailSection {
@@ -8,6 +9,7 @@ class SongDetailSection {
     this.albums = const <AlbumInfo>[],
     this.mvs = const <MvInfo>[],
     this.playlists = const <PlaylistInfo>[],
+    this.sheetMusic = const <SheetMusicInfo>[],
   });
 
   final String resourceType;
@@ -16,12 +18,14 @@ class SongDetailSection {
   final List<AlbumInfo> albums;
   final List<MvInfo> mvs;
   final List<PlaylistInfo> playlists;
+  final List<SheetMusicInfo> sheetMusic;
 
   bool get isEmpty => switch (resourceType) {
     'song' => songs.isEmpty,
     'album' => albums.isEmpty,
     'mv' => mvs.isEmpty,
     'playlist' => playlists.isEmpty,
+    'sheet_music' => sheetMusic.isEmpty,
     _ => true,
   };
 
@@ -47,6 +51,7 @@ class SongDetailSection {
       raw['playlists'],
       (item) => PlaylistInfo.fromMap(item, fallbackPlatform: fallbackPlatform),
     ),
+    sheetMusic: _parseResources(raw['sheet_music'], SheetMusicInfo.fromMap),
   );
 
   static List<T> _parseResources<T>(

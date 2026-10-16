@@ -7,6 +7,14 @@ import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/features/sheet_music/domain/entities/sheet_music_info.dart';
+import 'package:he_music_flutter/features/sheet_music/presentation/widgets/sheet_music_list.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
+import 'package:he_music_flutter/shared/widgets/app_glass_player_scaffold.dart';
+import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
+import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/controllers/online_controller.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
@@ -38,6 +46,290 @@ void main() {
   setUp(() {
     playerController = _TestPlayerController();
   });
+
+  for (final textScale in [1.0, 2.0]) {
+    for (final safeBottom in [0.0, 34.0]) {
+      for (final hasTrack in [false, true]) {
+        testWidgets(
+          'song detail matches shared list scrolling with scale=$textScale safeBottom=$safeBottom track=$hasTrack',
+          (tester) async {
+            await tester.binding.setSurfaceSize(const Size(400, 800));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+            final showReference = ValueNotifier(true);
+            addTearDown(showReference.dispose);
+            final song = _buildDetail().song;
+            if (hasTrack) {
+              playerController.initialState = PlayerPlaybackState.initial([
+                PlayerTrack(
+                  id: song.id,
+                  title: song.title,
+                  platform: song.platform,
+                ),
+              ]);
+            }
+            await tester.pumpWidget(
+              _buildTestApp(
+                repository: _FakeSongDetailRepository(
+                  content: SongDetailContent(
+                    song: song,
+                    sections: [
+                      SongDetailSection(
+                        resourceType: 'sheet_music',
+                        title: '歌曲曲谱',
+                        sheetMusic: List.generate(
+                          14,
+                          (index) =>
+                              SheetMusicInfo(id: '$index', title: '曲谱 $index'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                playerController: playerController,
+                child: AppGlassScope(
+                  enabled: true,
+                  mode: AppGlassMode.standard,
+                  child: Builder(
+                    builder: (context) => MediaQuery(
+                      data: MediaQuery.of(context).copyWith(
+                        padding: EdgeInsets.only(bottom: safeBottom),
+                        viewPadding: EdgeInsets.only(bottom: safeBottom),
+                        textScaler: TextScaler.linear(textScale),
+                      ),
+                      child: AppGlassPlayerScaffold(
+                        miniPlayer: MiniPlayerBar(onOpenFullPlayer: () {}),
+                        body: ValueListenableBuilder<bool>(
+                          valueListenable: showReference,
+                          builder: (_, reference, _) => reference
+                              ? DetailPageShell(
+                                  child: SongListComponent(
+                                    enablePaging: false,
+                                    itemCount: 14,
+                                    itemBuilder: (_, index) => SizedBox(
+                                      height: 72,
+                                      child: Text('参考歌曲 $index'),
+                                    ),
+                                  ),
+                                )
+                              : const SongDetailPage(
+                                  id: 'song-1',
+                                  platform: 'qq',
+                                  title: '测试歌曲',
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            Future<ScrollableState> scrollToEnd(Finder view) async {
+              final scroll = tester.state<ScrollableState>(
+                find.descendant(of: view, matching: find.byType(Scrollable)),
+              );
+              // Lazy slivers refine their extent after the last rows are laid out.
+              for (var attempt = 0; attempt < 3; attempt++) {
+                scroll.position.jumpTo(scroll.position.maxScrollExtent);
+                await tester.pumpAndSettle();
+              }
+              return scroll;
+            }
+
+            final referenceView = find.byType(ListView);
+            await scrollToEnd(referenceView);
+            final referenceViewport = tester.getRect(referenceView);
+            final referenceRow = find.ancestor(
+              of: find.text('参考歌曲 13'),
+              matching: find.byWidgetPredicate(
+                (widget) => widget is SizedBox && widget.height == 72,
+              ),
+            );
+            final referenceBottomGap =
+                referenceViewport.bottom -
+                tester.getBottomLeft(referenceRow).dy;
+            showReference.value = false;
+            await tester.pumpAndSettle();
+            final detailView = find.byType(CustomScrollView);
+            final scroll = await scrollToEnd(detailView);
+            final viewport = tester.getRect(detailView);
+            final lastItem = find.widgetWithText(ListTile, '曲谱 13');
+            final lastRect = tester.getRect(lastItem);
+            expect(viewport, referenceViewport);
+            expect(viewport.bottom, 800);
+            // Keep the existing 18px section spacing, then the same safe area
+            // used by the album/playlist song list. No extra page spacer.
+            expect(
+              viewport.bottom - lastRect.bottom,
+              closeTo(referenceBottomGap + 18, 0.01),
+            );
+            if (hasTrack) {
+              final player = tester.getRect(find.byType(MiniPlayerBar));
+              expect(lastRect.bottom, lessThanOrEqualTo(player.top));
+              final delta = player.center.dy - lastRect.center.dy;
+              scroll.position.jumpTo(scroll.position.pixels - delta);
+              await tester.pumpAndSettle();
+              final behindPlayer = tester.getRect(lastItem);
+              expect(behindPlayer.overlaps(player), true);
+              expect(viewport.contains(behindPlayer.center), true);
+            }
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
+  testWidgets(
+    'sheet section reuses the list and opens sheets and more with the source song identity',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      Uri? destination;
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const SongDetailPage(
+              id: '000123',
+              platform: 'qq',
+              title: '入口标题',
+            ),
+          ),
+          for (final path in [
+            AppRoutes.songSheetMusic,
+            AppRoutes.sheetMusicDetail,
+          ])
+            GoRoute(
+              path: path,
+              builder: (_, state) {
+                destination = state.uri;
+                return const Scaffold(body: Text('曲谱目标页'));
+              },
+            ),
+        ],
+      );
+      addTearDown(router.dispose);
+      final platforms = Completer<List<OnlinePlatform>>()
+        ..complete([
+          OnlinePlatform(
+            id: 'qq',
+            name: 'QQ',
+            shortName: 'QQ',
+            status: 1,
+            featureSupportFlag:
+                PlatformFeatureSupportFlag.listSheetMusic |
+                PlatformFeatureSupportFlag.getSheetMusic,
+          ),
+        ]);
+      await tester.pumpWidget(
+        _buildTestApp(
+          repository: _FakeSongDetailRepository(
+            content: SongDetailContent(
+              song: _buildDetail().song,
+              sections: [
+                _songSection([_buildDetail().song], title: '前面的歌曲'),
+                const SongDetailSection(
+                  resourceType: 'sheet_music',
+                  title: '这首歌的曲谱',
+                  sheetMusic: [
+                    SheetMusicInfo(
+                      id: '0009007199254740993',
+                      title: '吉他弹唱谱',
+                      platform: 'netease',
+                      instruments: ['吉他'],
+                      notationTypes: ['六线谱'],
+                      originalKey: 'C',
+                      pageCount: 3,
+                    ),
+                  ],
+                ),
+                _buildSections().last,
+              ],
+            ),
+          ),
+          playerController: playerController,
+          platformsController: () =>
+              _PendingOnlinePlatformsController(platforms),
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(SheetMusicListSliver), findsOneWidget);
+      expect(find.text('吉他 · 六线谱\nC调 · 3页'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('前面的歌曲')).dy,
+        lessThan(tester.getTopLeft(find.text('这首歌的曲谱')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('这首歌的曲谱')).dy,
+        lessThan(tester.getTopLeft(find.text('收藏这首歌的歌单')).dy),
+      );
+      await tester.tap(find.text('吉他弹唱谱'));
+      await tester.pumpAndSettle();
+      expect(destination!.path, AppRoutes.sheetMusicDetail);
+      expect(destination!.queryParameters, {
+        'platform': 'qq',
+        'song_id': '000123',
+        'id': '0009007199254740993',
+        'title': '吉他弹唱谱',
+      });
+      router.pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, '更多'));
+      await tester.pumpAndSettle();
+      expect(destination!.path, AppRoutes.songSheetMusic);
+      expect(destination!.queryParameters, {
+        'platform': 'qq',
+        'song_id': '000123',
+        'title': '测试歌曲',
+      });
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'sheet section keeps unsupported or unidentified rows disabled and hides empty sections',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildTestApp(
+          repository: _FakeSongDetailRepository(
+            content: SongDetailContent(
+              song: _buildDetail().song,
+              sections: const [
+                SongDetailSection(resourceType: 'sheet_music', title: '空曲谱'),
+                SongDetailSection(
+                  resourceType: 'sheet_music',
+                  title: '曲谱区块',
+                  sheetMusic: [
+                    SheetMusicInfo(id: 'one', title: '未支持详情'),
+                    SheetMusicInfo(title: '缺少曲谱标识'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          playerController: playerController,
+          child: const SongDetailPage(
+            id: 'song-1',
+            platform: 'qq',
+            title: '测试歌曲',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('空曲谱'), findsNothing);
+      for (final title in ['未支持详情', '缺少曲谱标识']) {
+        expect(
+          tester.widget<ListTile>(find.widgetWithText(ListTile, title)).onTap,
+          isNull,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('dynamic sections keep order and independent playback queues', (
     tester,
