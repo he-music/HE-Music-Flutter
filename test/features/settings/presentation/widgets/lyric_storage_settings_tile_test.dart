@@ -1,14 +1,16 @@
 import 'dart:io';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:he_music_flutter/features/lyrics/data/storage/lyric_store.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_request.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/raw_lyric_bundle.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/settings/presentation/widgets/lyric_storage_settings_tile.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late Directory root;
@@ -59,48 +61,62 @@ void main() {
     return tester.runAsync(() => result).then((value) => value as T);
   }
 
-  testWidgets(
-    'manual deletion requires confirmation and automatic clear preserves choices',
-    (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [lyricStoreProvider.overrideWithValue(store)],
-          child: const MaterialApp(
-            home: Scaffold(
-              body: Column(
-                children: [
-                  LyricStorageSettingsTile(manual: false),
-                  LyricStorageSettingsTile(manual: true),
-                ],
+  for (final glassEnabled in [false, true]) {
+    testWidgets(
+      'manual deletion requires confirmation with glass=$glassEnabled and automatic clear preserves choices',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [lyricStoreProvider.overrideWithValue(store)],
+            child: AppGlassScope(
+              enabled: glassEnabled,
+              child: GlassAdaptiveScope(
+                minQuality: GlassQuality.minimal,
+                maxQuality: GlassQuality.minimal,
+                child: const MaterialApp(
+                  home: Scaffold(
+                    body: Column(
+                      children: [
+                        LyricStorageSettingsTile(manual: false),
+                        LyricStorageSettingsTile(manual: true),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await settleIo(tester);
-      expect(find.textContaining('1 首'), findsOneWidget);
-      expect(find.textContaining('50 MiB'), findsOneWidget);
-      await tester.tap(find.text('自动歌词缓存'));
-      await settleIo(tester);
-      var stats = await runStore(tester, store.statistics);
-      expect(stats.automaticBytes, 0);
-      expect(stats.manualCount, 1);
-      await tester.tap(find.text('手动选择歌词'));
-      await tester.pumpAndSettle();
-      expect(find.text('删除全部手动选择歌词？'), findsOneWidget);
-      await tester.tap(find.text('取消'));
-      await tester.pumpAndSettle();
-      expect(await runStore(tester, () => store.hasManual(target)), isTrue);
-      await tester.tap(find.text('手动选择歌词'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('全部删除'));
-      await settleIo(tester);
-      stats = await runStore(tester, store.statistics);
-      expect(stats.manualCount, 0);
-      expect(find.textContaining('0 首'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+        );
+        await settleIo(tester);
+        expect(find.textContaining('1 首'), findsOneWidget);
+        expect(find.textContaining('50 MiB'), findsOneWidget);
+        await tester.tap(find.text('自动歌词缓存'));
+        await settleIo(tester);
+        var stats = await runStore(tester, store.statistics);
+        expect(stats.automaticBytes, 0);
+        expect(stats.manualCount, 1);
+        await tester.tap(find.text('手动选择歌词'));
+        await tester.pumpAndSettle();
+        expect(find.text('删除全部手动选择歌词？'), findsOneWidget);
+        if (glassEnabled) {
+          final dialog = tester.widget<GlassDialog>(find.byType(GlassDialog));
+          expect(dialog.actions.last.isDestructive, isTrue);
+          expect(dialog.actions.last.isPrimary, isFalse);
+        }
+        await tester.tap(find.text('取消'));
+        await tester.pumpAndSettle();
+        expect(await runStore(tester, () => store.hasManual(target)), isTrue);
+        await tester.tap(find.text('手动选择歌词'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('全部删除'));
+        await settleIo(tester);
+        stats = await runStore(tester, store.statistics);
+        expect(stats.manualCount, 0);
+        expect(find.textContaining('0 首'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'mounted statistics follow external writes, restores and clears without playback reloads',

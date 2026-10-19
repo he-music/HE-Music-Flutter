@@ -37,7 +37,10 @@ class _LyricStorageSettingsTileState
               onPressed: () => Navigator.pop(context, false),
               child: Text(AppI18n.t(config, 'common.cancel')),
             ),
-            FilledButton(
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: Text(AppI18n.t(config, 'settings.lyric_cache.delete_all')),
             ),

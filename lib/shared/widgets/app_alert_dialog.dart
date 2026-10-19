@@ -44,6 +44,19 @@ class AppAlertDialog extends StatelessWidget {
         )) {
       return _materialDialog();
     }
+    final message = switch (content) {
+      Text(
+        data: final text,
+        style: null,
+        textAlign: null,
+        maxLines: null,
+        overflow: null,
+        textScaler: null,
+        semanticsLabel: null,
+      ) =>
+        text,
+      _ => null,
+    };
     final colors = Theme.of(context).colorScheme;
     return Material(
       type: MaterialType.transparency,
@@ -59,7 +72,8 @@ class AppAlertDialog extends StatelessWidget {
             child: GlassDialog(
               maxWidth: 360,
               title: (title as Text?)?.data,
-              content: content,
+              message: message,
+              content: message == null ? content : null,
               settings: AppGlassMaterial.sheetFor(context),
               quality: AppGlassScope.qualityOf(context),
               actions: [

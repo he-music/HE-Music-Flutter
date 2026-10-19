@@ -4,19 +4,17 @@ import '../../src/renderer/liquid_glass_renderer.dart';
 
 import '../../types/glass_quality.dart';
 import '../containers/glass_card.dart';
-import '../interactive/glass_button.dart';
-import '../shared/adaptive_liquid_glass_layer.dart';
 import '../../theme/glass_theme_helpers.dart';
 
 /// A glass morphism alert dialog following Apple's iOS design patterns.
 ///
 /// [GlassDialog] provides a modal dialog with liquid glass effect,
-/// composing [GlassCard] and [GlassButton] as building blocks.
+/// composing [GlassCard] and [CupertinoButton] as building blocks.
 ///
 /// ## Key Features
 ///
 /// - Liquid glass backdrop with blur effect
-/// - Composable design using GlassCard + GlassButton
+/// - Composable design using GlassCard + CupertinoButton
 /// - iOS-style alert layout
 /// - 1-3 action buttons with smart layout
 /// - Customizable glass settings
@@ -149,16 +147,6 @@ class GlassDialog extends StatelessWidget {
           actions.length > 0 && actions.length <= 3,
           'GlassDialog must have 1-3 actions',
         );
-
-  static const _actionButtonShape = LiquidRoundedSuperellipse(borderRadius: 12);
-
-  // Cache default colors to avoid allocations
-  static const _defaultGlowColor =
-      Color(0x4DFFFFFF); // white.withValues(alpha: 0.3)
-  static const _destructiveGlowColor =
-      Color(0x4DFF0000); // red.withValues(alpha: 0.3)
-  static const _primaryGlowColor =
-      Color(0x4D0000FF); // blue.withValues(alpha: 0.3)
 
   // ===========================================================================
   // Content Properties
@@ -299,53 +287,42 @@ class GlassDialog extends StatelessWidget {
           settings: settings,
           quality: effectiveQuality,
           padding: const EdgeInsets.all(20),
-          child: AdaptiveLiquidGlassLayer(
-            settings: settings ?? const LiquidGlassSettings(),
-            quality: effectiveQuality,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Title
-                if (title != null) ...[
-                  Text(
-                    title!,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: CupertinoColors.label.resolveFrom(context),
-                    ),
-                    textAlign: TextAlign.center,
+          // The card owns the only glass surface. Actions use ordinary controls
+          // so their layout and press feedback do not refract the card again.
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (title != null) ...[
+                Text(
+                  title!,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: CupertinoColors.label.resolveFrom(context),
                   ),
-                  const SizedBox(height: 8),
-                ],
-
-                // Message
-                if (message != null) ...[
-                  Text(
-                    message!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color:
-                          CupertinoColors.secondaryLabel.resolveFrom(context),
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                ],
-
-                // Custom content
-                if (content != null) ...[
-                  content!,
-                  const SizedBox(height: 8),
-                ],
-
-                const SizedBox(height: 12),
-
-                // Actions
-                _buildActions(context),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
               ],
-            ),
+              if (message != null) ...[
+                Text(
+                  message!,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (content != null) ...[
+                content!,
+                const SizedBox(height: 8),
+              ],
+              const SizedBox(height: 12),
+              _buildActions(context),
+            ],
           ),
         ),
       ),
@@ -356,18 +333,12 @@ class GlassDialog extends StatelessWidget {
     // 1-2 actions: Horizontal layout
     if (actions.length <= 2) {
       return Row(
-        children: actions.asMap().entries.map((entry) {
-          final index = entry.key;
-          final action = entry.value;
-          return Expanded(
-            child: Padding(
-              padding: EdgeInsetsDirectional.only(
-                start: index > 0 ? 8 : 0,
-              ),
-              child: _buildActionButton(action, context),
-            ),
-          );
-        }).toList(),
+        children: [
+          for (var index = 0; index < actions.length; index++) ...[
+            if (index > 0) const SizedBox(width: 8),
+            Expanded(child: _buildActionButton(actions[index], context)),
+          ],
+        ],
       );
     }
 
@@ -388,27 +359,25 @@ class GlassDialog extends StatelessWidget {
   }
 
   Widget _buildActionButton(GlassDialogAction action, BuildContext context) {
-    // Determine button styling based on action type
-    var glowColor = _defaultGlowColor;
-    if (action.isDestructive) {
-      glowColor = _destructiveGlowColor;
-    } else if (action.isPrimary) {
-      glowColor = _primaryGlowColor;
-    }
+    final foregroundColor = action.isDestructive
+        ? CupertinoColors.destructiveRed.resolveFrom(context)
+        : action.isPrimary
+            ? CupertinoColors.activeBlue.resolveFrom(context)
+            : CupertinoColors.label.resolveFrom(context);
 
-    return GlassButton.custom(
-      onTap: action.onPressed,
-      height: 44,
-      shape: _actionButtonShape,
-      glowColor: glowColor,
+    return CupertinoButton(
+      onPressed: action.onPressed,
+      minimumSize: const Size(0, 44),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
+      borderRadius: BorderRadius.circular(12),
       child: Text(
         action.label,
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 16,
           fontWeight: action.isPrimary ? FontWeight.bold : FontWeight.w600,
-          color: action.isDestructive
-              ? CupertinoColors.destructiveRed
-              : CupertinoColors.label.resolveFrom(context),
+          color: foregroundColor,
         ),
       ),
     );
@@ -435,7 +404,7 @@ class GlassDialogAction {
 
   /// Whether this is the primary (recommended) action.
   ///
-  /// Primary actions are displayed with bold text and blue glow.
+  /// Primary actions are displayed with bold blue text.
   /// Typically used for the positive/affirmative action.
   ///
   /// Defaults to false.
@@ -443,7 +412,7 @@ class GlassDialogAction {
 
   /// Whether this is a destructive action.
   ///
-  /// Destructive actions are displayed with red text and red glow.
+  /// Destructive actions are displayed with red text.
   /// Typically used for delete, remove, or other dangerous actions.
   ///
   /// Defaults to false.
