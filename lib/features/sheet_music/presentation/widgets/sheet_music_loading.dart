@@ -76,7 +76,7 @@ class SheetMusicDetailSkeleton extends StatelessWidget {
             ),
           ),
         ),
-        Expanded(child: _ScorePlaceholder()),
+        Spacer(),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -89,31 +89,6 @@ class SheetMusicDetailSkeleton extends StatelessWidget {
           ),
         ),
       ],
-    ),
-  );
-}
-
-class SheetMusicImageSkeleton extends StatelessWidget {
-  const SheetMusicImageSkeleton({required this.label, super.key});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) =>
-      _SheetSkeleton(label: label, child: const _ScorePlaceholder());
-}
-
-class _ScorePlaceholder extends StatelessWidget {
-  const _ScorePlaceholder();
-
-  @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.all(16),
-    child: Center(
-      child: AspectRatio(
-        aspectRatio: 0.7,
-        child: SkeletonBox(width: double.infinity, height: double.infinity),
-      ),
     ),
   );
 }

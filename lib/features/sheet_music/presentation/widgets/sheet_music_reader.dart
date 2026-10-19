@@ -4,7 +4,6 @@ import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
-import 'sheet_music_loading.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 
 /// 画廊负责缩放和拖拽手势；这里仅连接曲谱页码、全屏与保存操作。
@@ -309,8 +308,7 @@ class _SheetMusicReaderState extends State<SheetMusicReader> {
           setState(() => _page = index);
           widget.onPageChanged?.call(index);
         },
-        loadingBuilder: (context, progress) =>
-            SheetMusicImageSkeleton(label: _label('sheet_music.loading')),
+        loadingBuilder: (context, progress) => const SizedBox.shrink(),
         builder: (context, index) => PhotoViewGalleryPageOptions(
           imageProvider: NetworkImage(widget.pageUrls[index]),
           semanticLabel: AppI18n.formatByLocaleCode(
