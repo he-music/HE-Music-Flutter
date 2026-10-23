@@ -299,6 +299,41 @@ void main() {
       findsOneWidget,
     );
   });
+  testWidgets('settings sections respect the system reduced-motion setting', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    final router = createAppRouter(AppRoutes.settings);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      _buildImmersiveRouterTestApp(router, _CountingAssetResolver()),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('歌词'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey<String>('settings-page-lyrics')),
+          )
+          .dx,
+      0,
+    );
+    router.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(
+      find.byKey(const ValueKey<String>('settings-page-lyrics')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('settings-page-home')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('immersive route transitions keep the root wallpaper visible', (
     tester,

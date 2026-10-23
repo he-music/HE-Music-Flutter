@@ -25,9 +25,12 @@ import 'package:he_music_flutter/features/update/presentation/controllers/update
 import 'package:he_music_flutter/features/update/presentation/providers/update_providers.dart';
 import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
+import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUpAll(AppEnvironment.initialize);
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('app uses dark status bar icons for light theme by default', (
     tester,
@@ -513,6 +516,94 @@ void main() {
     expect(find.text('网络连接超时，请检查网络后重试。'), findsOneWidget);
   });
 
+  for (final unavailable in [false, true]) {
+    testWidgets(
+      'local routes remain available while platforms are ${unavailable ? 'failed' : 'loading'}',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(480, 320));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final router = _createStartupTestRouter();
+        addTearDown(router.dispose);
+        final platforms = Completer<void>();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appRouterProvider.overrideWithValue(router),
+              appConfigProvider.overrideWith(
+                _HydratedTestAppConfigController.new,
+              ),
+              appConfigDataSourceProvider.overrideWithValue(
+                const _TestAppConfigDataSource(autoCheckUpdates: false),
+              ),
+              appLocalStartupProvider.overrideWith((ref) async {}),
+              appStartupProvider.overrideWith((ref) => platforms.future),
+            ],
+            child: const HeMusicApp(enableStartupGateInTests: true),
+          ),
+        );
+        if (unavailable) {
+          platforms.completeError(
+            DioException(
+              requestOptions: RequestOptions(path: '/v1/platforms'),
+              type: DioExceptionType.connectionError,
+            ),
+          );
+        }
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(tester.takeException(), isNull);
+        await tester.ensureVisible(find.text('已下载'));
+        await tester.pump();
+        await tester.tap(find.text('已下载'));
+        await tester.pumpAndSettle();
+        expect(find.text('下载内容'), findsOneWidget);
+        router.go(AppRoutes.library);
+        await tester.pumpAndSettle();
+        expect(find.text('本地内容'), findsOneWidget);
+        router.go(AppRoutes.onlineSearch);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(find.text('在线搜索内容'), findsNothing);
+        if (!unavailable) {
+          platforms.complete();
+          await tester.pumpAndSettle();
+          expect(find.text('在线搜索内容'), findsOneWidget);
+        }
+      },
+    );
+  }
+
+  testWidgets(
+    'refreshing usable platform metadata keeps the current page mounted',
+    (tester) async {
+      final router = _createStartupTestRouter();
+      addTearDown(router.dispose);
+      final platforms = _RefreshablePlatforms();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appRouterProvider.overrideWithValue(router),
+            appConfigProvider.overrideWith(
+              _HydratedTestAppConfigController.new,
+            ),
+            appConfigDataSourceProvider.overrideWithValue(
+              const _TestAppConfigDataSource(autoCheckUpdates: false),
+            ),
+            onlinePlatformsProvider.overrideWith(() => platforms),
+          ],
+          child: const HeMusicApp(enableStartupGateInTests: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final home = tester.element(find.text('首页'));
+      platforms.publish();
+      await tester.pump();
+      expect(tester.element(find.text('首页')), same(home));
+      await tester.pumpAndSettle();
+      expect(tester.element(find.text('首页')), same(home));
+    },
+  );
+
   testWidgets('startup checks updates only after initialization completes', (
     tester,
   ) async {
@@ -570,6 +661,18 @@ GoRouter _createStartupTestRouter() {
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const Scaffold(body: Text('登录页')),
+      ),
+      GoRoute(
+        path: AppRoutes.library,
+        builder: (_, _) => const Scaffold(body: Text('本地内容')),
+      ),
+      GoRoute(
+        path: AppRoutes.downloads,
+        builder: (_, _) => const Scaffold(body: Text('下载内容')),
+      ),
+      GoRoute(
+        path: AppRoutes.onlineSearch,
+        builder: (_, _) => const Scaffold(body: Text('在线搜索内容')),
       ),
     ],
   );
@@ -708,6 +811,21 @@ class _CountingUpdateController extends UpdateController {
   Future<void> checkForUpdates() async {
     checkCount += 1;
   }
+}
+
+class _RefreshablePlatforms extends OnlinePlatformsController {
+  List<OnlinePlatform> _platforms() => [
+    OnlinePlatform(
+      id: 'qq',
+      name: 'QQ',
+      shortName: 'QQ',
+      status: 1,
+      featureSupportFlag: BigInt.one,
+    ),
+  ];
+  @override
+  Future<List<OnlinePlatform>> build() async => _platforms();
+  void publish() => state = AsyncData(_platforms());
 }
 
 class _RetryOnlineApiClient extends OnlineApiClient {

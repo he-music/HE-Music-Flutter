@@ -115,23 +115,38 @@ class _SettingsSectionPageRoute extends PageRouteBuilder<void> {
         reverseTransitionDuration: const Duration(milliseconds: 220),
         pageBuilder: (context, animation, secondaryAnimation) => page.child,
         transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-            FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOut,
-                reverseCurve: Curves.easeIn,
-              ),
-              child: SlideTransition(
-                position: _positionAnimation(
-                  animation,
-                  begin: const Offset(1, 0),
-                  end: Offset.zero,
+            MediaQuery.disableAnimationsOf(context)
+            ? child
+            : FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOut,
+                  reverseCurve: Curves.easeIn,
                 ),
-                textDirection: Directionality.of(context),
-                child: child,
+                child: SlideTransition(
+                  position: _positionAnimation(
+                    animation,
+                    begin: const Offset(1, 0),
+                    end: Offset.zero,
+                  ),
+                  textDirection: Directionality.of(context),
+                  child: child,
+                ),
               ),
-            ),
       );
+
+  bool get _reduceMotion {
+    final context = navigator?.context;
+    return context != null && MediaQuery.disableAnimationsOf(context);
+  }
+
+  @override
+  Duration get transitionDuration =>
+      _reduceMotion ? Duration.zero : super.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration =>
+      _reduceMotion ? Duration.zero : super.reverseTransitionDuration;
 
   @override
   DelegatedTransitionBuilder get delegatedTransition =>
@@ -139,6 +154,7 @@ class _SettingsSectionPageRoute extends PageRouteBuilder<void> {
         if (child == null) {
           return null;
         }
+        if (MediaQuery.disableAnimationsOf(context)) return child;
         return SlideTransition(
           position: _positionAnimation(
             secondaryAnimation,

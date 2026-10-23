@@ -75,6 +75,7 @@ class OnlineController extends Notifier<OnlineFeatureState> {
       // 登出接口失败不影响本地清理
     }
     ref.read(appConfigProvider.notifier).clearAuthToken();
+    ref.invalidate(onlinePlatformsProvider);
     // 同步清理帐号数据，避免退出后短暂显示上一个帐号的资料。
     ref.read(myOverviewControllerProvider.notifier).clear();
     ref.invalidate(myCreatedPlaylistsProvider);
@@ -412,6 +413,7 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     } else {
       configController.setAuthToken(accessToken);
     }
+    ref.invalidate(onlinePlatformsProvider);
     await Future.wait<void>(<Future<void>>[
       ref.read(favoriteSongStatusProvider.notifier).refresh(),
       ref.read(favoriteCollectionStatusProvider.notifier).refresh(),

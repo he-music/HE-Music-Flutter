@@ -103,6 +103,10 @@ void main() {
     expect(find.text('Playlists'), findsOneWidget);
     expect(find.text('Albums'), findsOneWidget);
     expect(find.text('Artists'), findsOneWidget);
+    expect(find.text('Videos'), findsNothing);
+    await tester.ensureVisible(find.text('More categories'));
+    await tester.tap(find.text('More categories'));
+    await tester.pumpAndSettle();
     expect(find.text('Videos'), findsOneWidget);
   });
 

@@ -54,6 +54,14 @@ class SearchTypeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const common = {
+      SearchType.comprehensive,
+      SearchType.song,
+      SearchType.artist,
+      SearchType.album,
+      SearchType.playlist,
+    };
+    final extraTypes = types.where((type) => !common.contains(type)).toList();
     return SizedBox(
       width: double.infinity,
       child: SingleChildScrollView(
@@ -62,15 +70,57 @@ class SearchTypeBar extends StatelessWidget {
           horizontal: LayoutTokens.compactPageGutter,
         ),
         child: Row(
-          children: types
-              .map(
-                (tab) => _SimpleTab(
-                  label: AppI18n.tByLocaleCode(localeCode, tab.labelKey),
-                  selected: selectedType == tab,
-                  onTap: () => onChanged(tab),
+          children: [
+            for (final tab in types.where(common.contains))
+              _SimpleTab(
+                label: AppI18n.tByLocaleCode(localeCode, tab.labelKey),
+                selected: selectedType == tab,
+                onTap: () => onChanged(tab),
+              ),
+            if (extraTypes.isNotEmpty)
+              PopupMenuButton<SearchType>(
+                tooltip: AppI18n.tByLocaleCode(localeCode, 'search.more_types'),
+                initialValue: extraTypes.contains(selectedType)
+                    ? selectedType
+                    : null,
+                onSelected: onChanged,
+                itemBuilder: (_) => [
+                  for (final type in extraTypes)
+                    CheckedPopupMenuItem(
+                      value: type,
+                      checked: type == selectedType,
+                      child: Text(
+                        AppI18n.tByLocaleCode(localeCode, type.labelKey),
+                      ),
+                    ),
+                ],
+                child: Semantics(
+                  button: true,
+                  selected: extraTypes.contains(selectedType),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: LayoutTokens.controlMinExtent,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Text(
+                            AppI18n.tByLocaleCode(
+                              localeCode,
+                              extraTypes.contains(selectedType)
+                                  ? selectedType.labelKey
+                                  : 'search.more_types',
+                            ),
+                          ),
+                          const Icon(Icons.expand_more, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              )
-              .toList(growable: false),
+              ),
+          ],
         ),
       ),
     );
@@ -116,7 +166,9 @@ class SearchPlatformBar extends StatelessWidget {
                 return _PlatformChip(
                   label: platform.label,
                   selected: platform.id == selectedPlatformId,
-                  enabled: platform.supports(requiredFeatureFlag),
+                  enabled:
+                      platform.available &&
+                      platform.supports(requiredFeatureFlag),
                   onTap: () => onChanged(platform.id),
                 );
               })
@@ -147,22 +199,34 @@ class _PlatformChip extends StatelessWidget {
     final baseTextColor = theme.colorScheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: Material(
-        color: selected
-            ? selectedColor.withValues(alpha: 0.10)
-            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          onTap: enabled ? onTap : null,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        enabled: enabled,
+        child: Material(
+          color: selected
+              ? selectedColor.withValues(alpha: 0.10)
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.42,
+                ),
           borderRadius: BorderRadius.circular(999),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: !enabled
-                    ? theme.hintColor.withValues(alpha: 0.55)
-                    : (selected ? selectedColor : baseTextColor),
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: LayoutTokens.controlMinExtent,
+                minWidth: LayoutTokens.controlMinExtent,
+              ),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: !enabled
+                      ? theme.colorScheme.onSurface.withValues(alpha: 0.38)
+                      : (selected ? selectedColor : baseTextColor),
+                ),
               ),
             ),
           ),

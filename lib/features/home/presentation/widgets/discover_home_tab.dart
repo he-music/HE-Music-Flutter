@@ -40,6 +40,7 @@ import '../../../player/domain/entities/player_quality_option.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
+import '../../../online/presentation/widgets/online_platform_status_banner.dart';
 import '../../../radio/presentation/helpers/radio_playback_helper.dart';
 import 'home_sections.dart';
 import 'home_search_field.dart';
@@ -212,6 +213,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                     )
                   : const SizedBox(height: 8),
             ),
+            const OnlinePlatformStatusBanner(),
             Expanded(
               child: availablePages.isEmpty
                   ? platformErrorMessage == null

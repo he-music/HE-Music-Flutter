@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_progress_bar.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
 
 void main() {
   testWidgets('scrubbing previews locally and commits once on release', (
@@ -73,5 +74,38 @@ void main() {
     expect(slider.value, 10000);
     expect(slider.onChanged, isNull);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('progress keeps the player controls white across scene themes', (
+    tester,
+  ) async {
+    final scene = const PlayerScenePalette(
+      surface: Colors.white,
+      surfaceDeep: Colors.white,
+      surfaceRaised: Colors.white,
+      edge: Colors.black12,
+      accent: Colors.deepPurple,
+      foreground: Colors.black,
+      secondaryForeground: Color(0xFF424242),
+      onAccent: Colors.white,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: [scene]),
+        home: Scaffold(
+          body: PlayerProgressBar(
+            position: const Duration(seconds: 10),
+            duration: const Duration(minutes: 3),
+            onSeek: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final slider = tester.widget<SliderTheme>(find.byType(SliderTheme));
+    expect(slider.data.activeTrackColor, Colors.white);
+    expect(
+      tester.widget<Text>(find.text('00:10')).style!.color,
+      Colors.white.withValues(alpha: 0.74),
+    );
   });
 }

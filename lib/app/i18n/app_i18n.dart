@@ -899,6 +899,16 @@ abstract final class AppI18n {
       'startup.response_error': '服务响应异常（{code}），请稍后重试。',
       'startup.request_cancelled': '请求已取消，请重试。',
       'startup.network_error': '网络异常，请检查网络后重试。',
+      'startup.platforms_unavailable': '暂时无法获取音乐来源，请稍后重试。',
+      'startup.offline_hint': '网络暂不可用时，仍可收听本地和已下载的音乐。',
+      'platform.cached': '正在使用上次保存的音乐来源',
+      'platform.refresh_failed': '音乐来源更新失败，保留上次可用配置',
+      'search.failed': '搜索暂时失败，请稍后重试。',
+      'search.retry_hint': '可以重试，或在上方切换音乐来源。',
+      'search.empty_hint': '试试更短的歌名、歌手名，或切换上方的音乐来源。',
+      'search.edit_query': '修改关键词',
+      'search.more_types': '更多分类',
+      'search.source_scope': '当前来源：{source} · 综合搜索仅包含该来源',
       'song.tag.original': '原唱',
       'song.more_versions': '更多版本',
       'common.unknown_author': '未知作者',
@@ -1975,6 +1985,21 @@ abstract final class AppI18n {
       'startup.request_cancelled': 'Request cancelled, please try again.',
       'startup.network_error':
           'Network error, please check your network and try again.',
+      'startup.platforms_unavailable':
+          'Music sources are unavailable. Please try again.',
+      'startup.offline_hint':
+          'You can still listen to local and downloaded music without a connection.',
+      'platform.cached': 'Using previously saved music sources',
+      'platform.refresh_failed':
+          'Could not update sources. Keeping the last available configuration.',
+      'search.failed': 'Search is unavailable right now. Please try again.',
+      'search.retry_hint': 'Try again or choose another source above.',
+      'search.empty_hint':
+          'Try a shorter song title, an artist name, or another source above.',
+      'search.edit_query': 'Edit search',
+      'search.more_types': 'More categories',
+      'search.source_scope':
+          'Source: {source} · All results are from this source',
       'song.tag.original': 'Original',
       'song.more_versions': 'More Versions',
       'common.unknown_author': 'Unknown Author',

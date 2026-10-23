@@ -20,12 +20,14 @@ class _PlayerRoute extends PageRouteBuilder<void> {
         settings: page,
         pageBuilder: (context, animation, secondaryAnimation) => page.child,
         transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-            SlideTransition(
-              position: animation.drive(
-                Tween(begin: const Offset(0, 1), end: Offset.zero),
+            MediaQuery.disableAnimationsOf(context)
+            ? FadeTransition(opacity: animation, child: child)
+            : SlideTransition(
+                position: animation.drive(
+                  Tween(begin: const Offset(0, 1), end: Offset.zero),
+                ),
+                child: child,
               ),
-              child: child,
-            ),
       );
 
   static final _spring = SpringDescription.withDampingRatio(
@@ -36,6 +38,19 @@ class _PlayerRoute extends PageRouteBuilder<void> {
   int _revision = 0;
   bool _dismissInProgress = false;
 
+  bool get _reduceMotion {
+    final context = navigator?.context;
+    return context != null && MediaQuery.disableAnimationsOf(context);
+  }
+
+  @override
+  Duration get transitionDuration =>
+      _reduceMotion ? Duration.zero : super.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration =>
+      _reduceMotion ? Duration.zero : super.reverseTransitionDuration;
+
   // animateWith stays forward so the closing player remains interactive.
   // Its completion must only occlude the previous route when fully expanded,
   // never when the spring has finished with the player below the viewport.
@@ -43,15 +58,17 @@ class _PlayerRoute extends PageRouteBuilder<void> {
   bool get opaque => controller?.value == 1;
 
   @override
-  Simulation createSimulation({required bool forward}) => SpringSimulation(
-    _spring,
-    controller!.value,
-    forward ? 1 : 0,
-    controller!.velocity,
-    // Overlay samples opaque at completion; a near-1 spring value leaks the
-    // source page when a transparent skin's next route fades out the player.
-    snapToEnd: true,
-  );
+  Simulation? createSimulation({required bool forward}) => _reduceMotion
+      ? null
+      : SpringSimulation(
+          _spring,
+          controller!.value,
+          forward ? 1 : 0,
+          controller!.velocity,
+          // Overlay samples opaque at completion; a near-1 spring value leaks the
+          // source page when a transparent skin's next route fades out the player.
+          snapToEnd: true,
+        );
 
   @override
   void didChangeNext(Route<dynamic>? nextRoute) {
@@ -118,14 +135,21 @@ class _PlayerRoute extends PageRouteBuilder<void> {
     if (!canDrag) return;
     final revision = ++_revision;
     try {
-      final simulation = SpringSimulation(
-        _spring,
-        controller!.value,
-        dismiss ? .0001 : 1,
-        velocity,
-        snapToEnd: true,
-      );
-      await controller!.animateWith(simulation).orCancel;
+      if (_reduceMotion) {
+        controller!.value = dismiss ? .0001 : 1;
+      } else {
+        await controller!
+            .animateWith(
+              SpringSimulation(
+                _spring,
+                controller!.value,
+                dismiss ? .0001 : 1,
+                velocity,
+                snapToEnd: true,
+              ),
+            )
+            .orCancel;
+      }
       if (revision == _revision && canDrag && dismiss) {
         _dismissInProgress = true;
         try {

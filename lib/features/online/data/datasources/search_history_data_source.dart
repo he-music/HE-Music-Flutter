@@ -34,4 +34,25 @@ class SearchHistoryDataSource {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_searchHistoryStorageKey, const <String>[]);
   }
+
+  Future<String?> preferredPlatform(String server) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList('online_search_source_v1');
+      return saved != null && saved.length == 2 && saved.first == server
+          ? saved.last
+          : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> savePreferredPlatform(String server, String platform) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('online_search_source_v1', [server, platform]);
+    } catch (_) {
+      // A storage failure does not prevent searching.
+    }
+  }
 }

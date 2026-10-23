@@ -42,6 +42,10 @@ import 'online_search_result_page.dart';
 import 'online_search_suggest_panel.dart';
 import 'online_search_song_actions.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/network/network_error_message.dart';
+import '../widgets/online_platform_status_banner.dart';
+import 'online_search_feedback.dart';
 
 class OnlineSearchPage extends ConsumerStatefulWidget {
   const OnlineSearchPage({
@@ -81,6 +85,8 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   final Map<String, OnlineComprehensiveSearchResult> _comprehensiveResultCache =
       <String, OnlineComprehensiveSearchResult>{};
   final Map<String, String> _searchErrorCache = <String, String>{};
+  final Map<String, String> _loadMoreErrorCache = <String, String>{};
+  bool _sourceChosen = false;
   final Set<String> _loadingCacheKeys = <String>{};
   final Set<String> _loadingMoreCacheKeys = <String>{};
   final Map<String, int> _nextPageCache = <String, int>{};
@@ -115,6 +121,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       await _loadSearchHistory();
       await _loadHotKeywords();
     });
+    unawaited(_restorePreferredPlatform());
     _prefillKeywordIfNeeded();
   }
 
@@ -152,6 +159,10 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       previous,
       next,
     ) {
+      if ((previous?.value?.isEmpty ?? true) &&
+          (next.value?.isNotEmpty ?? false)) {
+        unawaited(_searchIfKeywordPresent());
+      }
       final previousHadHotPlatform = _hasHotKeywordPlatform(previous?.value);
       final nextHasHotPlatform = _hasHotKeywordPlatform(next.value);
       if (previousHadHotPlatform ||
@@ -221,8 +232,22 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                 onSearch: _search,
               ),
             ),
+            const OnlinePlatformStatusBanner(),
             Expanded(
-              child: showHotPanel
+              child: platforms.isEmpty
+                  ? loadingPlatforms
+                        ? const Center(child: CircularProgressIndicator())
+                        : SearchFeedback(
+                            localeCode: config.localeCode,
+                            error: AppI18n.t(
+                              config,
+                              'startup.platforms_unavailable',
+                            ),
+                            onRetry: () => ref
+                                .read(onlinePlatformsProvider.notifier)
+                                .refresh(),
+                          )
+                  : showHotPanel
                   ? OnlineSearchHotPanel(
                       localeCode: config.localeCode,
                       leading: OnlineSearchBrowseEntries(
@@ -253,6 +278,11 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                     )
                   : OnlineSearchResultPage(
                       localeCode: config.localeCode,
+                      onRetry: () => unawaited(_search()),
+                      onEditQuery: _editQuery,
+                      loadMoreError: cacheKey == null
+                          ? null
+                          : _loadMoreErrorCache[cacheKey],
                       selectedType: _selectedType,
                       onTypeChanged: _onTypeChanged,
                       loadingPlatforms: loadingPlatforms,
@@ -313,6 +343,18 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       AppMessageService.showWarning(AppI18n.t(config, 'search.empty_keyword'));
       return;
     }
+    if (!ref.read(onlinePlatformsProvider).hasValue) {
+      try {
+        await ref.read(onlinePlatformsProvider.future);
+      } catch (_) {
+        return;
+      }
+      if (!mounted ||
+          (!resolved.fillController &&
+              _searchController.text.trim() != keyword)) {
+        return;
+      }
+    }
     if (!_ensureSelectedPlatformValid()) {
       AppMessageService.showWarning(AppI18n.t(config, 'search.no_platform'));
       return;
@@ -342,8 +384,10 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       return;
     }
     setState(() {
+      _activeSearchKeyword = keyword;
       _loadingCacheKeys.add(cacheKey);
       _searchErrorCache.remove(cacheKey);
+      _loadMoreErrorCache.remove(cacheKey);
     });
     try {
       final repository = ref.read(onlineSearchRepositoryProvider);
@@ -355,7 +399,6 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
           return;
         }
         setState(() {
-          _activeSearchKeyword = keyword;
           _comprehensiveResultCache[cacheKey] = result;
           _hasMoreCache[cacheKey] = false;
           _searchErrorCache.remove(cacheKey);
@@ -374,7 +417,6 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
           return;
         }
         setState(() {
-          _activeSearchKeyword = keyword;
           _searchSongResultCache[cacheKey] = page.items;
           _nextPageCache[cacheKey] = page.pageIndex + 1;
           _hasMoreCache[cacheKey] = page.hasMore;
@@ -394,7 +436,6 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         return;
       }
       setState(() {
-        _activeSearchKeyword = keyword;
         _searchResultCache[cacheKey] = page.items;
         _nextPageCache[cacheKey] = page.pageIndex + 1;
         _hasMoreCache[cacheKey] = page.hasMore;
@@ -407,10 +448,9 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       }
       setState(() {
         if (!_hasCachedResult(cacheKey, searchType)) {
-          _searchErrorCache[cacheKey] = '$error';
+          _searchErrorCache[cacheKey] = _searchFailureMessage(error);
         }
       });
-      _showErrorMessage('$error');
     } finally {
       if (mounted) {
         setState(() {
@@ -459,14 +499,14 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     if (_selectedType == SearchType.comprehensive) {
       return;
     }
+    if (!_ensureSelectedPlatformValid()) {
+      return;
+    }
     final searchType = _selectedType;
     final platformId = _selectedPlatformId;
     final keyword = _effectiveSearchKeyword();
     final cacheKey = _currentCacheKey();
     if (keyword.isEmpty || cacheKey == null) {
-      return;
-    }
-    if (!_ensureSelectedPlatformValid()) {
       return;
     }
     if (_loadingCacheKeys.contains(cacheKey) ||
@@ -475,7 +515,10 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       return;
     }
     final pageIndex = _nextPageCache[cacheKey] ?? 2;
-    setState(() => _loadingMoreCacheKeys.add(cacheKey));
+    setState(() {
+      _loadingMoreCacheKeys.add(cacheKey);
+      _loadMoreErrorCache.remove(cacheKey);
+    });
     try {
       if (_usesSearchSongResults(searchType)) {
         final currentResults = _searchSongResultCache[cacheKey];
@@ -526,7 +569,11 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         _hasMoreCache[cacheKey] = page.hasMore;
       });
     } catch (error) {
-      _showErrorMessage('$error');
+      if (mounted) {
+        setState(
+          () => _loadMoreErrorCache[cacheKey] = _searchFailureMessage(error),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _loadingMoreCacheKeys.remove(cacheKey));
@@ -1168,6 +1215,23 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     return '${keyword.toLowerCase()}|${type.apiType}|$platformId';
   }
 
+  String _searchFailureMessage(Object error) {
+    final locale = ref.read(appConfigProvider).localeCode;
+    return error is DioException && error.type != DioExceptionType.unknown
+        ? (NetworkErrorMessage.resolve(error, localeCode: locale) ??
+              AppI18n.tByLocaleCode(locale, 'search.failed'))
+        : AppI18n.tByLocaleCode(locale, 'search.failed');
+  }
+
+  void _editQuery() {
+    _searchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _searchController.text.length,
+    );
+    _searchFocusNode.requestFocus();
+    setState(() => _showSuggestionPanel = true);
+  }
+
   bool _hasCachedResult(String cacheKey, SearchType type) {
     if (type == SearchType.comprehensive) {
       return _comprehensiveResultCache.containsKey(cacheKey);
@@ -1205,59 +1269,42 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   List<SearchPlatform> _resolvePlatforms(
     AsyncValue<List<OnlinePlatform>> platformsAsync,
   ) {
-    final allPlatforms = platformsAsync.value;
-    if (allPlatforms == null) {
-      return <SearchPlatform>[
-        SearchPlatform(
-          id: _selectedPlatformId,
-          label: _selectedPlatformId,
-          available: true,
-          featureSupportFlag: _selectedType.requiredPlatformFeatureFlag,
-        ),
-      ];
-    }
-    final availablePlatforms = _featureFilteredPlatforms(
-      allPlatforms: allPlatforms,
-      type: _selectedType,
-    );
-    if (availablePlatforms.isEmpty) {
-      return const <SearchPlatform>[];
-    }
-    final parsed = availablePlatforms
-        .map<SearchPlatform>(SearchPlatform.fromOnlinePlatform)
+    return (platformsAsync.value ?? const <OnlinePlatform>[])
+        .where(
+          (platform) =>
+              platform.available &&
+              SearchType.values.any(
+                (type) => platform.supports(type.requiredPlatformFeatureFlag),
+              ),
+        )
+        .map(SearchPlatform.fromOnlinePlatform)
         .toList(growable: false);
-    return parsed;
   }
 
   void _syncSelectedPlatform(List<SearchPlatform> platforms) {
-    final exists = platforms.any((p) => p.id == _selectedPlatformId);
-    if (platforms.isEmpty) {
-      return;
-    }
-    final preferredType = _preferredSearchTypeForPlatforms(platforms);
-    if (_selectedType != preferredType &&
-        widget.initialType == null &&
-        _effectiveSearchKeyword().isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _selectedType == preferredType) {
-          return;
-        }
-        setState(() => _selectedType = preferredType);
-      });
-    }
-    if (exists) {
-      return;
-    }
-    final fallbackId = platforms.first.id;
+    if (platforms.isEmpty) return;
+    final platform =
+        platforms.where((p) => p.id == _selectedPlatformId).firstOrNull ??
+        platforms
+            .where((p) => p.supports(_selectedType.requiredPlatformFeatureFlag))
+            .firstOrNull ??
+        platforms.first;
+    final type = platform.supports(_selectedType.requiredPlatformFeatureFlag)
+        ? _selectedType
+        : _preferredSearchTypeForPlatforms([platform]);
+    if (_selectedPlatformId == platform.id && _selectedType == type) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _selectedPlatformId == fallbackId) {
-        return;
-      }
-      setState(() => _selectedPlatformId = fallbackId);
+      if (!mounted) return;
+      setState(() {
+        _selectedPlatformId = platform.id;
+        _selectedType = type;
+      });
+      unawaited(_searchIfKeywordPresent());
     });
   }
 
   void _onTypeChanged(SearchType type) {
+    _sourceChosen = true;
     setState(() {
       _selectedType = type;
       _ensureSelectedPlatformValid(rebuild: false);
@@ -1265,7 +1312,53 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
     unawaited(_searchIfKeywordPresent());
   }
 
+  Future<void> _restorePreferredPlatform() async {
+    if (widget.initialKeyword?.trim().isNotEmpty ?? false) return;
+    try {
+      final server = ref.read(appConfigProvider).apiBaseUrl;
+      final saved = await ref
+          .read(searchHistoryDataSourceProvider)
+          .preferredPlatform(server);
+      if (saved == null || !mounted) return;
+      final platforms = await ref.read(onlinePlatformsProvider.future);
+      if (!mounted || _sourceChosen || _effectiveSearchKeyword().isNotEmpty) {
+        return;
+      }
+      final selected = platforms
+          .where(
+            (p) =>
+                p.id == saved &&
+                p.available &&
+                SearchType.values.any(
+                  (type) => p.supports(type.requiredPlatformFeatureFlag),
+                ),
+          )
+          .firstOrNull;
+      if (selected == null) return;
+      setState(() {
+        _selectedPlatformId = saved;
+        if (!selected.supports(_selectedType.requiredPlatformFeatureFlag)) {
+          _selectedType = _preferredSearchTypeForPlatforms([
+            SearchPlatform.fromOnlinePlatform(selected),
+          ]);
+        }
+      });
+      await _loadHotKeywords();
+    } catch (_) {
+      // The platform state owns loading and retry; preferences are optional.
+    }
+  }
+
   void _onPlatformChanged(String platformId) {
+    _sourceChosen = true;
+    unawaited(
+      ref
+          .read(searchHistoryDataSourceProvider)
+          .savePreferredPlatform(
+            ref.read(appConfigProvider).apiBaseUrl,
+            platformId,
+          ),
+    );
     setState(() {
       _selectedPlatformId = platformId;
       _loadingHotKeywords = true;
@@ -1302,14 +1395,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       SearchType.lyric,
     ];
     if (platforms.isEmpty) {
-      return ordered
-          .where(
-            (type) =>
-                type != SearchType.comprehensive &&
-                type != SearchType.lyric &&
-                type != SearchType.audiobook,
-          )
-          .toList(growable: false);
+      return const <SearchType>[];
     }
     final selectedPlatform = platforms.where(
       (platform) => platform.id == _selectedPlatformId,
@@ -1344,7 +1430,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   bool _ensureSelectedPlatformValid({bool rebuild = true}) {
     final allPlatforms = ref.read(onlinePlatformsProvider).value;
     if (allPlatforms == null) {
-      return true;
+      return false;
     }
     final filtered = _featureFilteredPlatforms(
       allPlatforms: allPlatforms,
@@ -1377,7 +1463,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
   }) {
     final allPlatforms = ref.read(onlinePlatformsProvider).value;
     if (allPlatforms == null || allPlatforms.isEmpty) {
-      return true;
+      return false;
     }
     for (final platform in allPlatforms) {
       if (platform.id != platformId) {

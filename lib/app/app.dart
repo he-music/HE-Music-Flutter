@@ -12,9 +12,11 @@ import 'config/app_theme_mode.dart';
 import '../features/lyrics/presentation/providers/lyrics_providers.dart';
 import '../core/network/unauthorized_redirect_interceptor.dart';
 import '../features/lyrics_overlay/presentation/providers/overlay_lyrics_provider.dart';
+import '../features/online/presentation/providers/online_providers.dart';
 import 'i18n/app_i18n.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
+import 'router/platform_route_policy.dart';
 import 'startup/app_startup_provider.dart';
 import 'startup/app_auto_update_gate.dart';
 import 'theme/app_theme.dart';
@@ -150,10 +152,41 @@ class _AppStartupGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final startup = ref.watch(appStartupProvider);
-    final currentLocation = _currentLocation(context);
+    final router = ref.watch(appRouterProvider);
+    return ListenableBuilder(
+      listenable: router.routeInformationProvider,
+      builder: (context, _) => Consumer(
+        builder: (context, ref, _) => _buildGate(
+          context,
+          ref,
+          startup,
+          router.routeInformationProvider.value.uri,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGate(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<void> startup,
+    Uri location,
+  ) {
     final bypassStartupGate =
-        currentLocation.startsWith(AppRoutes.login) ||
-        currentLocation.startsWith(AppRoutes.captcha);
+        location.path.startsWith(AppRoutes.login) ||
+        location.path.startsWith(AppRoutes.captcha);
+    if (canOpenWithoutPlatforms(location)) {
+      final local = ref.watch(appLocalStartupProvider);
+      if (local.hasValue) return child;
+      startup = local;
+    }
+    // A valid snapshot remains usable while startup observes refreshed metadata.
+    if (startup.isLoading && startup.hasValue) {
+      final platforms = ref.watch(onlinePlatformsProvider);
+      if (!platforms.isLoading && (platforms.value?.isNotEmpty ?? false)) {
+        return child;
+      }
+    }
     final localeCode = ref.watch(
       appConfigProvider.select((state) => state.localeCode),
     );
@@ -165,10 +198,16 @@ class _AppStartupGate extends ConsumerWidget {
         return _StartupScaffold(
           title: 'HE-Music',
           subtitle: AppI18n.tByLocaleCode(localeCode, 'startup.loading'),
-          body: const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2.4),
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox.square(
+                dimension: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+              const SizedBox(height: 20),
+              _OfflineStartupActions(localeCode: localeCode),
+            ],
           ),
         );
       },
@@ -186,22 +225,19 @@ class _AppStartupGate extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               FilledButton(
-                onPressed: () => ref.invalidate(appStartupProvider),
+                onPressed: () {
+                  ref.invalidate(onlinePlatformsProvider);
+                  ref.invalidate(appStartupProvider);
+                },
                 child: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),
               ),
+              const SizedBox(height: 12),
+              _OfflineStartupActions(localeCode: localeCode),
             ],
           ),
         );
       },
     );
-  }
-
-  String _currentLocation(BuildContext context) {
-    try {
-      return GoRouter.of(context).state.uri.toString();
-    } catch (_) {
-      return '';
-    }
   }
 
   bool _isUnauthorizedError(Object error) {
@@ -307,6 +343,44 @@ String _safeRouterLocation(GoRouter router) {
   }
 }
 
+class _OfflineStartupActions extends ConsumerWidget {
+  const _OfflineStartupActions({required this.localeCode});
+
+  final String localeCode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        AppI18n.tByLocaleCode(localeCode, 'startup.offline_hint'),
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+      const SizedBox(height: 8),
+      Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 8,
+        children: [
+          TextButton.icon(
+            onPressed: () => ref.read(appRouterProvider).go(AppRoutes.library),
+            icon: const Icon(Icons.library_music_outlined),
+            label: Text(AppI18n.tByLocaleCode(localeCode, 'local.title')),
+          ),
+          TextButton.icon(
+            onPressed: () =>
+                ref.read(appRouterProvider).go(AppRoutes.downloads),
+            icon: const Icon(Icons.download_done_rounded),
+            label: Text(
+              AppI18n.tByLocaleCode(localeCode, 'download.tab.downloaded'),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
 class _StartupScaffold extends StatelessWidget {
   const _StartupScaffold({
     required this.title,
@@ -340,7 +414,7 @@ class _StartupScaffold extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 360),
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,

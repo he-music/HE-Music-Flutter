@@ -289,6 +289,28 @@ void main() {
     expect(state.loadingMore, isFalse);
     expect(state.hasMore, isFalse);
   });
+  test(
+    'refreshed platform capabilities replace cached home navigation',
+    () async {
+      final api = _ImmediateHomePageApiClient();
+      final container = _container(
+        api: api,
+        platforms: [_platform('old', recommend: true)],
+      );
+      addTearDown(container.dispose);
+      await container.read(onlinePlatformsProvider.future);
+      await container.read(homePageControllerProvider.notifier).initialize();
+      (container.read(onlinePlatformsProvider.notifier)
+              as _FakeOnlinePlatformsController)
+          .publish([_platform('new', discover: true)]);
+      await Future<void>.delayed(Duration.zero);
+      final state = container.read(homePageControllerProvider);
+      expect(state.availablePages, [HomePageKind.discover]);
+      expect(state.selectedPage, HomePageKind.discover);
+      expect(state.discover.selectedPlatformId, 'new');
+      expect(api.calls.last, 'discover|new|1');
+    },
+  );
 }
 
 ProviderContainer _container({
@@ -312,6 +334,7 @@ class _FakeOnlinePlatformsController extends OnlinePlatformsController {
 
   @override
   Future<List<OnlinePlatform>> build() async => platforms;
+  void publish(List<OnlinePlatform> next) => state = AsyncData(next);
 }
 
 class _ImmediateHomePageApiClient extends HomePageApiClient {

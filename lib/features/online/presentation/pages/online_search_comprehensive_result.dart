@@ -118,6 +118,7 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
     required this.onLikeSongItem,
     required this.onMoreSongItem,
     required this.onMoreSection,
+    this.empty,
     super.key,
   });
 
@@ -128,6 +129,7 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
   final Future<void> Function(SongInfo item) onLikeSongItem;
   final ValueChanged<SongInfo> onMoreSongItem;
   final ValueChanged<SearchType> onMoreSection;
+  final Widget? empty;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -147,20 +149,6 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
           (type: SearchType.video, section: result.video),
         ];
     final sections = <Widget>[
-      if (!result.song.isEmpty)
-        _SectionBlock(
-          type: SearchType.song,
-          hasMore: result.song.hasMore,
-          onMoreSection: onMoreSection,
-          child: _SongSectionList(
-            items: result.song.items,
-            searchKeyword: result.keyword,
-            likedSongKeys: likedSongKeys,
-            onTapSongItem: onTapSongItem,
-            onLikeSongItem: onLikeSongItem,
-            onMoreSongItem: onMoreSongItem,
-          ),
-        ),
       for (final entry in commonSections)
         if (!entry.section.isEmpty)
           _SectionBlock(
@@ -175,14 +163,41 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
           ),
     ];
     final hasBestMatch = result.hasBestMatch;
-    if (!hasBestMatch && sections.isEmpty) {
-      return Center(
-        child: Text(AppI18n.tByLocaleCode(localeCode, 'search.result.empty')),
-      );
+    if (!hasBestMatch && sections.isEmpty && result.song.isEmpty) {
+      return empty ??
+          Center(
+            child: Text(
+              AppI18n.tByLocaleCode(localeCode, 'search.result.empty'),
+            ),
+          );
     }
     // best match 区域 + 各分类 section，统一用 CustomScrollView 滚动
     return CustomScrollView(
       slivers: <Widget>[
+        if (!result.song.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                LayoutTokens.compactPageGutter,
+                0,
+                LayoutTokens.compactPageGutter,
+                14,
+              ),
+              child: _SectionBlock(
+                type: SearchType.song,
+                hasMore: result.song.hasMore,
+                onMoreSection: onMoreSection,
+                child: _SongSectionList(
+                  items: result.song.items,
+                  searchKeyword: result.keyword,
+                  likedSongKeys: likedSongKeys,
+                  onTapSongItem: onTapSongItem,
+                  onLikeSongItem: onLikeSongItem,
+                  onMoreSongItem: onMoreSongItem,
+                ),
+              ),
+            ),
+          ),
         // 猜你想搜区域
         if (hasBestMatch)
           SliverToBoxAdapter(

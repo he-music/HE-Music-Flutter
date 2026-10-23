@@ -16,12 +16,14 @@ import 'package:he_music_flutter/features/my/presentation/providers/my_collectio
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(AppEnvironment.initialize);
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     globalTokenHolder.accessToken = null;
     globalTokenHolder.refreshToken = null;
     globalTokenHolder.expiresAt = null;
@@ -130,6 +132,37 @@ void main() {
     expect(config.authToken, 'live-access-token');
     expect(config.refreshToken, 'live-refresh-token');
   });
+  test('collection preloading does not block startup', () async {
+    final collection = _PendingCollectionClient();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigDataSourceProvider.overrideWithValue(
+          _ImmediateAppConfigDataSource(
+            AppConfigState.initial.copyWith(authToken: 'saved-token'),
+          ),
+        ),
+        onlineApiClientProvider.overrideWithValue(_RecordingOnlineApiClient()),
+        myCollectionApiClientProvider.overrideWithValue(collection),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(appStartupProvider.future)
+        .timeout(const Duration(seconds: 2));
+    expect(collection.pending.isCompleted, isFalse);
+    collection.pending.complete([]);
+    await container
+        .read(favoriteCollectionStatusProvider.notifier)
+        .ensureReady();
+  });
+}
+
+class _PendingCollectionClient extends MyCollectionApiClient {
+  _PendingCollectionClient() : super(Dio());
+  final pending = Completer<List<IdPlatformInfo>>();
+  @override
+  Future<List<IdPlatformInfo>> fetchFavoriteIdPlatforms(MyFavoriteType type) =>
+      pending.future;
 }
 
 class _DelayedAppConfigDataSource extends AppConfigDataSource {

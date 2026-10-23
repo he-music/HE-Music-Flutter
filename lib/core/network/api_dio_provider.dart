@@ -6,6 +6,7 @@ import '../../app/app_navigation_service.dart';
 import '../../app/config/app_config_controller.dart';
 import '../../app/router/app_router.dart';
 import '../../app/router/app_routes.dart';
+import '../../app/router/platform_route_policy.dart';
 import '../captcha/captcha_coordinator.dart';
 import '../device/device_info_provider.dart';
 import 'auth_token_interceptor.dart';
@@ -85,7 +86,8 @@ final apiDioProvider = Provider<Dio>((ref) {
       onUnauthorized: (redirectLocation) {
         configController.clearAuthToken();
         final currentLocation = _safeCurrentRoute(router);
-        if (_isAuthRelatedRoute(currentLocation)) {
+        if (_isAuthRelatedRoute(currentLocation) ||
+            canOpenWithoutPlatforms(Uri.parse(currentLocation))) {
           return;
         }
         // 启动遮罩期间根 Navigator 尚未挂载，最终 401 交由 startup gate 接管。
@@ -96,6 +98,7 @@ final apiDioProvider = Provider<Dio>((ref) {
         Future.microtask(() {
           final latestLocation = _safeCurrentRoute(router);
           if (_isAuthRelatedRoute(latestLocation) ||
+              canOpenWithoutPlatforms(Uri.parse(latestLocation)) ||
               rootNavigatorKey.currentState == null) {
             return;
           }

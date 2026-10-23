@@ -6,6 +6,8 @@ import 'online_search_bars.dart';
 import 'online_search_comprehensive_result.dart';
 import 'online_search_models.dart';
 import 'online_search_result_list.dart';
+import '../../../../app/i18n/app_i18n.dart';
+import 'online_search_feedback.dart';
 
 class OnlineSearchResultPage extends StatelessWidget {
   const OnlineSearchResultPage({
@@ -33,6 +35,9 @@ class OnlineSearchResultPage extends StatelessWidget {
     required this.onLoadMore,
     required this.loadingMore,
     required this.hasMore,
+    this.onRetry,
+    this.onEditQuery,
+    this.loadMoreError,
     super.key,
   });
 
@@ -61,6 +66,9 @@ class OnlineSearchResultPage extends StatelessWidget {
   final bool loadingMore;
   final bool hasMore;
 
+  final VoidCallback? onRetry;
+  final VoidCallback? onEditQuery;
+  final String? loadMoreError;
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -80,6 +88,22 @@ class OnlineSearchResultPage extends StatelessWidget {
           selectedPlatformId: selectedPlatformId,
           onChanged: onPlatformChanged,
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: LayoutTokens.compactPageGutter,
+          ),
+          child: Text(
+            AppI18n.tByLocaleCode(localeCode, 'search.source_scope').replaceAll(
+              '{source}',
+              platforms
+                      .where((p) => p.id == selectedPlatformId)
+                      .firstOrNull
+                      ?.label ??
+                  selectedPlatformId,
+            ),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
         const SizedBox(height: 10),
         const SizedBox(height: 2),
         Expanded(
@@ -95,6 +119,9 @@ class OnlineSearchResultPage extends StatelessWidget {
                     songResults: songResults,
                     searchKeyword: searchKeyword,
                     error: error,
+                    onRetry: onRetry,
+                    onEditQuery: onEditQuery,
+                    loadMoreError: loadMoreError,
                     initialLoading: initialLoading,
                     likedSongKeys: likedSongKeys,
                     onTapItem: (item) => onTapItem(selectedType, item),
@@ -113,14 +140,11 @@ class OnlineSearchResultPage extends StatelessWidget {
 
   Widget _buildComprehensive() {
     if (error != null) {
-      return Builder(
-        builder: (context) => Center(
-          child: Text(
-            error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return SearchFeedback(
+        localeCode: localeCode,
+        error: error,
+        onRetry: onRetry,
+        onEditQuery: onEditQuery,
       );
     }
     if (initialLoading) {
@@ -137,6 +161,7 @@ class OnlineSearchResultPage extends StatelessWidget {
     }
     return OnlineSearchComprehensiveResult(
       result: result,
+      empty: SearchFeedback(localeCode: localeCode, onEditQuery: onEditQuery),
       likedSongKeys: likedSongKeys,
       onTapSongItem: onTapSongItem,
       onTapItem: onTapItem,

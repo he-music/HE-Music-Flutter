@@ -93,6 +93,43 @@ void main() {
     expect(tester.getTopLeft(header).dy, closeTo(0, 1));
     expect(tester.takeException(), isNull);
   });
+  for (final initiallyReduced in [true, false]) {
+    testWidgets(
+      'reduced motion opens and closes without a spring (initial: $initiallyReduced)',
+      (tester) async {
+        final reduced = ValueNotifier(initiallyReduced);
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => ValueListenableBuilder<bool>(
+              valueListenable: reduced,
+              builder: (context, value, _) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: value),
+                child: child!,
+              ),
+            ),
+            home: const _Harness(),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pump();
+        if (initiallyReduced) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(tester.getTopLeft(find.byKey(const ValueKey('header'))).dy, 0);
+        } else {
+          await tester.pumpAndSettle();
+          reduced.value = true;
+          await tester.pump();
+        }
+        await tester.tap(find.byIcon(Icons.close));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.text('Player'), findsNothing);
+        expect(find.text('Open'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        reduced.dispose();
+      },
+    );
+  }
 }
 
 class _Harness extends StatefulWidget {

@@ -29,8 +29,11 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_list.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('browse entries appear above history only for an empty search', (
     tester,
   ) async {
@@ -303,7 +306,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Taylor Swift'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(SearchPlatformBar), findsNothing);
+    expect(client.comprehensiveSearchCallCount, 0);
     expect(find.text('平台热词'), findsNothing);
 
     platformsCompleter.complete(_searchPlatforms);
@@ -509,12 +514,17 @@ void main() {
       final bar = tester.widget<SearchTypeBar>(find.byType(SearchTypeBar));
       expect(bar.types.last, SearchType.lyric);
 
-      final lyricType = find.descendant(
-        of: find.byType(SearchTypeBar),
-        matching: find.text('Lyrics'),
+      final more = find.text('More categories');
+      await tester.ensureVisible(more);
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is CheckedPopupMenuItem<SearchType> &&
+              widget.value == SearchType.lyric,
+        ),
       );
-      await tester.ensureVisible(lyricType);
-      await tester.tap(lyricType);
       await tester.pump();
       await tester.pump();
 
@@ -559,6 +569,272 @@ void main() {
       expect(updatedSongList.hasMore, isFalse);
     },
   );
+  testWidgets('initial search failure is friendly and retry keeps the query', (
+    tester,
+  ) async {
+    final client = _RecoveringSearchClient();
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(initialKeyword: 'Love', client: client),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('StateError'), findsNothing);
+    expect(
+      find.text('Search is unavailable right now. Please try again.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(client.attempts, 2);
+    expect(find.text('Love Story'), findsWidgets);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Love',
+    );
+  });
+
+  for (final type in ['song', 'playlist']) {
+    testWidgets(
+      '$type pagination failure preserves rows and retries the same page',
+      (tester) async {
+        final client = _RecoveringPageClient();
+        await tester.pumpWidget(
+          _buildOnlineSearchApp(
+            initialKeyword: 'Love',
+            initialType: type,
+            client: client,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester
+            .widget<OnlineSearchResultPage>(find.byType(OnlineSearchResultPage))
+            .onLoadMore();
+        await tester.pumpAndSettle();
+        final list = tester.widget<OnlineSearchResultList>(
+          find.byType(OnlineSearchResultList),
+        );
+        expect(
+          type == 'song' ? list.songResults.length : list.results.length,
+          1,
+        );
+        expect(list.loadMoreError, isNotNull);
+        expect(client.pages, [1, 2]);
+        await tester.tap(find.text('Retry'));
+        await tester.pumpAndSettle();
+        final updated = tester.widget<OnlineSearchResultList>(
+          find.byType(OnlineSearchResultList),
+        );
+        expect(
+          type == 'song' ? updated.songResults.length : updated.results.length,
+          2,
+        );
+        expect(updated.loadMoreError, isNull);
+        expect(client.pages, [1, 2, 2]);
+      },
+    );
+  }
+
+  testWidgets('empty results explain source scope and offer query editing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(initialKeyword: 'nothing', initialType: 'playlist'),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Source: QQ · All results are from this source'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Try a shorter song title, an artist name, or another source above.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Edit search'));
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.focusNode!.hasFocus, isTrue);
+    expect(
+      field.controller!.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 7),
+    );
+  });
+
+  testWidgets('source choice is remembered only while still supported', (
+    tester,
+  ) async {
+    final second = OnlinePlatform(
+      id: 'second',
+      name: 'Second',
+      shortName: 'Second',
+      status: 1,
+      featureSupportFlag: _searchPlatforms.single.featureSupportFlag,
+    );
+    final platforms = [..._searchPlatforms, second];
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(
+        initialKeyword: 'Love',
+        platformsFuture: Future.value(platforms),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Second'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(platformsFuture: Future.value(platforms)),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<OnlineSearchBrowseEntries>(
+            find.byType(OnlineSearchBrowseEntries),
+          )
+          .platform,
+      'second',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(_buildOnlineSearchApp());
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<OnlineSearchBrowseEntries>(
+            find.byType(OnlineSearchBrowseEntries),
+          )
+          .platform,
+      'qq',
+    );
+  });
+
+  testWidgets('source controls expose selection with a 48dp target', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(_buildOnlineSearchApp(initialKeyword: 'Love'));
+    await tester.pumpAndSettle();
+    final chip = find.descendant(
+      of: find.byType(SearchPlatformBar),
+      matching: find.byType(InkWell),
+    );
+    expect(tester.getSize(chip).height, greaterThanOrEqualTo(48));
+    expect(tester.getSize(chip).width, greaterThanOrEqualTo(48));
+    expect(
+      tester.getSemantics(find.text('QQ')),
+      matchesSemantics(
+        label: 'QQ',
+        isButton: true,
+        hasSelectedState: true,
+        isSelected: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
+        isFocusable: true,
+        hasFocusAction: true,
+      ),
+    );
+    semantics.dispose();
+  });
+  testWidgets(
+    'clearing the query ignores a late result for the previous search',
+    (tester) async {
+      final client = _DelayedSearchClient();
+      await tester.pumpWidget(
+        _buildOnlineSearchApp(initialKeyword: 'Love', client: client),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pumpAndSettle();
+      client.result.complete(
+        const OnlineComprehensiveSearchResult(
+          keyword: 'Love',
+          song: OnlineComprehensiveSearchSection(items: [_searchSong]),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(OnlineSearchHotPanel), findsOneWidget);
+      expect(find.byType(OnlineSearchResultPage), findsNothing);
+    },
+  );
+}
+
+class _DelayedSearchClient extends _SearchPageOnlineApiClient {
+  final result = Completer<OnlineComprehensiveSearchResult>();
+  @override
+  Future<OnlineComprehensiveSearchResult> comprehensiveSearch({
+    required String keyword,
+    required String platform,
+  }) => result.future;
+}
+
+class _RecoveringSearchClient extends _SearchPageOnlineApiClient {
+  int attempts = 0;
+  @override
+  Future<OnlineComprehensiveSearchResult> comprehensiveSearch({
+    required String keyword,
+    required String platform,
+  }) {
+    if (++attempts == 1) throw StateError('private transport details');
+    return super.comprehensiveSearch(keyword: keyword, platform: platform);
+  }
+}
+
+class _RecoveringPageClient extends _SearchPageOnlineApiClient {
+  final pages = <int>[];
+  void _check(int pageIndex) {
+    pages.add(pageIndex);
+    if (pages.length == 2) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/search'),
+        type: DioExceptionType.connectionError,
+      );
+    }
+  }
+
+  @override
+  Future<OnlineSearchPageResult<SearchSongInfo>> searchSongs({
+    required String keyword,
+    required String platform,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    _check(pageIndex);
+    return OnlineSearchPageResult(
+      platform: platform,
+      keyword: keyword,
+      items: [_searchSongForPage(pageIndex)],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 2,
+      hasMore: pageIndex == 1,
+    );
+  }
+
+  @override
+  Future<OnlineSearchPageResult<Map<String, dynamic>>> searchMusic({
+    required String keyword,
+    required String platform,
+    required String type,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    _check(pageIndex);
+    return OnlineSearchPageResult(
+      platform: platform,
+      keyword: keyword,
+      items: [
+        {
+          'id': '$pageIndex',
+          'name': 'Playlist $pageIndex',
+          'platform': platform,
+        },
+      ],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 2,
+      hasMore: pageIndex == 1,
+    );
+  }
 }
 
 Widget _buildOnlineSearchApp({

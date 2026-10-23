@@ -31,14 +31,13 @@ class HomePageController extends Notifier<HomePageState> {
   HomePageState build() {
     ref.listen(onlinePlatformsProvider, (previous, next) {
       final platforms = next.value;
-      if (_initialized ||
-          _initializing != null ||
-          platforms == null ||
-          platforms.isEmpty ||
-          state.platformErrorMessage == null) {
-        return;
+      if (platforms == null || platforms.isEmpty) return;
+      if (_initialized || _initializing != null) {
+        state = state.copyWith(platforms: platforms, clearPlatformError: true);
+        if (_initialized) unawaited(_reconcilePlatformSelection());
+      } else if (state.platformErrorMessage != null) {
+        unawaited(initialize());
       }
-      unawaited(initialize());
     });
     return HomePageState.initial;
   }
@@ -75,6 +74,26 @@ class HomePageController extends Notifier<HomePageState> {
       state = state.copyWith(platformErrorMessage: '$error');
     } finally {
       _initializing = null;
+      if (ref.mounted && _initialized) unawaited(_reconcilePlatformSelection());
+    }
+  }
+
+  Future<void> _reconcilePlatformSelection() async {
+    final pages = state.availablePages;
+    if (pages.isEmpty) {
+      state = state.copyWith(
+        platformErrorMessage: 'No home page platform available',
+      );
+      return;
+    }
+    if (!pages.contains(state.selectedPage)) {
+      await selectPage(pages.first);
+      return;
+    }
+    final supported = state.platformsFor(state.selectedPage);
+    final selected = state.contentFor(state.selectedPage).selectedPlatformId;
+    if (!supported.any((platform) => platform.id == selected)) {
+      await selectPlatform(supported.first.id);
     }
   }
 

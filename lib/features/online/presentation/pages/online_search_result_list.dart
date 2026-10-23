@@ -18,6 +18,7 @@ import '../widgets/search_album_list_item.dart';
 import '../widgets/search_artist_list_item.dart';
 import '../widgets/search_playlist_list_item.dart';
 import 'online_search_models.dart';
+import 'online_search_feedback.dart';
 
 class OnlineSearchResultList extends ConsumerStatefulWidget {
   const OnlineSearchResultList({
@@ -35,6 +36,9 @@ class OnlineSearchResultList extends ConsumerStatefulWidget {
     required this.onMoreSongItem,
     required this.onLoadMore,
     required this.onTapSongItem,
+    this.onRetry,
+    this.onEditQuery,
+    this.loadMoreError,
     super.key,
   });
 
@@ -53,6 +57,9 @@ class OnlineSearchResultList extends ConsumerStatefulWidget {
   final Future<void> Function() onLoadMore;
   final ValueChanged<SongInfo> onTapSongItem;
 
+  final VoidCallback? onRetry;
+  final VoidCallback? onEditQuery;
+  final String? loadMoreError;
   @override
   ConsumerState<OnlineSearchResultList> createState() =>
       _OnlineSearchResultListState();
@@ -93,12 +100,11 @@ class _OnlineSearchResultListState
       appConfigProvider.select((config) => config.localeCode),
     );
     if (widget.error != null) {
-      return Center(
-        child: Text(
-          widget.error!,
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
-          textAlign: TextAlign.center,
-        ),
+      return SearchFeedback(
+        localeCode: localeCode,
+        error: widget.error,
+        onRetry: widget.onRetry,
+        onEditQuery: widget.onEditQuery,
       );
     }
     if (widget.type == SearchType.song || widget.type == SearchType.lyric) {
@@ -119,6 +125,12 @@ class _OnlineSearchResultListState
             onMoreSong: widget.onMoreSongItem,
           );
         },
+        loadMoreErrorMessage: widget.loadMoreError,
+        onRetryLoadMore: widget.onLoadMore,
+        empty: SearchFeedback(
+          localeCode: localeCode,
+          onEditQuery: widget.onEditQuery,
+        ),
         initialLoading: widget.initialLoading,
         loadingMore: widget.loadingMore,
         hasMore: widget.hasMore,
@@ -132,11 +144,13 @@ class _OnlineSearchResultListState
       return _SearchResultSkeletonList(type: widget.type);
     }
     if (widget.results.isEmpty) {
-      return Center(
-        child: Text(AppI18n.tByLocaleCode(localeCode, 'search.result.empty')),
+      return SearchFeedback(
+        localeCode: localeCode,
+        onEditQuery: widget.onEditQuery,
       );
     }
-    final showFooter = widget.loadingMore || !widget.hasMore;
+    final showFooter =
+        widget.loadingMore || widget.loadMoreError != null || !widget.hasMore;
     return ListView.separated(
       controller: _commonScrollController,
       padding: EdgeInsets.only(
@@ -214,6 +228,22 @@ class _OnlineSearchResultListState
         child: Center(child: SkeletonBox(width: 92, height: 12, radius: 999)),
       );
     }
+    if (widget.loadMoreError != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(widget.loadMoreError!, textAlign: TextAlign.center),
+            TextButton.icon(
+              onPressed: widget.onLoadMore,
+              icon: const Icon(Icons.refresh),
+              label: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),
+            ),
+          ],
+        ),
+      );
+    }
     if (!widget.hasMore) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -234,6 +264,7 @@ class _OnlineSearchResultListState
     if (widget.type == SearchType.song ||
         widget.type == SearchType.lyric ||
         widget.loadingMore ||
+        widget.loadMoreError != null ||
         !widget.hasMore ||
         _loadingMoreTriggered) {
       return;
