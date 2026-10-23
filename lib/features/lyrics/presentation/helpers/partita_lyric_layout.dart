@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_line.dart';
+import 'lyric_layout_cache_key.dart';
 
 const double partitaActiveWordScale = 1.32;
 
@@ -587,7 +588,7 @@ class PartitaLineLayout {
 
   /// Translation, then romanization. It is line-owned so it is rendered once.
   final String? auxiliaryText;
-  final String cacheKey;
+  final LyricLayoutCacheKey cacheKey;
 
   List<PartitaChunkLayout> get chunks =>
       columns.isEmpty ? const <PartitaChunkLayout>[] : columns.single.chunks;
@@ -637,11 +638,15 @@ class PartitaLyricLayoutCache {
   PartitaLyricLayoutCache({this.maximumEntries = 48});
 
   final int maximumEntries;
-  final Map<String, PartitaLineLayout> _values = <String, PartitaLineLayout>{};
+  final Map<LyricLayoutCacheKey, PartitaLineLayout> _values =
+      <LyricLayoutCacheKey, PartitaLineLayout>{};
 
   int get length => _values.length;
 
-  PartitaLineLayout resolve(String key, PartitaLineLayout Function() build) {
+  PartitaLineLayout resolve(
+    LyricLayoutCacheKey key,
+    PartitaLineLayout Function() build,
+  ) {
     final cached = _values[key];
     if (cached != null) return cached;
     final value = build();
@@ -724,40 +729,42 @@ List<PartitaDisplayWord> buildPartitaDisplayWords(LyricLine line) {
   );
 }
 
-String buildPartitaLineLayoutCacheKey({
+LyricLayoutCacheKey buildPartitaLineLayoutCacheKey({
   required String documentSignature,
   required int sourceLineIndex,
   required LyricLine line,
   required PartitaLyricLayoutOptions options,
 }) {
-  return <Object?>[
-    'folia-partita-d5b8b24-v1',
-    documentSignature,
-    sourceLineIndex,
-    _lineSignature(line),
-    options.stageSize.width,
-    options.stageSize.height,
-    _textStyleMetricsKey(options.textStyle),
-    options.textDirection.name,
-    options.locale?.toLanguageTag(),
-    options.textScaleFactor,
-    options.horizontalInset,
-    options.verticalInset,
-    options.wordGap,
-    options.chunkMarginBottom,
-    options.staggerMin,
-    options.staggerMax,
-    options.guideLength,
-    options.guideOverhang,
-    options.hitSlop,
-  ].join('\u0001');
+  return (
+    documentSignature: documentSignature,
+    layoutSignature: <Object?>[
+      'folia-partita-d5b8b24-v1',
+      sourceLineIndex,
+      _lineSignature(line),
+      options.stageSize.width,
+      options.stageSize.height,
+      _textStyleMetricsKey(options.textStyle),
+      options.textDirection.name,
+      options.locale?.toLanguageTag(),
+      options.textScaleFactor,
+      options.horizontalInset,
+      options.verticalInset,
+      options.wordGap,
+      options.chunkMarginBottom,
+      options.staggerMin,
+      options.staggerMax,
+      options.guideLength,
+      options.guideOverhang,
+      options.hitSlop,
+    ].join('\u0001'),
+  );
 }
 
 PartitaLineLayout layoutPartitaLine({
   required LyricLine line,
   required int sourceLineIndex,
   required PartitaLyricLayoutOptions options,
-  String cacheKey = '',
+  LyricLayoutCacheKey cacheKey = (documentSignature: '', layoutSignature: ''),
 }) {
   final units = buildPartitaSemanticUnits(line);
   final hasFineTiming = hasValidPartitaTokenTiming(line);

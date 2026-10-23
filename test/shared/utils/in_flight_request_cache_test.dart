@@ -32,6 +32,30 @@ void main() {
     expect(calls, 2);
   });
 
+  test('同步抛错后释放 key，允许重试发起新请求', () async {
+    final cache = InFlightRequestCache<String, int>();
+    var calls = 0;
+
+    final first = cache.run('a', () {
+      calls += 1;
+      throw StateError('request failed before returning a future');
+    });
+    final concurrent = cache.run('a', () async {
+      calls += 1;
+      return 1;
+    });
+    expect(identical(first, concurrent), isTrue);
+    await expectLater(first, throwsStateError);
+    expect(calls, 1);
+
+    final result = await cache.run('a', () async {
+      calls += 1;
+      return 2;
+    });
+    expect(result, 2);
+    expect(calls, 2);
+  });
+
   test('请求失败后释放 key，允许重试发起新请求', () async {
     final cache = InFlightRequestCache<String, int>();
     var calls = 0;

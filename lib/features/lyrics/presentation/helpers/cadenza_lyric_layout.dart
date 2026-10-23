@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_line.dart';
+import 'lyric_layout_cache_key.dart';
 
 const double cadenzaActiveWordScale = 1.3;
 const double cadenzaDefaultFontScale = 1.12;
@@ -414,7 +415,7 @@ class CadenzaLineLayout {
   final Rect stageBounds;
   final double fitScale;
   final String? auxiliaryText;
-  final String cacheKey;
+  final LyricLayoutCacheKey cacheKey;
 }
 
 @immutable
@@ -448,11 +449,15 @@ class CadenzaLyricLayoutCache {
   CadenzaLyricLayoutCache({this.maximumEntries = 48});
 
   final int maximumEntries;
-  final Map<String, CadenzaLineLayout> _values = <String, CadenzaLineLayout>{};
+  final Map<LyricLayoutCacheKey, CadenzaLineLayout> _values =
+      <LyricLayoutCacheKey, CadenzaLineLayout>{};
 
   int get length => _values.length;
 
-  CadenzaLineLayout resolve(String key, CadenzaLineLayout Function() build) {
+  CadenzaLineLayout resolve(
+    LyricLayoutCacheKey key,
+    CadenzaLineLayout Function() build,
+  ) {
     final cached = _values[key];
     if (cached != null) return cached;
     final value = build();
@@ -573,29 +578,31 @@ List<CadenzaDisplayWord> buildCadenzaDisplayWords(LyricLine line) {
   );
 }
 
-String buildCadenzaLineLayoutCacheKey({
+LyricLayoutCacheKey buildCadenzaLineLayoutCacheKey({
   required String documentSignature,
   required int renderLineIndex,
   required LyricLine line,
   required CadenzaLyricLayoutOptions options,
 }) {
-  return <Object?>[
-    'folia-cadenza-d5b8b24-v1',
-    documentSignature,
-    renderLineIndex,
-    _lineSignature(line),
-    options.stageSize.width,
-    options.stageSize.height,
-    _textStyleMetricsKey(options.textStyle),
-    options.textDirection.name,
-    options.locale?.toLanguageTag(),
-    options.textScaleFactor,
-    options.fontScale,
-    options.widthRatio,
-    options.horizontalInset,
-    options.verticalInset,
-    options.hitSlop,
-  ].join('\u0001');
+  return (
+    documentSignature: documentSignature,
+    layoutSignature: <Object?>[
+      'folia-cadenza-d5b8b24-v1',
+      renderLineIndex,
+      _lineSignature(line),
+      options.stageSize.width,
+      options.stageSize.height,
+      _textStyleMetricsKey(options.textStyle),
+      options.textDirection.name,
+      options.locale?.toLanguageTag(),
+      options.textScaleFactor,
+      options.fontScale,
+      options.widthRatio,
+      options.horizontalInset,
+      options.verticalInset,
+      options.hitSlop,
+    ].join('\u0001'),
+  );
 }
 
 CadenzaLineLayout layoutCadenzaLine({
@@ -603,7 +610,7 @@ CadenzaLineLayout layoutCadenzaLine({
   required int sourceLineIndex,
   required bool isInterlude,
   required CadenzaLyricLayoutOptions options,
-  String cacheKey = '',
+  LyricLayoutCacheKey cacheKey = (documentSignature: '', layoutSignature: ''),
 }) {
   final stageBounds =
       Offset.zero &

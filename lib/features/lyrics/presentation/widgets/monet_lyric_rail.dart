@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,7 +71,7 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
   Timer? _manualResetTimer;
   MonetLyricRenderData? _renderData;
   MonetLyricRenderData? _previousRenderData;
-  String? _renderSignature;
+  List<Object?>? _renderSignature;
   int? _manualAnchorIndex;
   double _wheelAccumulator = 0;
   int _wheelDirection = 0;
@@ -400,9 +401,9 @@ class _MonetLyricRailState extends ConsumerState<MonetLyricRail>
       widget.fontPreset,
       widget.enableWordByWordLyric,
       palette,
-    ].join('|');
+    ];
     final cached = _renderData;
-    if (cached != null && signature == _renderSignature) {
+    if (cached != null && listEquals(signature, _renderSignature)) {
       _painterOwner.retain([cached, _previousRenderData]);
       return cached;
     }

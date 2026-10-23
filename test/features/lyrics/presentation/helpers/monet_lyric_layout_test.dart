@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/helpers/lyric_layout_cache_key.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/helpers/monet_lyric_layout.dart';
 
 void main() {
@@ -656,7 +657,7 @@ void main() {
         showTranslation: false,
       ).cacheKey;
 
-      expect(<String>{
+      expect(<LyricLayoutCacheKey>{
         base,
         content,
         width,

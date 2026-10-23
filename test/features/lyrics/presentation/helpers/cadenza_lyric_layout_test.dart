@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_document.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_line.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/helpers/cadenza_lyric_layout.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/helpers/lyric_layout_cache_key.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -703,7 +704,7 @@ void main() {
           height: 1.1,
         );
         final baseOptions = _options(textStyle: baseStyle);
-        String key(
+        LyricLayoutCacheKey key(
           CadenzaLyricLayoutEngine engine,
           LyricLine line,
           CadenzaLyricLayoutOptions options,
@@ -717,7 +718,7 @@ void main() {
         }
 
         final baseKey = key(baseEngine, baseLine, baseOptions);
-        final changedKeys = <String>[
+        final changedKeys = <LyricLayoutCacheKey>[
           key(offsetEngine, baseLine, baseOptions),
           key(tokenEngine, tokenChanged, baseOptions),
           key(baseEngine, baseLine, _options(width: 361, textStyle: baseStyle)),

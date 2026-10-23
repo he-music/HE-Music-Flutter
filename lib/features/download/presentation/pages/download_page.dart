@@ -194,27 +194,6 @@ class _DownloadTaskListStructure {
 
   final List<_DownloadTaskListEntry> entries;
   final bool hasCompleted;
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-    if (other is! _DownloadTaskListStructure ||
-        hasCompleted != other.hasCompleted ||
-        entries.length != other.entries.length) {
-      return false;
-    }
-    for (var index = 0; index < entries.length; index++) {
-      if (entries[index] != other.entries[index]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @override
-  int get hashCode => Object.hash(hasCompleted, Object.hashAll(entries));
 }
 
 class _DownloadTaskList extends ConsumerWidget {

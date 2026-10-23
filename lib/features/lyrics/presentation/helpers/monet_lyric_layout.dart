@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_line.dart';
+import 'lyric_layout_cache_key.dart';
 
 enum MonetLyricLineStatus { waiting, active, passed }
 
@@ -412,20 +413,20 @@ class MonetPositionedLyricLine {
   final MonetMeasuredLyricLine measurement;
   final Rect rect;
   final Rect hitRect;
-  final String cacheKey;
+  final LyricLayoutCacheKey cacheKey;
 }
 
 class MonetLyricMeasurementCache {
   MonetLyricMeasurementCache({this.maximumEntries = 240});
 
   final int maximumEntries;
-  final Map<String, MonetMeasuredLyricLine> _values =
-      <String, MonetMeasuredLyricLine>{};
+  final Map<LyricLayoutCacheKey, MonetMeasuredLyricLine> _values =
+      <LyricLayoutCacheKey, MonetMeasuredLyricLine>{};
 
   int get length => _values.length;
 
   MonetMeasuredLyricLine resolve(
-    String key,
+    LyricLayoutCacheKey key,
     MonetMeasuredLyricLine Function() measure,
   ) {
     final cached = _values[key];
@@ -445,7 +446,7 @@ class MonetLyricMeasurementCache {
   void clear() => _values.clear();
 }
 
-String buildMonetLyricLayoutCacheKey({
+LyricLayoutCacheKey buildMonetLyricLayoutCacheKey({
   required String documentSignature,
   required MonetVisibleLyricLine entry,
   required MonetLyricLayoutOptions options,
@@ -453,29 +454,31 @@ String buildMonetLyricLayoutCacheKey({
   final mainStyle = entry.status == MonetLyricLineStatus.active
       ? options.activeTextStyle
       : options.inactiveTextStyle;
-  return <Object?>[
-    documentSignature,
-    entry.key,
-    entry.status.name,
-    _encode(entry.line.text),
-    _encode(entry.line.translation),
-    _encode(entry.line.romanization),
-    options.railSize.width,
-    options.railSize.height,
-    _textStyleMetricsKey(mainStyle),
-    _textStyleMetricsKey(options.translationTextStyle),
-    options.textDirection.name,
-    options.locale,
-    options.textAlign.name,
-    options.textScaleFactor,
-    options.showTranslation,
-    options.useRomanizationFallback,
-    options.translationOnlyForActiveLine,
-    options.inactiveMaxLines,
-    options.horizontalPadding,
-    options.verticalPadding,
-    options.translationGap,
-  ].join('\u0001');
+  return (
+    documentSignature: documentSignature,
+    layoutSignature: <Object?>[
+      entry.key,
+      entry.status.name,
+      _encode(entry.line.text),
+      _encode(entry.line.translation),
+      _encode(entry.line.romanization),
+      options.railSize.width,
+      options.railSize.height,
+      _textStyleMetricsKey(mainStyle),
+      _textStyleMetricsKey(options.translationTextStyle),
+      options.textDirection.name,
+      options.locale,
+      options.textAlign.name,
+      options.textScaleFactor,
+      options.showTranslation,
+      options.useRomanizationFallback,
+      options.translationOnlyForActiveLine,
+      options.inactiveMaxLines,
+      options.horizontalPadding,
+      options.verticalPadding,
+      options.translationGap,
+    ].join('\u0001'),
+  );
 }
 
 List<MonetPositionedLyricLine> layoutMonetLyricWindow({

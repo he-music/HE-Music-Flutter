@@ -8,7 +8,7 @@ class InFlightRequestCache<K, V> {
 
   Future<V> _run(K key, Future<V> Function() createRequest) async {
     try {
-      return await createRequest();
+      return await Future<V>.sync(createRequest);
     } finally {
       _requests.remove(key);
     }
