@@ -3,6 +3,8 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart
 import 'package:flutter/foundation.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:he_music_flutter/features/lyrics/data/storage/lyric_store.dart';
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
@@ -24,6 +26,7 @@ import 'package:he_music_flutter/features/online/domain/entities/online_platform
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/full_lyric_controls.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/lyric_panel.dart';
+import 'package:he_music_flutter/features/lyrics/presentation/widgets/lyric_offset_control.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
@@ -479,6 +482,123 @@ void main() {
     expect(store.refreshed, isTrue);
     expect(find.text('歌词来源：缓存'), findsNothing);
   });
+  for (final glass in [false, true]) {
+    testWidgets(
+      'lyric offset sheet replaces options and preserves button order with glass=$glass',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final store = _Store();
+        const request = LyricRequest(trackId: 'song');
+        await tester.pumpWidget(
+          AppGlassScope(
+            enabled: glass,
+            child: GlassAdaptiveScope(
+              minQuality: GlassQuality.minimal,
+              maxQuality: GlassQuality.minimal,
+              child: _app(
+                playerBoundary: true,
+                document: _document.withSource(LyricSource.cache),
+                request: request,
+                store: store,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FullLyricControls)),
+        );
+        await tester.tap(find.byKey(const ValueKey('lyric-options-control')));
+        await tester.pumpAndSettle();
+        final tile = find.byKey(const ValueKey('lyric-offset-tile'));
+        expect(tile, findsOneWidget);
+        expect(find.byType(LyricOffsetControl), findsNothing);
+        expect(find.text('提前 0.1 秒'), findsNothing);
+        expect(find.text('延后 0.1 秒'), findsNothing);
+        await tester.tap(tile);
+        await tester.pumpAndSettle();
+        final sheet = find.byKey(const ValueKey('lyric-offset-sheet'));
+        expect(sheet, findsOneWidget);
+        expect(tile, findsNothing);
+        expect(find.text('搜索歌词'), findsNothing);
+        expect(find.text('清除缓存并重新获取'), findsNothing);
+        expect(
+          glass
+              ? find.byType(GlassModalSheetScaffold)
+              : find.byType(BottomSheet),
+          findsOneWidget,
+        );
+        expect(
+          tester.getRect(sheet).top,
+          greaterThan(tester.getRect(find.byType(LyricPanel)).center.dy),
+        );
+        final advance = find.byKey(const ValueKey('lyric-offset-advance'));
+        final reset = find.byKey(const ValueKey('lyric-offset-reset'));
+        final delay = find.byKey(const ValueKey('lyric-offset-delay'));
+        expect(
+          tester.getCenter(advance).dx,
+          lessThan(tester.getCenter(reset).dx),
+        );
+        expect(
+          tester.getCenter(reset).dx,
+          lessThan(tester.getCenter(delay).dx),
+        );
+        expect(tester.getCenter(reset).dy, tester.getCenter(advance).dy);
+        await tester.tap(advance);
+        await tester.pumpAndSettle();
+        expect(await store.readOffset(request, manual: false), 100);
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('lyric-offset-value')))
+              .data,
+          '已提前 0.1 秒',
+        );
+        Navigator.of(tester.element(sheet)).pop();
+        await tester.pumpAndSettle();
+        expect(find.byType(LyricOffsetControl), findsNothing);
+        expect(tile, findsNothing);
+        expect(find.text('搜索歌词'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('lyric-options-control')));
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(of: tile, matching: find.text('已提前 0.1 秒')),
+          findsOneWidget,
+        );
+        await tester.tap(tile);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('lyric-offset-value')))
+              .data,
+          '已提前 0.1 秒',
+        );
+        final player =
+            container.read(playerControllerProvider.notifier) as _Player;
+        final control = tester.widget<LyricOffsetControl>(
+          find.byType(LyricOffsetControl),
+        );
+        player.progress();
+        await tester.pump();
+        expect(
+          tester.widget<LyricOffsetControl>(find.byType(LyricOffsetControl)),
+          same(control),
+        );
+        player.updatePlayback(
+          const PlayerTrack(id: 'next', title: '下一首'),
+          Duration.zero,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.widget<OutlinedButton>(advance).onPressed, isNull);
+        expect(tester.widget<OutlinedButton>(delay).onPressed, isNull);
+        expect(tester.widget<TextButton>(reset).onPressed, isNull);
+        expect(await store.readOffset(request, manual: false), 100);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'player boundary footer and open options visual evidence',

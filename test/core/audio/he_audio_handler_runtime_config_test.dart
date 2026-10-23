@@ -948,6 +948,10 @@ void main() {
       enableWordByWordLyric: false,
     );
 
+    final lyricReady = handler.customEvent
+        .where((event) => event is Map && event['type'] == 'lyricState')
+        .asyncMap((_) => handler.getCurrentLyricState())
+        .firstWhere((snapshot) => !snapshot.isLoading);
     await handler.setQueueData(const <AudioTrack>[
       AudioTrack(
         id: 'song-lyric',
@@ -955,14 +959,12 @@ void main() {
         url: 'https://example.com/song-lyric.mp3',
       ),
     ]);
-    // 歌词加载已改为异步不阻塞，等待微任务完成
-    await Future<void>.delayed(Duration.zero);
+    final state = await lyricReady;
 
     expect(lyricEvents, isNotEmpty);
     final lastEvent = lyricEvents.last;
     expect(lastEvent, <String, dynamic>{'type': 'lyricState'});
 
-    final state = await handler.getCurrentLyricState();
     expect(state.isLoading, isFalse);
     expect(state.errorMessage, isNull);
     expect(state.request?.trackId, 'song-lyric');

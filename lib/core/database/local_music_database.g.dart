@@ -4154,6 +4154,395 @@ class StorageMigrationsCompanion extends UpdateCompanion<StorageMigration> {
   }
 }
 
+class $LyricOffsetsTable extends LyricOffsets
+    with TableInfo<$LyricOffsetsTable, LyricOffsetEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LyricOffsetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _targetKeyMeta = const VerificationMeta(
+    'targetKey',
+  );
+  @override
+  late final GeneratedColumn<String> targetKey = GeneratedColumn<String>(
+    'target_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceKindMeta = const VerificationMeta(
+    'sourceKind',
+  );
+  @override
+  late final GeneratedColumn<String> sourceKind = GeneratedColumn<String>(
+    'source_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _millisecondsMeta = const VerificationMeta(
+    'milliseconds',
+  );
+  @override
+  late final GeneratedColumn<int> milliseconds = GeneratedColumn<int>(
+    'milliseconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _manualRevisionMeta = const VerificationMeta(
+    'manualRevision',
+  );
+  @override
+  late final GeneratedColumn<String> manualRevision = GeneratedColumn<String>(
+    'manual_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    targetKey,
+    sourceKind,
+    milliseconds,
+    manualRevision,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'lyric_offsets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LyricOffsetEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('target_key')) {
+      context.handle(
+        _targetKeyMeta,
+        targetKey.isAcceptableOrUnknown(data['target_key']!, _targetKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetKeyMeta);
+    }
+    if (data.containsKey('source_kind')) {
+      context.handle(
+        _sourceKindMeta,
+        sourceKind.isAcceptableOrUnknown(data['source_kind']!, _sourceKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceKindMeta);
+    }
+    if (data.containsKey('milliseconds')) {
+      context.handle(
+        _millisecondsMeta,
+        milliseconds.isAcceptableOrUnknown(
+          data['milliseconds']!,
+          _millisecondsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_millisecondsMeta);
+    }
+    if (data.containsKey('manual_revision')) {
+      context.handle(
+        _manualRevisionMeta,
+        manualRevision.isAcceptableOrUnknown(
+          data['manual_revision']!,
+          _manualRevisionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {targetKey, sourceKind};
+  @override
+  LyricOffsetEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LyricOffsetEntry(
+      targetKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_key'],
+      )!,
+      sourceKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_kind'],
+      )!,
+      milliseconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}milliseconds'],
+      )!,
+      manualRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manual_revision'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LyricOffsetsTable createAlias(String alias) {
+    return $LyricOffsetsTable(attachedDatabase, alias);
+  }
+}
+
+class LyricOffsetEntry extends DataClass
+    implements Insertable<LyricOffsetEntry> {
+  final String targetKey;
+  final String sourceKind;
+  final int milliseconds;
+  final String? manualRevision;
+  final int updatedAt;
+  const LyricOffsetEntry({
+    required this.targetKey,
+    required this.sourceKind,
+    required this.milliseconds,
+    this.manualRevision,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['target_key'] = Variable<String>(targetKey);
+    map['source_kind'] = Variable<String>(sourceKind);
+    map['milliseconds'] = Variable<int>(milliseconds);
+    if (!nullToAbsent || manualRevision != null) {
+      map['manual_revision'] = Variable<String>(manualRevision);
+    }
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  LyricOffsetsCompanion toCompanion(bool nullToAbsent) {
+    return LyricOffsetsCompanion(
+      targetKey: Value(targetKey),
+      sourceKind: Value(sourceKind),
+      milliseconds: Value(milliseconds),
+      manualRevision: manualRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manualRevision),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory LyricOffsetEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LyricOffsetEntry(
+      targetKey: serializer.fromJson<String>(json['targetKey']),
+      sourceKind: serializer.fromJson<String>(json['sourceKind']),
+      milliseconds: serializer.fromJson<int>(json['milliseconds']),
+      manualRevision: serializer.fromJson<String?>(json['manualRevision']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'targetKey': serializer.toJson<String>(targetKey),
+      'sourceKind': serializer.toJson<String>(sourceKind),
+      'milliseconds': serializer.toJson<int>(milliseconds),
+      'manualRevision': serializer.toJson<String?>(manualRevision),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  LyricOffsetEntry copyWith({
+    String? targetKey,
+    String? sourceKind,
+    int? milliseconds,
+    Value<String?> manualRevision = const Value.absent(),
+    int? updatedAt,
+  }) => LyricOffsetEntry(
+    targetKey: targetKey ?? this.targetKey,
+    sourceKind: sourceKind ?? this.sourceKind,
+    milliseconds: milliseconds ?? this.milliseconds,
+    manualRevision: manualRevision.present
+        ? manualRevision.value
+        : this.manualRevision,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  LyricOffsetEntry copyWithCompanion(LyricOffsetsCompanion data) {
+    return LyricOffsetEntry(
+      targetKey: data.targetKey.present ? data.targetKey.value : this.targetKey,
+      sourceKind: data.sourceKind.present
+          ? data.sourceKind.value
+          : this.sourceKind,
+      milliseconds: data.milliseconds.present
+          ? data.milliseconds.value
+          : this.milliseconds,
+      manualRevision: data.manualRevision.present
+          ? data.manualRevision.value
+          : this.manualRevision,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LyricOffsetEntry(')
+          ..write('targetKey: $targetKey, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('milliseconds: $milliseconds, ')
+          ..write('manualRevision: $manualRevision, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    targetKey,
+    sourceKind,
+    milliseconds,
+    manualRevision,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LyricOffsetEntry &&
+          other.targetKey == this.targetKey &&
+          other.sourceKind == this.sourceKind &&
+          other.milliseconds == this.milliseconds &&
+          other.manualRevision == this.manualRevision &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LyricOffsetsCompanion extends UpdateCompanion<LyricOffsetEntry> {
+  final Value<String> targetKey;
+  final Value<String> sourceKind;
+  final Value<int> milliseconds;
+  final Value<String?> manualRevision;
+  final Value<int> updatedAt;
+  final Value<int> rowid;
+  const LyricOffsetsCompanion({
+    this.targetKey = const Value.absent(),
+    this.sourceKind = const Value.absent(),
+    this.milliseconds = const Value.absent(),
+    this.manualRevision = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LyricOffsetsCompanion.insert({
+    required String targetKey,
+    required String sourceKind,
+    required int milliseconds,
+    this.manualRevision = const Value.absent(),
+    required int updatedAt,
+    this.rowid = const Value.absent(),
+  }) : targetKey = Value(targetKey),
+       sourceKind = Value(sourceKind),
+       milliseconds = Value(milliseconds),
+       updatedAt = Value(updatedAt);
+  static Insertable<LyricOffsetEntry> custom({
+    Expression<String>? targetKey,
+    Expression<String>? sourceKind,
+    Expression<int>? milliseconds,
+    Expression<String>? manualRevision,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (targetKey != null) 'target_key': targetKey,
+      if (sourceKind != null) 'source_kind': sourceKind,
+      if (milliseconds != null) 'milliseconds': milliseconds,
+      if (manualRevision != null) 'manual_revision': manualRevision,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LyricOffsetsCompanion copyWith({
+    Value<String>? targetKey,
+    Value<String>? sourceKind,
+    Value<int>? milliseconds,
+    Value<String?>? manualRevision,
+    Value<int>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return LyricOffsetsCompanion(
+      targetKey: targetKey ?? this.targetKey,
+      sourceKind: sourceKind ?? this.sourceKind,
+      milliseconds: milliseconds ?? this.milliseconds,
+      manualRevision: manualRevision ?? this.manualRevision,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (targetKey.present) {
+      map['target_key'] = Variable<String>(targetKey.value);
+    }
+    if (sourceKind.present) {
+      map['source_kind'] = Variable<String>(sourceKind.value);
+    }
+    if (milliseconds.present) {
+      map['milliseconds'] = Variable<int>(milliseconds.value);
+    }
+    if (manualRevision.present) {
+      map['manual_revision'] = Variable<String>(manualRevision.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LyricOffsetsCompanion(')
+          ..write('targetKey: $targetKey, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('milliseconds: $milliseconds, ')
+          ..write('manualRevision: $manualRevision, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalMusicDatabase extends GeneratedDatabase {
   _$LocalMusicDatabase(QueryExecutor e) : super(e);
   $LocalMusicDatabaseManager get managers => $LocalMusicDatabaseManager(this);
@@ -4177,6 +4566,7 @@ abstract class _$LocalMusicDatabase extends GeneratedDatabase {
       $CachedFavoriteSongsTable(this);
   late final $StorageMigrationsTable storageMigrations =
       $StorageMigrationsTable(this);
+  late final $LyricOffsetsTable lyricOffsets = $LyricOffsetsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4194,6 +4584,7 @@ abstract class _$LocalMusicDatabase extends GeneratedDatabase {
     downloadedMusic,
     cachedFavoriteSongs,
     storageMigrations,
+    lyricOffsets,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -7475,6 +7866,222 @@ typedef $$StorageMigrationsTableProcessedTableManager =
       StorageMigration,
       PrefetchHooks Function()
     >;
+typedef $$LyricOffsetsTableCreateCompanionBuilder =
+    LyricOffsetsCompanion Function({
+      required String targetKey,
+      required String sourceKind,
+      required int milliseconds,
+      Value<String?> manualRevision,
+      required int updatedAt,
+      Value<int> rowid,
+    });
+typedef $$LyricOffsetsTableUpdateCompanionBuilder =
+    LyricOffsetsCompanion Function({
+      Value<String> targetKey,
+      Value<String> sourceKind,
+      Value<int> milliseconds,
+      Value<String?> manualRevision,
+      Value<int> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$LyricOffsetsTableFilterComposer
+    extends Composer<_$LocalMusicDatabase, $LyricOffsetsTable> {
+  $$LyricOffsetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get targetKey => $composableBuilder(
+    column: $table.targetKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get milliseconds => $composableBuilder(
+    column: $table.milliseconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manualRevision => $composableBuilder(
+    column: $table.manualRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LyricOffsetsTableOrderingComposer
+    extends Composer<_$LocalMusicDatabase, $LyricOffsetsTable> {
+  $$LyricOffsetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get targetKey => $composableBuilder(
+    column: $table.targetKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get milliseconds => $composableBuilder(
+    column: $table.milliseconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manualRevision => $composableBuilder(
+    column: $table.manualRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LyricOffsetsTableAnnotationComposer
+    extends Composer<_$LocalMusicDatabase, $LyricOffsetsTable> {
+  $$LyricOffsetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get targetKey =>
+      $composableBuilder(column: $table.targetKey, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get milliseconds => $composableBuilder(
+    column: $table.milliseconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get manualRevision => $composableBuilder(
+    column: $table.manualRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LyricOffsetsTableTableManager
+    extends
+        RootTableManager<
+          _$LocalMusicDatabase,
+          $LyricOffsetsTable,
+          LyricOffsetEntry,
+          $$LyricOffsetsTableFilterComposer,
+          $$LyricOffsetsTableOrderingComposer,
+          $$LyricOffsetsTableAnnotationComposer,
+          $$LyricOffsetsTableCreateCompanionBuilder,
+          $$LyricOffsetsTableUpdateCompanionBuilder,
+          (
+            LyricOffsetEntry,
+            BaseReferences<
+              _$LocalMusicDatabase,
+              $LyricOffsetsTable,
+              LyricOffsetEntry
+            >,
+          ),
+          LyricOffsetEntry,
+          PrefetchHooks Function()
+        > {
+  $$LyricOffsetsTableTableManager(
+    _$LocalMusicDatabase db,
+    $LyricOffsetsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LyricOffsetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LyricOffsetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LyricOffsetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> targetKey = const Value.absent(),
+                Value<String> sourceKind = const Value.absent(),
+                Value<int> milliseconds = const Value.absent(),
+                Value<String?> manualRevision = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LyricOffsetsCompanion(
+                targetKey: targetKey,
+                sourceKind: sourceKind,
+                milliseconds: milliseconds,
+                manualRevision: manualRevision,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String targetKey,
+                required String sourceKind,
+                required int milliseconds,
+                Value<String?> manualRevision = const Value.absent(),
+                required int updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LyricOffsetsCompanion.insert(
+                targetKey: targetKey,
+                sourceKind: sourceKind,
+                milliseconds: milliseconds,
+                manualRevision: manualRevision,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LyricOffsetsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalMusicDatabase,
+      $LyricOffsetsTable,
+      LyricOffsetEntry,
+      $$LyricOffsetsTableFilterComposer,
+      $$LyricOffsetsTableOrderingComposer,
+      $$LyricOffsetsTableAnnotationComposer,
+      $$LyricOffsetsTableCreateCompanionBuilder,
+      $$LyricOffsetsTableUpdateCompanionBuilder,
+      (
+        LyricOffsetEntry,
+        BaseReferences<
+          _$LocalMusicDatabase,
+          $LyricOffsetsTable,
+          LyricOffsetEntry
+        >,
+      ),
+      LyricOffsetEntry,
+      PrefetchHooks Function()
+    >;
 
 class $LocalMusicDatabaseManager {
   final _$LocalMusicDatabase _db;
@@ -7503,4 +8110,6 @@ class $LocalMusicDatabaseManager {
       $$CachedFavoriteSongsTableTableManager(_db, _db.cachedFavoriteSongs);
   $$StorageMigrationsTableTableManager get storageMigrations =>
       $$StorageMigrationsTableTableManager(_db, _db.storageMigrations);
+  $$LyricOffsetsTableTableManager get lyricOffsets =>
+      $$LyricOffsetsTableTableManager(_db, _db.lyricOffsets);
 }

@@ -231,6 +231,8 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
     if (onSeek == null) {
       return;
     }
+    position -= Duration(milliseconds: _controller.lyricOffset);
+    if (position.isNegative) position = Duration.zero;
     final now = DateTime.now();
     final lastAt = _lastTapSeekAt;
     final lastPosition = _lastTapSeekPosition;

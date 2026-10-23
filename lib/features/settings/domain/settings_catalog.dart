@@ -39,6 +39,7 @@ abstract final class SettingsItemIds {
   static const cellularAudioCache = 'cellular-audio-cache';
   static const automaticLyricCache = 'automatic-lyric-cache';
   static const manualLyrics = 'manual-lyrics';
+  static const resetLyricOffsets = 'reset-lyric-offsets';
   static const audioCacheLimit = 'audio-cache-limit';
   static const clearAudioCache = 'clear-audio-cache';
   static const audioCacheItems = {
@@ -301,6 +302,15 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.select,
     icon: Icons.lyrics_outlined,
     keywords: ['歌词', '手动', 'lyric'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.resetLyricOffsets,
+    sectionId: SettingsSectionIds.playback,
+    groupId: SettingsGroupIds.lyricCache,
+    titleKey: 'settings.lyric_offset.title',
+    kind: SettingsItemKind.select,
+    icon: Icons.restore_rounded,
+    keywords: ['歌词', '偏移', '时间', '重置', 'lyric', 'offset', 'reset'],
   ),
   SettingsItemNode(
     id: SettingsItemIds.lyricHighlightColor,

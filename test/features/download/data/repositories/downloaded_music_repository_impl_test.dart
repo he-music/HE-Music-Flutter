@@ -72,6 +72,7 @@ void main() {
       final task = await fixture.song('upgrade');
       await fixture.tasks.saveTask(task);
       await fixture.database.customStatement('DROP TABLE downloaded_music');
+      await fixture.database.customStatement('DROP TABLE lyric_offsets');
       await fixture.database.customStatement(
         "DELETE FROM storage_migrations WHERE storage_key = 'downloaded_music.v1'",
       );

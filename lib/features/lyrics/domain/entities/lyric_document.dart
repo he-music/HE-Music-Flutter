@@ -18,6 +18,15 @@ class LyricDocument {
   final List<LyricLine> lines;
   final int offset;
 
+  /// User correction is added to the source LRC offset without altering lines.
+  LyricDocument withAdditionalOffset(int milliseconds) => milliseconds == 0
+      ? this
+      : LyricDocument(
+          lines: lines,
+          offset: offset + milliseconds,
+          source: source,
+        );
+
   bool get isEmpty => lines.isEmpty;
 
   bool get hasWordTiming => lines.any((line) => line.hasWordTiming);

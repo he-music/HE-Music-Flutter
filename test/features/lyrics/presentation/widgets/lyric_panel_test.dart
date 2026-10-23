@@ -48,6 +48,61 @@ void main() {
     expect(model.lines.single.words, hasLength(1));
   });
 
+  test('advancing and delaying apply once and preserve the source offset', () {
+    const document = LyricDocument(
+      offset: 250,
+      lines: [
+        LyricLine(start: Duration.zero, text: 'first'),
+        LyricLine(start: Duration(seconds: 1), text: 'second'),
+      ],
+    );
+    final controller = fl.LyricController();
+    addTearDown(controller.dispose);
+    for (final correction in [100, -100, 0]) {
+      final adjusted = document.withAdditionalOffset(correction);
+      expect(adjusted.offset, 250 + correction);
+      expect(adjusted.lines, same(document.lines));
+      controller.loadLyricModel(
+        buildFlutterLyricModel(adjusted, enableWordByWordLyric: true),
+      );
+      final boundary = Duration(milliseconds: 1000 - adjusted.offset);
+      expect(controller.getIndexByProgress(boundary), 1);
+      expect(
+        controller.getIndexByProgress(
+          boundary - const Duration(milliseconds: 1),
+        ),
+        0,
+      );
+    }
+  });
+
+  for (final offset in [100, -100, 1500]) {
+    testWidgets(
+      'tap-to-seek accounts for lyric offset $offset and clamps to zero',
+      (tester) async {
+        final seeks = <Duration>[];
+        await tester.pumpWidget(
+          _buildLyricPanelTestApp(
+            document: LyricDocument(
+              offset: offset,
+              lines: const [
+                LyricLine(start: Duration(seconds: 1), text: 'tap'),
+              ],
+            ),
+            onSeek: seeks.add,
+          ),
+        );
+        await tester.pump();
+        final controller = tester
+            .widget<fl.LyricView>(find.byType(fl.LyricView))
+            .controller;
+        controller.notifyEvent(fl.LyricEvent.tapLine, 0);
+        final expected = Duration(milliseconds: 1000 - offset);
+        expect(seeks, [expected.isNegative ? Duration.zero : expected]);
+      },
+    );
+  }
+
   test('buildFlutterLyricModel should omit word timeline when disabled', () {
     const document = LyricDocument(
       lines: <LyricLine>[
@@ -296,28 +351,29 @@ void main() {
   });
 }
 
-Widget _buildLyricPanelTestApp() {
+Widget _buildLyricPanelTestApp({
+  LyricDocument document = const LyricDocument(
+    lines: [LyricLine(start: Duration.zero, text: '测试歌词')],
+  ),
+  ValueChanged<Duration>? onSeek,
+}) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
       currentLyricRequestProvider.overrideWithValue(null),
       currentLyricDocumentProvider.overrideWithValue(
-        const AsyncData<LyricDocument>(
-          LyricDocument(
-            lines: <LyricLine>[LyricLine(start: Duration.zero, text: '测试歌词')],
-          ),
-        ),
+        AsyncData<LyricDocument>(document),
       ),
       lyricPositionProvider.overrideWith(
         (ref) => ref.watch(_testLyricPositionProvider),
       ),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
       home: Scaffold(
         body: Stack(
           children: [
-            LyricPhotoDimmer(),
-            LyricPanel(emptyText: '暂无歌词'),
+            const LyricPhotoDimmer(),
+            LyricPanel(emptyText: '暂无歌词', onSeek: onSeek),
           ],
         ),
       ),

@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../../core/database/app_database.dart';
+import '../../../../core/database/local_music_database.dart';
 import '../../domain/entities/lyric_request.dart';
 import '../../domain/entities/raw_lyric_bundle.dart';
 import '../../domain/usecases/parse_lrc.dart';
@@ -18,6 +21,20 @@ String lyricStorageKey(LyricRequest target) {
       ? p.normalize(p.absolute(path))
       : jsonEncode([target.platform, target.trackId]);
   return '${local ? 'local' : 'online'}_${sha256.convert(utf8.encode(identity))}';
+}
+
+/// Positive values advance lyric display; negative values delay it.
+class LyricOffsetChange {
+  const LyricOffsetChange(this.key, this.manual, this.milliseconds);
+
+  const LyricOffsetChange.resetAll()
+    : key = null,
+      manual = false,
+      milliseconds = 0;
+
+  final String? key;
+  final bool manual;
+  final int milliseconds;
 }
 
 class LyricStorageStats {
@@ -37,9 +54,11 @@ class LyricStore {
   LyricStore({
     required Future<Directory> Function() manualDirectory,
     required Future<Directory> Function() automaticDirectory,
+    LocalMusicDatabase? database,
     this.limitBytes = 50 * 1024 * 1024,
   }) : _manualDirectory = manualDirectory,
-       _automaticDirectory = automaticDirectory;
+       _automaticDirectory = automaticDirectory,
+       _database = database;
 
   static final shared = LyricStore(
     manualDirectory: () async => Directory(
@@ -55,6 +74,8 @@ class LyricStore {
   );
   final Future<Directory> Function() _manualDirectory;
   final Future<Directory> Function() _automaticDirectory;
+  final LocalMusicDatabase? _database;
+  LocalMusicDatabase get _db => _database ?? appDatabase;
   final int limitBytes;
   final _changes = StreamController<String?>.broadcast(sync: true);
   Stream<String?> get changes => _changes.stream;
@@ -63,6 +84,107 @@ class LyricStore {
   int _statisticsRevision = 0;
   Stream<int> get statisticsChanges => _statisticsChanges.stream;
   Future<void> _tail = Future<void>.value();
+  final _offsetChanges = StreamController<LyricOffsetChange>.broadcast(
+    sync: true,
+  );
+  Stream<LyricOffsetChange> get offsetChanges => _offsetChanges.stream;
+
+  // Bind manual offsets to the saved selection, so replacing or deleting a
+  // selection cannot transfer its timing correction to different lyrics.
+  Future<String?> _manualRevision(LyricRequest target) async {
+    final file = await _file(target, true);
+    if (!await file.exists()) return null;
+    return sha256.convert(await file.readAsBytes()).toString();
+  }
+
+  Future<int> readOffset(LyricRequest target, {required bool manual}) =>
+      _serial(() => _readOffset(target, manual: manual));
+
+  Future<int> _readOffset(LyricRequest target, {required bool manual}) async {
+    final key = lyricStorageKey(target);
+    final kind = manual ? 'manual' : 'default';
+    final row =
+        await (_db.select(_db.lyricOffsets)..where(
+              (row) => row.targetKey.equals(key) & row.sourceKind.equals(kind),
+            ))
+            .getSingleOrNull();
+    if (row == null) return 0;
+    if (manual) {
+      final revision = await _manualRevision(target);
+      if (revision == null || row.manualRevision != revision) {
+        await _deleteManualOffset(target);
+        return 0;
+      }
+    }
+    return row.milliseconds;
+  }
+
+  Future<int> adjustOffset(
+    LyricRequest target,
+    int deltaMilliseconds, {
+    required bool manual,
+  }) => _updateOffset(target, manual: manual, delta: deltaMilliseconds);
+
+  Future<int> resetOffset(LyricRequest target, {required bool manual}) =>
+      _updateOffset(target, manual: manual);
+
+  /// Only user timing corrections are removed; lyric content is kept.
+  Future<void> resetAllOffsets() => _serial(() async {
+    await _db.delete(_db.lyricOffsets).go();
+    _offsetChanges.add(const LyricOffsetChange.resetAll());
+  });
+
+  Future<void> _deleteManualOffset(LyricRequest target) =>
+      (_db.delete(_db.lyricOffsets)..where(
+            (row) =>
+                row.targetKey.equals(lyricStorageKey(target)) &
+                row.sourceKind.equals('manual'),
+          ))
+          .go();
+
+  Future<void> _deleteAllManualOffsets() => (_db.delete(
+    _db.lyricOffsets,
+  )..where((row) => row.sourceKind.equals('manual'))).go();
+
+  Future<int> _updateOffset(
+    LyricRequest target, {
+    required bool manual,
+    int? delta,
+  }) => _serial(() async {
+    final milliseconds = await _db.transaction(() async {
+      final revision = manual ? await _manualRevision(target) : null;
+      if (manual && revision == null) throw StateError('手动歌词已被移除');
+      final milliseconds = delta == null
+          ? 0
+          : await _readOffset(target, manual: manual) + delta;
+      final key = lyricStorageKey(target);
+      final kind = manual ? 'manual' : 'default';
+      if (milliseconds == 0) {
+        await (_db.delete(_db.lyricOffsets)..where(
+              (row) => row.targetKey.equals(key) & row.sourceKind.equals(kind),
+            ))
+            .go();
+      } else {
+        await _db
+            .into(_db.lyricOffsets)
+            .insertOnConflictUpdate(
+              LyricOffsetEntry(
+                targetKey: key,
+                sourceKind: kind,
+                milliseconds: milliseconds,
+                manualRevision: revision,
+                updatedAt: DateTime.now().millisecondsSinceEpoch,
+              ),
+            );
+      }
+      return milliseconds;
+    });
+    _offsetChanges.add(
+      LyricOffsetChange(lyricStorageKey(target), manual, milliseconds),
+    );
+    return milliseconds;
+  });
+
   int automaticEpoch = 0;
   int _manualEpoch = 0;
   final Map<String, int> _versions = {};
@@ -146,10 +268,17 @@ class LyricStore {
       artist: artist,
       canCommit: () => isCurrent(target, token),
     );
-    // A reset queued during the write will remove it before any later read.
-    if (!isCurrent(target, token)) throw StateError('歌词选择已失效');
-    _versions[lyricStorageKey(target)] = token.$2 + 1;
-    _changes.add(lyricStorageKey(target));
+    try {
+      await _deleteManualOffset(target);
+      // A reset queued during the write will remove it before any later read.
+      if (!isCurrent(target, token)) throw StateError('歌词选择已失效');
+    } finally {
+      if (isCurrent(target, token)) {
+        _versions[lyricStorageKey(target)] = token.$2 + 1;
+      }
+      // The lyrics have committed, so notify even if offset cleanup failed.
+      _changes.add(lyricStorageKey(target));
+    }
   });
 
   Future<void> saveAutomatic(
@@ -253,6 +382,7 @@ class LyricStore {
       try {
         final file = await _file(target, true);
         if (await file.exists()) await _delete(file);
+        await _deleteManualOffset(target);
       } finally {
         _changes.add(key);
       }
@@ -285,6 +415,7 @@ class LyricStore {
         for (final file in await _files(true)) {
           await _delete(file);
         }
+        await _deleteAllManualOffsets();
       } finally {
         _changes.add(null);
       }

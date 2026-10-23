@@ -35,10 +35,13 @@ class CurrentLyricStoreController
       if (event is Map && event['type'] == 'lyricWarning') {
         AppMessageService.showWarning('${event['message']}');
       }
-      if (event is! Map || event['type'] != 'lyricState') {
+      if (event is! Map ||
+          (event['type'] != 'lyricState' && event['type'] != 'lyricOffset')) {
         return;
       }
-      unawaited(_refresh(audioPlayer));
+      unawaited(
+        _refresh(audioPlayer, clearPrevious: event['type'] == 'lyricState'),
+      );
     });
     ref.onDispose(() {
       _refreshGeneration++;
@@ -48,9 +51,12 @@ class CurrentLyricStoreController
     return _loadState(audioPlayer);
   }
 
-  Future<void> _refresh(AudioPlayerPort audioPlayer) async {
+  Future<void> _refresh(
+    AudioPlayerPort audioPlayer, {
+    required bool clearPrevious,
+  }) async {
     final generation = ++_refreshGeneration;
-    if (ref.mounted) {
+    if (ref.mounted && clearPrevious) {
       // Clear the previous track before the asynchronous snapshot arrives.
       state = const AsyncLoading<CurrentLyricStoreState>();
     }
@@ -147,6 +153,27 @@ final displayedLyricDocumentProvider = Provider<AsyncValue<LyricDocument>>((
 
 final lyricStoreProvider = Provider<LyricStore>((ref) => LyricStore.shared);
 
+typedef LyricOffsetTarget = ({LyricRequest request, bool manual});
+
+final lyricOffsetProvider = FutureProvider.autoDispose
+    .family<int, LyricOffsetTarget>((ref, target) {
+      final store = ref.watch(lyricStoreProvider);
+      final key = lyricStorageKey(target.request);
+      final offsets = store.offsetChanges.listen((change) {
+        if (change.key == null ||
+            (change.key == key && change.manual == target.manual)) {
+          ref.invalidateSelf();
+        }
+      });
+      final selections = store.changes.listen((changedKey) {
+        if (changedKey == null || changedKey == key) ref.invalidateSelf();
+      });
+      ref.onDispose(() {
+        unawaited(offsets.cancel());
+        unawaited(selections.cancel());
+      });
+      return store.readOffset(target.request, manual: target.manual);
+    });
 final lyricStorageStatisticsChangesProvider = StreamProvider.autoDispose<int>(
   (ref) => ref.watch(lyricStoreProvider).statisticsChanges,
 );

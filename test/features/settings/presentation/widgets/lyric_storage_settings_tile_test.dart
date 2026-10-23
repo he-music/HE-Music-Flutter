@@ -116,6 +116,79 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+    testWidgets(
+      'reset all timing requires confirmation, preserves lyrics, and supports glass=$glassEnabled',
+      (tester) async {
+        await tester.runAsync(() async {
+          await store.adjustOffset(target, 100, manual: false);
+          await store.adjustOffset(target, -100, manual: true);
+        });
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [lyricStoreProvider.overrideWithValue(store)],
+            child: AppGlassScope(
+              enabled: glassEnabled,
+              child: GlassAdaptiveScope(
+                minQuality: GlassQuality.minimal,
+                maxQuality: GlassQuality.minimal,
+                child: const MaterialApp(
+                  home: Scaffold(body: ResetLyricOffsetsSettingsTile()),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('重置所有歌词偏移'));
+        await tester.pumpAndSettle();
+        expect(find.text('重置所有歌词偏移？'), findsOneWidget);
+        expect(
+          tester
+              .widget<ListTile>(
+                find.byKey(const ValueKey('reset-all-lyric-offsets')),
+              )
+              .onTap,
+          isNull,
+        );
+        if (glassEnabled) {
+          final dialog = tester.widget<GlassDialog>(find.byType(GlassDialog));
+          expect(dialog.actions.last.isDestructive, isTrue);
+          expect(dialog.actions.last.isPrimary, isFalse);
+        }
+        await tester.tap(find.text('取消'));
+        await tester.pumpAndSettle();
+        expect(
+          await runStore(tester, () => store.readOffset(target, manual: false)),
+          100,
+        );
+        expect(
+          await runStore(tester, () => store.readOffset(target, manual: true)),
+          -100,
+        );
+
+        await tester.tap(find.text('重置所有歌词偏移'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('全部重置'));
+        await settleIo(tester);
+        expect(
+          await runStore(tester, () => store.readOffset(target, manual: false)),
+          0,
+        );
+        expect(
+          await runStore(tester, () => store.readOffset(target, manual: true)),
+          0,
+        );
+        expect(
+          await runStore(tester, () => store.read(target, manual: false)),
+          isNotNull,
+        );
+        expect(
+          await runStore(tester, () => store.read(target, manual: true)),
+          isNotNull,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets(

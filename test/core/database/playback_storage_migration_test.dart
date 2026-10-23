@@ -30,6 +30,7 @@ void main() {
       'downloaded_music',
       'cached_favorite_songs',
       'storage_migrations',
+      'lyric_offsets',
     ]) {
       await original.customStatement('DROP TABLE $table');
     }
@@ -42,12 +43,48 @@ void main() {
     expect(folders.single.bookmark, 'bookmark');
     expect(await upgraded.select(upgraded.playbackQueues).get(), isEmpty);
     expect(await upgraded.select(upgraded.cachedFavoriteSongs).get(), isEmpty);
+    expect(await upgraded.select(upgraded.lyricOffsets).get(), isEmpty);
     expect(
       (await upgraded.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      5,
+      6,
     );
   });
+
+  test(
+    'v5 upgrade adds lyric offsets and preserves existing playback data',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'he-lyric-schema-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final file = File('${directory.path}/local_music.db');
+      final original = LocalMusicDatabase.forTesting(NativeDatabase(file));
+      await original
+          .into(original.playbackQueues)
+          .insert(
+            const PlaybackQueue(
+              slot: 'current',
+              metadata: '{"title":"saved queue"}',
+            ),
+          );
+      await original.customStatement('DROP TABLE lyric_offsets');
+      await original.customStatement('PRAGMA user_version = 5');
+      await original.close();
+      final upgraded = LocalMusicDatabase.forTesting(NativeDatabase(file));
+      addTearDown(upgraded.close);
+      expect(
+        (await upgraded.select(upgraded.playbackQueues).get()).single.metadata,
+        '{"title":"saved queue"}',
+      );
+      expect(await upgraded.select(upgraded.lyricOffsets).get(), isEmpty);
+      expect(
+        (await upgraded.customSelect('PRAGMA user_version').getSingle())
+            .read<int>('user_version'),
+        6,
+      );
+    },
+  );
 
   test(
     'failed import rolls back rows and marker, and retains legacy data for retry',

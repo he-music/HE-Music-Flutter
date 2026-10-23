@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import 'lyric_tables.dart';
 import 'playback_tables.dart';
 
 part 'local_music_database.g.dart';
@@ -126,6 +127,7 @@ class SongArtists extends Table {
     DownloadedMusic,
     CachedFavoriteSongs,
     StorageMigrations,
+    LyricOffsets,
   ],
 )
 class LocalMusicDatabase extends _$LocalMusicDatabase {
@@ -135,7 +137,7 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
   LocalMusicDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -160,6 +162,9 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
       }
       if (from < 5) {
         await m.createTable(downloadedMusic);
+      }
+      if (from < 6) {
+        await m.createTable(lyricOffsets);
       }
     },
     beforeOpen: (details) async {

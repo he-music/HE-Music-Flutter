@@ -142,6 +142,89 @@ class _LyricStorageSettingsTileState
   }
 }
 
+/// Timing corrections are user preferences, separate from cached lyric content.
+class ResetLyricOffsetsSettingsTile extends ConsumerStatefulWidget {
+  const ResetLyricOffsetsSettingsTile({super.key});
+
+  @override
+  ConsumerState<ResetLyricOffsetsSettingsTile> createState() =>
+      _ResetLyricOffsetsSettingsTileState();
+}
+
+class _ResetLyricOffsetsSettingsTileState
+    extends ConsumerState<ResetLyricOffsetsSettingsTile> {
+  bool _busy = false;
+  bool _resetting = false;
+
+  Future<void> _reset() async {
+    if (_busy) return;
+    final config = ref.read(appConfigProvider);
+    setState(() => _busy = true);
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AppAlertDialog(
+          title: Text(AppI18n.t(config, 'settings.lyric_offset.confirm_title')),
+          content: Text(
+            AppI18n.t(config, 'settings.lyric_offset.confirm_body'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppI18n.t(config, 'common.cancel')),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppI18n.t(config, 'settings.lyric_offset.reset_all')),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmed != true) return;
+      setState(() => _resetting = true);
+      await ref.read(lyricStoreProvider).resetAllOffsets();
+      AppMessageService.showSuccess(
+        AppI18n.t(config, 'settings.lyric_offset.reset_success'),
+      );
+    } catch (_) {
+      AppMessageService.showError(
+        AppI18n.t(config, 'settings.lyric_offset.reset_failed'),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _resetting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locale = ref.watch(
+      appConfigProvider.select((state) => state.localeCode),
+    );
+    String t(String key) => AppI18n.tByLocaleCode(locale, key);
+    return ListTile(
+      key: const ValueKey('reset-all-lyric-offsets'),
+      leading: const Icon(Icons.restore_rounded),
+      title: Text(t('settings.lyric_offset.title')),
+      subtitle: Text(t('settings.lyric_offset.subtitle')),
+      trailing: _resetting
+          ? const SizedBox.square(
+              dimension: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.chevron_right_rounded),
+      onTap: _busy ? null : _reset,
+    );
+  }
+}
+
 String lyricStorageSizeLabel(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KiB';

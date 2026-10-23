@@ -278,6 +278,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       SettingsItemIds.manualLyrics => const LyricStorageSettingsTile(
         manual: true,
       ),
+      SettingsItemIds.resetLyricOffsets =>
+        const ResetLyricOffsetsSettingsTile(),
       SettingsItemIds.playbackAudioCache ||
       SettingsItemIds.cellularAudioCache ||
       SettingsItemIds.audioCacheLimit ||

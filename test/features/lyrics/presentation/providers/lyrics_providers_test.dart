@@ -136,6 +136,44 @@ void main() {
       expect(finalState.document.requireValue.lines.single.text, '新曲歌词');
     },
   );
+  test(
+    'offset events preserve visible lyrics while refreshing the snapshot',
+    () async {
+      final audioPlayer = _FakeAudioPlayerPort();
+      const document = LyricDocument(
+        lines: [LyricLine(start: Duration(seconds: 1), text: 'same lyrics')],
+      );
+      audioPlayer.currentLyricState = const CurrentLyricStateSnapshot(
+        request: LyricRequest(trackId: 'song', platform: 'qq'),
+        document: document,
+      );
+      final container = ProviderContainer(
+        overrides: [audioPlayerPortProvider.overrideWithValue(audioPlayer)],
+      );
+      addTearDown(container.dispose);
+      await container.read(currentLyricStoreProvider.future);
+      final pending = Completer<CurrentLyricStateSnapshot>();
+      audioPlayer.pendingSnapshots.add(pending);
+      audioPlayer.emitCustomEvent({'type': 'lyricOffset'});
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(currentLyricDocumentProvider).requireValue,
+        same(document),
+      );
+      expect(container.read(currentLyricStoreProvider).isLoading, isFalse);
+      pending.complete(
+        CurrentLyricStateSnapshot(
+          request: const LyricRequest(trackId: 'song', platform: 'qq'),
+          document: document.withAdditionalOffset(100),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(currentLyricDocumentProvider).requireValue.offset,
+        100,
+      );
+    },
+  );
 }
 
 class _FakeAudioPlayerPort implements AudioPlayerPort {

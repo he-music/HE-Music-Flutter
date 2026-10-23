@@ -389,6 +389,12 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   String? _currentRadioPlatform;
   int? _currentRadioPageIndex;
   StreamSubscription<String?>? _lyricStoreSubscription;
+  StreamSubscription<LyricOffsetChange>? _lyricOffsetSubscription;
+  int _currentLyricOffset = 0;
+  int _lyricOffsetGeneration = 0;
+
+  LyricDocument get _effectiveLyricDocument =>
+      _currentLyricDocument.withAdditionalOffset(_currentLyricOffset);
   int _lyricGeneration = 0;
   LyricRequest? _currentLyricRequest;
   LyricDocument _currentLyricDocument = const LyricDocument.empty();
@@ -1283,6 +1289,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _lyricGeneration++;
     await _lyricStoreSubscription?.cancel();
     _lyricStoreSubscription = null;
+    await _lyricOffsetSubscription?.cancel();
+    _lyricOffsetSubscription = null;
     _beginTransition();
     _clearSleepTimerState();
     _appLifecycleListener.dispose();
@@ -3367,6 +3375,23 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         unawaited(_loadLyricsForCurrentTrack(force: true));
       }
     });
+    _lyricOffsetSubscription ??= _lyricStore.offsetChanges.listen((change) {
+      if (change.key == null) {
+        unawaited(_reloadCurrentLyricOffset());
+        return;
+      }
+      final request = _currentLyricRequest;
+      if (request == null ||
+          change.key != lyricStorageKey(request) ||
+          change.manual !=
+              (_currentLyricDocument.source == LyricSource.manual)) {
+        return;
+      }
+      _lyricOffsetGeneration++;
+      _currentLyricOffset = change.milliseconds;
+      customEvent.add(<String, dynamic>{'type': 'lyricOffset'});
+      unawaited(_syncOverlayCurrentState());
+    });
     final track = _safeTrack(_committedIndex);
     if (track == null) {
       _clearLyricState();
@@ -3389,6 +3414,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _isLyricLoading = true;
     _currentLyricErrorMessage = null;
     _currentLyricDocument = const LyricDocument.empty();
+    _currentLyricOffset = 0;
     _broadcastLyricState();
     try {
       final document = await _fetchLyrics(
@@ -3399,7 +3425,25 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       if (_currentLyricRequest != request || generation != _lyricGeneration) {
         return;
       }
+      var offset = 0;
+      try {
+        offset = await _lyricStore.readOffset(
+          request,
+          manual: document.source == LyricSource.manual,
+        );
+      } catch (error, stackTrace) {
+        developer.log(
+          'Failed to read lyric timing correction',
+          name: 'HeAudioHandler',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+      if (_currentLyricRequest != request || generation != _lyricGeneration) {
+        return;
+      }
       _currentLyricDocument = document;
+      _currentLyricOffset = offset;
       _isLyricLoading = false;
       _currentLyricErrorMessage = null;
       _broadcastLyricState();
@@ -3415,10 +3459,37 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
   }
 
+  Future<void> _reloadCurrentLyricOffset() async {
+    final request = _currentLyricRequest;
+    if (request == null) return;
+    final lyricGeneration = _lyricGeneration;
+    final offsetGeneration = ++_lyricOffsetGeneration;
+    final manual = _currentLyricDocument.source == LyricSource.manual;
+    try {
+      final offset = await _lyricStore.readOffset(request, manual: manual);
+      if (_currentLyricRequest != request ||
+          lyricGeneration != _lyricGeneration ||
+          offsetGeneration != _lyricOffsetGeneration) {
+        return;
+      }
+      _currentLyricOffset = offset;
+      customEvent.add(<String, dynamic>{'type': 'lyricOffset'});
+      await _syncOverlayCurrentState();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to refresh lyric timing correction',
+        name: 'HeAudioHandler',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   void _clearLyricState() {
     _lyricGeneration++;
     _currentLyricRequest = null;
     _currentLyricDocument = const LyricDocument.empty();
+    _currentLyricOffset = 0;
     _isLyricLoading = false;
     _currentLyricErrorMessage = null;
     _broadcastLyricState();
@@ -3431,7 +3502,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<CurrentLyricStateSnapshot> getCurrentLyricState() async {
     return CurrentLyricStateSnapshot(
       request: _currentLyricRequest,
-      document: _currentLyricDocument,
+      document: _effectiveLyricDocument,
       isLoading: _isLyricLoading,
       errorMessage: _currentLyricErrorMessage,
     );
@@ -3737,7 +3808,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       );
     }
     await _overlayLyricsService.sendDocument(
-      _lyricAuxiliaryMode.project(_currentLyricDocument),
+      _lyricAuxiliaryMode.project(_effectiveLyricDocument),
       _overlayConfigState,
       autoHighlightColorValue: _autoLyricHighlightColorValue,
     );

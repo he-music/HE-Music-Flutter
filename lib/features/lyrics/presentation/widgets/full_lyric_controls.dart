@@ -18,8 +18,11 @@ import '../../../settings/presentation/widgets/settings_single_choice_sheet.dart
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_request.dart';
 import 'lyric_photo_brightness_control.dart';
+import 'lyric_offset_control.dart';
 import 'lyric_search_empty.dart';
 import '../providers/lyrics_providers.dart';
+
+enum _LyricOptionsAction { search, offset }
 
 /// A fixed sibling of the scrollable full lyric content, never a progress owner.
 class FullLyricControls extends ConsumerWidget {
@@ -64,14 +67,30 @@ class FullLyricControls extends ConsumerWidget {
     WidgetRef ref,
     PlayerTrack track,
   ) async {
-    final search = await showPlayerStyledBottomSheet<bool>(
+    ModalRoute<_LyricOptionsAction>? optionsRoute;
+    final action = await showPlayerStyledBottomSheet<_LyricOptionsAction>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => _LyricOptions(target: track),
+      builder: (sheetContext) {
+        optionsRoute = ModalRoute.of<_LyricOptionsAction>(sheetContext);
+        return _LyricOptions(target: track);
+      },
     );
-    if (search == true && context.mounted) {
+    // Wait for the outgoing surface to leave the overlay before opening another.
+    await optionsRoute?.completed;
+    if (!context.mounted) return;
+    if (action == _LyricOptionsAction.search) {
       await openLyricSearch(context, ref, track);
+    } else if (action == _LyricOptionsAction.offset) {
+      await showLyricOffsetSheet(
+        context,
+        LyricRequest(
+          trackId: track.id,
+          platform: track.platform,
+          localPath: track.path,
+        ),
+      );
     }
   }
 }
@@ -280,7 +299,10 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                     ),
                     onTap: _restoring
                         ? null
-                        : () => Navigator.pop(context, true),
+                        : () => Navigator.pop(
+                            context,
+                            _LyricOptionsAction.search,
+                          ),
                   ),
                   if (snapshot.data == false &&
                       (source == LyricSource.cache ||
@@ -351,6 +373,12 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
               ),
             ),
             const Divider(),
+            if (currentRequest == _request && document.value?.isEmpty == false)
+              LyricOffsetTile(
+                request: _request,
+                manual: source == LyricSource.manual,
+                onTap: () => Navigator.pop(context, _LyricOptionsAction.offset),
+              ),
             ListTile(
               leading: const Icon(Icons.style_outlined),
               title: Text(AppI18n.t(config, 'player.lyric.style')),
