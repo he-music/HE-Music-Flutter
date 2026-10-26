@@ -5,10 +5,10 @@ import '../../../player/domain/entities/player_history_item.dart';
 import '../../../player/presentation/providers/player_history_provider.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 
-class MyHistoryController extends AsyncNotifier<List<PlayerHistoryItem>> {
+class MyHistoryController extends StreamNotifier<List<PlayerHistoryItem>> {
   @override
-  Future<List<PlayerHistoryItem>> build() async {
-    return _dataSource.listHistory();
+  Stream<List<PlayerHistoryItem>> build() {
+    return _dataSource.watchHistory();
   }
 
   Future<void> refresh() async {

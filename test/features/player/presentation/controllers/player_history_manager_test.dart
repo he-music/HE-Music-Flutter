@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/player/data/datasources/player_history_data_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_history_item.dart';
@@ -29,12 +32,109 @@ const _t1 = PlayerTrack(id: 's1', title: 'Song 1', url: 'https://a.com/1.mp3');
 const _t2 = PlayerTrack(id: 's2', title: 'Song 2', url: 'https://a.com/2.mp3');
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+
+  test('equal parsed seconds never reach history storage twice', () async {
+    final dataSource = _TrackingHistoryDataSource();
+    final manager = PlayerHistoryManager(dataSource: dataSource);
+    final callback = _FakeCallback();
+    final track = _t1.copyWith(duration: const Duration(seconds: 272));
+    await manager.recordCurrentTrackHistory(
+      callback: callback,
+      track: track,
+      isRadioMode: false,
+    );
+    expect(
+      await manager.updateTrackDuration(
+        track.copyWith(duration: const Duration(milliseconds: 272999)),
+      ),
+      isFalse,
+    );
+    expect(dataSource.durationUpdates, 0);
+    expect(
+      await manager.updateTrackDuration(
+        track.copyWith(duration: const Duration(milliseconds: 273999)),
+      ),
+      isTrue,
+    );
+    expect(
+      await manager.updateTrackDuration(
+        track.copyWith(duration: const Duration(milliseconds: 273100)),
+      ),
+      isFalse,
+    );
+    expect(dataSource.durationUpdates, 1);
+    expect((await dataSource.listHistory()).single.duration, 273);
+  });
+
+  test('late duration waits for initial history write', () async {
+    final dataSource = _TrackingHistoryDataSource(delayAppend: true);
+    final manager = PlayerHistoryManager(dataSource: dataSource);
+    final recording = manager.recordCurrentTrackHistory(
+      callback: _FakeCallback(),
+      track: _t1,
+      isRadioMode: false,
+    );
+    await dataSource.appendStarted.future;
+    final backfill = manager.updateTrackDuration(
+      _t1.copyWith(duration: const Duration(seconds: 272)),
+    );
+    dataSource.allowAppend.complete();
+    expect(await recording, isTrue);
+    expect(await backfill, isTrue);
+    expect((await dataSource.listHistory()).single.duration, 272);
+  });
+
+  test(
+    'duration already resolved in current track enters initial history write',
+    () async {
+      final dataSource = _TrackingHistoryDataSource();
+      final manager = PlayerHistoryManager(dataSource: dataSource);
+      final callback = _FakeCallback();
+      callback.updateState(
+        (_) => PlayerPlaybackState.initial([
+          _t1.copyWith(duration: const Duration(seconds: 272)),
+        ]),
+      );
+      await manager.recordCurrentTrackHistory(
+        callback: callback,
+        track: _t1,
+        isRadioMode: false,
+      );
+      expect((await dataSource.listHistory()).single.duration, 272);
+      expect(dataSource.durationUpdates, 0);
+    },
+  );
+
+  test('history playback carries total duration in seconds', () {
+    final manager = PlayerHistoryManager(
+      dataSource: const PlayerHistoryDataSource(),
+    );
+    for (final seconds in [null, 0, -1, 272]) {
+      final track = manager.historyItemToTrack(
+        PlayerHistoryItem(
+          id: 'history',
+          title: 'History',
+          artist: '',
+          album: '',
+          artworkUrl: '',
+          url: '',
+          playedAt: 1,
+          duration: seconds,
+        ),
+      );
+      expect(
+        track.duration,
+        seconds == 272 ? const Duration(seconds: 272) : isNull,
+      );
+    }
+  });
+
   group('PlayerHistoryManager', () {
     late PlayerHistoryManager manager;
     late _FakeCallback callback;
 
     setUp(() {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
       manager = PlayerHistoryManager(
         dataSource: const PlayerHistoryDataSource(),
       );
@@ -254,4 +354,42 @@ void main() {
       });
     });
   });
+}
+
+class _TrackingHistoryDataSource extends PlayerHistoryDataSource {
+  _TrackingHistoryDataSource({this.delayAppend = false});
+
+  final bool delayAppend;
+  final appendStarted = Completer<void>();
+  final allowAppend = Completer<void>();
+  int durationUpdates = 0;
+
+  @override
+  Future<int> appendTrack(
+    PlayerTrack track, {
+    bool isRadioMode = false,
+    String? currentRadioId,
+    String? currentRadioPlatform,
+    int? currentRadioPageIndex,
+    PlayerPlayMode? previousPlayModeBeforeRadio,
+  }) async {
+    if (delayAppend) {
+      appendStarted.complete();
+      await allowAppend.future;
+    }
+    return super.appendTrack(
+      track,
+      isRadioMode: isRadioMode,
+      currentRadioId: currentRadioId,
+      currentRadioPlatform: currentRadioPlatform,
+      currentRadioPageIndex: currentRadioPageIndex,
+      previousPlayModeBeforeRadio: previousPlayModeBeforeRadio,
+    );
+  }
+
+  @override
+  Future<bool> updateTrackDuration(PlayerTrack track) {
+    durationUpdates += 1;
+    return super.updateTrackDuration(track);
+  }
 }

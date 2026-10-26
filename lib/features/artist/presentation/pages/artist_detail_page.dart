@@ -18,6 +18,8 @@ import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
+import '../../../../shared/providers/song_sort_providers.dart';
+import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
 import '../../../../shared/utils/publish_date_formatter.dart';
@@ -197,17 +199,19 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
       ),
     );
 
+    final canSort = _songsRequested && !_songsLoading && _songsError == null;
+    final songs = canSort ? ref.watch(sortedSongInfoProvider(_songs)) : _songs;
     return DetailPageShell(
       onBackRequested: _isSongBatchMode ? () => _setSongBatchMode(false) : null,
       bottomBar: _isSongBatchMode
           ? SongBatchActionBar(
-              enabled: _selectedSongs(_songs).isNotEmpty,
+              enabled: _selectedSongs(songs).isNotEmpty,
               loading: _submittingSongBatch,
-              onPlayPressed: () => unawaited(_playSelectedSongs(_songs)),
+              onPlayPressed: () => unawaited(_playSelectedSongs(songs)),
               onAddToQueuePressed: () =>
-                  unawaited(_appendSelectedSongsToQueue(_songs)),
+                  unawaited(_appendSelectedSongsToQueue(songs)),
               onAddToPlaylistPressed: () =>
-                  unawaited(_addSelectedSongsToPlaylist(_songs)),
+                  unawaited(_addSelectedSongsToPlaylist(songs)),
             )
           : null,
       child: NestedScrollView(
@@ -290,29 +294,39 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
           children: <Widget>[
             _ArtistSongsTab(
               collapseExtent: collapseExtent,
-              songs: _songs,
+              sortButton: SongSortButton(
+                enabled: canSort && songs.isNotEmpty,
+                allowDuration: songs.every((song) => song.duration > 0),
+                allowSize:
+                    songs.isNotEmpty &&
+                    songs.every((song) => song.size != null),
+                onChanged: (_) => _songActions.syncQueueOrder(
+                  ref.read(sortedSongInfoProvider(_songs)),
+                ),
+              ),
+              songs: songs,
               loading: _songsLoading,
               error: _songsError,
               onRetry: _loadSongs,
-              onPlayAll: _songs.isEmpty
+              onPlayAll: songs.isEmpty
                   ? null
-                  : () => _songActions.playAll(context, _songs),
+                  : () => _songActions.playAll(context, songs),
               batchMode: _isSongBatchMode,
               selectedSongKeys: _selectedSongKeys,
-              selectedCount: _selectedSongs(_songs).length,
+              selectedCount: _selectedSongs(songs).length,
               allSelected: areAllLoadedSongsSelected(
-                _songs,
+                songs,
                 _selectedSongKeys,
                 songIdOf: (song) => song.id,
                 platformOf: (song) => song.platform,
               ),
               onEnterBatchMode: () => _setSongBatchMode(true),
               onCancelBatch: () => _setSongBatchMode(false),
-              onSelectAllLoaded: () => _selectAllLoadedSongs(_songs),
+              onSelectAllLoaded: () => _selectAllLoadedSongs(songs),
               onToggleSongSelection: _toggleSongSelection,
               resolveSongCover: _songActions.resolveCoverUrl,
               onTapSong: (song, coverUrl, index) =>
-                  _songActions.playAll(context, _songs, startIndex: index),
+                  _songActions.playAll(context, songs, startIndex: index),
               onLikeSong: _toggleSongLike,
               onMoreSong: (song, coverUrl) => _songActions.showSongActions(
                 context: context,
@@ -1249,6 +1263,7 @@ class _ArtistHeaderImage extends StatelessWidget {
 class _ArtistSongsTab extends StatelessWidget {
   const _ArtistSongsTab({
     required this.collapseExtent,
+    required this.sortButton,
     required this.songs,
     required this.loading,
     required this.error,
@@ -1268,6 +1283,7 @@ class _ArtistSongsTab extends StatelessWidget {
     required this.onMoreSong,
   });
 
+  final Widget sortButton;
   final double collapseExtent;
   final List<ArtistDetailSong> songs;
   final bool loading;
@@ -1310,6 +1326,7 @@ class _ArtistSongsTab extends StatelessWidget {
         <String, String>{'count': '${songs.length}'},
       ),
       onPlayAll: onPlayAll,
+      headerTrailing: sortButton,
       headerSurfaceBuilder: (context, child) =>
           _ArtistControlSurface(collapseExtent: collapseExtent, child: child),
       batchMode: batchMode,

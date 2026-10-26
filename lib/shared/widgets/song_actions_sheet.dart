@@ -66,6 +66,7 @@ Future<void> showSongActionsSheet({
   required String? coverUrl,
   required String title,
   required String subtitle,
+  Duration? duration,
   required bool hasMv,
   required String sourceLabel,
   String? playActionLabel,
@@ -223,6 +224,7 @@ Future<void> showSongActionsSheet({
           coverUrl: coverUrl,
           title: title,
           subtitle: subtitle,
+          duration: duration,
           resolvedPlayActionLabel: resolvedPlayActionLabel,
           localeCode: localeCode,
           hasMv: hasMv,
@@ -294,6 +296,7 @@ class _SongActionsSheetBody extends StatelessWidget {
     required this.coverUrl,
     required this.title,
     required this.subtitle,
+    required this.duration,
     required this.resolvedPlayActionLabel,
     required this.localeCode,
     required this.hasMv,
@@ -321,6 +324,7 @@ class _SongActionsSheetBody extends StatelessWidget {
   final String? coverUrl;
   final String title;
   final String subtitle;
+  final Duration? duration;
   final String resolvedPlayActionLabel;
   final String localeCode;
   final bool hasMv;
@@ -354,7 +358,12 @@ class _SongActionsSheetBody extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 8),
           children: <Widget>[
-            _SongHeader(coverUrl: coverUrl, title: title, subtitle: subtitle),
+            _SongHeader(
+              coverUrl: coverUrl,
+              title: title,
+              subtitle: subtitle,
+              duration: duration,
+            ),
             const Divider(height: 1),
             ListTile(
               iconColor: theme.colorScheme.primary,
@@ -587,19 +596,26 @@ class _SongHeader extends StatelessWidget {
     required this.coverUrl,
     required this.title,
     required this.subtitle,
+    required this.duration,
   });
 
   final String? coverUrl;
   final String title;
   final String subtitle;
+  final Duration? duration;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const coverSize = 48.0;
+    final secondaryStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final durationLabel = _formatSongDuration(duration);
+    const coverSize = 64.0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -643,10 +659,16 @@ class _SongHeader extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: secondaryStyle,
                 ),
+                if (durationLabel != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    durationLabel,
+                    key: const Key('song-actions-duration'),
+                    style: secondaryStyle,
+                  ),
+                ],
               ],
             ),
           ),
@@ -654,4 +676,15 @@ class _SongHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _formatSongDuration(Duration? duration) {
+  if (duration == null || duration.inSeconds <= 0) return null;
+  final hours = duration.inHours;
+  final minutes =
+      (hours > 0 ? duration.inMinutes.remainder(60) : duration.inMinutes)
+          .toString()
+          .padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
 }

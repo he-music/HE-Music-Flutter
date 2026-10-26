@@ -95,7 +95,7 @@ PlayerTrack _buildTrack({
     id: song.id,
     title: song.title,
     path: localPath == null || localPath.isEmpty ? null : localPath,
-    duration: song.duration > 0 ? Duration(milliseconds: song.duration) : null,
+    duration: song.duration > 0 ? Duration(seconds: song.duration) : null,
     links: song.links,
     artist: song.artist,
     albumId: song.album?.id,

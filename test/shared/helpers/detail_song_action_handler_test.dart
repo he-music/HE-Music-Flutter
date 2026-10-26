@@ -13,6 +13,7 @@ import 'package:he_music_flutter/features/my/presentation/providers/my_collectio
 import 'package:he_music_flutter/features/my/presentation/providers/user_playlist_detail_providers.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
+import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import 'package:he_music_flutter/shared/helpers/detail_song_action_handler.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
@@ -163,7 +164,11 @@ class _FakeUserPlaylistDetailRepository
   }
 
   @override
-  Future<List<SongInfo>> fetchSongs(UserPlaylistDetailRequest request) async {
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    UserPlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) async {
     throw UnimplementedError();
   }
 

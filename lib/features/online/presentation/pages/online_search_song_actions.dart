@@ -38,6 +38,7 @@ Future<void> showSearchSongActions({
     coverUrl: coverUrl,
     title: title,
     subtitle: subtitle,
+    duration: song.duration > 0 ? Duration(seconds: song.duration) : null,
     hasMv: hasMv,
     sourceLabel: sourceLabel,
     onPlay: onPlay,

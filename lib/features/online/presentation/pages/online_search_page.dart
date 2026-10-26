@@ -1191,6 +1191,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
         return resolved.isEmpty ? null : resolved;
       }(),
       platform: platform,
+      duration: song.duration > 0 ? Duration(seconds: song.duration) : null,
     );
   }
 

@@ -18,8 +18,12 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/song_batch_action_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:he_music_flutter/shared/providers/song_sort_providers.dart';
+import 'package:he_music_flutter/shared/utils/song_sort.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('详情使用接口数据并支持播放全部和点击歌曲播放', (tester) async {
     final apiClient = _TestHomePageApiClient();
 
@@ -70,6 +74,12 @@ void main() {
       'platform': 'qq',
       'id': 'daily-new',
     });
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
+    await tester.pumpAndSettle();
+    // SongInfo 的接口时长以秒为单位，1000 秒应显示为 16:40。
+    expect(find.text('16:40'), findsOneWidget);
+    Navigator.of(tester.element(find.text('16:40'))).pop();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('详情支持批量选择并播放选中歌曲', (tester) async {
@@ -115,6 +125,75 @@ void main() {
     expect(player.lastQueue.map((track) => track.id), <String>['song-2']);
     expect(find.byType(SongBatchActionBar), findsNothing);
   });
+  testWidgets(
+    'restored title order is shared by display, song taps and play all',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        SongSortPreferenceController.storageKey:
+            '{"field":"title","ascending":true}',
+      });
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            homePageApiClientProvider.overrideWithValue(
+              _TestHomePageApiClient(),
+            ),
+            playerControllerProvider.overrideWith(
+              _RecordingPlayerController.new,
+            ),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+          ],
+          child: const MaterialApp(
+            home: RecommendSongListPage(id: 'daily-new', platform: 'qq'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text('歌曲二')).dy,
+        lessThan(tester.getTopLeft(find.text('歌曲一')).dy),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(RecommendSongListPage)),
+      );
+      final player =
+          container.read(playerControllerProvider.notifier)
+              as _RecordingPlayerController;
+      expect(player.startIndexes, isEmpty);
+      await tester.tap(find.text('歌曲一'));
+      await tester.pump();
+      expect(player.startIndexes, [1]);
+      expect(player.lastQueue.map((track) => track.id), ['song-2', 'song-1']);
+      await tester.tap(find.byIcon(Icons.play_circle_fill_rounded));
+      await tester.pump();
+      expect(player.startIndexes, [1, 0]);
+      expect(player.lastQueue.map((track) => track.id), ['song-2', 'song-1']);
+      await container
+          .read(songSortPreferenceProvider.notifier)
+          .setPreference(const SongSortPreference());
+      await tester.pump();
+      expect(
+        tester.getTopLeft(find.text('歌曲一')).dy,
+        lessThan(tester.getTopLeft(find.text('歌曲二')).dy),
+      );
+      expect(player.startIndexes, [1, 0]);
+      expect(player.syncedQueues, isEmpty);
+      await tester.tap(find.byKey(const Key('song-sort-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('标题'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('确认'));
+      await tester.tap(find.text('确认'));
+      await tester.pumpAndSettle();
+      expect(player.syncedQueues, [
+        ['song-2', 'song-1'],
+      ]);
+      expect(player.startIndexes, [1, 0]);
+    },
+  );
 }
 
 class _TestAppConfigController extends AppConfigController {
@@ -191,6 +270,16 @@ class _RecordingPlayerController extends PlayerController {
   final List<int> startIndexes = [];
   List<PlayerTrack> lastQueue = const <PlayerTrack>[];
   PlayerQueueSource? lastSource;
+  final List<List<String>> syncedQueues = [];
+
+  @override
+  Future<bool> reorderQueueForSource(
+    List<IdPlatformInfo> orderedSongs, {
+    required PlayerQueueSource source,
+  }) async {
+    syncedQueues.add(orderedSongs.map((song) => song.id).toList());
+    return true;
+  }
 
   @override
   PlayerPlaybackState build() {

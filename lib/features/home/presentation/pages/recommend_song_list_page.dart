@@ -10,6 +10,8 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
+import '../../../../shared/providers/song_sort_providers.dart';
+import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
@@ -73,22 +75,21 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
       );
     }
     final songActions = _buildSongActions(info);
+    final songs = ref.watch(sortedSongInfoProvider(info.songs));
     return DetailPageShell(
       onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: songActions
-                  .collectSelectedSongs(info.songs, _selectedSongKeys)
+                  .collectSelectedSongs(songs, _selectedSongKeys)
                   .isNotEmpty,
               loading: _submittingBatch,
               onPlayPressed: () =>
-                  unawaited(_playSelectedSongs(songActions, info.songs)),
-              onAddToQueuePressed: () => unawaited(
-                _appendSelectedSongsToQueue(songActions, info.songs),
-              ),
-              onAddToPlaylistPressed: () => unawaited(
-                _addSelectedSongsToPlaylist(songActions, info.songs),
-              ),
+                  unawaited(_playSelectedSongs(songActions, songs)),
+              onAddToQueuePressed: () =>
+                  unawaited(_appendSelectedSongsToQueue(songActions, songs)),
+              onAddToPlaylistPressed: () =>
+                  unawaited(_addSelectedSongsToPlaylist(songActions, songs)),
             )
           : null,
       child: _buildDetail(info, songActions),
@@ -136,7 +137,7 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
     RecommendSongListInfo info,
     DetailSongActionHandler songActions,
   ) {
-    final songs = info.songs;
+    final songs = ref.watch(sortedSongInfoProvider(info.songs));
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) => <Widget>[
         MusicDetailSliverAppBar(
@@ -173,6 +174,15 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
           pinned: true,
           delegate: MusicDetailPlayAllHeader(
             height: MusicDetailPlayAllHeader.heightFor(context),
+            trailing: SongSortButton(
+              enabled: songs.isNotEmpty,
+              allowDuration: songs.every((song) => song.duration > 0),
+              allowSize:
+                  songs.isNotEmpty && songs.every((song) => song.size != null),
+              onChanged: (_) => songActions.syncQueueOrder(
+                ref.read(sortedSongInfoProvider(info.songs)),
+              ),
+            ),
             countText: AppI18n.format(
               ref.read(appConfigProvider),
               'detail.play_all_count',

@@ -4,6 +4,7 @@ import 'package:he_music_flutter/features/my/data/datasources/user_playlist_deta
 import 'package:he_music_flutter/features/my/data/datasources/user_playlist_song_api_client.dart';
 import 'package:he_music_flutter/features/my/data/repositories/user_playlist_detail_repository_impl.dart';
 import 'package:he_music_flutter/features/my/domain/entities/user_playlist_detail_request.dart';
+import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
@@ -19,16 +20,38 @@ void main() {
     expect(result.name, 'My Playlist');
   });
 
-  test('fetchSongs delegates to apiClient', () async {
+  test(
+    'fetchSongs delegates pagination and preserves result metadata',
+    () async {
+      final fake = _FakeUserPlaylistDetailApiClient();
+      final songFake = _FakeUserPlaylistSongApiClient();
+      final repo = UserPlaylistDetailRepositoryImpl(fake, songFake);
+      final request = UserPlaylistDetailRequest(id: 'pl-1', title: 'My List');
+
+      final result = await repo.fetchSongs(request, pageIndex: 2, pageSize: 50);
+
+      expect(fake.lastSongsRequestId, 'pl-1');
+      expect(fake.lastPageIndex, 2);
+      expect(fake.lastPageSize, 50);
+      expect(result.songs, hasLength(1));
+      expect(result.pageIndex, 2);
+      expect(result.pageSize, 50);
+      expect(result.totalCount, 1234);
+      expect(result.hasMore, isTrue);
+    },
+  );
+
+  test('fetchSongs defaults to shared playlist page size', () async {
     final fake = _FakeUserPlaylistDetailApiClient();
-    final songFake = _FakeUserPlaylistSongApiClient();
-    final repo = UserPlaylistDetailRepositoryImpl(fake, songFake);
-    final request = UserPlaylistDetailRequest(id: 'pl-1', title: 'My List');
-
-    final result = await repo.fetchSongs(request);
-
-    expect(fake.lastSongsRequestId, 'pl-1');
-    expect(result, hasLength(1));
+    final repo = UserPlaylistDetailRepositoryImpl(
+      fake,
+      _FakeUserPlaylistSongApiClient(),
+    );
+    await repo.fetchSongs(
+      const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
+    );
+    expect(fake.lastPageIndex, 1);
+    expect(fake.lastPageSize, playlistDetailSongsPageSize);
   });
 
   test('updatePlaylist delegates to apiClient', () async {
@@ -102,6 +125,8 @@ class _FakeUserPlaylistDetailApiClient extends UserPlaylistDetailApiClient {
 
   String? lastRequestId;
   String? lastSongsRequestId;
+  int? lastPageIndex;
+  int? lastPageSize;
   String? lastUpdateId;
   String? lastUpdateName;
   String? lastDeleteId;
@@ -123,9 +148,21 @@ class _FakeUserPlaylistDetailApiClient extends UserPlaylistDetailApiClient {
   }
 
   @override
-  Future<List<SongInfo>> fetchSongs(UserPlaylistDetailRequest request) async {
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    UserPlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) async {
     lastSongsRequestId = request.id;
-    return <SongInfo>[_song()];
+    lastPageIndex = pageIndex;
+    lastPageSize = pageSize;
+    return PlaylistDetailSongsPageResult(
+      songs: [_song()],
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: 1234,
+      hasMore: true,
+    );
   }
 
   @override

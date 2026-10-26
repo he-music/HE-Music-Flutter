@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/utils/id_platform_key.dart';
+import '../../../playlist/domain/entities/playlist_detail_song.dart';
+import '../../../playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import '../../../playlist/domain/entities/playlist_detail_state.dart';
 import '../../data/providers/user_playlist_detail_providers.dart';
 import '../../domain/entities/user_playlist_detail_request.dart';
@@ -21,12 +24,10 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
     if (_lastRequestKey == request.cacheKey && state.content != null) {
       return;
     }
-    _lastRequestKey = request.cacheKey;
     await _load(request);
   }
 
   Future<void> refresh(UserPlaylistDetailRequest request) async {
-    _lastRequestKey = request.cacheKey;
     await _load(request);
   }
 
@@ -35,13 +36,63 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
   }
 
   Future<void> retrySongs(UserPlaylistDetailRequest request) async {
-    if (!ref.mounted) {
+    if (!ref.mounted || _lastRequestKey != request.cacheKey) {
       return;
     }
-    state = state.copyWith(songsLoading: true, clearSongsError: true);
+    state = state.copyWith(
+      songsLoading: true,
+      loadingMore: false,
+      pageIndex: 0,
+      pageSize: playlistDetailSongsPageSize,
+      totalCount: 0,
+      hasMore: false,
+      clearSongsError: true,
+      clearLoadMoreError: true,
+    );
     final repository = _repository;
     final requestVersion = ++_songsRequestVersion;
     await _loadSongs(repository, request, requestVersion);
+  }
+
+  Future<void> loadMore(UserPlaylistDetailRequest request) async {
+    if (!ref.mounted ||
+        _lastRequestKey != request.cacheKey ||
+        state.songsLoading ||
+        state.loadingMore ||
+        !state.hasMore) {
+      return;
+    }
+    final requestVersion = _songsRequestVersion;
+    final nextPageIndex = state.pageIndex + 1;
+    final pageSize = state.pageSize;
+    state = state.copyWith(loadingMore: true, clearLoadMoreError: true);
+    try {
+      final result = await _repository.fetchSongs(
+        request,
+        pageIndex: nextPageIndex,
+        pageSize: pageSize,
+      );
+      if (!ref.mounted || requestVersion != _songsRequestVersion) {
+        return;
+      }
+      state = state.copyWith(
+        loadingMore: false,
+        songs: _appendUniqueSongs(state.songs, result.songs),
+        pageIndex: result.pageIndex,
+        pageSize: result.pageSize,
+        totalCount: result.totalCount,
+        hasMore: result.hasMore,
+        clearLoadMoreError: true,
+      );
+    } catch (error) {
+      if (!ref.mounted || requestVersion != _songsRequestVersion) {
+        return;
+      }
+      state = state.copyWith(
+        loadingMore: false,
+        loadMoreErrorMessage: '$error',
+      );
+    }
   }
 
   Future<void> updatePlaylist({
@@ -50,13 +101,14 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
     required String cover,
     required String description,
   }) async {
+    final requestKey = _lastRequestKey;
     await _repository.updatePlaylist(
       id: request.id,
       name: name,
       cover: cover,
       description: description,
     );
-    if (!ref.mounted) {
+    if (!_canReloadAfterMutation(request, requestKey)) {
       return;
     }
     await _load(request);
@@ -72,6 +124,7 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
     required List<IdPlatformInfo> songs,
     bool isDefaultPlaylist = false,
   }) async {
+    final requestKey = _lastRequestKey;
     final favoriteStatus = isDefaultPlaylist
         ? ref.read(favoriteSongStatusProvider.notifier)
         : null;
@@ -81,21 +134,37 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
         favoriteStatus.removeSong(songId: song.id, platform: song.platform);
       }
     }
-    if (!ref.mounted) {
+    if (!_canReloadAfterMutation(request, requestKey)) {
       return;
     }
     await _load(request);
+  }
+
+  bool _canReloadAfterMutation(
+    UserPlaylistDetailRequest request,
+    String requestKey,
+  ) {
+    return ref.mounted &&
+        _lastRequestKey == requestKey &&
+        (requestKey.isEmpty || requestKey == request.cacheKey);
   }
 
   Future<void> _load(UserPlaylistDetailRequest request) async {
     if (!ref.mounted) {
       return;
     }
+    _lastRequestKey = request.cacheKey;
     state = state.copyWith(
       loading: true,
       songsLoading: true,
+      loadingMore: false,
+      pageIndex: 0,
+      pageSize: playlistDetailSongsPageSize,
+      totalCount: 0,
+      hasMore: false,
       clearError: true,
       clearSongsError: true,
+      clearLoadMoreError: true,
     );
     final repository = _repository;
     final infoRequestVersion = ++_infoRequestVersion;
@@ -131,14 +200,19 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
     int requestVersion,
   ) async {
     try {
-      final songs = await repository.fetchSongs(request);
+      final result = await repository.fetchSongs(request);
       if (!ref.mounted || requestVersion != _songsRequestVersion) {
         return;
       }
       state = state.copyWith(
         songsLoading: false,
-        songs: songs,
+        songs: result.songs,
+        pageIndex: result.pageIndex,
+        pageSize: result.pageSize,
+        totalCount: result.totalCount,
+        hasMore: result.hasMore,
         clearSongsError: true,
+        clearLoadMoreError: true,
       );
     } catch (error) {
       if (!ref.mounted || requestVersion != _songsRequestVersion) {
@@ -150,5 +224,22 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
 
   UserPlaylistDetailRepository get _repository {
     return ref.read(userPlaylistDetailRepositoryProvider);
+  }
+
+  List<PlaylistDetailSong> _appendUniqueSongs(
+    List<PlaylistDetailSong> current,
+    List<PlaylistDetailSong> incoming,
+  ) {
+    final keys = current
+        .map((song) => buildIdPlatformKey(id: song.id, platform: song.platform))
+        .toSet();
+    final result = <PlaylistDetailSong>[...current];
+    for (final song in incoming) {
+      final key = buildIdPlatformKey(id: song.id, platform: song.platform);
+      if (keys.add(key)) {
+        result.add(song);
+      }
+    }
+    return List<PlaylistDetailSong>.unmodifiable(result);
   }
 }

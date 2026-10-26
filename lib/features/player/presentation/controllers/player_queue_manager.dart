@@ -139,6 +139,71 @@ class PlayerQueueManager {
     return currentQueue.isNotEmpty;
   }
 
+  /// 同来源且身份多重集合一致时，按出现次序复用原曲目。
+  /// 返回原索引排列，避免重复身份的当前曲目被替换成另一实例。
+  List<int>? sourceReorderIndices(
+    PlayerPlaybackState state,
+    List<IdPlatformInfo> orderedSongs,
+    PlayerQueueSource source,
+  ) {
+    if (state.isRadioMode ||
+        state.queue.isEmpty ||
+        !source.isValid ||
+        !_isSameQueueSource(state.queueSource, source) ||
+        state.queue.length != orderedSongs.length) {
+      return null;
+    }
+    final indicesByIdentity = <(String, String), List<int>>{};
+    for (var index = state.queue.length - 1; index >= 0; index--) {
+      final track = state.queue[index];
+      final identity = (track.id.trim(), (track.platform ?? '').trim());
+      if (identity.$1.isEmpty) {
+        return null;
+      }
+      (indicesByIdentity[identity] ??= <int>[]).add(index);
+    }
+    final indices = <int>[];
+    for (final song in orderedSongs) {
+      final matches = indicesByIdentity[(song.id.trim(), song.platform.trim())];
+      if (matches == null || matches.isEmpty) {
+        return null;
+      }
+      indices.add(matches.removeLast());
+    }
+    return indices;
+  }
+
+  /// 比较音频层会回传的字段，确认事件未改变数据时复用原曲目。
+  bool hasSameAudioData(PlayerTrack current, PlayerTrack incoming) {
+    if (current.id != incoming.id ||
+        current.title != incoming.title ||
+        current.url != incoming.url ||
+        current.path != incoming.path ||
+        current.duration != incoming.duration ||
+        current.artist != incoming.artist ||
+        current.album != incoming.album ||
+        current.artworkUrl != incoming.artworkUrl ||
+        current.platform != incoming.platform ||
+        current.format != incoming.format ||
+        current.bitrate != incoming.bitrate ||
+        current.sampleRate != incoming.sampleRate ||
+        current.links.length != incoming.links.length) {
+      return false;
+    }
+    for (var index = 0; index < current.links.length; index++) {
+      final a = current.links[index];
+      final b = incoming.links[index];
+      if (a.name != b.name ||
+          a.quality != b.quality ||
+          a.format != b.format ||
+          a.size != b.size ||
+          a.url != b.url) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// 判断电台上下文是否相同。
   bool isSameRadioContext(
     PlayerPlaybackState state, {
@@ -221,6 +286,9 @@ class PlayerQueueManager {
       url: platform == 'local' ? item.url : '',
       artworkUrl: item.artworkUrl.isEmpty ? null : item.artworkUrl,
       platform: platform.isEmpty ? null : platform,
+      duration: (item.duration ?? 0) > 0
+          ? Duration(seconds: item.duration!)
+          : null,
     );
   }
 
@@ -406,9 +474,7 @@ class PlayerQueueManager {
       id: song.id,
       title: song.title,
       path: localPath == null || localPath.isEmpty ? null : localPath,
-      duration: song.duration > 0
-          ? Duration(milliseconds: song.duration)
-          : null,
+      duration: song.duration > 0 ? Duration(seconds: song.duration) : null,
       links: song.links,
       artist: song.artist,
       albumId: song.album?.id,

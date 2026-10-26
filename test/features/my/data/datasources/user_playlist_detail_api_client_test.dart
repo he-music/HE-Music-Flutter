@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/core/error/app_exception.dart';
 import 'package:he_music_flutter/features/my/data/datasources/user_playlist_detail_api_client.dart';
 import 'package:he_music_flutter/features/my/domain/entities/user_playlist_detail_request.dart';
+import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_songs_page_result.dart';
 
 void main() {
   group('UserPlaylistDetailApiClient', () {
@@ -43,7 +44,7 @@ void main() {
         title: 'Fallback Title',
       );
       final info = await client.fetchInfo(request);
-      final songs = await client.fetchSongs(request);
+      final result = await client.fetchSongs(request);
 
       expect(info.name, 'Test Playlist');
       expect(info.cover, 'https://a.com/cover.jpg');
@@ -52,20 +53,110 @@ void main() {
       expect(info.playCount, '500');
       expect(info.description, 'A test playlist');
       expect(info.isDefault, isFalse);
-      expect(songs, hasLength(2));
-      expect(songs.first.id, 's1');
+      expect(result.songs, hasLength(2));
+      expect(result.songs.first.id, 's1');
+      expect(result.pageIndex, 1);
+      expect(result.pageSize, playlistDetailSongsPageSize);
+      expect(result.totalCount, 2);
+      expect(result.hasMore, isFalse);
     });
+
+    test('fetchSongs 传递后续页参数并保留服务端分页元数据', () async {
+      final requests = <Map<String, dynamic>>[];
+      final client = _createMultiClient(
+        {
+          'list': [
+            {'id': 's1001', 'name': 'Next page', 'platform': 'qq'},
+          ],
+          'page_index': '2',
+          'page_size': '1000',
+          'total_count': '2500',
+          'has_more': 1,
+        },
+        onGet: (options) {
+          expect(options.path, '/v1/user/playlist/songs');
+          requests.add(Map.of(options.queryParameters));
+        },
+      );
+      const request = UserPlaylistDetailRequest(id: 'pl-1', title: 'T');
+      await client.fetchSongs(request);
+      final result = await client.fetchSongs(request, pageIndex: 2);
+      expect(requests, [
+        {
+          'id': 'pl-1',
+          'page_index': 1,
+          'page_size': playlistDetailSongsPageSize,
+        },
+        {
+          'id': 'pl-1',
+          'page_index': 2,
+          'page_size': playlistDetailSongsPageSize,
+        },
+      ]);
+      expect(result.songs.single.id, 's1001');
+      expect(result.pageIndex, 2);
+      expect(result.pageSize, 1000);
+      expect(result.totalCount, 2500);
+      expect(result.hasMore, isTrue);
+    });
+
+    test('fetchSongs 支持自定义分页大小且缺失元数据时回退到请求参数', () async {
+      final client = _createMultiClient(
+        {'list': []},
+        onGet: (options) {
+          expect(options.queryParameters['page_index'], 3);
+          expect(options.queryParameters['page_size'], 25);
+        },
+      );
+      final result = await client.fetchSongs(
+        const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
+        pageIndex: 3,
+        pageSize: 25,
+      );
+      expect(result.pageIndex, 3);
+      expect(result.pageSize, 25);
+      expect(result.totalCount, 0);
+      expect(result.hasMore, isFalse);
+    });
+
+    for (final pageSize in [0, -1, playlistDetailSongsPageSize + 1]) {
+      test('fetchSongs 规范化无效请求和响应分页字段 pageSize=$pageSize', () async {
+        final client = _createMultiClient(
+          {
+            'page_index': 0,
+            'page_size': -1,
+            'total_count': -1,
+            'has_more': 'true',
+          },
+          onGet: (options) {
+            expect(options.queryParameters['page_index'], 1);
+            expect(
+              options.queryParameters['page_size'],
+              playlistDetailSongsPageSize,
+            );
+          },
+        );
+        final result = await client.fetchSongs(
+          const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
+          pageIndex: 0,
+          pageSize: pageSize,
+        );
+        expect(result.songs, isEmpty);
+        expect(result.pageIndex, 1);
+        expect(result.pageSize, playlistDetailSongsPageSize);
+        expect(result.totalCount, 0);
+        expect(result.hasMore, isTrue);
+      });
+    }
 
     test('fetchDetail 应透传默认歌单标记', () async {
       final client = _createMultiClient({
         '/v1/user/playlist': {'is_default': 1},
         '/v1/user/playlist/songs': {'list': []},
       });
-
       final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
       );
-
       expect(result.isDefault, isTrue);
     });
 
@@ -74,11 +165,9 @@ void main() {
         '/v1/user/playlist': <String, dynamic>{},
         '/v1/user/playlist/songs': {'list': []},
       });
-
       final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'Fallback Title'),
       );
-
       expect(result.name, 'Fallback Title');
     });
 
@@ -87,11 +176,9 @@ void main() {
         '/v1/user/playlist': {'pic': 'https://a.com/pic.jpg'},
         '/v1/user/playlist/songs': {'list': []},
       });
-
       final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
       );
-
       expect(result.cover, 'https://a.com/pic.jpg');
     });
 
@@ -100,11 +187,9 @@ void main() {
         '/v1/user/playlist': {'trackCount': 42},
         '/v1/user/playlist/songs': {'list': []},
       });
-
       final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
       );
-
       expect(result.songCount, '42');
     });
 
@@ -118,11 +203,9 @@ void main() {
           ],
         },
       });
-
       final result = await client.fetchInfo(
         const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
       );
-
       expect(result.songCount, isEmpty);
     });
 
@@ -135,7 +218,6 @@ void main() {
           ],
         },
       });
-
       expect(
         () => client.fetchSongs(
           const UserPlaylistDetailRequest(id: 'pl-1', title: 'T'),
@@ -153,14 +235,12 @@ void main() {
           expect(options.path, '/v1/user/playlist');
         },
       );
-
       await client.updatePlaylist(
         id: 'pl-1',
         name: 'New Name',
         cover: 'https://a.com/new.jpg',
         description: 'New desc',
       );
-
       expect(putCalled, isTrue);
     });
 
@@ -173,9 +253,7 @@ void main() {
           expect(options.path, '/v1/user/playlist');
         },
       );
-
       await client.deletePlaylist('pl-1');
-
       expect(deleteCalled, isTrue);
     });
   });
@@ -184,12 +262,14 @@ void main() {
 /// 创建根据路径分发响应的 UserPlaylistDetailApiClient。
 UserPlaylistDetailApiClient _createMultiClient(
   dynamic payload, {
+  void Function(RequestOptions)? onGet,
   void Function(RequestOptions)? onPut,
   void Function(RequestOptions)? onDelete,
 }) {
   final dio = Dio();
   dio.httpClientAdapter = _PathAdapter(
     payload,
+    onGet: onGet,
     onPut: onPut,
     onDelete: onDelete,
   );
@@ -197,9 +277,10 @@ UserPlaylistDetailApiClient _createMultiClient(
 }
 
 class _PathAdapter implements HttpClientAdapter {
-  _PathAdapter(this._payload, {this.onPut, this.onDelete});
+  _PathAdapter(this._payload, {this.onGet, this.onPut, this.onDelete});
 
   final dynamic _payload;
+  final void Function(RequestOptions)? onGet;
   final void Function(RequestOptions)? onPut;
   final void Function(RequestOptions)? onDelete;
 
@@ -218,6 +299,7 @@ class _PathAdapter implements HttpClientAdapter {
       onDelete?.call(options);
       return ResponseBody.fromString('', 200);
     }
+    onGet?.call(options);
 
     // GET 请求：根据路径返回对应 payload
     dynamic body;

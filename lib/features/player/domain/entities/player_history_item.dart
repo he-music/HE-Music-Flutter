@@ -11,6 +11,7 @@ class PlayerHistoryItem {
     required this.artworkUrl,
     required this.url,
     required this.playedAt,
+    this.duration,
     this.platform,
     this.albumId,
     this.artists = const <SongInfoArtistInfo>[],
@@ -29,6 +30,10 @@ class PlayerHistoryItem {
   final String artworkUrl;
   final String url;
   final int playedAt;
+
+  /// 总时长，单位为秒；旧记录或未知时长为 null。
+  final int? duration;
+
   final String? platform;
   final String? albumId;
   final List<SongInfoArtistInfo> artists;

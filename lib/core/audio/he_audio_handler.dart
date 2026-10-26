@@ -3621,9 +3621,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       title: song.title,
       url: '',
       path: localPath == null || localPath.isEmpty ? null : localPath,
-      duration: song.duration > 0
-          ? Duration(milliseconds: song.duration)
-          : null,
+      duration: song.duration > 0 ? Duration(seconds: song.duration) : null,
       links: song.links,
       artist: song.artist,
       album: song.album?.name,

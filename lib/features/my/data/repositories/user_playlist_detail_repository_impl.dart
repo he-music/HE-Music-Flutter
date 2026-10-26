@@ -1,5 +1,5 @@
 import '../../../../shared/models/he_music_models.dart';
-import '../../../playlist/domain/entities/playlist_detail_song.dart';
+import '../../../playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import '../../domain/entities/user_playlist_detail_request.dart';
 import '../../domain/repositories/user_playlist_detail_repository.dart';
 import '../datasources/user_playlist_detail_api_client.dart';
@@ -17,10 +17,16 @@ class UserPlaylistDetailRepositoryImpl implements UserPlaylistDetailRepository {
   }
 
   @override
-  Future<List<PlaylistDetailSong>> fetchSongs(
-    UserPlaylistDetailRequest request,
-  ) {
-    return _apiClient.fetchSongs(request);
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    UserPlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) {
+    return _apiClient.fetchSongs(
+      request,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
   }
 
   @override

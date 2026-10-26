@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_history_providers.dart';
@@ -9,6 +12,44 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_h
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 
 void main() {
+  test(
+    'visible history receives late duration without changing playedAt',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      const dataSource = PlayerHistoryDataSource();
+      final container = ProviderContainer(
+        overrides: [
+          playerHistoryDataSourceProvider.overrideWithValue(dataSource),
+        ],
+      );
+      addTearDown(container.dispose);
+      final resolved = Completer<PlayerHistoryItem>();
+      final subscription = container.listen(myHistoryControllerProvider, (
+        _,
+        next,
+      ) {
+        final items = next.value;
+        if (items != null &&
+            items.isNotEmpty &&
+            items.first.duration == 272 &&
+            !resolved.isCompleted) {
+          resolved.complete(items.first);
+        }
+      });
+      addTearDown(subscription.close);
+      expect(await container.read(myHistoryControllerProvider.future), isEmpty);
+      const track = PlayerTrack(id: 'duration', title: 'Duration');
+      await dataSource.appendTrack(track);
+      final before = (await dataSource.listHistory()).single;
+      await dataSource.updateTrackDuration(
+        track.copyWith(duration: const Duration(seconds: 272)),
+      );
+      final item = await resolved.future;
+      expect(item.playedAt, before.playedAt);
+      expect(item.duration, 272);
+    },
+  );
+
   test('build should load history list', () async {
     final container = ProviderContainer(
       overrides: [
@@ -30,6 +71,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    container.listen(myHistoryControllerProvider, (_, _) {});
 
     final state = await container.read(myHistoryControllerProvider.future);
     expect(state.length, 1);
@@ -99,6 +141,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    container.listen(myHistoryControllerProvider, (_, _) {});
 
     await container.read(myHistoryControllerProvider.future);
     await container.read(myHistoryControllerProvider.notifier).clear();
@@ -121,6 +164,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    container.listen(myHistoryControllerProvider, (_, _) {});
 
     await container.read(myHistoryControllerProvider.future);
     await container.read(myHistoryControllerProvider.notifier).clear();
@@ -148,6 +192,11 @@ class _FakeHistoryDataSource extends PlayerHistoryDataSource {
   Future<List<PlayerHistoryItem>> listHistory() async {
     listHistoryCallCount += 1;
     return _items.toList(growable: false);
+  }
+
+  @override
+  Stream<List<PlayerHistoryItem>> watchHistory() async* {
+    yield await listHistory();
   }
 
   @override

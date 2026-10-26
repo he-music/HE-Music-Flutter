@@ -231,7 +231,7 @@ class _HistoryList extends ConsumerWidget {
       name: item.title.isEmpty ? item.id : item.title,
       subtitle: '',
       id: item.id,
-      duration: 0,
+      duration: item.duration ?? 0,
       mvId: '',
       album: item.album.trim().isEmpty
           ? null
@@ -286,6 +286,9 @@ class _HistoryList extends ConsumerWidget {
       coverUrl: coverUrl,
       title: song.title,
       subtitle: song.artist,
+      duration: (item.duration ?? 0) > 0
+          ? Duration(seconds: item.duration!)
+          : null,
       hasMv: false,
       sourceLabel: AppI18n.format(config, 'song.source', <String, String>{
         'platform': platformLabel.isEmpty ? '-' : platformLabel,
@@ -489,6 +492,9 @@ class _HistoryList extends ConsumerWidget {
       url: platform.toLowerCase() == 'local' ? item.url : '',
       artworkUrl: item.artworkUrl.isEmpty ? null : item.artworkUrl,
       platform: platform.isEmpty ? null : platform,
+      duration: (item.duration ?? 0) > 0
+          ? Duration(seconds: item.duration!)
+          : null,
     );
   }
 

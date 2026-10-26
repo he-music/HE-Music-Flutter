@@ -16,6 +16,8 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
+import '../../../../shared/providers/song_sort_providers.dart';
+import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
@@ -103,22 +105,26 @@ class _UserPlaylistDetailPageState
       );
     }
 
+    final songs =
+        state.hasMore || state.songsLoading || state.songsErrorMessage != null
+        ? content.songs
+        : ref.watch(sortedSongInfoProvider(content.songs));
     return DetailPageShell(
       onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: _songActions
-                  .collectSelectedSongs(content.songs, _selectedSongKeys)
+                  .collectSelectedSongs(songs, _selectedSongKeys)
                   .isNotEmpty,
               loading: _submittingBatch,
-              onPlayPressed: () => unawaited(_playSelectedSongs(content.songs)),
+              onPlayPressed: () => unawaited(_playSelectedSongs(songs)),
               onAddToQueuePressed: () =>
-                  unawaited(_appendSelectedSongsToQueue(content.songs)),
+                  unawaited(_appendSelectedSongsToQueue(songs)),
               onAddToPlaylistPressed: () =>
-                  unawaited(_addSelectedSongsToPlaylist(content.songs)),
+                  unawaited(_addSelectedSongsToPlaylist(songs)),
               onRemoveFromPlaylistPressed: () => unawaited(
                 _removeSelectedSongsFromPlaylist(
-                  content.songs,
+                  songs,
                   isDefaultPlaylist: content.isDefault,
                 ),
               ),
@@ -129,7 +135,11 @@ class _UserPlaylistDetailPageState
         content: content,
         songsLoading: state.songsLoading,
         songsErrorMessage: state.songsErrorMessage,
+        loadingMore: state.loadingMore,
+        hasMore: state.hasMore,
+        loadMoreErrorMessage: state.loadMoreErrorMessage,
         onRetrySongs: () => controller.retrySongs(_request),
+        onLoadMore: () => controller.loadMore(_request),
       ),
     );
   }
@@ -160,13 +170,20 @@ class _UserPlaylistDetailPageState
     required PlaylistDetailContent content,
     required bool songsLoading,
     required String? songsErrorMessage,
+    required bool loadingMore,
+    required bool hasMore,
+    required String? loadMoreErrorMessage,
     required Future<void> Function() onRetrySongs,
+    required Future<void> Function() onLoadMore,
   }) {
     final title = content.title.trim().isEmpty ? widget.title : content.title;
     final subtitle = content.subtitle.trim();
     final coverUrl = content.coverUrl.trim();
     final description = content.description;
-    final songs = content.songs;
+    final canSort = !hasMore && !songsLoading && songsErrorMessage == null;
+    final songs = canSort
+        ? ref.watch(sortedSongInfoProvider(content.songs))
+        : content.songs;
 
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) {
@@ -201,6 +218,16 @@ class _UserPlaylistDetailPageState
             pinned: true,
             delegate: MusicDetailPlayAllHeader(
               height: MusicDetailPlayAllHeader.heightFor(context),
+              trailing: SongSortButton(
+                enabled: canSort && songs.isNotEmpty,
+                allowDuration: songs.every((song) => song.duration > 0),
+                allowSize:
+                    songs.isNotEmpty &&
+                    songs.every((song) => song.size != null),
+                onChanged: (_) => _songActions.syncQueueOrder(
+                  ref.read(sortedSongInfoProvider(content.songs)),
+                ),
+              ),
               countText: AppI18n.format(
                 ref.read(appConfigProvider),
                 'detail.play_all_count',
@@ -238,6 +265,12 @@ class _UserPlaylistDetailPageState
           initialLoading: songsLoading && songs.isEmpty,
           errorMessage: songsErrorMessage,
           onRetry: onRetrySongs,
+          enablePaging: true,
+          loadingMore: loadingMore,
+          hasMore: hasMore,
+          onLoadMore: onLoadMore,
+          loadMoreErrorMessage: loadMoreErrorMessage,
+          onRetryLoadMore: onLoadMore,
           resolveSongCover: _songActions.resolveCoverUrl,
           resolvePlatformId: _songActions.resolvePlatformId,
           onTapSong: (song, coverUrl, index) =>

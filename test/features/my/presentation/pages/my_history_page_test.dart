@@ -28,6 +28,37 @@ import 'package:he_music_flutter/shared/widgets/music_detail_slivers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
+  for (final seconds in [null, 272]) {
+    testWidgets('history actions show available duration $seconds', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildTestApp(
+          items: [
+            PlayerHistoryItem(
+              id: 'duration',
+              title: 'Duration',
+              artist: 'Artist',
+              album: '',
+              artworkUrl: '',
+              url: '',
+              playedAt: 1,
+              platform: 'qq',
+              duration: seconds,
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('04:32'),
+        seconds == null ? findsNothing : findsOneWidget,
+      );
+    });
+  }
+
   testWidgets(
     'brightness changes preserve history rows and locale still updates',
     (tester) async {
@@ -66,6 +97,7 @@ void main() {
         artworkUrl: '',
         url: 'https://expired.example/song.mp3',
         playedAt: 1711711711,
+        duration: 272,
         platform: 'qq',
         isRadioMode: true,
         currentRadioId: 'radio-1',
@@ -86,6 +118,7 @@ void main() {
       expect(player.played.last.url, isEmpty);
       expect(player.played.last.albumId, 'album-1');
       expect(player.played.last.artists, online.artists);
+      expect(player.played.last.duration, const Duration(seconds: 272));
       expect(player.queueSource?.routePath, '/my/history');
 
       await tester.tap(find.text('在线歌曲'));
@@ -255,6 +288,7 @@ void main() {
       expect(find.text('查看曲谱'), supported ? findsOneWidget : findsNothing);
       if (supported) {
         await tester.ensureVisible(find.text('查看曲谱'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('查看曲谱'));
         await tester.pumpAndSettle();
         expect(router.state.uri.path, AppRoutes.songSheetMusic);
@@ -408,7 +442,7 @@ class _TestMyHistoryController extends MyHistoryController {
   }
 
   @override
-  Future<List<PlayerHistoryItem>> build() async => items;
+  Stream<List<PlayerHistoryItem>> build() => Stream.value(items);
 }
 
 class _TestFavoriteSongStatusController extends FavoriteSongStatusController {

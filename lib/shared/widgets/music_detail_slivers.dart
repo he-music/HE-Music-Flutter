@@ -273,6 +273,7 @@ class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
     this.allSelected = false,
     this.onSelectAll,
     this.onCancelBatch,
+    this.trailing,
   });
 
   final String countText;
@@ -285,6 +286,7 @@ class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
   final bool allSelected;
   final VoidCallback? onSelectAll;
   final VoidCallback? onCancelBatch;
+  final Widget? trailing;
 
   final double height;
 
@@ -313,6 +315,7 @@ class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
       allSelected: allSelected,
       onSelectAll: onSelectAll,
       onCancelBatch: onCancelBatch,
+      trailing: trailing,
     );
   }
 
@@ -328,6 +331,7 @@ class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
         oldDelegate.selectedCount != selectedCount ||
         oldDelegate.allSelected != allSelected ||
         oldDelegate.onSelectAll != onSelectAll ||
+        oldDelegate.trailing != trailing ||
         oldDelegate.onCancelBatch != onCancelBatch;
   }
 }
@@ -475,71 +479,90 @@ class _MusicDetailPlayAllHeaderContent extends StatelessWidget {
       );
     }
     return LayoutBuilder(
-      builder: (context, constraints) => Row(
-        children: <Widget>[
-          Expanded(
-            child: InkWell(
-              onTap: enabled ? onPlayAll : null,
-              borderRadius: BorderRadius.circular(999),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 8, 10, 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(
-                      Icons.play_circle_fill_rounded,
-                      size: 22,
-                      color: effectivePrimary,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        countText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: enabled ? null : theme.hintColor,
+      builder: (context, constraints) {
+        final compactBatch =
+            trailing != null &&
+            constraints.maxWidth < 480 &&
+            MediaQuery.textScalerOf(context).scale(14) > 18;
+        return Row(
+          children: <Widget>[
+            Expanded(
+              child: InkWell(
+                onTap: enabled ? onPlayAll : null,
+                borderRadius: BorderRadius.circular(999),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 8, 10, 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(
+                        Icons.play_circle_fill_rounded,
+                        size: 22,
+                        color: effectivePrimary,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          countText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: enabled ? null : theme.hintColor,
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (onBatchAction != null)
+              if (compactBatch)
+                IconButton(
+                  onPressed: onBatchAction,
+                  tooltip: AppI18n.tByLocaleCode(
+                    localeCode,
+                    'detail.batch.action',
+                  ),
+                  icon: const AppSkinIcon(role: AppSkinIconRole.batchSelectAll),
+                )
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * 0.45,
+                  ),
+                  child: TextButton(
+                    onPressed: onBatchAction,
+                    child: Text(
+                      AppI18n.tByLocaleCode(localeCode, 'detail.batch.action'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-          if (onBatchAction != null)
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: constraints.maxWidth * 0.45,
-              ),
-              child: TextButton(
-                onPressed: onBatchAction,
-                child: Text(
-                  AppI18n.tByLocaleCode(localeCode, 'detail.batch.action'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            if (trailing != null)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * (compactBatch ? 0.6 : 0.45),
                 ),
+                child: trailing!,
               ),
-            ),
-          if (trailing != null)
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: constraints.maxWidth * 0.45,
+            if (onMore != null)
+              IconButton(
+                onPressed: onMore,
+                icon: const Icon(Icons.more_horiz_rounded),
+                tooltip: AppI18n.tByLocaleCode(localeCode, 'common.more'),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 40,
+                  height: 40,
+                ),
+                padding: EdgeInsets.zero,
               ),
-              child: trailing!,
-            ),
-          if (onMore != null)
-            IconButton(
-              onPressed: onMore,
-              icon: const Icon(Icons.more_horiz_rounded),
-              tooltip: AppI18n.tByLocaleCode(localeCode, 'common.more'),
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-              padding: EdgeInsets.zero,
-            ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }

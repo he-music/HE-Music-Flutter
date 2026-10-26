@@ -17,9 +17,12 @@ import 'package:he_music_flutter/features/player/domain/entities/player_playback
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
+import 'package:he_music_flutter/shared/widgets/song_info_list_section.dart';
+import 'package:he_music_flutter/shared/widgets/song_sort_button.dart';
 
 void main() {
   testWidgets(
@@ -245,6 +248,97 @@ void main() {
       await tester.pump();
     },
   );
+
+  testWidgets(
+    'user playlist list connects load more and retry without losing songs',
+    (tester) async {
+      final repository = _FakeUserPlaylistDetailRepository()
+        ..nextPage = Completer<PlaylistDetailSongsPageResult>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+            favoriteSongStatusProvider.overrideWith(
+              _TestFavoriteSongStatusController.new,
+            ),
+            userPlaylistDetailRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(
+            home: UserPlaylistDetailPage(id: 'playlist-1', title: '测试歌单'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      var section = tester.widget<SongInfoListSection>(
+        find.byType(SongInfoListSection),
+      );
+      expect(section.hasMore, isTrue);
+      expect(section.enablePaging, isTrue);
+      expect(
+        tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
+        isFalse,
+      );
+      final loading = section.onLoadMore!();
+      await tester.pump();
+      section = tester.widget<SongInfoListSection>(
+        find.byType(SongInfoListSection),
+      );
+      expect(section.loadingMore, isTrue);
+      repository.nextPage!.completeError(Exception('next page failed'));
+      await loading;
+      await tester.pump();
+      await tester.pump();
+      section = tester.widget<SongInfoListSection>(
+        find.byType(SongInfoListSection),
+      );
+      expect(section.loadMoreErrorMessage, contains('next page failed'));
+      expect(section.songs, hasLength(2));
+      expect(find.text('用户歌单首屏歌曲'), findsOneWidget);
+      repository.nextPage = Completer<PlaylistDetailSongsPageResult>();
+      final retrying = section.onRetryLoadMore!();
+      await tester.pump();
+      repository.nextPage!.complete(
+        PlaylistDetailSongsPageResult(
+          songs: [
+            SongInfo.fromMap({
+              'id': 'song-3',
+              'name': '下一页歌曲',
+              'platform': 'qq',
+            }),
+          ],
+          pageIndex: 2,
+          pageSize: playlistDetailSongsPageSize,
+          totalCount: 1001,
+          hasMore: false,
+        ),
+      );
+      await retrying;
+      await tester.pump();
+      await tester.pump();
+      section = tester.widget<SongInfoListSection>(
+        find.byType(SongInfoListSection),
+      );
+      expect(section.songs, hasLength(3));
+      expect(section.hasMore, isFalse);
+      expect(section.loadMoreErrorMessage, isNull);
+      expect(
+        tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<SongSortButton>(find.byType(SongSortButton))
+            .allowDuration,
+        isFalse,
+      );
+      expect(repository.requestedPages, [1, 2, 2]);
+    },
+  );
 }
 
 class _TestAppConfigController extends AppConfigController {
@@ -298,6 +392,8 @@ class _FakeUserPlaylistDetailRepository
   int deletePlaylistCallCount = 0;
   final bool isDefault;
   final List<String> songNamesByFetch;
+  final requestedPages = <int>[];
+  Completer<PlaylistDetailSongsPageResult>? nextPage;
 
   @override
   Future<PlaylistInfo> fetchInfo(UserPlaylistDetailRequest request) async {
@@ -316,15 +412,21 @@ class _FakeUserPlaylistDetailRepository
   }
 
   @override
-  Future<List<SongInfo>> fetchSongs(UserPlaylistDetailRequest request) async {
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    UserPlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) async {
     fetchSongsCallCount += 1;
+    requestedPages.add(pageIndex);
+    if (pageIndex > 1) return nextPage!.future;
     final firstSongName = songNamesByFetch.isEmpty
         ? '用户歌单首屏歌曲'
         : songNamesByFetch[(fetchSongsCallCount - 1).clamp(
             0,
             songNamesByFetch.length - 1,
           )];
-    return <SongInfo>[
+    final songs = <SongInfo>[
       SongInfo(
         name: firstSongName,
         subtitle: '',
@@ -354,6 +456,13 @@ class _FakeUserPlaylistDetailRepository
         cover: 'https://example.com/song-2.jpg',
       ),
     ];
+    return PlaylistDetailSongsPageResult(
+      songs: songs,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+      totalCount: nextPage == null ? songs.length : 1001,
+      hasMore: nextPage != null,
+    );
   }
 
   @override
@@ -385,7 +494,7 @@ class _FakeUserPlaylistDetailRepository
 class _ControlledUserPlaylistDetailRepository
     implements UserPlaylistDetailRepository {
   final _infoCompleter = Completer<PlaylistInfo>();
-  final _songsCompleter = Completer<List<SongInfo>>();
+  final _songsCompleter = Completer<PlaylistDetailSongsPageResult>();
 
   @override
   Future<PlaylistInfo> fetchInfo(UserPlaylistDetailRequest request) {
@@ -393,7 +502,11 @@ class _ControlledUserPlaylistDetailRepository
   }
 
   @override
-  Future<List<SongInfo>> fetchSongs(UserPlaylistDetailRequest request) {
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    UserPlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) {
     return _songsCompleter.future;
   }
 
@@ -414,7 +527,15 @@ class _ControlledUserPlaylistDetailRepository
   }
 
   void completeSongs(UserPlaylistDetailRequest request) {
-    _songsCompleter.complete(const <SongInfo>[]);
+    _songsCompleter.complete(
+      const PlaylistDetailSongsPageResult(
+        songs: [],
+        pageIndex: 1,
+        pageSize: playlistDetailSongsPageSize,
+        totalCount: 0,
+        hasMore: false,
+      ),
+    );
   }
 
   @override

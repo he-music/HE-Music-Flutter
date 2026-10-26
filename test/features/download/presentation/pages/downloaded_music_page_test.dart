@@ -25,8 +25,39 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_item.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:he_music_flutter/shared/widgets/song_sort_button.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'restored download sorting displays unavailable files in order and plays only available ones',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'song_list_sort': '{"field":"title","ascending":true}',
+      });
+      final player = _Player();
+      await tester.pumpWidget(_app(player));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text('失效歌曲')).dy,
+        lessThan(tester.getTopLeft(find.text('夜曲')).dy),
+      );
+      final sortButton = tester.widget<SongSortButton>(
+        find.byType(SongSortButton),
+      );
+      expect(sortButton.allowDuration, isFalse);
+      expect(sortButton.allowSize, isFalse);
+      expect(player.played, isEmpty);
+      await tester.tap(find.text('夜曲'));
+      await tester.pump();
+      expect(player.played.map((song) => song.path), ['/tmp/first.mp3']);
+      await tester.tap(find.byKey(const Key('downloaded-music-play-all')));
+      await tester.pump();
+      expect(player.played.map((song) => song.path), ['/tmp/first.mp3']);
+    },
+  );
   testWidgets(
     'legacy downloaded links and task URLs open the unified download page',
     (tester) async {

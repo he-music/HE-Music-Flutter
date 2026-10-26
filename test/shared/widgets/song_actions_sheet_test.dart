@@ -3,8 +3,70 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/song_actions_sheet.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 void main() {
+  for (final example in [
+    (duration: const Duration(minutes: 4, seconds: 32), label: '04:32'),
+    (
+      duration: const Duration(hours: 1, minutes: 12, seconds: 8),
+      label: '1:12:08',
+    ),
+  ]) {
+    testWidgets(
+      'song header shows only duration value ${example.label} below artist',
+      (tester) async {
+        await tester.pumpWidget(_durationTestApp(example.duration));
+        await tester.tap(find.text('Open duration sheet'));
+        await tester.pumpAndSettle();
+        final timeFinder = find.byKey(const Key('song-actions-duration'));
+        final time = tester.widget<Text>(timeFinder);
+        final artist = tester.widget<Text>(find.text('Artist'));
+        expect(time.data, example.label);
+        expect(time.style, artist.style);
+        expect(
+          tester.getTopLeft(timeFinder).dy,
+          greaterThan(tester.getBottomLeft(find.text('Artist')).dy),
+        );
+        expect(find.textContaining('Duration'), findsNothing);
+        expect(find.byIcon(Icons.schedule_rounded), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final duration in [null, Duration.zero, const Duration(seconds: -1)]) {
+    testWidgets('song header hides unknown duration $duration', (tester) async {
+      await tester.pumpWidget(_durationTestApp(duration));
+      await tester.tap(find.text('Open duration sheet'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('song-actions-duration')), findsNothing);
+      expect(find.text('00:00'), findsNothing);
+      expect(find.text('Artist'), findsOneWidget);
+    });
+  }
+
+  for (final glass in [false, true]) {
+    testWidgets(
+      'duration stays readable on small screens with large text and glass=$glass',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 480));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          _durationTestApp(
+            const Duration(hours: 1, minutes: 12, seconds: 8),
+            glass: glass,
+            textScale: 2,
+          ),
+        );
+        await tester.tap(find.text('Open duration sheet'));
+        await tester.pumpAndSettle();
+        expect(find.text('1:12:08').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets('song actions sheet shows add to playlist when provided', (
     tester,
   ) async {
@@ -703,3 +765,48 @@ class _CountingNavigatorObserver extends NavigatorObserver {
     super.didPush(route, previousRoute);
   }
 }
+
+Widget _durationTestApp(
+  Duration? duration, {
+  bool glass = false,
+  double textScale = 1,
+}) => MaterialApp(
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(textScale)),
+    child: AppGlassScope(
+      enabled: glass,
+      child: GlassAdaptiveScope(
+        minQuality: GlassQuality.minimal,
+        maxQuality: GlassQuality.minimal,
+        child: child!,
+      ),
+    ),
+  ),
+  home: Builder(
+    builder: (context) => Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => showSongActionsSheet(
+            context: context,
+            forceBottomSheet: true,
+            coverUrl: null,
+            title: 'Song',
+            subtitle: 'Artist',
+            duration: duration,
+            hasMv: false,
+            sourceLabel: 'Source',
+            onPlay: () {},
+            onPlayNext: () {},
+            onAddToPlaylist: () {},
+            onWatchMv: () {},
+            onCopySongName: () {},
+            onCopySongId: () {},
+          ),
+          child: const Text('Open duration sheet'),
+        ),
+      ),
+    ),
+  ),
+);

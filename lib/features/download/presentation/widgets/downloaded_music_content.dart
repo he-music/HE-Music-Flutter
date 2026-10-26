@@ -8,6 +8,8 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
+import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_list_item.dart';
 import '../../../online/domain/entities/online_platform.dart';
@@ -60,7 +62,7 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
 
   @override
   Widget build(BuildContext context) {
-    final songs = ref.watch(downloadedSongsProvider);
+    final songs = ref.watch(sortedDownloadedSongsProvider);
     return songs.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
@@ -88,6 +90,14 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
           children: [
             MusicDetailPlayAllHeaderBox(
               key: const Key('downloaded-music-play-all'),
+              trailing: SongSortButton(
+                enabled: allSongs.isNotEmpty,
+                allowDuration: false,
+                allowSize: allSongs.every(
+                  (song) => song.task.totalBytes != null,
+                ),
+                onChanged: (_) => _syncQueueOrder(),
+              ),
               countText: AppI18n.formatByLocaleCode(
                 widget.locale,
                 'detail.play_all_count',
@@ -146,6 +156,31 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
     );
   }
 
+  PlayerQueueSource get _queueSource => PlayerQueueSource(
+    routePath: AppRoutes.downloads,
+    queryParameters: const {'tab': 'downloaded'},
+    title: text('download.library.title'),
+  );
+
+  Future<void> _syncQueueOrder() => _run(() async {
+    final songs = ref.read(sortedDownloadedSongsProvider).value;
+    if (songs == null) return;
+    await ref
+        .read(playerControllerProvider.notifier)
+        .reorderQueueForSource(
+          songs
+              .where((song) => song.isAvailable)
+              .map((song) {
+                final track = downloadedSongToTrack(song);
+                return IdPlatformInfo(
+                  id: track.id,
+                  platform: track.platform ?? 'local',
+                );
+              })
+              .toList(growable: false),
+          source: _queueSource,
+        );
+  });
   Future<void> _play(List<DownloadedSong> songs, int index) async {
     await _run(() async {
       await ref
@@ -153,11 +188,7 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
           .replaceQueue(
             songs.map(downloadedSongToTrack).toList(growable: false),
             startIndex: index,
-            queueSource: PlayerQueueSource(
-              routePath: AppRoutes.downloads,
-              queryParameters: const {'tab': 'downloaded'},
-              title: text('download.library.title'),
-            ),
+            queueSource: _queueSource,
           );
       if (ref.read(playerControllerProvider).playbackFailure != null) {
         ref.invalidate(downloadedSongsProvider);

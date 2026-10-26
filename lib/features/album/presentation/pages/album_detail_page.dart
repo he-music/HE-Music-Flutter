@@ -13,6 +13,8 @@ import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/utils/publish_date_formatter.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
+import '../../../../shared/providers/song_sort_providers.dart';
+import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -98,19 +100,20 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
       );
     }
 
+    final songs = ref.watch(sortedSongInfoProvider(content.songs));
     return DetailPageShell(
       onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: _songActions
-                  .collectSelectedSongs(content.songs, _selectedSongKeys)
+                  .collectSelectedSongs(songs, _selectedSongKeys)
                   .isNotEmpty,
               loading: _submittingBatch,
-              onPlayPressed: () => unawaited(_playSelectedSongs(content.songs)),
+              onPlayPressed: () => unawaited(_playSelectedSongs(songs)),
               onAddToQueuePressed: () =>
-                  unawaited(_appendSelectedSongsToQueue(content.songs)),
+                  unawaited(_appendSelectedSongsToQueue(songs)),
               onAddToPlaylistPressed: () =>
-                  unawaited(_addSelectedSongsToPlaylist(content.songs)),
+                  unawaited(_addSelectedSongsToPlaylist(songs)),
             )
           : null,
       child: _buildDetailBody(context: context, content: content),
@@ -143,7 +146,7 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
     final subtitle = content.subtitle.trim();
     final coverUrl = content.coverUrl.trim();
     final description = content.description;
-    final songs = content.songs;
+    final songs = ref.watch(sortedSongInfoProvider(content.songs));
     final isFavorited = ref.watch(
       favoriteCollectionStatusProvider.select(
         (state) => state.albumKeys.contains(
@@ -200,6 +203,16 @@ class _AlbumDetailPageState extends ConsumerState<AlbumDetailPage> {
             pinned: true,
             delegate: MusicDetailPlayAllHeader(
               height: MusicDetailPlayAllHeader.heightFor(context),
+              trailing: SongSortButton(
+                enabled: songs.isNotEmpty,
+                allowDuration: songs.every((song) => song.duration > 0),
+                allowSize:
+                    songs.isNotEmpty &&
+                    songs.every((song) => song.size != null),
+                onChanged: (_) => _songActions.syncQueueOrder(
+                  ref.read(sortedSongInfoProvider(content.songs)),
+                ),
+              ),
               countText: AppI18n.format(
                 ref.read(appConfigProvider),
                 'detail.play_all_count',

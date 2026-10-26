@@ -48,6 +48,8 @@ dependencies:
   path_provider: ^2.1.6
   permission_handler: ^12.0.3
   shared_preferences: ^2.5.4
+  # ICU4X 中文排序；固定版本以保持原生库和构建校验一致。
+  icu_kit: 0.2.0
   background_downloader: ^9.5.8
   flutter_lyric: ^3.0.7
   marquee: ^2.3.0

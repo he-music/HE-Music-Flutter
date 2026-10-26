@@ -19,6 +19,7 @@ import 'package:he_music_flutter/core/audio/he_audio_handler.dart';
 import 'package:he_music_flutter/features/online/data/online_api_client.dart';
 import 'package:he_music_flutter/features/player/data/providers/player_progress_providers.dart';
 import 'package:he_music_flutter/features/player/data/datasources/player_queue_data_source.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_history_provider.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_history_item.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_queue_source.dart';
@@ -36,6 +37,280 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+
+  for (final initialDuration in [null, const Duration(seconds: 272)]) {
+    test(
+      'parsed duration backfills history only when seconds differ from $initialDuration',
+      () async {
+        final audioPlayer = _FakeAudioPlayerPort();
+        final history = _DurationHistoryDataSource();
+        final container = ProviderContainer(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            audioPlayerPortProvider.overrideWithValue(audioPlayer),
+            playerHistoryDataSourceProvider.overrideWithValue(history),
+          ],
+        );
+        addTearDown(container.dispose);
+        addTearDown(audioPlayer.dispose);
+        final controller = container.read(playerControllerProvider.notifier);
+        await controller.replaceQueue([
+          PlayerTrack(
+            id: 'duration',
+            title: 'Duration',
+            platform: 'local',
+            url: '/tmp/duration.mp3',
+            duration: initialDuration,
+          ),
+        ]);
+        final before = (await history.listHistory()).single;
+        expect(before.duration, initialDuration?.inSeconds);
+        audioPlayer.emitDuration(const Duration(milliseconds: 272999));
+        await Future<void>.delayed(Duration.zero);
+        await history.watchHistory().firstWhere(
+          (items) => items.single.duration == 272,
+        );
+        expect(history.durationUpdates, initialDuration == null ? 1 : 0);
+        expect(
+          container.read(playerControllerProvider).currentTrack?.duration,
+          const Duration(milliseconds: 272999),
+        );
+
+        audioPlayer.emitDuration(const Duration(milliseconds: 273999));
+        final updated = await history.watchHistory().firstWhere(
+          (items) => items.single.duration == 273,
+        );
+        expect(updated.single.playedAt, before.playedAt);
+        final writes = history.durationUpdates;
+        audioPlayer.emitDuration(const Duration(milliseconds: 273100));
+        audioPlayer.emitDuration(null);
+        audioPlayer.emitDuration(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(history.durationUpdates, writes);
+        expect((await history.listHistory()).single.duration, 273);
+      },
+    );
+  }
+
+  const source = PlayerQueueSource(
+    routePath: '/playlist',
+    queryParameters: {'id': 'list-1', 'platform': 'qq'},
+    title: 'Original title',
+  );
+  const equivalentSource = PlayerQueueSource(
+    routePath: '/playlist',
+    queryParameters: {'platform': 'qq', 'id': 'list-1'},
+    title: 'Renamed title',
+  );
+
+  for (final playing in [false, true]) {
+    for (final mode in PlayerPlayMode.values) {
+      test('source reorder preserves playback ($playing, $mode)', () async {
+        final audioPlayer = _SourceReorderAudioPlayerPort();
+        final container = ProviderContainer(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            audioPlayerPortProvider.overrideWithValue(audioPlayer),
+          ],
+        );
+        addTearDown(container.dispose);
+        addTearDown(audioPlayer.dispose);
+        final controller = container.read(playerControllerProvider.notifier);
+        final queue = _buildQueue();
+        await controller.replaceQueue([queue[0]], autoplay: false);
+        await controller.replaceQueue(
+          queue,
+          startIndex: 1,
+          autoplay: false,
+          queueSource: source,
+        );
+        await controller.setPlayMode(mode);
+        audioPlayer.emitPlaying(playing);
+        audioPlayer.emitPosition(Duration.zero);
+        audioPlayer.emitPosition(const Duration(seconds: 23));
+        audioPlayer.emitBufferedPosition(const Duration(seconds: 45));
+        await Future<void>.delayed(Duration.zero);
+        final before = container.read(playerControllerProvider);
+        final calls = audioPlayer.setQueueCallCount;
+        final plays = audioPlayer.playCallCount;
+        final pauses = audioPlayer.pauseCalls;
+        final seeks = audioPlayer.seekPositions.length;
+        final shuffleCalls = audioPlayer.shuffleValues.length;
+        expect(
+          await controller.reorderQueueForSource([
+            IdPlatformInfo(id: queue[1].id, platform: 'qq'),
+            IdPlatformInfo(id: queue[0].id, platform: 'qq'),
+          ], source: equivalentSource),
+          isTrue,
+        );
+        final after = container.read(playerControllerProvider);
+        expect(after.queue[0], same(before.queue[1]));
+        expect(after.queue[1], same(before.queue[0]));
+        expect(after.currentTrack, same(before.currentTrack));
+        expect(after.currentIndex, 0);
+        expect(after.position, const Duration(seconds: 23));
+        expect(after.bufferedPosition, const Duration(seconds: 45));
+        expect(after.isPlaying, playing);
+        expect(after.isPlaybackSessionActive, before.isPlaybackSessionActive);
+        expect(after.playMode, mode);
+        expect(after.queueSource, same(before.queueSource));
+        expect(after.previousQueueSnapshot, same(before.previousQueueSnapshot));
+        expect(audioPlayer.setQueueCallCount, calls + 1);
+        expect(audioPlayer.lastSetQueueForceReloadCurrent, isFalse);
+        expect(audioPlayer.lastQueueInitialIndex, 0);
+        expect(
+          audioPlayer.lastQueueTracks.map((t) => t.id),
+          after.queue.map((t) => t.id),
+        );
+        expect(audioPlayer.lastQueueTracks.first.url, before.currentTrack!.url);
+        expect(audioPlayer.playCallCount, plays);
+        expect(audioPlayer.pauseCalls, pauses);
+        expect(audioPlayer.seekPositions.length, seeks);
+        expect(audioPlayer.shuffleValues.length, shuffleCalls + 1);
+        expect(audioPlayer.shuffleValues.last, mode == PlayerPlayMode.shuffle);
+        final stored = await const PlayerQueueDataSource().readQueue();
+        expect(stored!.queue.map((t) => t.id), after.queue.map((t) => t.id));
+        expect(stored.currentIndex, 0);
+        expect(stored.playMode, mode);
+        expect(stored.source!.title, source.title);
+        expect(stored.previousSnapshot!.queue.single.id, queue[0].id);
+
+        final unchanged = container.read(playerControllerProvider);
+        expect(
+          await controller.reorderQueueForSource([
+            IdPlatformInfo(id: queue[1].id, platform: 'qq'),
+            IdPlatformInfo(id: queue[0].id, platform: 'qq'),
+          ], source: equivalentSource),
+          isFalse,
+        );
+        expect(container.read(playerControllerProvider), same(unchanged));
+        expect(audioPlayer.setQueueCallCount, calls + 1);
+        expect(audioPlayer.shuffleValues.length, shuffleCalls + 1);
+      });
+    }
+  }
+
+  test(
+    'source reorder handles duplicate occurrences without losing current instance',
+    () async {
+      final harness = await _createTargetPreviewHarness();
+      final controller = harness.container.read(
+        playerControllerProvider.notifier,
+      );
+      final first = _buildQueue()[1];
+      final second = first.copyWith(
+        title: 'second occurrence',
+        url: 'https://example.com/other.mp3',
+      );
+      final other = _buildQueue()[0];
+      await controller.replaceQueue(
+        [first, other, second],
+        startIndex: 2,
+        autoplay: false,
+        queueSource: source,
+      );
+      final before = harness.container.read(playerControllerProvider);
+      expect(
+        await controller.reorderQueueForSource([
+          IdPlatformInfo(id: first.id, platform: 'qq'),
+          IdPlatformInfo(id: first.id, platform: 'qq'),
+          IdPlatformInfo(id: other.id, platform: 'qq'),
+        ], source: source),
+        isTrue,
+      );
+      final after = harness.container.read(playerControllerProvider);
+      expect(after.queue[0], same(before.queue[0]));
+      expect(after.queue[1], same(before.queue[2]));
+      expect(after.currentTrack, same(before.currentTrack));
+      expect(after.currentIndex, 1);
+      expect(
+        harness.audioPlayer.lastQueueTracks[1].url,
+        before.currentTrack!.url,
+      );
+    },
+  );
+
+  test(
+    'source reorder rejects changed source, membership, multiplicity and radio without mutation',
+    () async {
+      final harness = await _createTargetPreviewHarness();
+      final controller = harness.container.read(
+        playerControllerProvider.notifier,
+      );
+      final queue = _buildQueue();
+      final reversed = [
+        IdPlatformInfo(id: queue[1].id, platform: 'qq'),
+        IdPlatformInfo(id: queue[0].id, platform: 'qq'),
+      ];
+      Future<void> rejects(
+        List<IdPlatformInfo> songs,
+        PlayerQueueSource requested,
+      ) async {
+        final before = harness.container.read(playerControllerProvider);
+        final calls = harness.audioPlayer.setQueueCallCount;
+        expect(
+          await controller.reorderQueueForSource(songs, source: requested),
+          isFalse,
+        );
+        expect(harness.container.read(playerControllerProvider), same(before));
+        expect(harness.audioPlayer.setQueueCallCount, calls);
+      }
+
+      await controller.replaceQueue(
+        queue,
+        autoplay: false,
+        queueSource: source,
+      );
+      await rejects(
+        reversed,
+        const PlayerQueueSource(
+          routePath: '/album',
+          queryParameters: {'id': 'list-1', 'platform': 'qq'},
+          title: 'Other route',
+        ),
+      );
+      await rejects(
+        reversed,
+        const PlayerQueueSource(
+          routePath: '/playlist',
+          queryParameters: {'id': 'list-2', 'platform': 'qq'},
+          title: 'Other query',
+        ),
+      );
+      await rejects([reversed[0]], source);
+      await rejects([reversed[0], reversed[0]], source);
+      await rejects([
+        reversed[0],
+        IdPlatformInfo(id: queue[0].id, platform: 'netease'),
+      ], source);
+      await rejects([
+        reversed[0],
+        IdPlatformInfo(id: 'missing', platform: 'qq'),
+      ], source);
+      await controller.appendTrack(
+        const PlayerTrack(id: 'manual', title: 'Manual', platform: 'qq'),
+      );
+      await rejects(reversed, source);
+      await controller.replaceQueue(
+        queue,
+        autoplay: false,
+        queueSource: source,
+      );
+      await controller.removeTrackAt(0);
+      await rejects(reversed, source);
+      await controller.replaceQueue(queue, autoplay: false);
+      await rejects(reversed, source);
+      await controller.replaceQueue(
+        queue,
+        autoplay: false,
+        queueSource: source,
+        isRadioMode: true,
+        currentRadioId: 'radio',
+        currentRadioPlatform: 'qq',
+      );
+      await rejects(reversed, source);
+    },
+  );
 
   test('反复切换上个队列不会累积嵌套历史', () async {
     final audioPlayer = _FakeAudioPlayerPort();
@@ -96,6 +371,87 @@ void main() {
       );
       expect(audioPlayer.playCallCount, 1);
     });
+  }
+
+  for (final playing in [false, true]) {
+    test(
+      'source reorder retains loaded native source and instances ($playing)',
+      () async {
+        final original = JustAudioPlatform.instance;
+        final native = NativeAudioTestPlatform();
+        JustAudioPlatform.instance = native;
+        const channel = MethodChannel('com.ryanheise.audio_session');
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(channel, (_) async => null);
+        addTearDown(() {
+          JustAudioPlatform.instance = original;
+          messenger.setMockMethodCallHandler(channel, null);
+        });
+        final player = AudioPlayer(handleAudioSessionActivation: false);
+        final handler = HeAudioHandler(player: player);
+        final container = ProviderContainer(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            audioPlayerPortProvider.overrideWithValue(
+              AudioHandlerPlayerAdapter(handler),
+            ),
+          ],
+        );
+        addTearDown(handler.disposeHandler);
+        addTearDown(container.dispose);
+        final controller = container.read(playerControllerProvider.notifier);
+        final queue = List.generate(
+          3,
+          (i) => PlayerTrack(
+            id: 'local-$i',
+            title: 'Local $i',
+            platform: 'local',
+            path: '/tmp/local-$i.mp3',
+            albumId: 'album-$i',
+            mvId: 'mv-$i',
+          ),
+        );
+        await controller.replaceQueue(
+          queue,
+          startIndex: 1,
+          autoplay: playing,
+          queueSource: source,
+        );
+        await controller.setPlayMode(PlayerPlayMode.shuffle);
+        await controller.seek(const Duration(seconds: 23));
+        await Future<void>.delayed(Duration.zero);
+        final before = container.read(playerControllerProvider);
+        final loadedSource = player.audioSource;
+        final loadedRequest = native.current.lastLoad;
+        expect(
+          await controller.reorderQueueForSource([
+            for (final track in queue.reversed)
+              IdPlatformInfo(id: track.id, platform: 'local'),
+          ], source: equivalentSource),
+          isTrue,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final after = container.read(playerControllerProvider);
+        expect(player.audioSource, same(loadedSource));
+        expect(native.current.lastLoad, same(loadedRequest));
+        expect(player.playing, playing);
+        expect(after.isPlaying, playing);
+        expect(after.position, before.position);
+        expect(after.bufferedPosition, before.bufferedPosition);
+        expect(after.currentTrack, same(before.currentTrack));
+        for (var i = 0; i < 3; i++) {
+          expect(after.queue[i], same(before.queue[2 - i]));
+        }
+        expect(
+          handler.queue.value.map((t) => t.id),
+          queue.reversed.map((t) => t.id),
+        );
+        expect(after.playMode, PlayerPlayMode.shuffle);
+        expect(after.queueSource, same(before.queueSource));
+        expect({after.previousPreviewIndex, after.nextPreviewIndex}, {0, 2});
+      },
+    );
   }
 
   test('播放中通过真实音频适配器点歌和替换队列能够完成', () async {
@@ -443,6 +799,14 @@ void main() {
     expect(audioPlayer.lastSetQueueForceReloadCurrent, isFalse);
     expect(state.isPlaying, isTrue);
     expect(state.duration, const Duration(minutes: 3));
+    expect(state.currentTrack?.duration, const Duration(minutes: 3));
+    final history = await const PlayerHistoryDataSource()
+        .watchHistory()
+        .firstWhere(
+          (items) =>
+              items.any((item) => item.id == 'song-2' && item.duration == 180),
+        );
+    expect(history.where((item) => item.id == 'song-2').single.duration, 180);
   });
 
   test('currentIndex 切换时保留时长直到音频流报告新值', () async {
@@ -1978,6 +2342,16 @@ class _FakeAudioPlayerPort implements AudioPlayerPort {
   }
 }
 
+class _DurationHistoryDataSource extends PlayerHistoryDataSource {
+  int durationUpdates = 0;
+
+  @override
+  Future<bool> updateTrackDuration(PlayerTrack track) {
+    durationUpdates += 1;
+    return super.updateTrackDuration(track);
+  }
+}
+
 class _ReplayingStartupAudioPlayerPort extends _FakeAudioPlayerPort {
   int currentIndexListenCount = 0;
   int setShuffleCallCount = 0;
@@ -2079,5 +2453,20 @@ class _FakeRadioApiClient extends RadioApiClient {
   }) async {
     requestedPages.add(pageIndex);
     return pages[pageIndex] ?? const <SongInfo>[];
+  }
+}
+
+class _SourceReorderAudioPlayerPort extends _FakeAudioPlayerPort {
+  int pauseCalls = 0;
+  final shuffleValues = <bool>[];
+
+  @override
+  Future<void> pause() async {
+    pauseCalls++;
+  }
+
+  @override
+  Future<void> setShuffle(bool enabled) async {
+    shuffleValues.add(enabled);
   }
 }

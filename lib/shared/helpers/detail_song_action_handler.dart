@@ -86,6 +86,29 @@ class DetailSongActionHandler {
     );
   }
 
+  /// Only explicit user sorting calls this; restoring a preference is read-only.
+  Future<void> syncQueueOrder(List<SongInfo> songs) async {
+    final source = queueSource;
+    if (source == null) return;
+    try {
+      await ref
+          .read(playerControllerProvider.notifier)
+          .reorderQueueForSource(
+            songs
+                .map(
+                  (song) => IdPlatformInfo(
+                    id: song.id,
+                    platform: resolvePlatformId(song),
+                  ),
+                )
+                .toList(growable: false),
+            source: source,
+          );
+    } catch (error) {
+      _showErrorMessage(NetworkErrorMessage.resolve(error) ?? '$error');
+    }
+  }
+
   Future<void> playAll(
     BuildContext context,
     List<SongInfo> songs, {
@@ -422,6 +445,7 @@ class DetailSongActionHandler {
       coverUrl: coverUrl.isEmpty ? null : coverUrl,
       title: song.title,
       subtitle: song.artist,
+      duration: song.duration > 0 ? Duration(seconds: song.duration) : null,
       hasMv: onWatchMv != null && song.hasMv,
       playActionLabel: playActionLabel,
       sourceLabel: AppI18n.format(config, 'song.source', <String, String>{
@@ -548,6 +572,7 @@ class DetailSongActionHandler {
       mvId: song.mvId,
       artworkUrl: coverUrl.isEmpty ? null : coverUrl,
       platform: platformId,
+      duration: song.duration > 0 ? Duration(seconds: song.duration) : null,
     );
   }
 

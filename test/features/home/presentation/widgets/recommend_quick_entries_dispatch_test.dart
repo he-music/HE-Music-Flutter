@@ -156,6 +156,7 @@ void main() {
         expect(find.text('查看曲谱'), supported ? findsOneWidget : findsNothing);
         if (supported) {
           await tester.ensureVisible(find.text('查看曲谱'));
+          await tester.pumpAndSettle();
           await tester.tap(find.text('查看曲谱'));
           await tester.pumpAndSettle();
           expect(router.state.uri.path, AppRoutes.songSheetMusic);

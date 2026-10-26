@@ -51,6 +51,11 @@ class PlayerController extends Notifier<PlayerPlaybackState>
   bool _initialized = false;
   Future<void>? _initializing;
   int _trackSwitchRequestId = 0;
+  Completer<void>? _trackSwitchCompletion;
+  ({int requestId, String trackKey, Duration duration})?
+  _pendingTrackSwitchDuration;
+  Completer<void>? _sourceQueueReorderCompletion;
+  Completer<void>? _manualSkipCompletion;
   int _lyricHighlightColorRequestId = 0;
   int _latestManualSkipTransitionId = -1;
   int _settledManualSkipTransitionId = -1;
@@ -511,20 +516,34 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     );
   }
 
-  Future<void> playNext() async {
-    await _ensureInitialized();
-    if (state.queue.isEmpty) {
-      return;
-    }
-    await _audioPlayer.seekToNext();
-  }
+  Future<void> playNext() => _dispatchManualSkip(forward: true);
 
-  Future<void> playPrevious() async {
+  Future<void> playPrevious() => _dispatchManualSkip(forward: false);
+
+  Future<void> _dispatchManualSkip({required bool forward}) async {
     await _ensureInitialized();
     if (state.queue.isEmpty) {
       return;
     }
-    await _audioPlayer.seekToPrevious();
+    // 分派与 pending 事件之间也要阻止来源重排；分派返回不代表加载完成。
+    final requestId = _beginTrackSwitchRequest();
+    try {
+      final reorder = _sourceQueueReorderCompletion;
+      if (reorder != null) {
+        await reorder.future;
+      }
+      if (state.queue.isEmpty) {
+        return;
+      }
+      // 连续 next/previous 仍交给 handler 累积目标并合并加载。
+      if (forward) {
+        await _audioPlayer.seekToNext();
+      } else {
+        await _audioPlayer.seekToPrevious();
+      }
+    } finally {
+      _finishTrackSwitchRequest(requestId);
+    }
   }
 
   Future<void> insertNextAndPlay(PlayerTrack track) async {
@@ -721,6 +740,58 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     await _queueManager.persistQueueState(this);
   }
 
+  /// 按同来源歌曲列表重排，保留曲目实例、播放进度及队列上下文。
+  /// 等待当前切歌提交或回滚后重新校验；提交重排期间后发切歌等待完成。
+  /// 来源或身份多重集合不一致、电台、相同顺序均返回 false。
+  /// 重复身份按原队列中的出现次序匹配；音频层失败时抛出异常。
+  Future<bool> reorderQueueForSource(
+    List<IdPlatformInfo> orderedSongs, {
+    required PlayerQueueSource source,
+  }) async {
+    await _ensureInitialized();
+    // 被新请求取代时也会唤醒；必须重新检查最新切歌及其他来源重排。
+    while (_trackSwitchCompletion != null ||
+        _sourceQueueReorderCompletion != null ||
+        _manualSkipCompletion != null) {
+      await (_sourceQueueReorderCompletion ??
+              _trackSwitchCompletion ??
+              _manualSkipCompletion)!
+          .future;
+    }
+    final indices = _queueManager.sourceReorderIndices(
+      state,
+      orderedSongs,
+      source,
+    );
+    if (indices == null ||
+        !indices.asMap().entries.any((entry) => entry.key != entry.value)) {
+      return false;
+    }
+    final completion = Completer<void>();
+    _sourceQueueReorderCompletion = completion;
+    try {
+      final nextQueue = <PlayerTrack>[
+        for (final index in indices) state.queue[index],
+      ];
+      final nextCurrentIndex = indices.indexOf(state.currentIndex);
+      state = state.copyWith(queue: nextQueue, currentIndex: nextCurrentIndex);
+      await _execute(() async {
+        _streamManager.suppressNextCurrentIndexEvent(nextCurrentIndex);
+        await _audioPlayer.setQueue(
+          nextQueue.map(_toAudioTrack).toList(growable: false),
+          initialIndex: nextCurrentIndex,
+          forceReloadCurrent: false,
+        );
+        await _applyPlayMode(state.playMode);
+      });
+      await _queueManager.persistQueueState(this);
+      return true;
+    } finally {
+      _sourceQueueReorderCompletion = null;
+      completion.complete();
+    }
+  }
+
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
     await _ensureInitialized();
     final queue = state.queue;
@@ -840,26 +911,33 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     if (matchedOption == null) {
       return;
     }
-    final index = _queueManager.safeCurrentIndex(state, state.queue.length);
-    final wasPlaying = state.isPlaying;
-    final resumePosition = state.position;
-    await _progressManager.persistTrackProgress(
-      callback: this,
-      track: track,
-      position: resumePosition,
-      force: true,
-    );
-    final sessionTransitionId = state.isPlaybackSessionActive
-        ? _beginPlaybackSessionTransition()
-        : null;
-    state = state.copyWith(
-      position: Duration.zero,
-      bufferedPosition: Duration.zero,
-      currentSelectedQualityName: matchedOption.name,
-      clearError: true,
-    );
     final requestId = _beginTrackSwitchRequest();
+    int? sessionTransitionId;
     try {
+      final reorder = _sourceQueueReorderCompletion;
+      if (reorder != null) {
+        await reorder.future;
+        _guardTrackSwitchRequest(requestId);
+      }
+      final index = _queueManager.safeCurrentIndex(state, state.queue.length);
+      final wasPlaying = state.isPlaying;
+      final resumePosition = state.position;
+      await _progressManager.persistTrackProgress(
+        callback: this,
+        track: track,
+        position: resumePosition,
+        force: true,
+      );
+      _guardTrackSwitchRequest(requestId);
+      sessionTransitionId = state.isPlaybackSessionActive
+          ? _beginPlaybackSessionTransition()
+          : null;
+      state = state.copyWith(
+        position: Duration.zero,
+        bufferedPosition: Duration.zero,
+        currentSelectedQualityName: matchedOption.name,
+        clearError: true,
+      );
       await _execute(() async {
         _guardTrackSwitchRequest(requestId);
         final resolution = await _qualityManager.resolveTrackForPlayback(
@@ -895,6 +973,8 @@ class PlayerController extends Notifier<PlayerPlaybackState>
           await _audioPlayer.play();
         }
       }, trackSwitchRequestId: requestId);
+    } on _StaleTrackSwitchException {
+      return;
     } catch (_) {
       if (sessionTransitionId != null) {
         _failPlaybackSessionTransition(sessionTransitionId);
@@ -904,6 +984,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       if (sessionTransitionId != null) {
         _finishPlaybackSessionTransition(sessionTransitionId);
       }
+      _finishTrackSwitchRequest(requestId);
     }
   }
 
@@ -1012,6 +1093,13 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       _endPlaybackSession();
     }
     try {
+      // 来源重排已同步提交展示顺序，后发请求捕获的 queue/targetIndex
+      // 属于新顺序；等待音频队列同步完成后再切歌，避免旧 setQueue 晚到。
+      final reorder = _sourceQueueReorderCompletion;
+      if (reorder != null) {
+        await reorder.future;
+        _guardTrackSwitchRequest(requestId);
+      }
       // 进度保存是尽力而为的后台操作，存储插件未返回时也必须能切歌。
       unawaited(
         _progressManager.persistTrackProgress(
@@ -1022,6 +1110,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         ),
       );
       await _interruptPlaybackForTrackSwitch();
+      _guardTrackSwitchRequest(requestId);
       final currentTrack = queue[targetIndex];
       final forceReloadCurrent =
           state.currentTrack != null &&
@@ -1082,6 +1171,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         clearRequestedTransitionId: true,
       );
       applyResolvedState(resolution);
+      _commitPendingTrackDuration(requestId);
       // A deliberate track switch starts a new resume position, even when the
       // selected song occurs at the same position as the previous selection.
       unawaited(
@@ -1094,6 +1184,8 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       );
       unawaited(_syncAutoLyricHighlightColor());
       await _queueManager.persistQueueState(this);
+    } on _StaleTrackSwitchException {
+      return;
     } catch (_) {
       if (autoplay &&
           requestId == _trackSwitchRequestId &&
@@ -1119,6 +1211,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       if (sessionTransitionId != null) {
         _finishPlaybackSessionTransition(sessionTransitionId);
       }
+      _finishTrackSwitchRequest(requestId);
     }
   }
 
@@ -1163,7 +1256,22 @@ class PlayerController extends Notifier<PlayerPlaybackState>
 
   int _beginTrackSwitchRequest() {
     _trackSwitchRequestId += 1;
+    // 唤醒等待旧请求的来源重排，使其改为等待最新请求。
+    _trackSwitchCompletion?.complete();
+    _trackSwitchCompletion = Completer<void>();
     return _trackSwitchRequestId;
+  }
+
+  void _finishTrackSwitchRequest(int requestId) {
+    if (requestId != _trackSwitchRequestId) {
+      return;
+    }
+    final completion = _trackSwitchCompletion;
+    _trackSwitchCompletion = null;
+    if (_pendingTrackSwitchDuration?.requestId == requestId) {
+      _pendingTrackSwitchDuration = null;
+    }
+    completion?.complete();
   }
 
   void _guardTrackSwitchRequest(int requestId) {
@@ -1192,18 +1300,53 @@ class PlayerController extends Notifier<PlayerPlaybackState>
 
   void _syncCurrentTrackDuration(Duration duration) {
     final queue = state.queue;
-    if (queue.isEmpty) {
+    if (queue.isEmpty || duration <= Duration.zero) return;
+    final transitionId = state.requestedTransitionId;
+    if (transitionId != null) {
+      // 装载期间时长属于待提交目标，不能写到上一首歌曲的历史。
+      final requested = state.requestedTrack;
+      if (requested != null) {
+        _pendingTrackSwitchDuration = (
+          requestId: transitionId,
+          trackKey: _queueManager.trackKey(requested),
+          duration: duration,
+        );
+      }
       return;
     }
+    _pendingTrackSwitchDuration = null;
     final index = _queueManager.safeCurrentIndex(state, queue.length);
     final current = queue[index];
-    if (current.duration == duration) {
+    if (current.duration == duration) return;
+    final updated = current.copyWith(duration: duration);
+    final nextQueue = <PlayerTrack>[...queue];
+    nextQueue[index] = updated;
+    state = state.copyWith(queue: nextQueue);
+    if (current.duration?.inSeconds != duration.inSeconds) {
+      unawaited(_queueManager.persistQueueState(this));
+      unawaited(_persistHistoryDuration(updated));
+    }
+  }
+
+  void _commitPendingTrackDuration(int? requestId) {
+    final pending = _pendingTrackSwitchDuration;
+    final current = state.currentTrack;
+    if (pending == null ||
+        pending.requestId != requestId ||
+        current == null ||
+        pending.trackKey != _queueManager.trackKey(current)) {
       return;
     }
-    final nextQueue = <PlayerTrack>[...queue];
-    nextQueue[index] = current.copyWith(duration: duration);
-    state = state.copyWith(queue: nextQueue);
-    unawaited(_queueManager.persistQueueState(this));
+    _pendingTrackSwitchDuration = null;
+    _syncCurrentTrackDuration(pending.duration);
+  }
+
+  Future<void> _persistHistoryDuration(PlayerTrack track) async {
+    try {
+      await _historyManager.updateTrackDuration(track);
+    } catch (error, stackTrace) {
+      if (ref.mounted) _handleStreamError(error, stackTrace);
+    }
   }
 
   AudioTrack _toAudioTrack(PlayerTrack track) {
@@ -1273,14 +1416,25 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     if (tracksRaw is! List) {
       return;
     }
-    final existingById = <String, PlayerTrack>{
-      for (final t in state.queue) t.id: t,
-    };
+    final existingByIdentity = <(String, String), List<PlayerTrack>>{};
+    for (final track in state.queue.reversed) {
+      final identity = (track.id.trim(), (track.platform ?? '').trim());
+      (existingByIdentity[identity] ??= <PlayerTrack>[]).add(track);
+    }
     final queue = tracksRaw
         .map((item) {
           final incoming = _playerTrackFromEventMap(_asMap(item));
-          final existing = existingById[incoming.id];
-          if (existing == null) return incoming;
+          final matches =
+              existingByIdentity[(
+                incoming.id.trim(),
+                (incoming.platform ?? '').trim(),
+              )];
+          if (matches == null || matches.isEmpty) return incoming;
+          final existing = matches.removeLast();
+          // 重排的确认事件不应丢失原实例或覆盖未传给音频层的元数据。
+          if (_queueManager.hasSameAudioData(existing, incoming)) {
+            return existing;
+          }
           return incoming.copyWith(
             albumId: incoming.albumId ?? existing.albumId,
             artists: incoming.artists.isEmpty
@@ -1334,12 +1488,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       _endPlaybackSession();
     }
     if (!manualSkipTargetActive && transitionId != null && transitionId >= 0) {
-      if (transitionId > _latestManualSkipTransitionId) {
-        _latestManualSkipTransitionId = transitionId;
-      }
-      if (transitionId > _settledManualSkipTransitionId) {
-        _settledManualSkipTransitionId = transitionId;
-      }
+      _settleManualSkipTransition(transitionId);
     }
     if (!manualSkipTargetActive) {
       _committedQueueEventVersion += 1;
@@ -1377,6 +1526,10 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       clearError: true,
       clearPlaybackFailure: changedTrack,
     );
+    if (!manualSkipTargetActive && currentTrack != null) {
+      _commitPendingTrackDuration(transitionId);
+      unawaited(_persistHistoryDuration(state.currentTrack!));
+    }
   }
 
   String _playbackFailureMessage(String code) {
@@ -1404,8 +1557,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     }
     final status = event['status'];
     if (status == 'cleared') {
-      _latestManualSkipTransitionId = transitionId;
-      _settledManualSkipTransitionId = transitionId;
+      _settleManualSkipTransition(transitionId);
       state = state.copyWith(
         clearRequestedTrackIndex: true,
         clearRequestedTransitionId: true,
@@ -1422,6 +1574,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         return;
       }
       _latestManualSkipTransitionId = transitionId;
+      _manualSkipCompletion ??= Completer<void>();
       state = state.copyWith(
         isPlaybackSessionActive: true,
         requestedTransitionId: transitionId,
@@ -1444,6 +1597,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       return;
     }
     _latestManualSkipTransitionId = transitionId;
+    _manualSkipCompletion ??= Completer<void>();
     state = state.copyWith(
       isPlaybackSessionActive: true,
       requestedTrackIndex: targetIndex,
@@ -1455,11 +1609,18 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     if (transitionId == null) {
       return;
     }
+    final settlesPending = transitionId >= _latestManualSkipTransitionId;
     if (transitionId > _latestManualSkipTransitionId) {
       _latestManualSkipTransitionId = transitionId;
     }
     if (transitionId > _settledManualSkipTransitionId) {
       _settledManualSkipTransitionId = transitionId;
+    }
+    // 只有最新 manual intent 的正式提交/清除才能释放来源排序。
+    if (settlesPending) {
+      final completion = _manualSkipCompletion;
+      _manualSkipCompletion = null;
+      completion?.complete();
     }
   }
 
@@ -1800,6 +1961,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
               album: song.album?.name ?? '',
               albumId: song.album?.id,
               artists: song.artists,
+              duration: song.duration > 0 ? song.duration : null,
               url: '',
               artworkUrl: '',
               platform: song.platform,

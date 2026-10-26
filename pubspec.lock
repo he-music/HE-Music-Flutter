@@ -671,6 +671,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  icu_kit:
+    dependency: "direct main"
+    description:
+      name: icu_kit
+      sha256: "37ad65bc53eb1595243d32826a7fb179e02a6767a919be7a8b887156aed2c7ae"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   image:
     dependency: "direct main"
     description:

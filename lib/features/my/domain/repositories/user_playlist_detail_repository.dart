@@ -1,13 +1,15 @@
 import '../../../../shared/models/he_music_models.dart';
-import '../../../playlist/domain/entities/playlist_detail_song.dart';
+import '../../../playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import '../entities/user_playlist_detail_request.dart';
 
 abstract interface class UserPlaylistDetailRepository {
   Future<PlaylistInfo> fetchInfo(UserPlaylistDetailRequest request);
 
-  Future<List<PlaylistDetailSong>> fetchSongs(
-    UserPlaylistDetailRequest request,
-  );
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    UserPlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  });
 
   Future<void> updatePlaylist({
     required String id,
