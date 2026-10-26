@@ -205,6 +205,7 @@ class PlayerHistoryDataSource {
       'album': track.album ?? '',
       'artworkUrl': track.artworkUrl ?? '',
       'url': track.url,
+      'path': track.path,
       'platform': track.platform ?? '',
       'album_id': track.albumId ?? '',
       'artists': track.artists
@@ -249,6 +250,7 @@ class PlayerHistoryDataSource {
       album: '${item['album'] ?? ''}',
       artworkUrl: '${item['artworkUrl'] ?? ''}',
       url: '${item['url'] ?? ''}',
+      path: _toOptionalText(item['path']),
       playedAt: _toInt(item['playedAt']),
       duration: _toOptionalInt(item['duration']),
       platform: _toOptionalText(item['platform']),

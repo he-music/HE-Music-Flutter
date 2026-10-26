@@ -302,7 +302,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final lyrics = AppPlayerLyricsRegistry.instance.resolve(config.lyricsId);
     final scenePalette = _resolvePlayerScenePalette(
       stage.stageKind,
-      backdrop.backdropKind,
       _classicBackdropColors,
     );
     final controller = ref.read(playerControllerProvider.notifier);
@@ -355,9 +354,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _restoreCurrentPageAfterLayoutChange(_currentPage);
     }
     _wideLayoutActive = useWideLayout;
-    _wideStageVisible =
-        config.playerWideView != AppPlayerWideView.lyrics &&
-        backdrop.backdropKind != AppPlayerBackdropKind.artistPhoto;
+    _wideStageVisible = config.playerWideView != AppPlayerWideView.lyrics;
     _usesRealtimeSpectrum = stage.usesRealtimeSpectrum;
     _scheduleSpectrumVisibilitySync();
     final landscapeSafeMinimum = isMobileLandscape
@@ -546,39 +543,36 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 : 1,
             metadataHeight: PlayerTrackHeader.resolveLayoutHeight(context),
             // The classic sleeve paints its visible cover at 94% of the stage.
-            metadataWidthFactor: stage.stageKind == AppPlayerStageKind.classic
+            metadataWidthFactor:
+                stage.stageKind == AppPlayerStageKind.classic ||
+                    stage.stageKind == AppPlayerStageKind.none
                 ? .94
                 : 1,
-            hasStage:
-                backdrop.backdropKind != AppPlayerBackdropKind.artistPhoto,
-            stage: backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto
-                ? const SizedBox.expand()
-                : PlayerStyleStage(
-                    stageKind: stage.stageKind,
-                    track: displayedTrack,
-                    maxWidth: stage.stageMaxWidth,
-                    cassetteLabel:
-                        stage.stageKind == AppPlayerStageKind.cassette
-                        ? PlayerTrackHeader(
-                            noTrackText: AppI18n.tByLocaleCode(
-                              config.localeCode,
-                              'player.noTrack',
-                            ),
-                            artistSlotWidth: 220,
-                            layout: PlayerTrackHeaderLayout.cassetteLabel,
-                            showCassetteMetadataBadges: false,
-                            onOpenQuality: () =>
-                                _openCurrentQualitySheet(context, controller),
-                            onOpenSpeed: () => _openSpeedSheet(
-                              context,
-                              controller,
-                              ref.read(
-                                playerControllerProvider.select((s) => s.speed),
-                              ),
-                            ),
-                          )
-                        : null,
-                  ),
+            stage: PlayerStyleStage(
+              stageKind: stage.stageKind,
+              track: displayedTrack,
+              maxWidth: stage.stageMaxWidth,
+              cassetteLabel: stage.stageKind == AppPlayerStageKind.cassette
+                  ? PlayerTrackHeader(
+                      noTrackText: AppI18n.tByLocaleCode(
+                        config.localeCode,
+                        'player.noTrack',
+                      ),
+                      artistSlotWidth: 220,
+                      layout: PlayerTrackHeaderLayout.cassetteLabel,
+                      showCassetteMetadataBadges: false,
+                      onOpenQuality: () =>
+                          _openCurrentQualitySheet(context, controller),
+                      onOpenSpeed: () => _openSpeedSheet(
+                        context,
+                        controller,
+                        ref.read(
+                          playerControllerProvider.select((s) => s.speed),
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
             lyrics: buildLyricPage(showControls: false),
             metadata: Row(
               children: [
@@ -720,7 +714,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           onSeek: seek,
                           layoutSpec: spec,
                           stageKind: stage.stageKind,
-                          backdropKind: backdrop.backdropKind,
                           stageMaxWidth: stage.stageMaxWidth,
                           track: displayedTrack,
                           onOpenArtist: onOpenArtist,
@@ -746,7 +739,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           onSeek: seek,
                           layoutSpec: spec,
                           stageKind: stage.stageKind,
-                          backdropKind: backdrop.backdropKind,
                           stageMaxWidth: stage.stageMaxWidth,
                           track: displayedTrack,
                           lyrics: buildLyricPage(showControls: false),
@@ -1937,17 +1929,11 @@ bool supportsPlayerOrientationControlsForTest({
 
 PlayerScenePalette? _resolvePlayerScenePalette(
   AppPlayerStageKind stageKind,
-  AppPlayerBackdropKind backdropKind,
   List<Color> backdropColors,
 ) {
-  // 歌手写真满屏时没有封面舞台，不派生场景色。
-  if (backdropKind == AppPlayerBackdropKind.artistPhoto) {
-    return null;
-  }
   return switch (stageKind) {
-    AppPlayerStageKind.classic => classicPlayerScenePaletteFromBackdrop(
-      backdropColors,
-    ),
+    AppPlayerStageKind.classic || AppPlayerStageKind.none =>
+      classicPlayerScenePaletteFromBackdrop(backdropColors),
     AppPlayerStageKind.cassette => CassettePlayerPalette.fromBackdrop(
       backdropColors,
     ),
@@ -2047,7 +2033,6 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
     required this.onSeek,
     required this.layoutSpec,
     required this.stageKind,
-    required this.backdropKind,
     required this.stageMaxWidth,
     required this.track,
     required this.lyrics,
@@ -2064,7 +2049,6 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
   final Future<void> Function(Duration) onSeek;
   final PlayerLayoutSpec layoutSpec;
   final AppPlayerStageKind stageKind;
-  final AppPlayerBackdropKind backdropKind;
   final double stageMaxWidth;
   final PlayerTrack? track;
   final Widget lyrics;
@@ -2130,56 +2114,6 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
       ],
     );
 
-    if (backdropKind == AppPlayerBackdropKind.artistPhoto) {
-      return Stack(
-        key: const ValueKey<String>('player-mobile-landscape-layout'),
-        children: <Widget>[
-          Column(
-            children: <Widget>[
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        key: const ValueKey<String>(
-                          'player-mobile-landscape-artist-photo-content',
-                        ),
-                        width: constraints.maxWidth * 0.64,
-                        child: Column(
-                          children: <Widget>[
-                            trackHeader,
-                            SizedBox(height: gap),
-                            Expanded(child: lyrics),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(height: gap),
-              Padding(
-                padding: const EdgeInsets.only(left: 56),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 2,
-                      child: _PlayerProgressSection(onSeek: onSeek),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(flex: 3, child: controls),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Align(alignment: Alignment.topLeft, child: exitRail),
-        ],
-      );
-    }
-
     return Row(
       key: const ValueKey<String>('player-mobile-landscape-layout'),
       children: <Widget>[
@@ -2233,7 +2167,6 @@ class _PlayerMetaControlPage extends StatelessWidget {
     required this.onSeek,
     required this.layoutSpec,
     required this.stageKind,
-    required this.backdropKind,
     required this.stageMaxWidth,
     required this.track,
     required this.onOpenArtist,
@@ -2249,7 +2182,6 @@ class _PlayerMetaControlPage extends StatelessWidget {
   final Future<void> Function(Duration) onSeek;
   final PlayerLayoutSpec layoutSpec;
   final AppPlayerStageKind stageKind;
-  final AppPlayerBackdropKind backdropKind;
   final double stageMaxWidth;
   final PlayerTrack? track;
   final VoidCallback? onOpenArtist;
@@ -2262,9 +2194,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gap = layoutSpec.verticalGap;
-    final usesCassetteLabel =
-        stageKind == AppPlayerStageKind.cassette &&
-        backdropKind != AppPlayerBackdropKind.artistPhoto;
+    final usesCassetteLabel = stageKind == AppPlayerStageKind.cassette;
     final trackHeader = PlayerTrackHeader(
       noTrackText: noTrackText,
       artistSlotWidth: layoutSpec.artistSlotWidth,
@@ -2323,14 +2253,12 @@ class _PlayerMetaControlPage extends StatelessWidget {
                 children: <Widget>[
                   SizedBox(
                     height: stageHeight,
-                    child: backdropKind == AppPlayerBackdropKind.artistPhoto
-                        ? const SizedBox.expand()
-                        : PlayerStyleStage(
-                            stageKind: stageKind,
-                            track: track,
-                            maxWidth: stageMaxWidth,
-                            cassetteLabel: cassetteLabel,
-                          ),
+                    child: PlayerStyleStage(
+                      stageKind: stageKind,
+                      track: track,
+                      maxWidth: stageMaxWidth,
+                      cassetteLabel: cassetteLabel,
+                    ),
                   ),
                   SizedBox(height: gap),
                   if (!usesCassetteLabel) ...<Widget>[

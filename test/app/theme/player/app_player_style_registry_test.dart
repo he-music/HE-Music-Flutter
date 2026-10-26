@@ -4,18 +4,26 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
 import 'package:he_music_flutter/app/theme/player/styles/classic_player_style.dart';
 
 void main() {
-  test('stage registry exposes four unique stage options', () {
+  test('stage registry exposes five unique stage options', () {
     final registry = AppPlayerStageRegistry.builtIn();
 
     expect(
       registry.options.map((o) => o.metadata.id).toSet(),
       AppPlayerStageRegistry.builtInIds,
     );
-    expect(registry.options, hasLength(4));
+    expect(registry.options, hasLength(5));
     expect(registry.options.every((o) => o.isValid), isTrue);
     expect(
       registry.resolve(AppPlayerStageRegistry.classicId).stageKind,
       AppPlayerStageKind.classic,
+    );
+    expect(
+      registry.resolve(AppPlayerStageRegistry.noneId).stageKind,
+      AppPlayerStageKind.none,
+    );
+    expect(
+      registry.resolve(AppPlayerStageRegistry.noneId).stageMaxWidth,
+      registry.resolve(AppPlayerStageRegistry.classicId).stageMaxWidth,
     );
     expect(
       registry.resolve(AppPlayerStageRegistry.vinylId).stageKind,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_i18n.dart';
+import '../../app/theme/glass/app_glass_scope.dart';
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
@@ -198,7 +199,10 @@ Future<void> showSongActionsSheet({
           iconRole: AppSkinIconRole.songSearchSameName,
         ),
     ];
-    final navigator = Navigator.of(context);
+    final navigator = Navigator.of(
+      context,
+      rootNavigator: AppGlassScope.controlsEnabled(context),
+    );
     return SongActionsSheetController.trackRoute<VoidCallback>(
       routeFuture: showAdaptiveActionMenu<VoidCallback>(
         context: context,

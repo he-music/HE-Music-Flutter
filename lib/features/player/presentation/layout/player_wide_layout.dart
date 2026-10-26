@@ -24,7 +24,6 @@ class PlayerWideLayout extends StatelessWidget {
     required this.metadataHeight,
     this.stageAspectRatio = 1,
     this.metadataWidthFactor = 1,
-    this.hasStage = true,
     required this.lyrics,
     required this.metadata,
     required this.progress,
@@ -45,7 +44,6 @@ class PlayerWideLayout extends StatelessWidget {
   final double stageAspectRatio;
   final double metadataHeight;
   final double metadataWidthFactor;
-  final bool hasStage;
   final Widget lyrics;
   final Widget metadata;
   final Widget progress;
@@ -135,9 +133,7 @@ class PlayerWideLayout extends StatelessWidget {
                               flex: 5,
                               child: KeyedSubtree(
                                 key: const ValueKey('player-wide-stage'),
-                                child: hasStage
-                                    ? _buildStageWithMetadata()
-                                    : stage,
+                                child: _buildStageWithMetadata(),
                               ),
                             ),
                           if (view == AppPlayerWideView.split)
@@ -188,9 +184,7 @@ class PlayerWideLayout extends StatelessWidget {
                             children: [
                               Expanded(
                                 flex: 3,
-                                child:
-                                    view == AppPlayerWideView.lyrics ||
-                                        !hasStage
+                                child: view == AppPlayerWideView.lyrics
                                     ? metadata
                                     : const SizedBox.shrink(),
                               ),

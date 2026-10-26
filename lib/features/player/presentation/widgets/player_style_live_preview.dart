@@ -250,8 +250,6 @@ class _CoverStagePreview extends StatelessWidget {
     final stage = AppPlayerStageRegistry.instance.resolve(stageId);
     final backdrop = AppPlayerBackdropRegistry.instance.resolve(backdropId);
     final imageProvider = artworkProvider(track.artworkUrl, track.artworkBytes);
-    final showStage =
-        backdrop.backdropKind != AppPlayerBackdropKind.artistPhoto;
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
@@ -261,12 +259,11 @@ class _CoverStagePreview extends StatelessWidget {
           track: track,
           demoArtistPhoto: demoArtistPhoto,
         ),
-        if (showStage)
-          PlayerStyleStage(
-            stageKind: stage.stageKind,
-            track: track,
-            maxWidth: stage.stageMaxWidth,
-          ),
+        PlayerStyleStage(
+          stageKind: stage.stageKind,
+          track: track,
+          maxWidth: stage.stageMaxWidth,
+        ),
       ],
     );
   }

@@ -21,6 +21,7 @@ class PlayerHistoryItem {
     this.currentRadioPageIndex,
     this.previousPlayModeBeforeRadio,
     this.artworkPath,
+    this.path,
   });
 
   final String id;
@@ -43,4 +44,19 @@ class PlayerHistoryItem {
   final int? currentRadioPageIndex;
   final PlayerPlayMode? previousPlayModeBeforeRadio;
   final String? artworkPath;
+  final String? path;
+
+  /// 旧本地历史仅保存文件 URL；在线历史仍交由平台或下载记录解析。
+  String? get playbackPath {
+    final storedPath = path?.trim();
+    if (storedPath != null && storedPath.isNotEmpty) return storedPath;
+    if (platform?.trim() != 'local') return null;
+    final localUrl = url.trim();
+    final uri = Uri.tryParse(localUrl);
+    if (uri == null) return null;
+    if (uri.scheme == 'file' || (!uri.hasScheme && localUrl.startsWith('/'))) {
+      return localUrl;
+    }
+    return null;
+  }
 }

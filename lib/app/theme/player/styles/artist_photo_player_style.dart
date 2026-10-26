@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_player_style_models.dart';
 
-/// 歌手写真满屏背景（选中时隐藏前景封面舞台）。
+/// 歌手写真满屏背景，与前景封面样式独立。
 const AppPlayerBackdropOption artistPhotoPlayerBackdrop =
     AppPlayerBackdropOption(
       metadata: AppPlayerStyleMetadata(

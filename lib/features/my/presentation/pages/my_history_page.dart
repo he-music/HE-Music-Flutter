@@ -490,6 +490,7 @@ class _HistoryList extends ConsumerWidget {
       albumId: item.albumId,
       artists: item.artists,
       url: platform.toLowerCase() == 'local' ? item.url : '',
+      path: item.playbackPath,
       artworkUrl: item.artworkUrl.isEmpty ? null : item.artworkUrl,
       platform: platform.isEmpty ? null : platform,
       duration: (item.duration ?? 0) > 0

@@ -43,6 +43,7 @@ class PlayerStyleStage extends StatelessWidget {
             height: height,
             child: switch (stageKind) {
               AppPlayerStageKind.classic => ClassicPlayerStage(track: track),
+              AppPlayerStageKind.none => const SizedBox.expand(),
               AppPlayerStageKind.vinyl => VinylPlayerStage(track: track),
               AppPlayerStageKind.cassette => CassettePlayerStage(
                 track: track,

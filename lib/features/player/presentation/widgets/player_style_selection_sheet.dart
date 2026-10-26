@@ -44,8 +44,6 @@ class _PlayerStyleSelectionSheetState
     );
     String label(String key) =>
         AppI18n.tByLocaleCode(selection.localeCode, key);
-    final stageSuppressed =
-        selection.backdropId == AppPlayerBackdropRegistry.artistPhotoId;
 
     final options = switch (_activeAxis) {
       _PlayerStyleAxis.stage => <_StyleOptionSpec>[
@@ -113,18 +111,10 @@ class _PlayerStyleSelectionSheetState
               },
               onSelected: (axis) => setState(() => _activeAxis = axis),
             ),
-            if (_activeAxis == _PlayerStyleAxis.stage && stageSuppressed) ...[
-              _StageSuppressedNotice(
-                message: label('player.style.stage.hidden_by_artist_photo'),
-              ),
-              const SizedBox(height: 8),
-            ] else
-              const SizedBox(height: 12),
+            const SizedBox(height: 12),
             _StyleOptionStrip(
               options: options,
               selectedId: selectedId,
-              enabled:
-                  _activeAxis != _PlayerStyleAxis.stage || !stageSuppressed,
               pendingId: _activeAxis == _PlayerStyleAxis.stage
                   ? _pendingStageId
                   : null,
@@ -346,39 +336,6 @@ class _AxisTabBar extends StatelessWidget {
   }
 }
 
-class _StageSuppressedNotice extends StatelessWidget {
-  const _StageSuppressedNotice({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      key: const ValueKey<String>('player-style-stage-suppressed-notice'),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: <Widget>[
-          Icon(
-            Icons.visibility_off_outlined,
-            size: 18,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StyleOptionSpec {
   const _StyleOptionSpec({
     required this.id,
@@ -395,7 +352,6 @@ class _StyleOptionStrip extends StatelessWidget {
   const _StyleOptionStrip({
     required this.options,
     required this.selectedId,
-    required this.enabled,
     required this.pendingId,
     required this.onSelected,
   });
@@ -405,7 +361,6 @@ class _StyleOptionStrip extends StatelessWidget {
 
   final List<_StyleOptionSpec> options;
   final String selectedId;
-  final bool enabled;
   final String? pendingId;
   final ValueChanged<String> onSelected;
 
@@ -433,7 +388,7 @@ class _StyleOptionStrip extends StatelessWidget {
                     spec: options[index],
                     selected: options[index].id == selectedId,
                     pending: options[index].id == pendingId,
-                    enabled: enabled && pendingId == null,
+                    enabled: pendingId == null,
                     onTap: () => onSelected(options[index].id),
                   ),
                 ],

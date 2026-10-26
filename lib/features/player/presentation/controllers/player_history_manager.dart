@@ -108,6 +108,7 @@ class PlayerHistoryManager {
       albumId: (item.albumId?.trim().isEmpty ?? true) ? null : item.albumId,
       artists: item.artists,
       url: platform == 'local' ? item.url : '',
+      path: item.playbackPath,
       artworkUrl: item.artworkUrl.isEmpty ? null : item.artworkUrl,
       platform: platform.isEmpty ? null : platform,
       duration: (item.duration ?? 0) > 0

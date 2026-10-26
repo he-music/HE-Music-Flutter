@@ -210,51 +210,60 @@ void main() {
     expect(find.byType(PopupMenuButton), findsNothing);
   });
 
-  testWidgets('歌手写真背景禁用封面选项并在切换背景后恢复', (tester) async {
+  testWidgets('歌手写真背景保留封面选择并同步组合预览', (tester) async {
     final harness = await _pumpSheet(
       tester,
       _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
     );
-
     await _selectStyleOption(
       tester,
       axis: 'backdrop',
       optionId: 'artist_photo',
     );
-    await tester.tap(
-      find.byKey(const ValueKey<String>('player-style-axis-stage')),
-    );
-    await tester.pump();
-
+    expect(find.byKey(const ValueKey('player-stage-classic')), findsOneWidget);
+    await _selectStyleOption(tester, axis: 'stage', optionId: 'vinyl');
+    expect(harness.config.state.playerStageId, 'vinyl');
+    expect(harness.config.state.playerBackdropId, 'artist_photo');
+    expect(find.byKey(const ValueKey('player-stage-vinyl')), findsOneWidget);
     expect(
-      find.byKey(
-        const ValueKey<String>('player-style-stage-suppressed-notice'),
-      ),
-      findsOneWidget,
+      find.byKey(const ValueKey('player-style-demo-artist-photo')),
+      findsNWidgets(2),
     );
-    final vinylFinder = find.byKey(
-      const ValueKey<String>('player-style-option-vinyl'),
-    );
-    expect(tester.widget<InkWell>(vinylFinder).onTap, isNull);
-    expect(harness.config.state.playerStageId, 'classic');
 
     await _selectStyleOption(
       tester,
       axis: 'backdrop',
       optionId: 'cover_gradient',
     );
-    await tester.tap(
-      find.byKey(const ValueKey<String>('player-style-axis-stage')),
-    );
-    await tester.pump();
+    expect(harness.config.state.playerStageId, 'vinyl');
+    expect(find.byKey(const ValueKey('player-stage-vinyl')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
-    expect(
-      find.byKey(
-        const ValueKey<String>('player-style-stage-suppressed-notice'),
-      ),
-      findsNothing,
+  testWidgets('无封面保留经典布局并可独立搭配任意背景', (tester) async {
+    final harness = await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.denied),
     );
-    expect(tester.widget<InkWell>(vinylFinder).onTap, isNotNull);
+    final classicRect = tester.getRect(
+      find.byKey(const ValueKey('player-stage-classic')),
+    );
+    await _selectStyleOption(tester, axis: 'stage', optionId: 'none');
+    expect(harness.config.state.playerStageId, 'none');
+    expect(
+      tester.getRect(find.byKey(const ValueKey('player-stage-none'))),
+      classicRect,
+    );
+    expect(find.byKey(const ValueKey('classic-album-cover')), findsNothing);
+
+    for (final backdrop in ['artist_photo', 'fluid', 'cover_gradient']) {
+      await _selectStyleOption(tester, axis: 'backdrop', optionId: backdrop);
+      expect(harness.config.state.playerStageId, 'none');
+      expect(harness.config.state.playerBackdropId, backdrop);
+      expect(find.byKey(const ValueKey('player-stage-none')), findsOneWidget);
+      expect(find.byKey(const ValueKey('classic-album-cover')), findsNothing);
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('无当前曲目时歌手写真双屏预览展示示例照片', (tester) async {

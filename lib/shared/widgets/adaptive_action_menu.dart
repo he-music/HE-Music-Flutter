@@ -135,12 +135,14 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
   }
 
   Future<T?> _showContextMenu(BuildContext context) {
+    final useGlassMenu = AppGlassScope.controlsEnabled(context);
     final position = _resolveContextMenuPosition(
       context,
       anchorContext: context,
       anchorPosition: _lastGlobalPosition,
+      useRootOverlay: useGlassMenu,
     );
-    if (AppGlassScope.controlsEnabled(context)) {
+    if (useGlassMenu) {
       return _showGlassContextMenu(context, position, widget.items);
     }
     return showMenu<T>(
@@ -178,8 +180,14 @@ RelativeRect _resolveContextMenuPosition(
   BuildContext context, {
   BuildContext? anchorContext,
   Offset? anchorPosition,
+  bool useRootOverlay = false,
 }) {
-  final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
+  final overlay =
+      Overlay.of(
+            context,
+            rootOverlay: useRootOverlay,
+          ).context.findRenderObject()!
+          as RenderBox;
   if (anchorPosition != null) {
     final localPosition = overlay.globalToLocal(anchorPosition);
     final anchorRect = Rect.fromCenter(
@@ -218,12 +226,14 @@ Future<T?> showAdaptiveActionMenu<T>({
     final snapshot = AdaptiveActionMenuAnchor._consume();
     final resolvedAnchorPosition = anchorPosition ?? snapshot.globalPosition;
     final resolvedAnchorContext = anchorContext ?? snapshot.context ?? context;
+    final useGlassMenu = AppGlassScope.controlsEnabled(context);
     final position = _resolveContextMenuPosition(
       context,
       anchorContext: resolvedAnchorContext,
       anchorPosition: resolvedAnchorPosition,
+      useRootOverlay: useGlassMenu,
     );
-    if (AppGlassScope.controlsEnabled(context)) {
+    if (useGlassMenu) {
       return _showGlassContextMenu(context, position, items);
     }
     return showMenu<T>(
@@ -262,7 +272,7 @@ Future<T?> _showGlassContextMenu<T>(
   List<AdaptiveActionMenuItem<T>> items,
 ) => showGeneralDialog<T>(
   context: context,
-  useRootNavigator: false,
+  useRootNavigator: true,
   barrierColor: Colors.transparent,
   barrierDismissible: true,
   barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
@@ -308,38 +318,57 @@ class _GlassContextMenuState<T> extends State<_GlassContextMenu<T>> {
           Positioned(
             left: widget.position.left,
             top: widget.position.top,
-            child: GlassMenu(
-              controller: _controller,
-              trigger: const SizedBox(width: 1, height: 1),
-              morphFromZero: true,
-              menuPadding:
-                  MediaQuery.paddingOf(context) + const EdgeInsets.all(8),
-              settings: AppGlassMaterial.sheetFor(context),
-              quality: AppGlassScope.qualityOf(context),
-              onClose: _finish,
-              items: [
-                for (final item in widget.items) ...[
-                  if (item.startsNewSection) const GlassMenuDivider(),
-                  GlassMenuItem(
-                    key: item.key,
-                    title: item.label,
-                    enabled: item.enabled,
-                    isDestructive: item.destructive,
-                    icon: item.iconRole != null
-                        ? AppSkinIcon(role: item.iconRole!)
-                        : item.icon == null
-                        ? null
-                        : Icon(item.icon),
-                    onTap: () => _finish(item.value),
-                  ),
+            child: ScrollConfiguration(
+              behavior: const _DesktopActionMenuScrollBehavior(),
+              child: GlassMenu(
+                controller: _controller,
+                trigger: const SizedBox(width: 1, height: 1),
+                morphFromZero: true,
+                autoAdjustToScreen: true,
+                menuPadding: const EdgeInsets.all(8),
+                settings: AppGlassMaterial.sheetFor(context),
+                quality: AppGlassScope.qualityOf(context),
+                onClose: _finish,
+                items: [
+                  for (final item in widget.items) ...[
+                    if (item.startsNewSection) const GlassMenuDivider(),
+                    GlassMenuItem(
+                      key: item.key,
+                      title: item.label,
+                      enabled: item.enabled,
+                      isDestructive: item.destructive,
+                      icon: item.iconRole != null
+                          ? AppSkinIcon(role: item.iconRole!)
+                          : item.icon == null
+                          ? null
+                          : Icon(item.icon),
+                      onTap: () => _finish(item.value),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _DesktopActionMenuScrollBehavior extends MaterialScrollBehavior {
+  const _DesktopActionMenuScrollBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => Scrollbar(
+    controller: details.controller,
+    thumbVisibility: true,
+    interactive: true,
+    child: child,
+  );
 }
 
 class _ActionMenuLabel<T> extends StatelessWidget {

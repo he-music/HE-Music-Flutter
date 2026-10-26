@@ -704,6 +704,7 @@ abstract final class AppI18n {
       'player.action.landscape_mode': '横屏模式',
       'player.action.exit_landscape': '退出横屏',
       'player.style.classic': '经典',
+      'player.style.none': '无封面',
       'player.style.fluid': '流体',
       'player.style.vinyl': '黑胶',
       'player.style.cassette': '磁带',
@@ -726,7 +727,6 @@ abstract final class AppI18n {
       'player.style.tilt_lyrics': '倾诉',
       'player.style.tilt_lyrics.description': '将当前歌词拆成错落的文字片段，随节奏逐字显现',
       'player.style.cadenza_lyrics.description': '按词与片段排布当前歌词，像思绪在画面中浮现',
-      'player.style.stage.hidden_by_artist_photo': '歌手写真背景下不显示封面样式，当前选择会保留',
       'player.style.preview.cover': '封面页',
       'player.style.preview.lyrics': '歌词页',
       'player.style.group.stage': '封面',
@@ -1793,6 +1793,7 @@ abstract final class AppI18n {
       'player.action.landscape_mode': 'Landscape Mode',
       'player.action.exit_landscape': 'Exit Landscape',
       'player.style.classic': 'Classic',
+      'player.style.none': 'No Cover',
       'player.style.fluid': 'Fluid',
       'player.style.vinyl': 'Vinyl',
       'player.style.cassette': 'Cassette',
@@ -1827,8 +1828,6 @@ abstract final class AppI18n {
       'player.style.group.lyrics': 'Lyrics',
       'player.style.cadenza_lyrics.description':
           'Measured words and fragments arrange the current line like thoughts surfacing',
-      'player.style.stage.hidden_by_artist_photo':
-          'Cover styles are hidden by the Artist Photo background. Your selection is preserved.',
       'player.style.preview.cover': 'Cover page',
       'player.style.preview.lyrics': 'Lyrics page',
       'player.spectrum.permission.title': 'Allow Real-time Spectrum',

@@ -10,6 +10,7 @@ import 'styles/fluid_player_style.dart';
 import 'styles/kinetic_lyrics_player_style.dart';
 import 'styles/legacy_lyrics_option.dart';
 import 'styles/monet_lyrics_player_style.dart';
+import 'styles/no_cover_player_style.dart';
 import 'styles/partita_lyrics_player_style.dart';
 import 'styles/tilt_lyrics_player_style.dart';
 import 'styles/star_tunnel_lyrics_player_style.dart';
@@ -30,6 +31,7 @@ class AppPlayerStageRegistry {
   factory AppPlayerStageRegistry.builtIn() {
     return AppPlayerStageRegistry(<AppPlayerStageOption>[
       classicPlayerStage,
+      noCoverPlayerStage,
       vinylPlayerStage,
       cassettePlayerStage,
       radialSpectrumPlayerStage,
@@ -37,12 +39,14 @@ class AppPlayerStageRegistry {
   }
 
   static const String classicId = 'classic';
+  static const String noneId = 'none';
   static const String vinylId = 'vinyl';
   static const String cassetteId = 'cassette';
   static const String radialSpectrumId = 'radial_spectrum';
 
   static const Set<String> builtInIds = <String>{
     classicId,
+    noneId,
     vinylId,
     cassetteId,
     radialSpectrumId,

@@ -2391,20 +2391,123 @@ void main() {
       await tester.pump();
       expect(
         find.byKey(const ValueKey<String>('player-track-header')),
-        findsOneWidget,
+        size.width >= 1000 ? findsOneWidget : findsNothing,
       );
       expect(
         find.byKey(const ValueKey<String>('player-cassette-track-header')),
-        findsNothing,
+        findsOneWidget,
       );
-      expect(find.text('在线歌曲'), findsOneWidget);
-      expect(find.text('测试歌手'), findsOneWidget);
+      expect(find.text('在线歌曲'), findsWidgets);
+      expect(find.text('测试歌手'), findsWidgets);
       expect(
         find.byKey(const ValueKey<String>('cassette-player-stage')),
-        findsNothing,
+        findsOneWidget,
       );
       expect(tester.takeException(), isNull);
     });
+  }
+
+  for (final (platform, size) in [
+    (TargetPlatform.android, const Size(430, 900)),
+    (TargetPlatform.android, const Size(844, 390)),
+    (TargetPlatform.macOS, const Size(1440, 900)),
+  ]) {
+    for (final stageId in ['classic', 'none', 'vinyl', 'cassette']) {
+      testWidgets('$stageId keeps its layout across backgrounds at $size', (
+        tester,
+      ) async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        Rect? stageRect;
+        Rect? metadataRect;
+        for (final backdropId in ['cover_gradient', 'artist_photo']) {
+          await tester.pumpWidget(
+            _buildPlayerTestApp(
+              controllerFactory: _OnlineTrackPlayerController.new,
+              config: AppConfigState.initial.copyWith(
+                localeCode: 'en',
+                playerStageId: stageId,
+                playerBackdropId: backdropId,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final stage = find.byKey(ValueKey('player-stage-$stageId'));
+          expect(stage, findsOneWidget);
+          final metadata = find.byKey(
+            ValueKey(
+              stageId == 'cassette' && size.width < 1000
+                  ? 'player-cassette-track-header'
+                  : 'player-track-header',
+            ),
+          );
+          expect(metadata, findsOneWidget);
+          if (stageRect != null) {
+            expect(tester.getRect(stage), stageRect);
+            expect(tester.getRect(metadata), metadataRect);
+          }
+          stageRect = tester.getRect(stage);
+          metadataRect = tester.getRect(metadata);
+          if (stageId == 'none') {
+            expect(
+              find.byKey(const ValueKey('classic-album-cover')),
+              findsNothing,
+            );
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        }
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+
+    testWidgets(
+      'no cover preserves classic stage and metadata geometry at $size',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        Rect? stageRect;
+        Rect? metadataRect;
+        for (final stageId in ['classic', 'none']) {
+          await tester.pumpWidget(
+            _buildPlayerTestApp(
+              controllerFactory: _OnlineTrackPlayerController.new,
+              config: AppConfigState.initial.copyWith(
+                localeCode: 'en',
+                playerStageId: stageId,
+                playerBackdropId: AppPlayerBackdropRegistry.artistPhotoId,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final currentStage = tester.getRect(
+            find.byKey(ValueKey('player-stage-$stageId')),
+          );
+          final currentMetadata = tester.getRect(
+            find.byKey(const ValueKey('player-track-header')),
+          );
+          if (stageRect != null) {
+            expect(currentStage, stageRect);
+            expect(currentMetadata, metadataRect);
+            expect(
+              find.byKey(const ValueKey('classic-album-cover')),
+              findsNothing,
+            );
+          }
+          stageRect = currentStage;
+          metadataRect = currentMetadata;
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        }
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
   }
 
   testWidgets('player page displays cassette stage from config', (
@@ -2924,7 +3027,7 @@ void main() {
   });
 
   testWidgets(
-    'artist photo centers wide lyrics while keeping progress on the left',
+    'artist photo preserves the selected stage and lyrics columns while keeping progress on the left',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(844, 390));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -2943,12 +3046,11 @@ void main() {
       final layoutRect = tester.getRect(
         find.byKey(const ValueKey<String>('player-mobile-landscape-layout')),
       );
-      final contentRect = tester.getRect(
-        find.byKey(
-          const ValueKey<String>(
-            'player-mobile-landscape-artist-photo-content',
-          ),
-        ),
+      final stageRect = tester.getRect(
+        find.byKey(const ValueKey<String>('player-stage-classic')),
+      );
+      final detailsRect = tester.getRect(
+        find.byKey(const ValueKey<String>('player-mobile-landscape-details')),
       );
       final progressRect = tester.getRect(
         find.byKey(const ValueKey<String>('player-progress-slider')),
@@ -2957,8 +3059,8 @@ void main() {
         find.byKey(const ValueKey<String>('player-mobile-landscape-controls')),
       );
 
-      expect(contentRect.center.dx, closeTo(layoutRect.center.dx, 0.01));
-      expect(contentRect.width, closeTo(layoutRect.width * 0.64, 0.01));
+      expect(stageRect.right, lessThan(detailsRect.left));
+      expect(stageRect.width, greaterThan(100));
       expect(progressRect.center.dx, lessThan(layoutRect.center.dx));
       expect(controlsRect.center.dx, greaterThan(layoutRect.center.dx));
       expect(tester.takeException(), isNull);

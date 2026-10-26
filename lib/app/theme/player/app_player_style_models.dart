@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// 封面（stage）轴：真实前景舞台。
-enum AppPlayerStageKind { classic, vinyl, cassette, radialSpectrum }
+enum AppPlayerStageKind { classic, none, vinyl, cassette, radialSpectrum }
 
 /// 背景（backdrop）轴。
 enum AppPlayerBackdropKind {
@@ -12,7 +12,7 @@ enum AppPlayerBackdropKind {
   /// 流体网状渐变。
   fluid,
 
-  /// 歌手写真满屏（选中时隐藏前景封面舞台）。
+  /// 歌手写真满屏背景，与前景封面样式独立。
   artistPhoto,
 }
 

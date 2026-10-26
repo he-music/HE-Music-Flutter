@@ -6,6 +6,8 @@ import '../app_player_style_models.dart';
 const Color classicPlayerBackgroundStart = Color(0xFF24423A);
 const Color classicPlayerBackgroundEnd = Color(0xFF080D0B);
 
+const double classicPlayerStageMaxWidth = 420;
+
 const AppPlayerStageOption classicPlayerStage = AppPlayerStageOption(
   metadata: AppPlayerStyleMetadata(
     id: 'classic',
@@ -13,5 +15,5 @@ const AppPlayerStageOption classicPlayerStage = AppPlayerStageOption(
     previewAsset: 'assets/player_styles/classic/preview.png',
   ),
   stageKind: AppPlayerStageKind.classic,
-  stageMaxWidth: 420,
+  stageMaxWidth: classicPlayerStageMaxWidth,
 );
