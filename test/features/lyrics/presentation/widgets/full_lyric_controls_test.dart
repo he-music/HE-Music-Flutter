@@ -122,23 +122,24 @@ void main() {
     TargetPlatform.android,
     TargetPlatform.iOS,
   ]) {
-    testWidgets('$platform footer transport follows platform at narrow width', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = platform;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
-      await tester.binding.setSurfaceSize(const Size(390, 640));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(_app());
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('lyric-play-control')),
-        platform == TargetPlatform.macOS ? findsNothing : findsOneWidget,
-      );
-      expect(find.text('词'), findsOneWidget);
-      expect(find.text('译'), findsOneWidget);
-      debugDefaultTargetPlatformOverride = null;
-    });
+    testWidgets(
+      '$platform footer transport remains available at narrow width',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        await tester.binding.setSurfaceSize(const Size(390, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(_app());
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('lyric-play-control')),
+          findsOneWidget,
+        );
+        expect(find.text('词'), findsOneWidget);
+        expect(find.text('译'), findsOneWidget);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
   }
 
   for (final photo in [false, true]) {
@@ -627,11 +628,12 @@ void main() {
         matchesGoldenFile('goldens/lyric_size_light.png'),
       );
       await tester.pumpWidget(const SizedBox.shrink());
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       tester.view.physicalSize = const Size(800, 640);
       await tester.pumpWidget(_app(golden: true));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('lyric-play-control')), findsNothing);
+      expect(find.byKey(const ValueKey('lyric-play-control')), findsOneWidget);
       await expectLater(
         find.byKey(const ValueKey('route-golden')),
         matchesGoldenFile('goldens/full_lyric_controls_desktop.png'),

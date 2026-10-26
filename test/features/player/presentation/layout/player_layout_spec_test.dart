@@ -5,14 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/player/presentation/layout/player_layout_spec.dart';
 
 void main() {
-  test('player layout spec resolves portrait landscape and desktop modes', () {
+  test('player layout spec resolves paged and phone landscape modes', () {
     const cases = <(Size, PlayerLayoutMode)>[
       (Size(430, 932), PlayerLayoutMode.mobilePortrait),
       (Size(932, 430), PlayerLayoutMode.mobileLandscape),
       (Size(844, 390), PlayerLayoutMode.mobileLandscape),
       (Size(700, 420), PlayerLayoutMode.mobileLandscape),
-      (Size(1024, 768), PlayerLayoutMode.desktop),
-      (Size(1440, 960), PlayerLayoutMode.desktop),
+      (Size(1024, 768), PlayerLayoutMode.mobilePortrait),
+      (Size(768, 1024), PlayerLayoutMode.mobilePortrait),
+      (Size(1366, 1024), PlayerLayoutMode.mobilePortrait),
+      (Size(1440, 960), PlayerLayoutMode.mobilePortrait),
     ];
 
     for (final (size, expectedMode) in cases) {
@@ -31,7 +33,7 @@ void main() {
         const BoxConstraints.tightFor(width: 932, height: 430),
         allowMobileLandscape: false,
       ).mode,
-      PlayerLayoutMode.desktop,
+      PlayerLayoutMode.mobilePortrait,
     );
     expect(
       PlayerLayoutSpec.resolve(

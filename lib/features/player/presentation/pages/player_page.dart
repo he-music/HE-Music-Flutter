@@ -502,8 +502,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               ),
             ),
             if (backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto)
-              // 遮罩覆盖整张背景，避免横屏及桌面布局出现局部暗色矩形。
-              // 竖屏随翻页渐变，其余布局始终按歌词背景亮度显示。
+              // 遮罩覆盖整张背景；翻页布局仅在歌词页按设置降低照片亮度。
               Positioned.fill(
                 child: LyricPhotoDimmer(
                   pageController:
@@ -2126,37 +2125,10 @@ class _PlayerMetaControlPage extends StatelessWidget {
       SizedBox(height: gap),
       _PlayerControlSection(
         controller: controller,
-        compactLayout: !layoutSpec.isDesktop,
+        compactLayout: true,
         onOpenQueue: onOpenQueue,
       ),
     ];
-
-    if (layoutSpec.isDesktop) {
-      return Column(
-        key: const ValueKey<String>('player-main-fixed-layout'),
-        children: <Widget>[
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: gap),
-              child: backdropKind == AppPlayerBackdropKind.artistPhoto
-                  ? const SizedBox.expand()
-                  : PlayerStyleStage(
-                      stageKind: stageKind,
-                      track: track,
-                      maxWidth: stageMaxWidth,
-                      cassetteLabel: cassetteLabel,
-                    ),
-            ),
-          ),
-          SizedBox(height: gap),
-          if (!usesCassetteLabel) ...<Widget>[
-            trackHeader,
-            SizedBox(height: gap),
-          ],
-          ...controls,
-        ],
-      );
-    }
 
     final lyricPreview = KeyedSubtree(
       key: const ValueKey<String>('player-compact-lyric-preview'),

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -51,11 +50,7 @@ class FullLyricControls extends ConsumerWidget {
             ),
             const _AuxiliaryButton(),
             const Spacer(),
-            if (kIsWeb ||
-                (defaultTargetPlatform != TargetPlatform.macOS &&
-                    defaultTargetPlatform != TargetPlatform.windows &&
-                    defaultTargetPlatform != TargetPlatform.linux))
-              const _LyricPlayButton(),
+            const _LyricPlayButton(),
           ],
         ),
       ),

@@ -156,11 +156,17 @@ class _AppStartupGate extends ConsumerWidget {
     return ListenableBuilder(
       listenable: router.routeInformationProvider,
       builder: (context, _) => Consumer(
-        builder: (context, ref, _) => _buildGate(
-          context,
-          ref,
-          startup,
-          router.routeInformationProvider.value.uri,
+        builder: (context, ref, _) => _StartupUnauthorizedHandoff(
+          unauthorized:
+              startup.hasError && _isUnauthorizedError(startup.error!),
+          startupReady:
+              startup.hasValue && !startup.isLoading && !startup.hasError,
+          child: _buildGate(
+            context,
+            ref,
+            startup,
+            router.routeInformationProvider.value.uri,
+          ),
         ),
       ),
     );
@@ -216,7 +222,7 @@ class _AppStartupGate extends ConsumerWidget {
           return child;
         }
         if (_isUnauthorizedError(error)) {
-          return _StartupUnauthorizedHandoff(child: child);
+          return child;
         }
         return _StartupScaffold(
           title: AppI18n.tByLocaleCode(localeCode, 'startup.failed'),
@@ -287,10 +293,17 @@ class _AppStartupGate extends ConsumerWidget {
   }
 }
 
+// Keep this state mounted across login and home so returning does not replay 401.
 class _StartupUnauthorizedHandoff extends ConsumerStatefulWidget {
-  const _StartupUnauthorizedHandoff({required this.child});
+  const _StartupUnauthorizedHandoff({
+    required this.child,
+    required this.unauthorized,
+    required this.startupReady,
+  });
 
   final Widget child;
+  final bool unauthorized;
+  final bool startupReady;
 
   @override
   ConsumerState<_StartupUnauthorizedHandoff> createState() =>
@@ -304,11 +317,23 @@ class _StartupUnauthorizedHandoffState
   @override
   void initState() {
     super.initState();
+    _scheduleLoginIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StartupUnauthorizedHandoff oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.startupReady) _loginPushed = false;
+    _scheduleLoginIfNeeded();
+  }
+
+  void _scheduleLoginIfNeeded() {
+    if (!widget.unauthorized || _loginPushed) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => _pushLoginWhenReady());
   }
 
   void _pushLoginWhenReady() {
-    if (!mounted || _loginPushed) {
+    if (!mounted || !widget.unauthorized || _loginPushed) {
       return;
     }
     if (rootNavigatorKey.currentState == null) {
@@ -320,8 +345,10 @@ class _StartupUnauthorizedHandoffState
     final router = ref.read(appRouterProvider);
     final currentLocation = _safeRouterLocation(router);
     if (_isAuthRelatedLocation(currentLocation)) {
+      _loginPushed = true;
       return;
     }
+    if (canOpenWithoutPlatforms(Uri.parse(currentLocation))) return;
     _loginPushed = true;
     router.push(buildLoginLocation(AppRoutes.home));
   }

@@ -109,6 +109,37 @@ void main() {
     expect(apiClient.fetchPlatformsCallCount, 1);
   });
 
+  test('后台平台刷新失败不重新触发启动 loading 或认证跳转', () async {
+    final apiClient = _RecordingOnlineApiClient();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigDataSourceProvider.overrideWithValue(
+          _ImmediateAppConfigDataSource(),
+        ),
+        onlineApiClientProvider.overrideWithValue(apiClient),
+      ],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(appStartupProvider, (_, _) {});
+    addTearDown(subscription.close);
+    final startup = container.read(appStartupProvider.future);
+    await startup;
+
+    final request = RequestOptions(path: '/v1/platforms');
+    apiClient.error = DioException(
+      requestOptions: request,
+      response: Response<void>(requestOptions: request, statusCode: 401),
+      type: DioExceptionType.badResponse,
+    );
+    await container.read(onlinePlatformsProvider.notifier).refresh();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(onlinePlatformsProvider).hasError, isTrue);
+    expect(container.read(appStartupProvider).hasError, isFalse);
+    expect(container.read(appStartupProvider).isLoading, isFalse);
+    expect(container.read(appStartupProvider.future), same(startup));
+    expect(apiClient.fetchPlatformsCallCount, 2);
+  });
   test('水合完成时应优先保留刷新拦截器写入的实时 token', () async {
     globalTokenHolder.accessToken = 'live-access-token';
     globalTokenHolder.refreshToken = 'live-refresh-token';
@@ -188,7 +219,7 @@ class _ImmediateAppConfigDataSource extends AppConfigDataSource {
 class _RecordingOnlineApiClient extends OnlineApiClient {
   _RecordingOnlineApiClient({this.error}) : super(Dio());
 
-  final Object? error;
+  Object? error;
   int fetchPlatformsCallCount = 0;
 
   @override

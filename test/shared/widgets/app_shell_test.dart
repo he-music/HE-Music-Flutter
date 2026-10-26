@@ -58,7 +58,7 @@ void main() {
   });
 
   testWidgets(
-    'desktop sidebar preserves browsing state across tabs and resizing',
+    'wide bottom navigation preserves browsing state across tabs and resizing',
     (tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1;
@@ -75,8 +75,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(NavigationRail), findsOneWidget);
-      expect(find.byType(GlassTabBar), findsNothing);
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byType(GlassTabBar), findsOneWidget);
       expect(find.byKey(const ValueKey('desktop-queue')), findsNothing);
       final queueButton = find.descendant(
         of: find.byType(MiniPlayerBar),
@@ -100,16 +100,12 @@ void main() {
           .position;
       position.jumpTo(300);
       await tester.pumpAndSettle();
-      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      rail.onDestinationSelected!(1);
+      tester.widget<GlassTabBar>(find.byType(GlassTabBar)).onTabSelected(1);
       await tester.pumpAndSettle();
       expect(router.routeInformationProvider.value.uri.path, AppRoutes.my);
-      tester
-          .widget<NavigationRail>(find.byType(NavigationRail))
-          .onDestinationSelected!(0);
+      tester.widget<GlassTabBar>(find.byType(GlassTabBar)).onTabSelected(0);
       await tester.pumpAndSettle();
       expect(position.pixels, 300);
-      expect(rail.trailing, isNull);
       expect(
         find.descendant(
           of: find.byType(MiniPlayerBar),

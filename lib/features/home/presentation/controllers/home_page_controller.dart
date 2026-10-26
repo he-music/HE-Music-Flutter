@@ -42,7 +42,9 @@ class HomePageController extends Notifier<HomePageState> {
     return HomePageState.initial;
   }
 
-  Future<void> initialize() {
+  Future<void> initialize() => _ensureInitialized();
+
+  Future<void> _ensureInitialized({bool forceRefreshPlatforms = false}) {
     if (_initialized) {
       return Future<void>.value();
     }
@@ -50,14 +52,16 @@ class HomePageController extends Notifier<HomePageState> {
     if (current != null) {
       return current;
     }
-    final future = _initialize();
+    final future = _initialize(forceRefreshPlatforms: forceRefreshPlatforms);
     _initializing = future;
     return future;
   }
 
-  Future<void> _initialize() async {
+  Future<void> _initialize({required bool forceRefreshPlatforms}) async {
     try {
-      final platforms = await _resolvePlatforms();
+      final platforms = await _resolvePlatforms(
+        forceRefresh: forceRefreshPlatforms,
+      );
       state = state.copyWith(platforms: platforms, clearPlatformError: true);
       final availablePages = state.availablePages;
       if (availablePages.isEmpty) {
@@ -100,7 +104,7 @@ class HomePageController extends Notifier<HomePageState> {
   Future<void> retryPlatforms() async {
     _initialized = false;
     state = state.copyWith(clearPlatformError: true);
-    await initialize();
+    await _ensureInitialized(forceRefreshPlatforms: true);
   }
 
   Future<void> selectPage(HomePageKind page) async {
@@ -377,11 +381,21 @@ class HomePageController extends Notifier<HomePageState> {
 
   HomePageApiClient get _apiClient => ref.read(homePageApiClientProvider);
 
-  Future<List<OnlinePlatform>> _resolvePlatforms() async {
-    final cached = ref.read(onlinePlatformsProvider).value;
-    if (cached != null && cached.isNotEmpty) {
+  Future<List<OnlinePlatform>> _resolvePlatforms({
+    required bool forceRefresh,
+  }) async {
+    final current = ref.read(onlinePlatformsProvider);
+    final cached = current.value;
+    if (!forceRefresh && cached != null && cached.isNotEmpty) {
       return cached;
     }
-    return ref.read(onlinePlatformsProvider.notifier).ensureLoaded();
+    // Mounting home after startup 401 must not restart authentication requests.
+    // Only an explicit retry should refresh a failed platform load.
+    if (!forceRefresh && current.hasError) {
+      Error.throwWithStackTrace(current.error!, current.stackTrace!);
+    }
+    return ref
+        .read(onlinePlatformsProvider.notifier)
+        .ensureLoaded(forceRefresh: forceRefresh);
   }
 }

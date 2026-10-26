@@ -1482,40 +1482,80 @@ void main() {
     expect(find.textContaining('High Quality'), findsOneWidget);
   });
 
-  testWidgets('player page uses side by side desktop layout', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1440, 960));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  for (final size in const [
+    Size(768, 1024),
+    Size(1024, 768),
+    Size(1366, 1024),
+    Size(1440, 960),
+  ]) {
+    testWidgets('wide player switches full cover and lyrics at $size', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
-    );
-    await tester.pump();
-    await tester.pump();
+      final pager = tester.widget<PageView>(find.byType(PageView));
+      expect(pager.controller!.page, 0);
+      expect(
+        find.byKey(const ValueKey('player-page-indicator')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('player-compact-lyric-preview')),
+        findsOneWidget,
+      );
+      expect(
+        find.byIcon(Icons.play_arrow_rounded).hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('lyric-play-control')).hitTestable(),
+        findsNothing,
+      );
 
-    expect(find.byType(PageView), findsNothing);
-    expect(
-      find.byKey(const ValueKey<String>('player-desktop-primary-pane')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('player-desktop-lyrics-pane')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('player-compact-lyric-preview')),
-      findsNothing,
-    );
-    expect(find.byType(PlayerLyricPage), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('player-page-indicator')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('player-stage-classic')),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+      await tester.tap(
+        find.byKey(const ValueKey('player-compact-lyric-preview')),
+      );
+      await tester.pumpAndSettle();
+      expect(pager.controller!.page, 1);
+      final lyrics = find.byType(PlayerLyricPage);
+      expect(tester.getSize(lyrics).width, greaterThan(size.width * .9));
+      expect(
+        find.byKey(const ValueKey('lyric-play-control')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.byIcon(Icons.play_arrow_rounded).hitTestable(),
+        findsOneWidget,
+      );
+
+      // Rotation keeps the selected full page instead of reintroducing two panes.
+      await tester.binding.setSurfaceSize(Size(size.height, size.width));
+      await tester.pumpAndSettle();
+      expect(pager.controller!.page, 1);
+      expect(
+        find.byKey(const ValueKey('lyric-play-control')).hitTestable(),
+        findsOneWidget,
+      );
+      await tester.drag(find.byType(PageView), Offset(size.height * .8, 0));
+      await tester.pumpAndSettle();
+      expect(pager.controller!.page, 0);
+      expect(
+        find.byIcon(Icons.play_arrow_rounded).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
 
   testWidgets('player page uses classic color backdrop by default', (
     tester,
@@ -2489,12 +2529,14 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
+      tester.widget<PageView>(find.byType(PageView)).controller!.jumpToPage(1);
+      await tester.pumpAndSettle();
       expect(
         find.byType(FullLyricControls),
         findsOneWidget,
         reason: option.metadata.id,
       );
-      expect(find.byKey(const ValueKey('lyric-play-control')), findsNothing);
+      expect(find.byKey(const ValueKey('lyric-play-control')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('lyric-options-control')),
         findsOneWidget,
@@ -2520,9 +2562,9 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.byType(PageView), findsNothing, reason: '$size');
+      expect(find.byType(PageView), findsOneWidget, reason: '$size');
       expect(
-        find.byKey(const ValueKey<String>('player-desktop-primary-pane')),
+        find.byKey(const ValueKey<String>('player-mobile-primary-pane')),
         findsOneWidget,
         reason: '$size',
       );
@@ -2698,6 +2740,7 @@ void main() {
 
   for (final (platform, size) in [
     (TargetPlatform.android, const Size(844, 390)),
+    (TargetPlatform.iOS, const Size(1024, 768)),
     (TargetPlatform.macOS, const Size(1440, 900)),
   ]) {
     testWidgets('artist photo dimmer covers the full background on $platform', (
@@ -2725,7 +2768,10 @@ void main() {
       final dimmer = find.byKey(const ValueKey('lyric-photo-dimmer'));
       expect(dimmer, findsOneWidget);
       expect(tester.getRect(dimmer), Offset.zero & size);
-      expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
+      expect(
+        tester.widget<ColoredBox>(dimmer).color.a,
+        platform == TargetPlatform.android ? closeTo(.45, .005) : 0,
+      );
 
       if (platform == TargetPlatform.android) {
         tester.view.physicalSize = const Size(390, 844);
@@ -2761,6 +2807,16 @@ void main() {
         expect(tester.widget<ColoredBox>(dimmer).color.a, 0);
       }
       expect(tester.takeException(), isNull);
+      if (platform != TargetPlatform.android) {
+        final pager = tester.widget<PageView>(find.byType(PageView));
+        pager.controller!.jumpToPage(1);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(dimmer), Offset.zero & size);
+        expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
+        pager.controller!.jumpToPage(0);
+        await tester.pumpAndSettle();
+        expect(tester.widget<ColoredBox>(dimmer).color.a, 0);
+      }
       debugDefaultTargetPlatformOverride = null;
     });
   }
@@ -3099,7 +3155,7 @@ void main() {
         findsNothing,
       );
       expect(
-        find.byKey(const ValueKey<String>('player-desktop-primary-pane')),
+        find.byKey(const ValueKey<String>('player-mobile-primary-pane')),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);

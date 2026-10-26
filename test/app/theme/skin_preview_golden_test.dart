@@ -38,7 +38,7 @@ final _previewHomePageFeatures =
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
   testWidgets(
-    'desktop home keeps music full width with mobile queue sheet',
+    'wide home keeps bottom navigation and full width music',
     (tester) async {
       await tester.runAsync(_loadPreviewFonts);
       tester.view.devicePixelRatio = 1;
@@ -49,7 +49,8 @@ void main() {
         _buildPreviewApp(router, Brightness.light, AppSkinRegistry.classicId),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byType(NavigationBar), findsOneWidget);
       expect(find.byKey(const ValueKey('desktop-queue')), findsNothing);
       expect(tester.takeException(), isNull);
       await expectLater(

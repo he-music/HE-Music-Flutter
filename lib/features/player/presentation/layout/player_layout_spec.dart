@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/constants/layout_tokens.dart';
 
-enum PlayerLayoutMode { mobilePortrait, mobileLandscape, desktop }
+enum PlayerLayoutMode { mobilePortrait, mobileLandscape }
 
 EdgeInsets resolvePlayerLandscapeSafeInsets({
   required Size size,
@@ -48,18 +48,12 @@ class PlayerLayoutSpec {
     required this.pageGutter,
     required this.verticalGap,
     required this.artistSlotWidth,
-    required this.primaryPaneFlex,
-    required this.lyricsPaneFlex,
   });
 
   final PlayerLayoutMode mode;
   final double pageGutter;
   final double verticalGap;
   final double artistSlotWidth;
-  final int primaryPaneFlex;
-  final int lyricsPaneFlex;
-
-  bool get isDesktop => mode == PlayerLayoutMode.desktop;
 
   bool get isMobileLandscape => mode == PlayerLayoutMode.mobileLandscape;
 
@@ -72,12 +66,10 @@ class PlayerLayoutSpec {
     final isShort = height < 640;
     final mode = allowMobileLandscape && width > height && isShort
         ? PlayerLayoutMode.mobileLandscape
-        : width >= LayoutTokens.desktopBreakpoint
-        ? PlayerLayoutMode.desktop
         : PlayerLayoutMode.mobilePortrait;
     return PlayerLayoutSpec(
       mode: mode,
-      pageGutter: mode == PlayerLayoutMode.desktop
+      pageGutter: width >= LayoutTokens.desktopBreakpoint && !isShort
           ? 24
           : mode == PlayerLayoutMode.mobileLandscape
           ? 4
@@ -85,7 +77,7 @@ class PlayerLayoutSpec {
           ? 12
           : 20,
       verticalGap: isShort ? 4 : 12,
-      artistSlotWidth: mode == PlayerLayoutMode.desktop
+      artistSlotWidth: width >= LayoutTokens.desktopBreakpoint && !isShort
           ? 220
           : mode == PlayerLayoutMode.mobileLandscape
           ? width <= 700
@@ -96,8 +88,6 @@ class PlayerLayoutSpec {
           : width <= 390
           ? 144
           : 176,
-      primaryPaneFlex: 11,
-      lyricsPaneFlex: 10,
     );
   }
 }

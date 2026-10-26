@@ -45,7 +45,6 @@ class PlayerResponsiveLayout extends StatelessWidget {
             context,
             spec,
           ),
-          PlayerLayoutMode.desktop => _buildDesktop(context, spec),
         };
       },
     );
@@ -91,35 +90,6 @@ class PlayerResponsiveLayout extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(spec.pageGutter, 0, spec.pageGutter, 8),
       child: mobileLandscapeBuilder(context, spec),
-    );
-  }
-
-  Widget _buildDesktop(BuildContext context, PlayerLayoutSpec spec) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(spec.pageGutter, 6, spec.pageGutter, 16),
-      child: Column(
-        children: <Widget>[
-          topBarBuilder(context, spec),
-          SizedBox(height: spec.verticalGap),
-          Expanded(
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  key: const ValueKey<String>('player-desktop-primary-pane'),
-                  flex: spec.primaryPaneFlex,
-                  child: mainPlayerBuilder(context, spec),
-                ),
-                const SizedBox(width: 28),
-                Expanded(
-                  key: const ValueKey<String>('player-desktop-lyrics-pane'),
-                  flex: spec.lyricsPaneFlex,
-                  child: lyricsBuilder(context, spec),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -19,7 +19,8 @@ final appStartupProvider = FutureProvider<void>((ref) async {
     final config = ref.read(appConfigProvider);
     throw StateError(AppI18n.t(config, 'startup.config_missing'));
   }
-  await ref.watch(onlinePlatformsProvider.future);
+  // Startup is a single check. Later platform refreshes must not remount routes.
+  await ref.read(onlinePlatformsProvider.future);
   final token = ref.read(appConfigProvider).authToken?.trim() ?? '';
   if (token.isNotEmpty) {
     unawaited(

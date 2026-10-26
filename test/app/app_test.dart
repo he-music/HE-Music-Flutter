@@ -27,6 +27,14 @@ import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:he_music_flutter/shared/widgets/app_shell.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
+import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:he_music_flutter/features/home/presentation/widgets/discover_home_tab.dart';
+import 'package:he_music_flutter/features/auth/presentation/pages/login_page.dart';
+import 'package:he_music_flutter/shared/widgets/app_back_button.dart';
 
 void main() {
   setUpAll(AppEnvironment.initialize);
@@ -336,6 +344,80 @@ void main() {
     expect(router.state.uri.path, AppRoutes.home);
   });
 
+  for (final size in const [Size(390, 844), Size(1024, 768)]) {
+    for (final systemBack in [true, false]) {
+      testWidgets(
+        'startup 401 returns to home at $size, systemBack=$systemBack',
+        (tester) async {
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final router = _createStartupTestRouter(withShell: true);
+          addTearDown(router.dispose);
+          final request = RequestOptions(path: '/v1/platforms');
+          final unauthorized = DioException(
+            requestOptions: request,
+            response: Response<void>(requestOptions: request, statusCode: 401),
+            type: DioExceptionType.badResponse,
+          );
+          final api = _UnauthorizedPlatformsApi(unauthorized);
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                appConfigProvider.overrideWith(
+                  _HydratedTestAppConfigController.new,
+                ),
+                appRouterProvider.overrideWithValue(router),
+                playerControllerProvider.overrideWith(
+                  _EmptyPlayerController.new,
+                ),
+                onlineApiClientProvider.overrideWithValue(api),
+                appConfigDataSourceProvider.overrideWithValue(
+                  const _TestAppConfigDataSource(autoCheckUpdates: false),
+                ),
+              ],
+              child: const HeMusicApp(enableStartupGateInTests: true),
+            ),
+          );
+          for (var frame = 0; frame < 40; frame++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          expect(
+            api.calls,
+            1,
+            reason:
+                'Opening login must not retry platform loading from the covered home.',
+          );
+          expect(router.state.uri.path, AppRoutes.login);
+          expect(find.byType(LoginPage), findsOneWidget);
+          if (systemBack) {
+            await tester.binding.handlePopRoute();
+          } else {
+            await tester.tap(find.byType(AppBackButton));
+          }
+          for (var frame = 0; frame < 40; frame++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          expect(router.state.uri.path, AppRoutes.home);
+          expect(find.byType(DiscoverHomeTab), findsOneWidget);
+          expect(api.calls, 1);
+          await tester.tap(
+            find.text(AppI18n.tByLocaleCode('zh', 'home.retry')),
+          );
+          for (var frame = 0; frame < 20; frame++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          expect(
+            api.calls,
+            2,
+            reason: 'The home retry button must still refresh platforms.',
+          );
+          expect(router.state.uri.path, AppRoutes.home);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
   for (final scenario in [
     (
       name: 'HTTP 500',
@@ -649,18 +731,43 @@ void main() {
   });
 }
 
-GoRouter _createStartupTestRouter() {
+GoRouter _createStartupTestRouter({bool withShell = false}) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.home,
-    routes: <GoRoute>[
-      GoRoute(
-        path: AppRoutes.home,
-        builder: (context, state) => const Scaffold(body: Text('首页')),
-      ),
+    routes: <RouteBase>[
+      if (withShell)
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, shell) => AppShell(navigationShell: shell),
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.home,
+                  builder: (_, _) => const DiscoverHomeTab(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.my,
+                  builder: (_, _) => const Scaffold(body: Text('我的页')),
+                ),
+              ],
+            ),
+          ],
+        )
+      else
+        GoRoute(
+          path: AppRoutes.home,
+          builder: (context, state) => const Scaffold(body: Text('首页')),
+        ),
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => const Scaffold(body: Text('登录页')),
+        builder: (context, state) => withShell
+            ? LoginPage(redirectLocation: state.uri.queryParameters['redirect'])
+            : const Scaffold(body: Text('登录页')),
       ),
       GoRoute(
         path: AppRoutes.library,
@@ -731,6 +838,31 @@ final Finder _legacyGradientFinder = find.byWidgetPredicate(
       widget.decoration is BoxDecoration &&
       (widget.decoration as BoxDecoration).gradient is LinearGradient,
 );
+
+class _UnauthorizedPlatformsApi extends OnlineApiClient {
+  _UnauthorizedPlatformsApi(this.error) : super(Dio());
+  final DioException error;
+  int calls = 0;
+
+  @override
+  Future<List<String>> listAuthProviders() async => [];
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchPlatforms({
+    bool silentErrorMessage = false,
+  }) async {
+    calls++;
+    throw error;
+  }
+}
+
+class _EmptyPlayerController extends PlayerController {
+  @override
+  PlayerPlaybackState build() =>
+      PlayerPlaybackState.initial(const <PlayerTrack>[]);
+  @override
+  Future<void> initialize() async {}
+}
 
 class _TestAppConfigController extends AppConfigController {
   _TestAppConfigController({
