@@ -9,6 +9,7 @@ class UnderlineTab extends StatelessWidget {
     required this.enabled,
     required this.onTap,
     this.prominent = false,
+    this.minHeight = LayoutTokens.controlMinExtent,
     super.key,
   });
 
@@ -17,6 +18,7 @@ class UnderlineTab extends StatelessWidget {
   final bool enabled;
   final VoidCallback onTap;
   final bool prominent;
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -32,9 +34,7 @@ class UnderlineTab extends StatelessWidget {
           onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(8),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: LayoutTokens.controlMinExtent,
-            ),
+            constraints: BoxConstraints(minHeight: minHeight),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
               child: Column(

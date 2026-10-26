@@ -263,6 +263,126 @@ void main() {
     },
   );
 
+  testWidgets('platform visibility follows the selected search capability', (
+    tester,
+  ) async {
+    final client = _SearchPageOnlineApiClient();
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(
+        initialKeyword: 'Love',
+        client: client,
+        platformsFuture: Future.value([
+          ..._searchPlatforms,
+          _searchPlatform(
+            'Disabled source',
+            PlatformFeatureSupportFlag.searchSong,
+            status: 0,
+          ),
+          _searchPlatform(
+            'Other status',
+            PlatformFeatureSupportFlag.searchSong,
+            status: 2,
+          ),
+          _searchPlatform('Song source', PlatformFeatureSupportFlag.searchSong),
+          _searchPlatform(
+            'Playlist source',
+            PlatformFeatureSupportFlag.searchPlaylist,
+          ),
+          _searchPlatform('No search', BigInt.zero),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final bar = find.byType(SearchPlatformBar);
+    Finder source(String label) =>
+        find.descendant(of: bar, matching: find.text(label));
+    expect(source('QQ'), findsOneWidget);
+    expect(source('Song source'), findsNothing);
+    expect(source('Disabled source'), findsNothing);
+    expect(source('Playlist source'), findsNothing);
+    expect(source('No search'), findsNothing);
+
+    await tester.tap(find.text('Songs').first);
+    await tester.pumpAndSettle();
+    expect(source('Song source'), findsOneWidget);
+    expect(source('Disabled source'), findsNothing);
+    expect(source('Other status'), findsNothing);
+    expect(source('Playlist source'), findsNothing);
+    expect(client.songSearchPlatforms, ['qq']);
+
+    await tester.tap(find.text('Playlists').first);
+    await tester.pumpAndSettle();
+    expect(source('Playlist source'), findsOneWidget);
+    expect(source('Song source'), findsNothing);
+    expect(source('Disabled source'), findsNothing);
+    expect(source('Other status'), findsNothing);
+
+    await tester.tap(find.text('Songs').first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(source('Song source'));
+    await tester.tap(source('Song source'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<SearchPlatformBar>(bar).selectedPlatformId,
+      'Song source',
+    );
+    expect(client.songSearchPlatforms, ['qq', 'Song source']);
+  });
+
+  testWidgets('a disabled initial platform falls back to an available source', (
+    tester,
+  ) async {
+    final client = _SearchPageOnlineApiClient();
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(
+        initialKeyword: 'Love',
+        initialType: 'song',
+        client: client,
+        platformsFuture: Future.value([
+          _searchPlatform(
+            'qq',
+            PlatformFeatureSupportFlag.searchSong,
+            status: 0,
+          ),
+          _searchPlatform(
+            'Active source',
+            PlatformFeatureSupportFlag.searchSong,
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(client.songSearchPlatforms, ['Active source']);
+    expect(
+      tester
+          .widget<SearchPlatformBar>(find.byType(SearchPlatformBar))
+          .selectedPlatformId,
+      'Active source',
+    );
+    expect(find.text('qq'), findsNothing);
+  });
+
+  testWidgets('disabled platforms alone do not start a search', (tester) async {
+    final client = _SearchPageOnlineApiClient();
+    await tester.pumpWidget(
+      _buildOnlineSearchApp(
+        initialKeyword: 'Love',
+        client: client,
+        platformsFuture: Future.value([
+          _searchPlatform(
+            'qq',
+            _searchPlatforms.single.featureSupportFlag,
+            status: 0,
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(OnlineSearchResultPage), findsNothing);
+    expect(client.comprehensiveSearchCallCount, 0);
+    expect(client.songSearchPlatforms, isEmpty);
+  });
+
   testWidgets(
     'online search does not refetch comprehensive result for same key',
     (tester) async {
@@ -708,27 +828,30 @@ void main() {
     );
   });
 
-  testWidgets('source controls expose selection with a 48dp target', (
-    tester,
-  ) async {
+  testWidgets('compact tabs preserve layout and selection', (tester) async {
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(_buildOnlineSearchApp(initialKeyword: 'Love'));
     await tester.pumpAndSettle();
-    final platformTabs = find.descendant(
-      of: find.byType(SearchPlatformBar),
-      matching: find.byType(UnderlineTab),
+    final platformBar = find.byType(SearchPlatformBar);
+    expect(
+      find.descendant(of: platformBar, matching: find.byType(UnderlineTab)),
+      findsNothing,
     );
-    expect(platformTabs, findsOneWidget);
     final material = tester.widget<Material>(
-      find.descendant(of: platformTabs, matching: find.byType(Material)),
+      find.descendant(of: platformBar, matching: find.byType(Material)),
     );
-    expect(material.type, MaterialType.transparency);
+    expect(material.borderRadius, BorderRadius.circular(999));
     final chip = find.descendant(
-      of: find.byType(SearchPlatformBar),
+      of: platformBar,
       matching: find.byType(InkWell),
     );
-    expect(tester.getSize(chip).height, greaterThanOrEqualTo(48));
-    expect(tester.getSize(chip).width, greaterThanOrEqualTo(48));
+    expect(tester.getSize(chip).height, lessThan(48));
+    final typeBar = find.byType(SearchTypeBar);
+    expect(tester.getSize(typeBar).height, lessThan(48));
+    expect(
+      tester.getTopLeft(platformBar).dy - tester.getBottomLeft(typeBar).dy,
+      10,
+    );
     expect(
       tester.getSemantics(find.text('QQ')),
       matchesSemantics(
@@ -930,6 +1053,16 @@ class _SearchPlatformsController extends OnlinePlatformsController {
   }
 }
 
+OnlinePlatform _searchPlatform(String id, BigInt flags, {int status = 1}) {
+  return OnlinePlatform(
+    id: id,
+    name: id,
+    shortName: id,
+    status: status,
+    featureSupportFlag: flags,
+  );
+}
+
 final _searchPlatforms = <OnlinePlatform>[
   OnlinePlatform(
     id: 'qq',
@@ -987,6 +1120,7 @@ class _SearchPageOnlineApiClient extends OnlineApiClient {
   int comprehensiveSearchCallCount = 0;
   int lyricSearchCallCount = 0;
   final searchedTypes = <String>[];
+  final songSearchPlatforms = <String>[];
 
   @override
   Future<List<String>> fetchHotKeywords({String? platform}) async {
@@ -1057,6 +1191,7 @@ class _SearchPageOnlineApiClient extends OnlineApiClient {
     int pageIndex = 1,
     int pageSize = 30,
   }) async {
+    songSearchPlatforms.add(platform);
     return OnlineSearchPageResult<SearchSongInfo>(
       platform: platform,
       keyword: keyword,

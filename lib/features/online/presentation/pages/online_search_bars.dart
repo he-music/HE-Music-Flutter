@@ -111,22 +111,73 @@ class SearchPlatformBar extends StatelessWidget {
         ),
         child: Row(
           children: platforms
+              .where(
+                (platform) =>
+                    platform.available &&
+                    platform.supports(requiredFeatureFlag),
+              )
               .map((platform) {
-                return ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    minWidth: LayoutTokens.controlMinExtent,
-                  ),
-                  child: UnderlineTab(
-                    label: platform.label,
-                    selected: platform.id == selectedPlatformId,
-                    enabled:
-                        platform.available &&
-                        platform.supports(requiredFeatureFlag),
-                    onTap: () => onChanged(platform.id),
-                  ),
+                return _PlatformChip(
+                  label: platform.label,
+                  selected: platform.id == selectedPlatformId,
+                  enabled: platform.available,
+                  onTap: () => onChanged(platform.id),
                 );
               })
               .toList(growable: false),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlatformChip extends StatelessWidget {
+  const _PlatformChip({
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedColor = theme.colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        enabled: enabled,
+        child: Material(
+          color: selected
+              ? selectedColor.withValues(alpha: 0.10)
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.42,
+                ),
+          borderRadius: BorderRadius.circular(999),
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(999),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: !enabled
+                      ? theme.hintColor.withValues(alpha: 0.55)
+                      : selected
+                      ? selectedColor
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -150,6 +201,7 @@ class _SimpleTab extends StatelessWidget {
       label: label,
       selected: selected,
       enabled: true,
+      minHeight: 0,
       onTap: onTap,
     );
   }
