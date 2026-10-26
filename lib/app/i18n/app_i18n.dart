@@ -925,8 +925,6 @@ abstract final class AppI18n {
       'search.retry_hint': '可以重试，或在上方切换音乐来源。',
       'search.empty_hint': '试试更短的歌名、歌手名，或切换上方的音乐来源。',
       'search.edit_query': '修改关键词',
-      'search.more_types': '更多分类',
-      'search.source_scope': '当前来源：{source} · 综合搜索仅包含该来源',
       'song.tag.original': '原唱',
       'song.more_versions': '更多版本',
       'common.unknown_author': '未知作者',
@@ -2035,9 +2033,6 @@ abstract final class AppI18n {
       'search.empty_hint':
           'Try a shorter song title, an artist name, or another source above.',
       'search.edit_query': 'Edit search',
-      'search.more_types': 'More categories',
-      'search.source_scope':
-          'Source: {source} · All results are from this source',
       'song.tag.original': 'Original',
       'song.more_versions': 'More Versions',
       'common.unknown_author': 'Unknown Author',

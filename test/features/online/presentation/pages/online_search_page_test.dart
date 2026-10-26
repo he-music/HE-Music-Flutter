@@ -31,6 +31,7 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/online_search_result_list.dart';
+import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -514,17 +515,14 @@ void main() {
       final bar = tester.widget<SearchTypeBar>(find.byType(SearchTypeBar));
       expect(bar.types.last, SearchType.lyric);
 
-      final more = find.text('More categories');
-      await tester.ensureVisible(more);
-      await tester.tap(more);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is CheckedPopupMenuItem<SearchType> &&
-              widget.value == SearchType.lyric,
-        ),
+      final lyricType = find.descendant(
+        of: find.byType(SearchTypeBar),
+        matching: find.text('Lyrics'),
       );
+      expect(lyricType, findsOneWidget);
+      expect(find.byType(PopupMenuButton<SearchType>), findsNothing);
+      await tester.ensureVisible(lyricType);
+      await tester.tap(lyricType);
       await tester.pump();
       await tester.pump();
 
@@ -633,32 +631,36 @@ void main() {
     );
   }
 
-  testWidgets('empty results explain source scope and offer query editing', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _buildOnlineSearchApp(initialKeyword: 'nothing', initialType: 'playlist'),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Source: QQ · All results are from this source'),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-        'Try a shorter song title, an artist name, or another source above.',
-      ),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('Edit search'));
-    await tester.pumpAndSettle();
-    final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.focusNode!.hasFocus, isTrue);
-    expect(
-      field.controller!.selection,
-      const TextSelection(baseOffset: 0, extentOffset: 7),
-    );
-  });
+  testWidgets(
+    'empty results offer query editing without persistent source hints',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildOnlineSearchApp(
+          initialKeyword: 'nothing',
+          initialType: 'playlist',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Source: QQ · All results are from this source'),
+        findsNothing,
+      );
+      expect(
+        find.text(
+          'Try a shorter song title, an artist name, or another source above.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Edit search'));
+      await tester.pumpAndSettle();
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.focusNode!.hasFocus, isTrue);
+      expect(
+        field.controller!.selection,
+        const TextSelection(baseOffset: 0, extentOffset: 7),
+      );
+    },
+  );
 
   testWidgets('source choice is remembered only while still supported', (
     tester,
@@ -712,6 +714,15 @@ void main() {
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(_buildOnlineSearchApp(initialKeyword: 'Love'));
     await tester.pumpAndSettle();
+    final platformTabs = find.descendant(
+      of: find.byType(SearchPlatformBar),
+      matching: find.byType(UnderlineTab),
+    );
+    expect(platformTabs, findsOneWidget);
+    final material = tester.widget<Material>(
+      find.descendant(of: platformTabs, matching: find.byType(Material)),
+    );
+    expect(material.type, MaterialType.transparency);
     final chip = find.descendant(
       of: find.byType(SearchPlatformBar),
       matching: find.byType(InkWell),

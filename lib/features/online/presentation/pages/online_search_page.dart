@@ -44,7 +44,6 @@ import 'online_search_song_actions.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/network_error_message.dart';
-import '../widgets/online_platform_status_banner.dart';
 import 'online_search_feedback.dart';
 
 class OnlineSearchPage extends ConsumerStatefulWidget {
@@ -232,7 +231,6 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                 onSearch: _search,
               ),
             ),
-            const OnlinePlatformStatusBanner(),
             Expanded(
               child: platforms.isEmpty
                   ? loadingPlatforms

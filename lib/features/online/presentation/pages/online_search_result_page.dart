@@ -6,7 +6,6 @@ import 'online_search_bars.dart';
 import 'online_search_comprehensive_result.dart';
 import 'online_search_models.dart';
 import 'online_search_result_list.dart';
-import '../../../../app/i18n/app_i18n.dart';
 import 'online_search_feedback.dart';
 
 class OnlineSearchResultPage extends StatelessWidget {
@@ -87,22 +86,6 @@ class OnlineSearchResultPage extends StatelessWidget {
           requiredFeatureFlag: selectedType.requiredPlatformFeatureFlag,
           selectedPlatformId: selectedPlatformId,
           onChanged: onPlatformChanged,
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: LayoutTokens.compactPageGutter,
-          ),
-          child: Text(
-            AppI18n.tByLocaleCode(localeCode, 'search.source_scope').replaceAll(
-              '{source}',
-              platforms
-                      .where((p) => p.id == selectedPlatformId)
-                      .firstOrNull
-                      ?.label ??
-                  selectedPlatformId,
-            ),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
         ),
         const SizedBox(height: 10),
         const SizedBox(height: 2),
