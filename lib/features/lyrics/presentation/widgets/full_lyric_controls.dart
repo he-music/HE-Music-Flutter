@@ -25,7 +25,10 @@ enum _LyricOptionsAction { search, offset }
 
 /// A fixed sibling of the scrollable full lyric content, never a progress owner.
 class FullLyricControls extends ConsumerWidget {
-  const FullLyricControls({super.key});
+  const FullLyricControls({super.key, this.showPlaybackControl = true});
+
+  final bool showPlaybackControl;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(
@@ -50,7 +53,7 @@ class FullLyricControls extends ConsumerWidget {
             ),
             const _AuxiliaryButton(),
             const Spacer(),
-            const _LyricPlayButton(),
+            if (showPlaybackControl) const _LyricPlayButton(),
           ],
         ),
       ),

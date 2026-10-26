@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_glass_mode.dart';
 import 'app_lyric_auxiliary_mode.dart';
+import 'app_player_wide_view.dart';
 import '../../core/network/token_refresh_interceptor.dart';
 import '../../core/audio/cache/audio_cache_policy.dart';
 import '../theme/skin/app_custom_skin_store.dart';
@@ -175,6 +176,10 @@ class AppConfigController extends Notifier<AppConfigState> {
   void setPlayerLyricsId(String lyricsId) {
     final normalized = AppPlayerLyricsRegistry.instance.normalizeId(lyricsId);
     _update(state.copyWith(playerLyricsId: normalized));
+  }
+
+  void setPlayerWideView(AppPlayerWideView view) {
+    _update(state.copyWith(playerWideView: view));
   }
 
   void setLyricHighlightMode(AppLyricHighlightMode mode) {
@@ -359,6 +364,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       playerStageId: loaded.playerStageId,
       playerBackdropId: loaded.playerBackdropId,
       playerLyricsId: loaded.playerLyricsId,
+      playerWideView: loaded.playerWideView,
       lyricHighlightMode: loaded.lyricHighlightMode,
       lyricHighlightPreset: loaded.lyricHighlightPreset,
       lyricHighlightCustomColor: loaded.lyricHighlightCustomColor,

@@ -8,6 +8,7 @@ import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
+import 'package:he_music_flutter/app/config/app_player_wide_view.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/skin/app_custom_skin_store.dart';
@@ -78,6 +79,35 @@ void main() {
     expect(source.saved.glassMode, AppGlassMode.powerSaving);
     expect(source.saved.skinId, AppConfigState.initial.skinId);
   });
+
+  test(
+    'wide player view hydrates and persists without changing style',
+    () async {
+      final source = _RecordingAppConfigDataSource(
+        AppConfigState.initial.copyWith(
+          playerWideView: AppPlayerWideView.lyrics,
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [appConfigDataSourceProvider.overrideWithValue(source)],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(appConfigProvider.notifier);
+      await controller.waitUntilHydrated();
+      expect(
+        container.read(appConfigProvider).playerWideView,
+        AppPlayerWideView.lyrics,
+      );
+      controller.setPlayerWideView(AppPlayerWideView.cover);
+      await Future<void>.delayed(Duration.zero);
+      expect(source.saved.playerWideView, AppPlayerWideView.cover);
+      expect(source.saved.playerStageId, AppConfigState.initial.playerStageId);
+      expect(
+        source.saved.playerLyricsId,
+        AppConfigState.initial.playerLyricsId,
+      );
+    },
+  );
 
   test('controller persists global skin display preferences', () async {
     final dataSource = _RecordingAppConfigDataSource(AppConfigState.initial);

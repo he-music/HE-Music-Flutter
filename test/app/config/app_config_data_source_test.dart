@@ -6,6 +6,7 @@ import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_player_wide_view.dart';
 import 'package:he_music_flutter/app/config/app_online_audio_quality.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/config/app_theme_mode.dart';
@@ -30,6 +31,30 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('app_config.glass_mode', 'future-mode');
       expect((await source.load()).glassMode, AppGlassMode.automatic);
+    },
+  );
+
+  test(
+    'wide player view round trips independently of stage and lyrics',
+    () async {
+      const source = AppConfigDataSource();
+      expect((await source.load()).playerWideView, AppPlayerWideView.split);
+      for (final view in AppPlayerWideView.values) {
+        await source.save(
+          AppConfigState.initial.copyWith(
+            playerWideView: view,
+            playerStageId: AppPlayerStageRegistry.cassetteId,
+            playerLyricsId: AppPlayerLyricsRegistry.cinemaId,
+          ),
+        );
+        final loaded = await source.load();
+        expect(loaded.playerWideView, view);
+        expect(loaded.playerStageId, AppPlayerStageRegistry.cassetteId);
+        expect(loaded.playerLyricsId, AppPlayerLyricsRegistry.cinemaId);
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('app_config.player_wide_view', 'future-view');
+      expect((await source.load()).playerWideView, AppPlayerWideView.split);
     },
   );
 

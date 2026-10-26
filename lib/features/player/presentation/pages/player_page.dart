@@ -11,6 +11,7 @@ import '../widgets/player_route_page.dart';
 import '../../../lyrics/presentation/widgets/full_lyric_controls.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/config/app_player_wide_view.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_route_observers.dart';
 import '../../../../app/router/app_routes.dart';
@@ -43,6 +44,7 @@ import '../controllers/realtime_spectrum_controller.dart';
 import '../helpers/player_artwork_helper.dart';
 import '../layout/player_layout_spec.dart';
 import '../layout/player_responsive_layout.dart';
+import '../layout/player_wide_layout.dart';
 import '../providers/player_providers.dart';
 import '../styles/player_style_stage.dart';
 import '../styles/player_track_header.dart';
@@ -118,6 +120,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   RealtimeSpectrumController? _spectrumController;
   bool _spectrumSyncScheduled = false;
   List<Color> _classicBackdropColors = const <Color>[];
+  bool _wideLayoutActive = false;
+  bool _wideStageVisible = true;
 
   @override
   void initState() {
@@ -273,7 +277,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) =>
+        _buildPlayer(context, constraints.biggest),
+  );
+
+  Widget _buildPlayer(BuildContext context, Size viewportSize) {
     widget.debugOnBuild?.call();
     final config = ref.watch(
       appConfigProvider.select(
@@ -281,6 +290,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           stageId: state.playerStageId,
           backdropId: state.playerBackdropId,
           lyricsId: state.playerLyricsId,
+          playerWideView: state.playerWideView,
           localeCode: state.localeCode,
         ),
       ),
@@ -328,21 +338,32 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       displayedTrack?.artworkBytes,
     );
     final usePortraitArtistPhoto = resolvePlayerArtistPhotoPortraitForTest(
-      MediaQuery.sizeOf(context),
+      viewportSize,
     );
     final allowMobileLandscape = _usesMobileOrientationControls;
     final currentLayoutMode = PlayerLayoutSpec.resolve(
-      BoxConstraints.tight(MediaQuery.sizeOf(context)),
+      BoxConstraints.tight(viewportSize),
       allowMobileLandscape: allowMobileLandscape,
     ).mode;
     final isMobileLandscape =
         currentLayoutMode == PlayerLayoutMode.mobileLandscape;
+    final useWideLayout = PlayerWideLayout.supports(
+      viewportSize,
+      isMobileLandscape: isMobileLandscape,
+    );
+    if (_wideLayoutActive && !useWideLayout) {
+      _restoreCurrentPageAfterLayoutChange(_currentPage);
+    }
+    _wideLayoutActive = useWideLayout;
+    _wideStageVisible =
+        config.playerWideView != AppPlayerWideView.lyrics &&
+        backdrop.backdropKind != AppPlayerBackdropKind.artistPhoto;
     _usesRealtimeSpectrum = stage.usesRealtimeSpectrum;
     _scheduleSpectrumVisibilitySync();
     final landscapeSafeMinimum = isMobileLandscape
         ? resolvePlayerLandscapeContentInsets(
             resolvePlayerLandscapeSafeInsets(
-              size: MediaQuery.sizeOf(context),
+              size: viewportSize,
               systemGestureInsets: MediaQuery.systemGestureInsetsOf(context),
               displayFeatures: MediaQuery.of(context).displayFeatures,
             ),
@@ -363,7 +384,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         onSeek: presentation.isTrackTransitioning ? null : seekFromLyric,
         artworkUrl: presentation.currentTrack?.artworkUrl,
         artworkBytes: presentation.currentTrack?.artworkBytes,
-        center: false,
+        center:
+            useWideLayout && config.playerWideView == AppPlayerWideView.lyrics,
+        fontScale: useWideLayout && viewportSize.height >= 600 ? 1.5 : 1,
       );
       final content = switch (lyrics.lyricsKind) {
         AppPlayerLyricsKind.legacy => lyricPage,
@@ -467,6 +490,140 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             )
           : content;
       return lyricContent;
+    }
+
+    if (useWideLayout) {
+      _handleLayoutModeResolved(currentLayoutMode);
+      return PopScope(
+        canPop: !shouldRestorePortraitOnPop,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) unawaited(_exitLandscape());
+        },
+        child: _PlayerScenePaletteScope(
+          palette: scenePalette,
+          child: PlayerWideLayout(
+            view: config.playerWideView,
+            localeCode: config.localeCode,
+            onViewChanged: ref
+                .read(appConfigProvider.notifier)
+                .setPlayerWideView,
+            onClose: () =>
+                unawaited(PlayerDismissRegion.close(context, _closePlayer)),
+            onOpenStyle: () => _openPlayerStyleSheet(context),
+            onOpenMore: presentation.isTrackTransitioning
+                ? null
+                : _openMoreSheet,
+            background: Stack(
+              fit: StackFit.expand,
+              children: [
+                Consumer(
+                  builder: (context, ref, _) => PlayerBackdrop(
+                    motionActive:
+                        backdrop.backdropKind != AppPlayerBackdropKind.fluid ||
+                        ref.watch(
+                          playerControllerProvider.select((s) => s.isPlaying),
+                        ),
+                    backdropKind: backdrop.backdropKind,
+                    imageProvider: backdropImageProvider,
+                    track: displayedTrack,
+                    isPortrait: usePortraitArtistPhoto,
+                    artistPhotoImageProviderBuilder:
+                        widget.artistPhotoImageProviderBuilder,
+                    onClassicPaletteChanged: scenePalette == null
+                        ? null
+                        : _handleClassicPaletteChanged,
+                  ),
+                ),
+                if (backdrop.backdropKind ==
+                        AppPlayerBackdropKind.artistPhoto &&
+                    config.playerWideView != AppPlayerWideView.cover)
+                  const LyricPhotoDimmer(),
+              ],
+            ),
+            stageMaxWidth: stage.stageMaxWidth,
+            stageAspectRatio: stage.stageKind == AppPlayerStageKind.cassette
+                ? cassettePlayerStageAspectRatio
+                : 1,
+            metadataHeight: PlayerTrackHeader.resolveLayoutHeight(context),
+            // The classic sleeve paints its visible cover at 94% of the stage.
+            metadataWidthFactor: stage.stageKind == AppPlayerStageKind.classic
+                ? .94
+                : 1,
+            hasStage:
+                backdrop.backdropKind != AppPlayerBackdropKind.artistPhoto,
+            stage: backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto
+                ? const SizedBox.expand()
+                : PlayerStyleStage(
+                    stageKind: stage.stageKind,
+                    track: displayedTrack,
+                    maxWidth: stage.stageMaxWidth,
+                    cassetteLabel:
+                        stage.stageKind == AppPlayerStageKind.cassette
+                        ? PlayerTrackHeader(
+                            noTrackText: AppI18n.tByLocaleCode(
+                              config.localeCode,
+                              'player.noTrack',
+                            ),
+                            artistSlotWidth: 220,
+                            layout: PlayerTrackHeaderLayout.cassetteLabel,
+                            showCassetteMetadataBadges: false,
+                            onOpenQuality: () =>
+                                _openCurrentQualitySheet(context, controller),
+                            onOpenSpeed: () => _openSpeedSheet(
+                              context,
+                              controller,
+                              ref.read(
+                                playerControllerProvider.select((s) => s.speed),
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+            lyrics: buildLyricPage(showControls: false),
+            metadata: Row(
+              children: [
+                Expanded(
+                  child: PlayerTrackHeader(
+                    noTrackText: AppI18n.tByLocaleCode(
+                      config.localeCode,
+                      'player.noTrack',
+                    ),
+                    artistSlotWidth: 220,
+                    onOpenArtist: onOpenArtist,
+                    onOpenQuality: () =>
+                        _openCurrentQualitySheet(context, controller),
+                    onOpenSpeed: () => _openSpeedSheet(
+                      context,
+                      controller,
+                      ref.read(playerControllerProvider.select((s) => s.speed)),
+                    ),
+                  ),
+                ),
+                const _PlayerFavoriteButton(),
+              ],
+            ),
+            progress: _PlayerProgressSection(onSeek: seek),
+            controls: _PlayerControlSection(
+              controller: controller,
+              compactLayout: true,
+              onOpenQueue: _openQueueSheet,
+            ),
+            actions: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Visibility(
+                  visible: config.playerWideView != AppPlayerWideView.cover,
+                  maintainSize: true,
+                  maintainState: true,
+                  maintainAnimation: true,
+                  child: const FullLyricControls(showPlaybackControl: false),
+                ),
+                _PlayerWideVolumeControl(controller: controller),
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
     return PopScope(
@@ -717,8 +874,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   void _requestSpectrumVisibilitySync() {
     final mode = _spectrumLayoutMode;
-    final stageVisible =
-        mode != PlayerLayoutMode.mobilePortrait || _currentPage == 0;
+    final stageVisible = _wideLayoutActive
+        ? _wideStageVisible
+        : mode != PlayerLayoutMode.mobilePortrait || _currentPage == 0;
     // macOS 窗口失去键盘焦点时会进入 inactive，但窗口和舞台仍然可见。
     final lifecycleAllowsCapture =
         _appLifecycleState == AppLifecycleState.resumed ||
@@ -2399,6 +2557,51 @@ class _PlayerControlSection extends ConsumerWidget {
       onPrevious: controller.playPrevious,
       onPlayPause: controller.togglePlayPause,
       onNext: controller.playNext,
+    );
+  }
+}
+
+class _PlayerWideVolumeControl extends ConsumerWidget {
+  const _PlayerWideVolumeControl({required this.controller});
+
+  final PlayerController controller;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final volume = ref.watch(
+      playerControllerProvider.select((state) => state.volume),
+    );
+    final locale = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
+    final foreground =
+        PlayerScenePalette.maybeOf(context)?.foreground ?? Colors.white;
+    return Row(
+      children: [
+        Icon(
+          volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+          color: foreground.withValues(alpha: .72),
+          size: 20,
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 3,
+              activeTrackColor: foreground,
+              inactiveTrackColor: foreground.withValues(alpha: .2),
+              thumbColor: foreground,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+            ),
+            child: Slider(
+              key: const ValueKey('player-wide-volume'),
+              label: AppI18n.tByLocaleCode(locale, 'player.action.volume'),
+              value: volume.clamp(0.0, 1.0),
+              onChanged: (value) => unawaited(controller.setVolume(value)),
+              semanticFormatterCallback: (value) => '${(value * 100).round()}%',
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

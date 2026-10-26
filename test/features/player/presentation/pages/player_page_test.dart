@@ -1,9 +1,12 @@
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/full_lyric_controls.dart';
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
+import 'package:he_music_flutter/app/config/app_player_wide_view.dart';
 import 'package:he_music_flutter/app/config/app_glass_mode.dart';
 import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -1482,80 +1486,301 @@ void main() {
     expect(find.textContaining('High Quality'), findsOneWidget);
   });
 
+  testWidgets(
+    'export wide player view previews',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1440, 900);
+      addTearDown(tester.view.reset);
+      final artwork = await tester.runAsync(() async {
+        await (FontLoader('WidePreview')..addFont(
+              File(
+                'test/assets/fonts/Roboto-Regular.ttf',
+              ).readAsBytes().then(ByteData.sublistView),
+            ))
+            .load();
+        await (FontLoader('WidePreviewCjk')..addFont(
+              File(
+                'test/assets/fonts/DroidSansFallback-PreviewSubset.ttf',
+              ).readAsBytes().then(ByteData.sublistView),
+            ))
+            .load();
+        await (FontLoader(
+          'MaterialIcons',
+        )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+        return File('test/assets/player/artist_photo.png').readAsBytes();
+      });
+      for (final view in AppPlayerWideView.values) {
+        const capture = ValueKey('wide-player-preview');
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: capture,
+            child: AppGlassScope(
+              enabled: true,
+              mode: AppGlassMode.low,
+              child: GlassAdaptiveScope(
+                minQuality: GlassQuality.minimal,
+                maxQuality: GlassQuality.minimal,
+                child: _buildPlayerTestApp(
+                  controllerFactory: () =>
+                      _WidePreviewPlayerController(artwork!),
+                  lyricDocument: _monetFixtureDocument,
+                  config: AppConfigState.initial.copyWith(
+                    localeCode: 'en',
+                    playerWideView: view,
+                  ),
+                  theme: ThemeData.dark().copyWith(
+                    textTheme: ThemeData.dark().textTheme.apply(
+                      fontFamily: 'WidePreview',
+                      fontFamilyFallback: ['WidePreviewCjk'],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.runAsync(
+          () => precacheImage(
+            MemoryImage(artwork!),
+            tester.element(find.byType(PlayerPage)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(capture),
+        );
+        await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          try {
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            final file = File('/tmp/he-wide-player-previews/${view.name}.png');
+            await file.parent.create(recursive: true);
+            await file.writeAsBytes(bytes!.buffer.asUint8List());
+          } finally {
+            image.dispose();
+          }
+        });
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }
+    },
+    skip: !const bool.fromEnvironment('GENERATE_WIDE_PLAYER_PREVIEWS'),
+  );
+
   for (final size in const [
-    Size(768, 1024),
+    Size(1000, 480),
     Size(1024, 768),
     Size(1366, 1024),
     Size(1440, 960),
+    Size(2560, 1080),
   ]) {
-    testWidgets('wide player switches full cover and lyrics at $size', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
-      await tester.binding.setSurfaceSize(size);
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        _buildPlayerTestApp(
-          controllerFactory: _OnlineTrackPlayerController.new,
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final pager = tester.widget<PageView>(find.byType(PageView));
-      expect(pager.controller!.page, 0);
-      expect(
-        find.byKey(const ValueKey('player-page-indicator')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('player-compact-lyric-preview')),
-        findsOneWidget,
-      );
-      expect(
-        find.byIcon(Icons.play_arrow_rounded).hitTestable(),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('lyric-play-control')).hitTestable(),
-        findsNothing,
-      );
-
-      await tester.tap(
-        find.byKey(const ValueKey('player-compact-lyric-preview')),
-      );
-      await tester.pumpAndSettle();
-      expect(pager.controller!.page, 1);
-      final lyrics = find.byType(PlayerLyricPage);
-      expect(tester.getSize(lyrics).width, greaterThan(size.width * .9));
-      expect(
-        find.byKey(const ValueKey('lyric-play-control')).hitTestable(),
-        findsOneWidget,
-      );
-      expect(
-        find.byIcon(Icons.play_arrow_rounded).hitTestable(),
-        findsOneWidget,
-      );
-
-      // Rotation keeps the selected full page instead of reintroducing two panes.
-      await tester.binding.setSurfaceSize(Size(size.height, size.width));
-      await tester.pumpAndSettle();
-      expect(pager.controller!.page, 1);
-      expect(
-        find.byKey(const ValueKey('lyric-play-control')).hitTestable(),
-        findsOneWidget,
-      );
-      await tester.drag(find.byType(PageView), Offset(size.height * .8, 0));
-      await tester.pumpAndSettle();
-      expect(pager.controller!.page, 0);
-      expect(
-        find.byIcon(Icons.play_arrow_rounded).hitTestable(),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-      debugDefaultTargetPlatformOverride = null;
-    });
+    testWidgets(
+      'wide player shares stable controls across three views at $size',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          _buildPlayerTestApp(
+            controllerFactory: _OnlineTrackPlayerController.new,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final footer = find.byKey(const ValueKey('player-wide-control-bar'));
+        final footerRect = tester.getRect(footer);
+        final playRect = tester.getRect(find.byIcon(Icons.play_arrow_rounded));
+        expect(footerRect.width, size.width);
+        expect(find.byType(PageView), findsNothing);
+        expect(find.byKey(const ValueKey('player-wide-stage')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('player-wide-lyrics')),
+          findsOneWidget,
+        );
+        for (final label in ['Cover', 'Lyrics', 'Split']) {
+          await tester.tap(find.text(label));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(footer), footerRect);
+          expect(
+            tester.getRect(find.byIcon(Icons.play_arrow_rounded)),
+            playRect,
+          );
+          expect(
+            find.byKey(const ValueKey('player-wide-stage')),
+            label == 'Lyrics' ? findsNothing : findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('player-wide-lyrics')),
+            label == 'Cover' ? findsNothing : findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('lyric-play-control')),
+            findsNothing,
+          );
+          expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+          final metadata = find.byKey(const ValueKey('player-track-header'));
+          if (label == 'Lyrics') {
+            expect(
+              find.descendant(of: footer, matching: metadata),
+              findsOneWidget,
+            );
+          } else {
+            final artworkRect = tester.getRect(
+              find.byKey(const ValueKey('player-stage-classic')),
+            );
+            final metadataRect = tester.getRect(metadata);
+            expect(
+              metadataRect.left,
+              closeTo(
+                tester
+                    .getRect(find.byKey(const ValueKey('classic-album-cover')))
+                    .left,
+                .1,
+              ),
+            );
+            expect(metadataRect.top - artworkRect.bottom, closeTo(20, .1));
+            expect(
+              find.descendant(of: footer, matching: metadata),
+              findsNothing,
+            );
+          }
+          expect(
+            tester
+                .getSize(find.byKey(const ValueKey('player-wide-volume')))
+                .width,
+            lessThanOrEqualTo(180),
+          );
+          expect(tester.takeException(), isNull, reason: '$size $label');
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(seconds: 2));
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
   }
+
+  testWidgets('wide lyrics view suspends spectrum until stage returns', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final spectrum = _RecordingRealtimeSpectrumController();
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: _SpectrumPlayerController.new,
+        spectrumController: spectrum,
+        config: AppConfigState.initial.copyWith(
+          localeCode: 'en',
+          playerStageId: AppPlayerStageRegistry.radialSpectrumId,
+        ),
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(spectrum.visibility, [true]);
+    await tester.tap(find.text('Lyrics'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(spectrum.visibility, [true, false]);
+    await tester.tap(find.text('Cover'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(spectrum.visibility, [true, false, true]);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('wide playback ticks only update progress and volume consumers', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    late _WidePlaybackTestController controller;
+    var pageBuilds = 0;
+    await tester.pumpWidget(
+      _buildPlayerTestApp(
+        controllerFactory: () => controller = _WidePlaybackTestController(),
+        onPlayerPageBuild: () => pageBuilds++,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final buildsBefore = pageBuilds;
+    controller.advance(const Duration(seconds: 42));
+    await tester.pump();
+    expect(pageBuilds, buildsBefore);
+    expect(
+      tester
+          .widget<Slider>(find.byKey(const ValueKey('player-progress-slider')))
+          .value,
+      42000,
+    );
+    final volume = tester.widget<Slider>(
+      find.byKey(const ValueKey('player-wide-volume')),
+    );
+    volume.onChanged!(.4);
+    await tester.pump();
+    expect(
+      tester
+          .widget<Slider>(find.byKey(const ValueKey('player-wide-volume')))
+          .value,
+      .4,
+    );
+    expect(pageBuilds, buildsBefore);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wide controls fit enlarged system text', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1024, 768));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('player-wide-layout')), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow_rounded).hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('wide view choice and narrow lyric page survive resizing', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(768, 1024));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('player-wide-layout')), findsNothing);
+    tester.widget<PageView>(find.byType(PageView)).controller!.jumpToPage(1);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('lyric-play-control')), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(1024, 768));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('player-wide-layout')), findsOneWidget);
+    await tester.tap(find.text('Cover'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('player-wide-lyrics')), findsNothing);
+
+    await tester.binding.setSurfaceSize(const Size(768, 1024));
+    await tester.pumpAndSettle();
+    expect(tester.widget<PageView>(find.byType(PageView)).controller!.page, 1);
+    expect(find.byKey(const ValueKey('lyric-play-control')), findsOneWidget);
+    await tester.binding.setSurfaceSize(const Size(1024, 768));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('player-wide-lyrics')), findsNothing);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   testWidgets('player page uses classic color backdrop by default', (
     tester,
@@ -2240,7 +2465,7 @@ void main() {
     );
   });
 
-  testWidgets('desktop cassette keeps metadata inside the label', (
+  testWidgets('wide cassette retains its label and shared footer metadata', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 960));
@@ -2264,7 +2489,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('player-track-header')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(tester.takeException(), isNull);
   });
@@ -2523,20 +2748,21 @@ void main() {
         _buildPlayerTestApp(
           controllerFactory: _OnlineTrackPlayerController.new,
           config: AppConfigState.initial.copyWith(
+            localeCode: 'en',
             playerLyricsId: option.metadata.id,
           ),
         ),
       );
       await tester.pump();
       await tester.pump();
-      tester.widget<PageView>(find.byType(PageView)).controller!.jumpToPage(1);
+      await tester.tap(find.text('Lyrics'));
       await tester.pumpAndSettle();
       expect(
         find.byType(FullLyricControls),
         findsOneWidget,
         reason: option.metadata.id,
       );
-      expect(find.byKey(const ValueKey('lyric-play-control')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lyric-play-control')), findsNothing);
       expect(
         find.byKey(const ValueKey('lyric-options-control')),
         findsOneWidget,
@@ -2562,9 +2788,9 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.byType(PageView), findsOneWidget, reason: '$size');
+      expect(find.byType(PageView), findsNothing, reason: '$size');
       expect(
-        find.byKey(const ValueKey<String>('player-mobile-primary-pane')),
+        find.byKey(const ValueKey<String>('player-wide-layout')),
         findsOneWidget,
         reason: '$size',
       );
@@ -2580,6 +2806,7 @@ void main() {
       Size(932, 430),
       Size(844, 390),
       Size(700, 420),
+      Size(1100, 500),
     ]) {
       await tester.binding.setSurfaceSize(size);
       await tester.pumpWidget(
@@ -2768,10 +2995,7 @@ void main() {
       final dimmer = find.byKey(const ValueKey('lyric-photo-dimmer'));
       expect(dimmer, findsOneWidget);
       expect(tester.getRect(dimmer), Offset.zero & size);
-      expect(
-        tester.widget<ColoredBox>(dimmer).color.a,
-        platform == TargetPlatform.android ? closeTo(.45, .005) : 0,
-      );
+      expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
 
       if (platform == TargetPlatform.android) {
         tester.view.physicalSize = const Size(390, 844);
@@ -2808,14 +3032,13 @@ void main() {
       }
       expect(tester.takeException(), isNull);
       if (platform != TargetPlatform.android) {
-        final pager = tester.widget<PageView>(find.byType(PageView));
-        pager.controller!.jumpToPage(1);
+        await tester.tap(find.text('Cover'));
+        await tester.pumpAndSettle();
+        expect(dimmer, findsNothing);
+        await tester.tap(find.text('Lyrics'));
         await tester.pumpAndSettle();
         expect(tester.getRect(dimmer), Offset.zero & size);
         expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
-        pager.controller!.jumpToPage(0);
-        await tester.pumpAndSettle();
-        expect(tester.widget<ColoredBox>(dimmer).color.a, 0);
       }
       debugDefaultTargetPlatformOverride = null;
     });
@@ -3525,6 +3748,7 @@ Widget _buildPlayerTestApp({
   required PlayerController Function() controllerFactory,
   BigInt? featureSupportFlag,
   AppConfigState? config,
+  ThemeData? theme,
   LyricDocument? lyricDocument,
   ScreenWakeLockPort? screenWakeLockPort,
   AudioSpectrumPort? spectrumPort,
@@ -3584,9 +3808,20 @@ Widget _buildPlayerTestApp({
     child: router != null
         ? MaterialApp.router(routerConfig: router)
         : MaterialApp(
+            debugShowCheckedModeBanner: theme == null,
+            theme: theme,
             navigatorObservers: <NavigatorObserver>[appPageRouteObserver],
             home: AppPlayerStyleBoundary(
-              child: PlayerPage(debugOnBuild: onPlayerPageBuild),
+              child: theme == null
+                  ? PlayerPage(debugOnBuild: onPlayerPageBuild)
+                  : Builder(
+                      builder: (context) => Theme(
+                        data: Theme.of(
+                          context,
+                        ).copyWith(textTheme: theme.textTheme),
+                        child: PlayerPage(debugOnBuild: onPlayerPageBuild),
+                      ),
+                    ),
             ),
           ),
   );
@@ -3729,6 +3964,42 @@ class _OnlineTrackPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _WidePreviewPlayerController extends _OnlineTrackPlayerController {
+  _WidePreviewPlayerController(this.artwork);
+
+  final Uint8List artwork;
+
+  @override
+  PlayerPlaybackState build() {
+    final initial = super.build();
+    return initial.copyWith(
+      queue: [
+        initial.queue.first.copyWith(
+          title: 'City Echoes',
+          artist: 'HE Music',
+          artworkBytes: artwork,
+        ),
+      ],
+      position: _monetFixturePosition,
+      duration: const Duration(minutes: 4, seconds: 10),
+    );
+  }
+}
+
+class _WidePlaybackTestController extends _OnlineTrackPlayerController {
+  void advance(Duration position) {
+    state = state.copyWith(
+      position: position,
+      duration: const Duration(minutes: 4),
+    );
+  }
+
+  @override
+  Future<void> setVolume(double value) async {
+    state = state.copyWith(volume: value);
+  }
 }
 
 class _SheetControlsPlayerController extends _OnlineTrackPlayerController {

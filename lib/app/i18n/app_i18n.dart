@@ -17,6 +17,9 @@ abstract final class AppI18n {
       'player.pause': '暂停',
       'player.previous': '上一首',
       'player.next': '下一首',
+      'player.view.cover': '封面',
+      'player.view.split': '双栏',
+      'player.view.lyrics': '歌词',
 
       'player.lyric.background_brightness': '背景明暗',
       'player.lyric.background_dark': '暗',
@@ -1004,6 +1007,9 @@ abstract final class AppI18n {
       'player.pause': 'Pause',
       'player.previous': 'Previous track',
       'player.next': 'Next track',
+      'player.view.cover': 'Cover',
+      'player.view.split': 'Split',
+      'player.view.lyrics': 'Lyrics',
 
       'player.lyric.background_brightness': 'Background brightness',
       'player.lyric.background_dark': 'Dark',

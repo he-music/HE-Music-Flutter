@@ -37,6 +37,7 @@ fl.LyricStyle buildLyricStyle({
   required AppLyricFontPreset fontPreset,
   required Color activeHighlightColor,
   bool center = false,
+  double fontScale = 1,
   String? fontFamily,
   List<String>? fontFamilyFallback,
 }) {
@@ -47,14 +48,14 @@ fl.LyricStyle buildLyricStyle({
       textStyle: TextStyle(
         fontFamily: fontFamily,
         fontFamilyFallback: fontFamilyFallback,
-        fontSize: sizes.inactive,
+        fontSize: fontScale * sizes.inactive,
         color: Colors.white70,
         height: 1.0,
       ),
       activeStyle: TextStyle(
         fontFamily: fontFamily,
         fontFamilyFallback: fontFamilyFallback,
-        fontSize: sizes.active,
+        fontSize: fontScale * sizes.active,
         height: 1.0,
         color: Colors.white,
         fontWeight: FontWeight.w500,
@@ -62,7 +63,7 @@ fl.LyricStyle buildLyricStyle({
       translationStyle: TextStyle(
         fontFamily: fontFamily,
         fontFamilyFallback: fontFamilyFallback,
-        fontSize: sizes.translation,
+        fontSize: fontScale * sizes.translation,
         color: Colors.white70,
       ),
       translationActiveColor: Colors.white,
@@ -78,23 +79,23 @@ fl.LyricStyle buildLyricStyle({
     textStyle: TextStyle(
       fontFamily: fontFamily,
       fontFamilyFallback: fontFamilyFallback,
-      fontSize: sizes.inactive,
+      fontSize: fontScale * sizes.inactive,
       color: Colors.white60,
     ),
     activeStyle: TextStyle(
       fontFamily: fontFamily,
       fontFamilyFallback: fontFamilyFallback,
-      fontSize: sizes.active,
+      fontSize: fontScale * sizes.active,
       color: Colors.white,
       fontWeight: FontWeight.w500,
     ),
     translationStyle: TextStyle(
       fontFamily: fontFamily,
       fontFamilyFallback: fontFamilyFallback,
-      fontSize: sizes.translation,
+      fontSize: fontScale * sizes.translation,
       color: Colors.white60,
     ),
-    lineGap: 16,
+    lineGap: 16 * fontScale,
     translationLineGap: 4,
     translationActiveColor: Colors.white,
     activeHighlightColor: activeHighlightColor,
@@ -107,6 +108,7 @@ class LyricPanel extends ConsumerStatefulWidget {
     required this.emptyText,
     this.compact = false,
     this.center = false,
+    this.fontScale = 1,
     this.onSeek,
     this.activeHighlightColorOverride,
     super.key,
@@ -115,6 +117,7 @@ class LyricPanel extends ConsumerStatefulWidget {
   final String emptyText;
   final bool compact;
   final bool center;
+  final double fontScale;
   final ValueChanged<Duration>? onSeek;
   final Color? activeHighlightColorOverride;
 
@@ -183,6 +186,7 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
             compact: widget.compact,
             fontPreset: config.lyricFontPreset,
             center: widget.center,
+            fontScale: widget.fontScale,
             activeHighlightColor: resolveLyricHighlightColorValues(
               mode: config.lyricHighlightMode,
               preset: config.lyricHighlightPreset,

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'app_glass_mode.dart';
 import 'app_lyric_auxiliary_mode.dart';
+import 'app_player_wide_view.dart';
 import '../../core/audio/cache/audio_cache_policy.dart';
 
 import 'app_custom_skin_config.dart';
@@ -40,6 +41,7 @@ const _githubDownloadProxyIdKey = 'app_config.github_download_proxy_id';
 const _playerStageIdKey = 'app_config.player_stage_id';
 const _playerBackdropIdKey = 'app_config.player_backdrop_id';
 const _playerLyricsIdKey = 'app_config.player_lyrics_id';
+const _playerWideViewKey = 'app_config.player_wide_view';
 const _legacyPlayerStyleIdKey = 'app_config.player_style_id';
 const _legacyLyricHighlightColorKey = 'app_config.lyric_highlight_color';
 const _lyricHighlightModeKey = 'app_config.lyric_highlight_mode';
@@ -156,6 +158,9 @@ class AppConfigDataSource {
       playerStageId: playerStageId,
       playerBackdropId: playerBackdropId,
       playerLyricsId: playerLyricsId,
+      playerWideView: AppPlayerWideView.parse(
+        prefs.getString(_playerWideViewKey),
+      ),
       lyricHighlightMode: lyricHighlightMode,
       lyricHighlightPreset: _readLyricHighlightPreset(prefs),
       lyricHighlightCustomColor: _readLyricHighlightCustomColor(prefs),
@@ -245,6 +250,7 @@ class AppConfigDataSource {
       _playerLyricsIdKey,
       AppPlayerLyricsRegistry.instance.normalizeId(state.playerLyricsId),
     );
+    await prefs.setString(_playerWideViewKey, state.playerWideView.name);
     await prefs.setString(
       _lyricHighlightModeKey,
       state.lyricHighlightMode.value,

@@ -27,6 +27,7 @@ class PlayerLyricPage extends ConsumerStatefulWidget {
     this.artworkUrl,
     this.artworkBytes,
     this.center = false,
+    this.fontScale = 1,
   });
 
   final String emptyText;
@@ -34,6 +35,7 @@ class PlayerLyricPage extends ConsumerStatefulWidget {
   final String? artworkUrl;
   final Uint8List? artworkBytes;
   final bool center;
+  final double fontScale;
 
   @override
   ConsumerState<PlayerLyricPage> createState() => _PlayerLyricPageState();
@@ -83,6 +85,7 @@ class _PlayerLyricPageState extends ConsumerState<PlayerLyricPage> {
             emptyText: widget.emptyText,
             onSeek: widget.onSeek,
             center: widget.center,
+            fontScale: widget.fontScale,
             activeHighlightColorOverride: snapshot.data,
           );
         },

@@ -21,6 +21,29 @@ final _testLyricPositionProvider =
     );
 
 void main() {
+  test('wide font scale is opt in and keeps the selected font proportions', () {
+    for (final preset in AppLyricFontPreset.values) {
+      final normal = buildLyricStyle(
+        compact: false,
+        fontPreset: preset,
+        activeHighlightColor: Colors.cyan,
+      );
+      final wide = buildLyricStyle(
+        compact: false,
+        fontPreset: preset,
+        activeHighlightColor: Colors.cyan,
+        fontScale: 1.5,
+      );
+      expect(wide.textStyle.fontSize, normal.textStyle.fontSize! * 1.5);
+      expect(wide.activeStyle.fontSize, normal.activeStyle.fontSize! * 1.5);
+      expect(
+        wide.translationStyle.fontSize,
+        normal.translationStyle.fontSize! * 1.5,
+      );
+      expect(wide.lineGap, normal.lineGap * 1.5);
+    }
+  });
+
   test('buildFlutterLyricModel should pass lyric offset to flutter_lyric', () {
     const document = LyricDocument(
       offset: 180,
