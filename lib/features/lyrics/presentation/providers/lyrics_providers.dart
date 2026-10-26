@@ -142,14 +142,15 @@ String? _nullableString(dynamic value) {
   return normalized;
 }
 
-final displayedLyricDocumentProvider = Provider<AsyncValue<LyricDocument>>((
-  ref,
-) {
-  final mode = ref.watch(
-    appConfigProvider.select((config) => config.lyricAuxiliaryMode),
-  );
-  return ref.watch(currentLyricDocumentProvider).whenData(mode.project);
-});
+// Release cached dependencies while hidden so remounting during layout does not
+// flush stale lyric state and schedule a provider refresh during widget build.
+final displayedLyricDocumentProvider =
+    Provider.autoDispose<AsyncValue<LyricDocument>>((ref) {
+      final mode = ref.watch(
+        appConfigProvider.select((config) => config.lyricAuxiliaryMode),
+      );
+      return ref.watch(currentLyricDocumentProvider).whenData(mode.project);
+    });
 
 final lyricStoreProvider = Provider<LyricStore>((ref) => LyricStore.shared);
 
