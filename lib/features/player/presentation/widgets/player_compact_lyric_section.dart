@@ -7,7 +7,9 @@ import '../../../lyrics/domain/entities/lyric_line.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
 import '../providers/player_providers.dart';
 
-final _compactLyricTextProvider = Provider<String>((ref) {
+// Release cached dependencies while hidden so remounting during layout does not
+// flush stale dependencies and schedule a provider refresh during widget build.
+final _compactLyricTextProvider = Provider.autoDispose<String>((ref) {
   final position = ref.watch(lyricPositionProvider);
   final documentAsync = ref.watch(currentLyricDocumentProvider);
   return documentAsync.when(

@@ -15,7 +15,69 @@ final _testPositionProvider =
       _TestPositionController.new,
     );
 
+final _testDocumentProvider =
+    NotifierProvider<_TestDocumentController, LyricDocument>(
+      _TestDocumentController.new,
+    );
+
 void main() {
+  for (final updateDocument in [false, true]) {
+    final source = updateDocument ? 'document' : 'progress';
+    testWidgets('remounting compact lyric flushes inactive $source safely', (
+      tester,
+    ) async {
+      final container = ProviderContainer(
+        overrides: [
+          playerControllerProvider.overrideWith(_TestPlayerController.new),
+          currentLyricDocumentProvider.overrideWith(
+            (ref) => AsyncData(ref.watch(_testDocumentProvider)),
+          ),
+          lyricPositionProvider.overrideWith(
+            (ref) => ref.watch(_testPositionProvider),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      Widget app({required bool showLyric}) {
+        return UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: LayoutBuilder(
+                builder: (context, constraints) => showLyric
+                    ? PlayerCompactLyricSection(onTap: _noop)
+                    : const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(app(showLyric: true));
+      expect(find.text('第一句'), findsOneWidget);
+      await tester.pumpWidget(app(showLyric: false));
+
+      if (updateDocument) {
+        container
+            .read(_testDocumentProvider.notifier)
+            .update(
+              const LyricDocument(
+                lines: [LyricLine(start: Duration.zero, text: '新歌曲歌词')],
+              ),
+            );
+      } else {
+        container
+            .read(_testPositionProvider.notifier)
+            .update(const Duration(seconds: 2));
+      }
+      await tester.pumpWidget(app(showLyric: true));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(updateDocument ? '新歌曲歌词' : '第二句'), findsOneWidget);
+    });
+  }
+
   testWidgets('position updates within one line do not rebuild compact lyric', (
     tester,
   ) async {
@@ -139,6 +201,20 @@ class _TestPositionController extends Notifier<Duration> {
 
   void update(Duration position) {
     state = position;
+  }
+}
+
+class _TestDocumentController extends Notifier<LyricDocument> {
+  @override
+  LyricDocument build() => const LyricDocument(
+    lines: [
+      LyricLine(start: Duration.zero, text: '第一句'),
+      LyricLine(start: Duration(seconds: 2), text: '第二句'),
+    ],
+  );
+
+  void update(LyricDocument document) {
+    state = document;
   }
 }
 
