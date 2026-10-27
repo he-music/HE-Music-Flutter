@@ -7,6 +7,7 @@ class VideoSurfaceState {
     required this.duration,
     required this.aspectRatio,
     required this.volume,
+    this.rate = 1.0,
     required this.hasError,
   });
 
@@ -17,6 +18,7 @@ class VideoSurfaceState {
   final Duration duration;
   final double aspectRatio;
   final double volume;
+  final double rate;
   final bool hasError;
 
   VideoSurfaceState copyWith({
@@ -27,6 +29,7 @@ class VideoSurfaceState {
     Duration? duration,
     double? aspectRatio,
     double? volume,
+    double? rate,
     bool? hasError,
   }) {
     return VideoSurfaceState(
@@ -37,6 +40,7 @@ class VideoSurfaceState {
       duration: duration ?? this.duration,
       aspectRatio: aspectRatio ?? this.aspectRatio,
       volume: volume ?? this.volume,
+      rate: rate ?? this.rate,
       hasError: hasError ?? this.hasError,
     );
   }

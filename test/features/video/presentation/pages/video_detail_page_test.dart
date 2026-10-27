@@ -31,6 +31,7 @@ import 'package:he_music_flutter/features/video/domain/entities/video_plaza_page
 import 'package:he_music_flutter/features/video/domain/repositories/video_detail_repository.dart';
 import 'package:he_music_flutter/features/video/presentation/controllers/video_feed_controller.dart';
 import 'package:he_music_flutter/features/video/presentation/pages/video_detail_page.dart';
+import 'package:he_music_flutter/features/video/presentation/widgets/video_fullscreen_controls.dart';
 import 'package:he_music_flutter/features/video/presentation/providers/video_detail_providers.dart';
 import 'package:he_music_flutter/features/video/presentation/providers/video_feed_providers.dart';
 import 'package:he_music_flutter/features/video/presentation/providers/video_plaza_providers.dart';
@@ -41,6 +42,85 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:toastification/toastification.dart';
 
 void main() {
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('github.com/aaassseee/screen_brightness'),
+          (call) async =>
+              call.method == 'getApplicationScreenBrightness' ? 0.5 : null,
+        );
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('github.com/aaassseee/screen_brightness'),
+          null,
+        );
+  });
+  testWidgets(
+    'background pauses video while explicit PiP keeps the current session playing',
+    (tester) async {
+      const pipChannel = MethodChannel('com.hemusic/video_pip');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(pipChannel, (_) async => true);
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(pipChannel, null);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+      });
+      final factory = _FakeVideoPlaybackSurfaceFactory();
+      await tester.pumpWidget(
+        _buildTestApp(
+          repository: _FakeVideoDetailRepository(
+            detail: _buildDetail(id: 'mv-1', url: 'https://example.com/1.mp4'),
+          ),
+          factory: factory,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final surface = factory.sessions.single;
+      expect(surface.lastFullscreenBuilder, isNotNull);
+      final controls =
+          surface.lastFullscreenBuilder!(const SizedBox())
+              as VideoFullscreenControls;
+      expect(controls.content?.id, 'mv-1');
+      expect(controls.surface, same(surface));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(surface.state.isPlaying, isFalse);
+      await surface.play();
+      expect(
+        await controls.pictureInPicture.enter(
+          aspectRatio: surface.state.aspectRatio,
+          playing: true,
+        ),
+        isTrue,
+      );
+      final before = surface.pauseCallCount;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      expect(surface.pauseCallCount, before);
+      expect(surface.state.isPlaying, isTrue);
+
+      final stopped = Completer<void>();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            pipChannel.name,
+            pipChannel.codec.encodeMethodCall(const MethodCall('stopped')),
+            (_) => stopped.complete(),
+          );
+      await stopped.future;
+      await tester.pump();
+      expect(surface.state.isPlaying, isFalse);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('video detail uses light status bar icons', (tester) async {
     final repository = _FakeVideoDetailRepository(
       detail: _buildDetail(id: 'mv-1', url: 'https://example.com/mv-1.mp4'),
@@ -1146,6 +1226,7 @@ class _FakeVideoPlaybackSurface extends ChangeNotifier
   int pauseCallCount = 0;
   VideoSurfaceControls lastControls = VideoSurfaceControls.none;
   MaterialVideoControlsThemeData? lastMaterialTheme;
+  Widget Function(Widget)? lastFullscreenBuilder;
   final List<Duration> seekTargets = <Duration>[];
   int enterFullscreenCallCount = 0;
   int exitFullscreenCallCount = 0;
@@ -1168,9 +1249,12 @@ class _FakeVideoPlaybackSurface extends ChangeNotifier
     VideoSurfaceControls controls = VideoSurfaceControls.none,
     MaterialVideoControlsThemeData? materialControlsTheme,
     MaterialDesktopVideoControlsThemeData? materialDesktopControlsTheme,
+    Widget Function(Widget materialControls)? fullscreenControlsBuilder,
+    Future<void> Function()? onExitFullscreen,
   }) {
     lastControls = controls;
     lastMaterialTheme = materialControlsTheme;
+    lastFullscreenBuilder = fullscreenControlsBuilder;
     return Stack(
       key: key,
       children: <Widget>[Text('fake-video:${_state.aspectRatio}')],
@@ -1205,6 +1289,17 @@ class _FakeVideoPlaybackSurface extends ChangeNotifier
     _state = _state.copyWith(volume: volume);
     notifyListeners();
   }
+
+  @override
+  Future<void> setRate(double rate) async {
+    setState(_state.copyWith(rate: rate));
+  }
+
+  @override
+  void setFit(BoxFit fit) {}
+
+  @override
+  Future<void> replaceSource(Uri uri) async {}
 
   @override
   Future<void> enterFullscreen() async {

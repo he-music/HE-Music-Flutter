@@ -31,13 +31,14 @@ class VideoPlaybackState {
     VideoSlotKey? currentSlotKey,
     bool? isSwitchingQuality,
     Object? activeError,
+    bool clearError = false,
     Map<VideoSlotKey, VideoSlotState>? slotStates,
   }) {
     return VideoPlaybackState(
       currentIndex: currentIndex ?? this.currentIndex,
       currentSlotKey: currentSlotKey ?? this.currentSlotKey,
       isSwitchingQuality: isSwitchingQuality ?? this.isSwitchingQuality,
-      activeError: activeError ?? this.activeError,
+      activeError: clearError ? null : activeError ?? this.activeError,
       slotStates: slotStates ?? this.slotStates,
     );
   }

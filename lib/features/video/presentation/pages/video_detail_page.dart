@@ -20,6 +20,8 @@ import '../../domain/entities/video_detail_content.dart';
 import '../../domain/entities/video_detail_link.dart';
 import '../../domain/entities/video_detail_request.dart';
 import '../../playback/controllers/video_playback_controller.dart';
+import '../../playback/controllers/video_picture_in_picture_controller.dart';
+import '../widgets/video_fullscreen_controls.dart';
 import '../../playback/entities/video_playback_surface.dart';
 import '../../playback/entities/video_surface_state.dart';
 import '../../playback/providers/video_playback_surface_provider.dart';
@@ -86,6 +88,8 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
   /// 列表级视频播放控制器，页面只负责把交互意图转交给它。
   late final VideoPlaybackController _playbackController;
   late _VideoPlaybackBuildState _playbackBuildState;
+  final _pictureInPicture = VideoPictureInPictureController();
+  ({bool playing, double aspectRatio})? _pipPlayback;
 
   /// 每个索引的详情加载状态。
   final Map<int, _ItemLoadState> _itemStates = {};
@@ -118,6 +122,13 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
       uriBuilder: _buildVideoUri,
     )..addListener(_handlePlaybackChanged);
     _playbackBuildState = _readPlaybackBuildState();
+    _pictureInPicture.onTogglePlayback = () {
+      unawaited(_playbackController.togglePlayPause());
+    };
+    _pictureInPicture.onStopped = () {
+      unawaited(_playbackController.pauseCurrent());
+    };
+    unawaited(_pictureInPicture.initialize());
     // 暂停音乐播放器，加载首个视频详情
     Future.microtask(() async {
       final playerState = ref.read(playerControllerProvider);
@@ -133,6 +144,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
     WidgetsBinding.instance.removeObserver(this);
     _controlsTimer?.cancel();
     _pageController.dispose();
+    _pictureInPicture.dispose();
     _playbackController.removeListener(_handlePlaybackChanged);
     _playbackController.dispose();
     unawaited(_restoreWindowModeAndBrightness());
@@ -140,6 +152,22 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
   }
 
   void _handlePlaybackChanged() {
+    final surface = _playbackController.currentSurface;
+    if (surface != null) {
+      final value = (
+        playing: surface.state.isPlaying,
+        aspectRatio: surface.state.aspectRatio,
+      );
+      if (value != _pipPlayback) {
+        _pipPlayback = value;
+        unawaited(
+          _pictureInPicture.updatePlayback(
+            playing: value.playing,
+            aspectRatio: value.aspectRatio,
+          ),
+        );
+      }
+    }
     final next = _readPlaybackBuildState();
     if (_playbackBuildState == next) {
       return;
@@ -174,6 +202,16 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
   @override
   Future<bool> didPopRoute() {
     return _handleSystemBack();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden) &&
+        !_pictureInPicture.active &&
+        !_pictureInPicture.entering) {
+      unawaited(_playbackController.pauseCurrent());
+    }
   }
 
   @override
@@ -430,13 +468,29 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
     required VideoPlaybackSurface? player,
     required bool isCurrentPage,
   }) {
+    final theme = _materialControlsThemeFor(
+      player,
+      title: _currentVideoTitle(),
+    );
     final view = _VideoPlayerView(
       player: player,
       controls: _surfaceControlsForContext(),
-      materialControlsTheme: _materialControlsThemeFor(
-        player,
-        title: _currentVideoTitle(),
-      ),
+      materialControlsTheme: theme,
+      onExitFullscreen: () async {
+        await defaultExitNativeFullscreen();
+        await _restoreWindowModeAndBrightness();
+      },
+      fullscreenControlsBuilder: player == null || theme == null
+          ? null
+          : (_) => VideoFullscreenControls(
+              playback: _playbackController,
+              surface: player,
+              content: _details[_currentIndex],
+              title: _currentVideoTitle(),
+              gestureTheme: theme,
+              pictureInPicture: _pictureInPicture,
+              onExit: player.exitFullscreen,
+            ),
     );
     return GestureDetector(
       onTap: isCurrentPage ? _handleVideoTap : null,
@@ -870,7 +924,12 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
   Future<void> _toggleFullscreen() async {
     await _pendingPlaybackPageChange;
     if (!mounted) return;
-    unawaited(_primeFullscreenGestureValues());
+    await _primeFullscreenGestureValues();
+    if (!mounted) return;
+    setState(() {});
+    // Rebuild the view with the primed brightness before creating its route.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     await _playbackController.currentSurface?.enterFullscreen();
   }
 
@@ -1159,11 +1218,15 @@ class _VideoPlayerView extends StatefulWidget {
     required this.player,
     required this.controls,
     required this.materialControlsTheme,
+    this.fullscreenControlsBuilder,
+    this.onExitFullscreen,
   });
 
   final VideoPlaybackSurface? player;
   final VideoSurfaceControls controls;
   final MaterialVideoControlsThemeData? materialControlsTheme;
+  final Widget Function(Widget materialControls)? fullscreenControlsBuilder;
+  final Future<void> Function()? onExitFullscreen;
 
   @override
   State<_VideoPlayerView> createState() => _VideoPlayerViewState();
@@ -1222,6 +1285,8 @@ class _VideoPlayerViewState extends State<_VideoPlayerView> {
                 child: player.buildView(
                   controls: widget.controls,
                   materialControlsTheme: materialControlsTheme,
+                  fullscreenControlsBuilder: widget.fullscreenControlsBuilder,
+                  onExitFullscreen: widget.onExitFullscreen,
                 ),
               ),
             ),

@@ -178,6 +178,122 @@ void main() {
     },
   );
 
+  test(
+    'fullscreen quality switch retains the surface and playback settings',
+    () async {
+      final factory = _FakeVideoPlaybackSurfaceFactory();
+      final controller = VideoPlaybackController(
+        surfaceFactory: factory,
+        uriBuilder: _buildUri,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(contents: _contents, initialIndex: 0);
+      final surface = controller.currentSurface! as _FakeVideoSurface;
+      surface.setState(
+        surface.state.copyWith(
+          position: const Duration(seconds: 36),
+          isPlaying: false,
+          rate: 1.5,
+          volume: 42,
+        ),
+      );
+      final createdCount = factory.createdUris.length;
+
+      expect(
+        await controller.switchQuality(
+          _contents.first.links.last,
+          preserveSurface: true,
+        ),
+        isTrue,
+      );
+
+      expect(controller.currentSurface, same(surface));
+      expect(factory.createdUris.length, createdCount);
+      expect(surface.disposeCallCount, 0);
+      expect(surface.state.position, const Duration(seconds: 36));
+      expect(surface.state.isPlaying, isFalse);
+      expect(surface.state.rate, 1.5);
+      expect(surface.state.volume, 42);
+      expect(
+        surface.sourceChanges.single,
+        Uri.parse('https://example.com/0-720.mp4'),
+      );
+      expect(
+        controller.state.currentSlot?.selectedQualityKey,
+        _contents.first.links.last.cacheKey,
+      );
+    },
+  );
+
+  test(
+    'failed fullscreen quality switch restores the original source and selected quality',
+    () async {
+      final factory = _FakeVideoPlaybackSurfaceFactory();
+      final controller = VideoPlaybackController(
+        surfaceFactory: factory,
+        uriBuilder: _buildUri,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(contents: _contents, initialIndex: 0);
+      final surface = controller.currentSurface! as _FakeVideoSurface;
+      surface.setState(
+        surface.state.copyWith(
+          position: const Duration(seconds: 36),
+          rate: 1.5,
+          volume: 42,
+        ),
+      );
+      surface.failNextSourceChange = true;
+
+      expect(
+        await controller.switchQuality(
+          _contents.first.links.last,
+          preserveSurface: true,
+        ),
+        isFalse,
+      );
+
+      expect(controller.currentSurface, same(surface));
+      expect(surface.sourceChanges, [
+        Uri.parse('https://example.com/0-720.mp4'),
+        Uri.parse('https://example.com/0-1080.mp4'),
+      ]);
+      expect(surface.state.position, const Duration(seconds: 36));
+      expect(surface.state.isPlaying, isTrue);
+      expect(surface.state.rate, 1.5);
+      expect(surface.state.volume, 42);
+      expect(
+        controller.state.currentSlot?.selectedQualityKey,
+        _contents.first.links.first.cacheKey,
+      );
+      expect(controller.state.isSwitchingQuality, isFalse);
+      expect(controller.state.activeError, isNotNull);
+      expect(
+        await controller.switchQuality(
+          _contents.first.links.last,
+          preserveSurface: true,
+        ),
+        isTrue,
+      );
+      expect(controller.state.activeError, isNull);
+    },
+  );
+
+  test('replacement quality switch also retains speed and volume', () async {
+    final factory = _FakeVideoPlaybackSurfaceFactory();
+    final controller = VideoPlaybackController(
+      surfaceFactory: factory,
+      uriBuilder: _buildUri,
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize(contents: _contents, initialIndex: 0);
+    final surface = controller.currentSurface! as _FakeVideoSurface;
+    surface.setState(surface.state.copyWith(rate: 1.5, volume: 42));
+    expect(await controller.switchQuality(_contents.first.links.last), isTrue);
+    expect(controller.currentSurface!.state.rate, 1.5);
+    expect(controller.currentSurface!.state.volume, 42);
+  });
+
   test('slot state reflects session buffering state', () async {
     final factory = _FakeVideoPlaybackSurfaceFactory();
     final controller = VideoPlaybackController(
@@ -300,6 +416,8 @@ class _FakeVideoSurface extends ChangeNotifier implements VideoPlaybackSurface {
     VideoSurfaceControls controls = VideoSurfaceControls.none,
     MaterialVideoControlsThemeData? materialControlsTheme,
     MaterialDesktopVideoControlsThemeData? materialDesktopControlsTheme,
+    Widget Function(Widget materialControls)? fullscreenControlsBuilder,
+    Future<void> Function()? onExitFullscreen,
   }) {
     return SizedBox(key: key);
   }
@@ -331,6 +449,26 @@ class _FakeVideoSurface extends ChangeNotifier implements VideoPlaybackSurface {
   @override
   Future<void> setVolume(double volume) async {
     setState(_state.copyWith(volume: volume));
+  }
+
+  @override
+  Future<void> setRate(double rate) async {
+    setState(_state.copyWith(rate: rate));
+  }
+
+  @override
+  void setFit(BoxFit fit) {}
+
+  final List<Uri> sourceChanges = [];
+  bool failNextSourceChange = false;
+
+  @override
+  Future<void> replaceSource(Uri uri) async {
+    sourceChanges.add(uri);
+    if (failNextSourceChange) {
+      failNextSourceChange = false;
+      throw StateError('source unavailable');
+    }
   }
 
   @override

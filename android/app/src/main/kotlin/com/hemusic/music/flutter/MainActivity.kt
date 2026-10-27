@@ -2,14 +2,17 @@ package com.hemusic.music.flutter
 
 import com.ryanheise.audioservice.AudioServiceActivity
 import android.os.StatFs
+import android.content.res.Configuration
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : AudioServiceActivity() {
+    private var videoPip: VideoPictureInPictureHandler? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        videoPip = VideoPictureInPictureHandler(this, messenger)
         MethodChannel(
             messenger,
             "com.hemusic/audio_cache_capacity",
@@ -38,5 +41,21 @@ class MainActivity : AudioServiceActivity() {
                 result.error("capacity_unavailable", "Cache capacity is unavailable", null)
             }
         }
+    }
+
+    override fun onPictureInPictureModeChanged(active: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(active, newConfig)
+        videoPip?.onModeChanged(active)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        videoPip?.onStopped()
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        videoPip?.dispose()
+        videoPip = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 }

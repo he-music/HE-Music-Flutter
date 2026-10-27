@@ -24,6 +24,8 @@ abstract class VideoPlaybackSurface extends Listenable {
     VideoSurfaceControls controls = VideoSurfaceControls.none,
     MaterialVideoControlsThemeData? materialControlsTheme,
     MaterialDesktopVideoControlsThemeData? materialDesktopControlsTheme,
+    Widget Function(Widget materialControls)? fullscreenControlsBuilder,
+    Future<void> Function()? onExitFullscreen,
   });
 
   Future<void> play();
@@ -34,6 +36,12 @@ abstract class VideoPlaybackSurface extends Listenable {
 
   Future<void> setVolume(double volume);
 
+  Future<void> setRate(double rate);
+
+  void setFit(BoxFit fit);
+
+  /// Reopen media without replacing the Video widget or its fullscreen route.
+  Future<void> replaceSource(Uri uri);
   Future<void> enterFullscreen();
 
   Future<void> exitFullscreen();
@@ -117,6 +125,9 @@ class MediaKitVideoPlaybackSurface extends ChangeNotifier
       player.stream.volume.listen((dynamic value) {
         _updateState(_state.copyWith(volume: value as double));
       }),
+      player.stream.rate.listen((value) {
+        _updateState(_state.copyWith(rate: value));
+      }),
       player.stream.error.listen((dynamic value) {
         _updateState(_state.copyWith(hasError: true));
       }),
@@ -154,17 +165,23 @@ class MediaKitVideoPlaybackSurface extends ChangeNotifier
     VideoSurfaceControls controls = VideoSurfaceControls.none,
     MaterialVideoControlsThemeData? materialControlsTheme,
     MaterialDesktopVideoControlsThemeData? materialDesktopControlsTheme,
+    Widget Function(Widget materialControls)? fullscreenControlsBuilder,
+    Future<void> Function()? onExitFullscreen,
   }) {
     final video = Video(
       key: key ?? _videoKey,
       controller: controller,
       fit: fit,
+      // The page handles lifecycle pauses, allowing Android PiP to keep playing.
+      pauseUponEnteringBackgroundMode: false,
+      onExitFullscreen: onExitFullscreen ?? defaultExitNativeFullscreen,
       controls: switch (controls) {
         VideoSurfaceControls.none => NoVideoControls,
         VideoSurfaceControls.material => MaterialVideoControls,
         VideoSurfaceControls.materialFullscreenOnly => (state) {
           if (isFullscreen(state.context)) {
-            return MaterialVideoControls(state);
+            final material = MaterialVideoControls(state);
+            return fullscreenControlsBuilder?.call(material) ?? material;
           }
           return const SizedBox.shrink();
         },
@@ -203,6 +220,44 @@ class MediaKitVideoPlaybackSurface extends ChangeNotifier
 
   @override
   Future<void> setVolume(double volume) => player.setVolume(volume);
+
+  @override
+  Future<void> setRate(double rate) => player.setRate(rate);
+
+  @override
+  void setFit(BoxFit fit) => _videoKey.currentState?.update(fit: fit);
+
+  @override
+  Future<void> replaceSource(Uri uri) async {
+    final previous = _state;
+    _updateState(_state.copyWith(hasError: false));
+    final ready = Completer<String?>();
+    final errors = player.stream.error.listen((message) {
+      if (!ready.isCompleted) ready.complete(message);
+    });
+    StreamSubscription<Duration>? duration;
+    try {
+      await player.open(Media(uri.toString()), play: false);
+      // open() queues the load; seeking before duration arrives can lose progress.
+      duration = player.stream.duration.listen((value) {
+        if (value > Duration.zero && !ready.isCompleted) ready.complete(null);
+      });
+      if (player.state.duration > Duration.zero && !ready.isCompleted) {
+        ready.complete(null);
+      }
+      final error = await ready.future.timeout(const Duration(seconds: 20));
+      if (error != null || _state.hasError) {
+        throw StateError(error ?? 'Failed to open video source');
+      }
+      await player.seek(previous.position);
+      await player.setVolume(previous.volume);
+      await player.setRate(previous.rate);
+      if (previous.isPlaying) await player.play();
+    } finally {
+      await duration?.cancel();
+      await errors.cancel();
+    }
+  }
 
   @override
   Future<void> enterFullscreen() async {

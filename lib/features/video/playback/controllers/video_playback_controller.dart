@@ -28,6 +28,7 @@ class VideoPlaybackController extends ChangeNotifier {
 
   final Map<int, VideoDetailContent> _contents = <int, VideoDetailContent>{};
   VideoPlaybackState _state = VideoPlaybackState.initial;
+  bool _disposed = false;
 
   VideoPlaybackState get state => _state;
 
@@ -117,41 +118,79 @@ class VideoPlaybackController extends ChangeNotifier {
     }
   }
 
-  Future<void> switchQuality(VideoDetailLink link) async {
+  Future<bool> switchQuality(
+    VideoDetailLink link, {
+    bool preserveSurface = false,
+  }) async {
     final pageIndex = _state.currentIndex;
     final slot = _slots[pageIndex];
-    if (slot == null) return;
+    if (slot == null || _state.isSwitchingQuality) return false;
+    if (slot.selectedLink.cacheKey == link.cacheKey) return true;
 
     final oldSurface = slot.surface;
-    final position = oldSurface.state.position;
-    final wasPlaying = oldSurface.state.isPlaying;
-    _state = _state.copyWith(isSwitchingQuality: true);
+    final previous = oldSurface.state;
+    _state = _state.copyWith(isSwitchingQuality: true, clearError: true);
     notifyListeners();
 
+    VideoPlaybackSurface? replacement;
     try {
-      final surface = await _surfaceFactory.create(
-        uri: _uriBuilder(slot.content, link),
-        autoplay: wasPlaying,
-        initialPosition: position,
-      );
-      if (surface.state.hasError) {
-        await surface.disposeSurface();
-        throw StateError('video quality switch failed');
+      final uri = _uriBuilder(slot.content, link);
+      if (preserveSurface) {
+        await oldSurface.replaceSource(uri);
+      } else {
+        replacement = await _surfaceFactory.create(
+          uri: uri,
+          autoplay: previous.isPlaying,
+          initialPosition: previous.position,
+        );
+        if (replacement.state.hasError) {
+          throw StateError('video quality switch failed');
+        }
+        await replacement.setVolume(previous.volume);
+        await replacement.setRate(previous.rate);
       }
-      _removeSurfaceListener(oldSurface);
-      await oldSurface.disposeSurface();
+      if (_disposed) {
+        await replacement?.disposeSurface();
+        return false;
+      }
+      final surface = replacement ?? oldSurface;
+      if (replacement != null) {
+        _removeSurfaceListener(oldSurface);
+        await oldSurface.disposeSurface();
+        _addSurfaceListener(surface);
+      }
       _slots[pageIndex] = _VideoPlaybackSlot(
         pageIndex: pageIndex,
         content: slot.content,
         selectedLink: link,
         surface: surface,
       );
-      _addSurfaceListener(surface);
       _state = _state.copyWith(isSwitchingQuality: false);
       _syncState();
+      return true;
     } catch (error) {
+      await replacement?.disposeSurface();
+      if (_disposed) return false;
+      if (preserveSurface) {
+        try {
+          await oldSurface.replaceSource(
+            _uriBuilder(slot.content, slot.selectedLink),
+          );
+          await oldSurface.seekTo(previous.position);
+          await oldSurface.setVolume(previous.volume);
+          await oldSurface.setRate(previous.rate);
+          if (previous.isPlaying) {
+            await oldSurface.play();
+          } else {
+            await oldSurface.pause();
+          }
+        } catch (_) {
+          // The UI reports failure; the original quality remains selected.
+        }
+      }
       _state = _state.copyWith(isSwitchingQuality: false, activeError: error);
-      notifyListeners();
+      _syncState();
+      return false;
     }
   }
 
@@ -173,6 +212,7 @@ class VideoPlaybackController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     final surfaces = _slots.values
         .map((slot) => slot.surface)
         .toList(growable: false);
@@ -244,6 +284,7 @@ class VideoPlaybackController extends ChangeNotifier {
   }
 
   void _syncState() {
+    if (_disposed) return;
     final slotStates = <VideoSlotKey, VideoSlotState>{};
     for (final slot in _slots.values) {
       final slotKey = _slotKeyForPage(slot.pageIndex);
