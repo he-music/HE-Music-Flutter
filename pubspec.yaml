@@ -132,6 +132,7 @@ flutter:
     - assets/player_styles/vinyl/preview.png
     - assets/player_styles/cassette/preview.png
     - assets/player_styles/artist_photo/preview.png
+    - assets/player_styles/album_cover/preview.png
     - assets/player_styles/radial_spectrum/preview.png
     - assets/player_styles/monet_lyrics/preview.png
     - assets/player_styles/fold_lyrics/preview.png

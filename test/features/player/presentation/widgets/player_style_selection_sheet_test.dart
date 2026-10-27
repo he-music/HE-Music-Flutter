@@ -258,6 +258,23 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets('专辑封面选项保存配置并更新双屏预览，面板高度保持不变', (tester) async {
+    final harness = await _pumpSheet(
+      tester,
+      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.granted),
+    );
+    final layout = find.byKey(const ValueKey('player-style-selection-layout'));
+    final before = tester.getRect(layout);
+    await _selectStyleOption(tester, axis: 'backdrop', optionId: 'album_cover');
+    expect(harness.config.state.playerBackdropId, 'album_cover');
+    expect(harness.config.state.playerStageId, 'classic');
+    expect(
+      find.byKey(const ValueKey('player-style-demo-album-cover')),
+      findsNWidgets(2),
+    );
+    expect(tester.getRect(layout), before);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('同时展示紧凑的封面页和歌词页预览', (tester) async {
     await _pumpSheet(
       tester,

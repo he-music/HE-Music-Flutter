@@ -82,7 +82,7 @@ class AppConfigState {
   final String? refreshToken;
   final int? tokenExpiresAt;
 
-  /// 写真歌词背景亮度：0 最暗，1 原图（无遮罩）。
+  /// 图片歌词背景亮度（写真和专辑封面共用）：0 最暗，1 原图（无遮罩）。
   final double lyricPhotoBrightness;
   final AppLyricAuxiliaryMode lyricAuxiliaryMode;
   final bool enablePlaybackAudioCache;

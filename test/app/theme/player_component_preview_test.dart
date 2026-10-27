@@ -66,6 +66,13 @@ void main() {
                       File('test/assets/player/artist_photo.png').readAsBytes(),
                 )
               : null;
+          final albumCoverBytes =
+              option.id == AppPlayerBackdropRegistry.albumCoverId
+              ? await tester.runAsync(_squareAlbumCoverBytes)
+              : null;
+          final albumCoverImage = albumCoverBytes == null
+              ? null
+              : MemoryImage(albumCoverBytes);
           final artistPhotoImage = artistPhotoBytes == null
               ? null
               : MemoryImage(artistPhotoBytes);
@@ -86,6 +93,7 @@ void main() {
                       axis: axis.key,
                       optionId: option.id,
                       artistPhotoPreviewImage: artistPhotoImage,
+                      albumCoverPreviewImage: albumCoverImage,
                     ),
                   ),
                 ),
@@ -96,6 +104,14 @@ void main() {
             await tester.runAsync(
               () => precacheImage(
                 artistPhotoImage,
+                tester.element(find.byKey(key)),
+              ),
+            );
+          }
+          if (albumCoverImage != null) {
+            await tester.runAsync(
+              () => precacheImage(
+                albumCoverImage,
                 tester.element(find.byKey(key)),
               ),
             );
@@ -149,6 +165,30 @@ void main() {
             (optionFilter.isNotEmpty && optionFilter != option.id),
       );
     }
+  }
+}
+
+Future<Uint8List> _squareAlbumCoverBytes() async {
+  final bytes = await File('test/assets/player/artist_photo.png').readAsBytes();
+  final codec = await ui.instantiateImageCodec(bytes);
+  final source = (await codec.getNextFrame()).image;
+  final recorder = ui.PictureRecorder();
+  paintImage(
+    canvas: Canvas(recorder),
+    rect: const Rect.fromLTWH(0, 0, 360, 360),
+    image: source,
+    fit: BoxFit.cover,
+  );
+  final picture = recorder.endRecording();
+  final square = await picture.toImage(360, 360);
+  try {
+    final png = (await square.toByteData(format: ui.ImageByteFormat.png))!;
+    return png.buffer.asUint8List();
+  } finally {
+    square.dispose();
+    picture.dispose();
+    source.dispose();
+    codec.dispose();
   }
 }
 

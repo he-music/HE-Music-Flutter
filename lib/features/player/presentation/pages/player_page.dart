@@ -531,8 +531,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                         : _handleClassicPaletteChanged,
                   ),
                 ),
-                if (backdrop.backdropKind ==
-                        AppPlayerBackdropKind.artistPhoto &&
+                if (backdrop.backdropKind.supportsLyricBrightness &&
                     config.playerWideView != AppPlayerWideView.cover)
                   const LyricPhotoDimmer(),
               ],
@@ -652,7 +651,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 ),
               ),
             ),
-            if (backdrop.backdropKind == AppPlayerBackdropKind.artistPhoto)
+            if (backdrop.backdropKind.supportsLyricBrightness)
               // 遮罩覆盖整张背景；翻页布局仅在歌词页按设置降低照片亮度。
               Positioned.fill(
                 child: LyricPhotoDimmer(

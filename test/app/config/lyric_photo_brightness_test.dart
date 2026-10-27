@@ -38,7 +38,7 @@ void main() {
       await controller.waitUntilHydrated();
       controller.setLyricPhotoBrightness(.4);
       controller.setPlayerBackdropId(AppPlayerBackdropRegistry.artistPhotoId);
-      controller.setPlayerBackdropId(AppPlayerBackdropRegistry.coverGradientId);
+      controller.setPlayerBackdropId(AppPlayerBackdropRegistry.albumCoverId);
       // The controller serializes saves; allow its local persistence queue to drain.
       await pumpEventQueue();
       final second = ProviderContainer();
@@ -47,7 +47,7 @@ void main() {
       expect(second.read(appConfigProvider).lyricPhotoBrightness, .4);
       expect(
         second.read(appConfigProvider).playerBackdropId,
-        AppPlayerBackdropRegistry.coverGradientId,
+        AppPlayerBackdropRegistry.albumCoverId,
       );
       second.read(appConfigProvider.notifier).setLyricPhotoBrightness(1);
       await pumpEventQueue();

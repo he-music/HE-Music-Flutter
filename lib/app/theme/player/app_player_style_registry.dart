@@ -1,4 +1,5 @@
 import 'app_player_style_models.dart';
+import 'styles/album_cover_player_backdrop.dart';
 import 'styles/artist_photo_player_style.dart';
 import 'styles/cadenza_lyrics_player_style.dart';
 import 'styles/cinema_lyrics_player_style.dart';
@@ -81,17 +82,20 @@ class AppPlayerBackdropRegistry {
       coverGradientPlayerBackdrop,
       fluidPlayerBackdrop,
       artistPhotoPlayerBackdrop,
+      albumCoverPlayerBackdrop,
     ]);
   }
 
   static const String coverGradientId = 'cover_gradient';
   static const String fluidId = 'fluid';
   static const String artistPhotoId = 'artist_photo';
+  static const String albumCoverId = 'album_cover';
 
   static const Set<String> builtInIds = <String>{
     coverGradientId,
     fluidId,
     artistPhotoId,
+    albumCoverId,
   };
 
   static final AppPlayerBackdropRegistry instance =

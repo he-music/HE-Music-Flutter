@@ -14,6 +14,11 @@ enum AppPlayerBackdropKind {
 
   /// 歌手写真满屏背景，与前景封面样式独立。
   artistPhoto,
+
+  /// 当前歌曲的封面满屏背景，不请求或切换歌手写真。
+  albumCover;
+
+  bool get supportsLyricBrightness => this == artistPhoto || this == albumCover;
 }
 
 /// 歌词（lyric）轴。

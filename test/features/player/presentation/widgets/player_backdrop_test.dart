@@ -12,6 +12,52 @@ import 'package:he_music_flutter/features/player/presentation/widgets/player_bac
 import 'package:mesh_gradient/mesh_gradient.dart';
 
 void main() {
+  testWidgets('专辑封面跟随歌曲图片更新和缺图兜底，不请求写真', (tester) async {
+    final cache = _TestArtistPhotoCache(
+      (_) async => throw StateError('No photo request expected'),
+    );
+    final container = _createContainer(cache);
+    addTearDown(container.dispose);
+    final first = _validImageProvider();
+    final next = _validImageProvider();
+    final cover = ValueNotifier<ImageProvider<Object>?>(first);
+    addTearDown(cover.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<ImageProvider<Object>?>(
+              valueListenable: cover,
+              builder: (context, image, _) => PlayerBackdrop(
+                backdropKind: AppPlayerBackdropKind.albumCover,
+                imageProvider: image,
+                track: _track,
+                artistPhotoImageProviderBuilder: (_) =>
+                    throw StateError('No photo image expected'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final backdrop = find.byKey(const ValueKey('player-backdrop-album-cover'));
+    final image = find.descendant(of: backdrop, matching: find.byType(Image));
+    expect(tester.widget<Image>(image).image, same(first));
+    expect(tester.widget<Image>(image).fit, BoxFit.cover);
+    cover.value = next;
+    await tester.pump();
+    expect(tester.widget<Image>(image).image, same(next));
+    await tester.pump(const Duration(seconds: 20));
+    expect(cache.requestedDirections, isEmpty);
+    cover.value = null;
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(backdrop, findsOneWidget);
+    expect(image, findsNothing);
+    expect(find.byType(DecoratedBox), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
   test('classic gradient keeps the cover hue recognizable', () {
     final colors = resolveClassicGradientColorsForTest([
       const Color(0xFF1E88E5),

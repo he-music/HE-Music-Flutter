@@ -142,20 +142,19 @@ void main() {
     );
   }
 
-  for (final photo in [false, true]) {
+  for (final backdrop in AppPlayerBackdropRegistry.instance.options) {
+    final photo = backdrop.backdropKind.supportsLyricBrightness;
     testWidgets(
-      'background brightness is shown only for artist photo: $photo',
+      'background brightness follows image backdrop support: ${backdrop.metadata.id}',
       (tester) async {
         await tester.pumpWidget(_app(store: _Store()));
         await tester.pumpAndSettle();
         final container = ProviderScope.containerOf(
           tester.element(find.byType(FullLyricControls)),
         );
-        if (photo) {
-          (container.read(appConfigProvider.notifier) as _Config)
-              .setPlayerBackdropId(AppPlayerBackdropRegistry.artistPhotoId);
-          await tester.pump();
-        }
+        (container.read(appConfigProvider.notifier) as _Config)
+            .setPlayerBackdropId(backdrop.metadata.id);
+        await tester.pump();
         await tester.tap(find.byKey(const ValueKey('lyric-options-control')));
         await tester.pumpAndSettle();
         expect(find.text('背景明暗'), photo ? findsOneWidget : findsNothing);

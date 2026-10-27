@@ -51,14 +51,14 @@ void main() {
     );
   });
 
-  test('backdrop registry exposes three unique backdrop options', () {
+  test('backdrop registry exposes four unique backdrop options', () {
     final registry = AppPlayerBackdropRegistry.builtIn();
 
     expect(
       registry.options.map((o) => o.metadata.id).toSet(),
       AppPlayerBackdropRegistry.builtInIds,
     );
-    expect(registry.options, hasLength(3));
+    expect(registry.options, hasLength(4));
     expect(registry.options.every((o) => o.isValid), isTrue);
     expect(
       registry.resolve(AppPlayerBackdropRegistry.coverGradientId).backdropKind,
@@ -71,6 +71,10 @@ void main() {
     expect(
       registry.resolve(AppPlayerBackdropRegistry.artistPhotoId).backdropKind,
       AppPlayerBackdropKind.artistPhoto,
+    );
+    expect(
+      registry.resolve(AppPlayerBackdropRegistry.albumCoverId).backdropKind,
+      AppPlayerBackdropKind.albumCover,
     );
     expect(
       registry.normalizeId(null),

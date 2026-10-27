@@ -314,11 +314,19 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
         imageProvider: widget.imageProvider,
         active: widget.motionActive,
       ),
-      AppPlayerBackdropKind.artistPhoto => _ArtistPhotoBackdrop(
+      AppPlayerBackdropKind.artistPhoto => _ImageBackdrop(
+        backdropKey: 'player-backdrop-artist-photo',
         visualState: _artistPhotoState,
         imageProvider: _resolveArtistPhotoImageProvider(photoIndex),
         imageKey: _resolveArtistPhotoImageKey(photoIndex),
         onImageError: _resolveArtistPhotoImageError(photoIndex),
+      ),
+      AppPlayerBackdropKind.albumCover => _ImageBackdrop(
+        backdropKey: 'player-backdrop-album-cover',
+        visualState: ArtistPhotoVisualState.coverFallback,
+        imageProvider: widget.imageProvider,
+        imageKey: 'album-cover-image',
+        onImageError: null,
       ),
     };
   }
@@ -590,14 +598,16 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
   }
 }
 
-class _ArtistPhotoBackdrop extends StatelessWidget {
-  const _ArtistPhotoBackdrop({
+class _ImageBackdrop extends StatelessWidget {
+  const _ImageBackdrop({
+    required this.backdropKey,
     required this.visualState,
     required this.imageProvider,
     required this.imageKey,
     required this.onImageError,
   });
 
+  final String backdropKey;
   final ArtistPhotoVisualState visualState;
   final ImageProvider<Object>? imageProvider;
   final String imageKey;
@@ -610,7 +620,7 @@ class _ArtistPhotoBackdrop extends StatelessWidget {
     final secondary = theme.colorScheme.secondary;
     final image = imageProvider;
     return Stack(
-      key: const ValueKey<String>('player-backdrop-artist-photo'),
+      key: ValueKey<String>(backdropKey),
       fit: StackFit.expand,
       children: <Widget>[
         // 底层渐变兜底，防止图片加载失败时纯黑。

@@ -395,8 +395,10 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 onSelected: controller.setPlayerLyricsId,
               ),
             ),
-            if (config.playerBackdropId ==
-                AppPlayerBackdropRegistry.artistPhotoId)
+            if (AppPlayerBackdropRegistry.instance
+                .resolve(config.playerBackdropId)
+                .backdropKind
+                .supportsLyricBrightness)
               const LyricPhotoBrightnessTile(),
             ListTile(
               leading: const Icon(Icons.text_fields),

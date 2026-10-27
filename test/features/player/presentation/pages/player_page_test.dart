@@ -3067,83 +3067,101 @@ void main() {
     },
   );
 
-  for (final (platform, size) in [
-    (TargetPlatform.android, const Size(844, 390)),
-    (TargetPlatform.iOS, const Size(1024, 768)),
-    (TargetPlatform.macOS, const Size(1440, 900)),
+  for (final backdropId in [
+    AppPlayerBackdropRegistry.artistPhotoId,
+    AppPlayerBackdropRegistry.albumCoverId,
   ]) {
-    testWidgets('artist photo dimmer covers the full background on $platform', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = platform;
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = size;
-      addTearDown(() {
-        debugDefaultTargetPlatformOverride = null;
-        tester.view.reset();
-      });
-      await tester.pumpWidget(
-        _buildPlayerTestApp(
-          controllerFactory: _OnlineTrackPlayerController.new,
-          config: AppConfigState.initial.copyWith(
-            localeCode: 'en',
-            playerBackdropId: AppPlayerBackdropRegistry.artistPhotoId,
-            lyricPhotoBrightness: .4,
-          ),
-        ),
+    for (final (platform, size) in [
+      (TargetPlatform.android, const Size(844, 390)),
+      (TargetPlatform.iOS, const Size(1024, 768)),
+      (TargetPlatform.macOS, const Size(1440, 900)),
+    ]) {
+      testWidgets(
+        '$backdropId dimmer covers the full background on $platform',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = size;
+          addTearDown(() {
+            debugDefaultTargetPlatformOverride = null;
+            tester.view.reset();
+          });
+          await tester.pumpWidget(
+            _buildPlayerTestApp(
+              controllerFactory: _OnlineTrackPlayerController.new,
+              config: AppConfigState.initial.copyWith(
+                localeCode: 'en',
+                playerBackdropId: backdropId,
+                lyricPhotoBrightness: .4,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final dimmer = find.byKey(const ValueKey('lyric-photo-dimmer'));
+          expect(dimmer, findsOneWidget);
+          expect(tester.getRect(dimmer), Offset.zero & size);
+          expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
+
+          if (platform == TargetPlatform.android) {
+            tester.view.physicalSize = const Size(390, 844);
+            await tester.pumpAndSettle();
+            expect(tester.widget<ColoredBox>(dimmer).color.a, 0);
+            final pager = tester.widget<PageView>(
+              find.byKey(const ValueKey<String>('player-mobile-pager')),
+            );
+            pager.controller!.jumpToPage(1);
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<ColoredBox>(dimmer).color.a,
+              closeTo(.45, .005),
+            );
+            expect(tester.getRect(dimmer), Offset.zero & const Size(390, 844));
+
+            tester.view.physicalSize = size;
+            await tester.pumpAndSettle();
+            expect(tester.getRect(dimmer), Offset.zero & size);
+            expect(
+              tester.widget<ColoredBox>(dimmer).color.a,
+              closeTo(.45, .005),
+            );
+
+            tester.view.physicalSize = const Size(390, 844);
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<ColoredBox>(dimmer).color.a,
+              closeTo(.45, .005),
+            );
+            expect(
+              tester
+                  .widget<PageView>(
+                    find.byKey(const ValueKey<String>('player-mobile-pager')),
+                  )
+                  .controller!
+                  .page,
+              1,
+            );
+            pager.controller!.jumpToPage(0);
+            await tester.pumpAndSettle();
+            expect(tester.widget<ColoredBox>(dimmer).color.a, 0);
+          }
+          expect(tester.takeException(), isNull);
+          if (platform != TargetPlatform.android) {
+            await tester.tap(find.text('Cover'));
+            await tester.pumpAndSettle();
+            expect(dimmer, findsNothing);
+            await tester.tap(find.text('Lyrics'));
+            await tester.pumpAndSettle();
+            expect(tester.getRect(dimmer), Offset.zero & size);
+            expect(
+              tester.widget<ColoredBox>(dimmer).color.a,
+              closeTo(.45, .005),
+            );
+          }
+          debugDefaultTargetPlatformOverride = null;
+        },
       );
-      await tester.pumpAndSettle();
-
-      final dimmer = find.byKey(const ValueKey('lyric-photo-dimmer'));
-      expect(dimmer, findsOneWidget);
-      expect(tester.getRect(dimmer), Offset.zero & size);
-      expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
-
-      if (platform == TargetPlatform.android) {
-        tester.view.physicalSize = const Size(390, 844);
-        await tester.pumpAndSettle();
-        expect(tester.widget<ColoredBox>(dimmer).color.a, 0);
-        final pager = tester.widget<PageView>(
-          find.byKey(const ValueKey<String>('player-mobile-pager')),
-        );
-        pager.controller!.jumpToPage(1);
-        await tester.pumpAndSettle();
-        expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
-        expect(tester.getRect(dimmer), Offset.zero & const Size(390, 844));
-
-        tester.view.physicalSize = size;
-        await tester.pumpAndSettle();
-        expect(tester.getRect(dimmer), Offset.zero & size);
-        expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
-
-        tester.view.physicalSize = const Size(390, 844);
-        await tester.pumpAndSettle();
-        expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
-        expect(
-          tester
-              .widget<PageView>(
-                find.byKey(const ValueKey<String>('player-mobile-pager')),
-              )
-              .controller!
-              .page,
-          1,
-        );
-        pager.controller!.jumpToPage(0);
-        await tester.pumpAndSettle();
-        expect(tester.widget<ColoredBox>(dimmer).color.a, 0);
-      }
-      expect(tester.takeException(), isNull);
-      if (platform != TargetPlatform.android) {
-        await tester.tap(find.text('Cover'));
-        await tester.pumpAndSettle();
-        expect(dimmer, findsNothing);
-        await tester.tap(find.text('Lyrics'));
-        await tester.pumpAndSettle();
-        expect(tester.getRect(dimmer), Offset.zero & size);
-        expect(tester.widget<ColoredBox>(dimmer).color.a, closeTo(.45, .005));
-      }
-      debugDefaultTargetPlatformOverride = null;
-    });
+    }
   }
 
   testWidgets('mobile landscape respects horizontal and bottom safe areas', (
