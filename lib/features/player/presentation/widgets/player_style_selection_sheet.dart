@@ -19,6 +19,16 @@ enum _PlayerStyleAxis { stage, backdrop, lyrics }
 class PlayerStyleSelectionSheet extends ConsumerStatefulWidget {
   const PlayerStyleSelectionSheet({this.track, super.key});
 
+  /// All categories share one resting height; option counts only affect scrolling.
+  static double heightFactorOf(BuildContext context) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final targetHeight =
+        (MediaQuery.sizeOf(context).width >= 600 ? 600 : 680) +
+        math.max(0, textScale - 1) * 80;
+    return math.min(0.84, targetHeight / screenHeight);
+  }
+
   final PlayerTrack? track;
   @override
   ConsumerState<PlayerStyleSelectionSheet> createState() =>
@@ -29,6 +39,18 @@ class _PlayerStyleSelectionSheetState
     extends ConsumerState<PlayerStyleSelectionSheet> {
   _PlayerStyleAxis _activeAxis = _PlayerStyleAxis.stage;
   String? _pendingStageId;
+
+  final _optionScrollControllers = {
+    for (final axis in _PlayerStyleAxis.values) axis: ScrollController(),
+  };
+
+  @override
+  void dispose() {
+    for (final controller in _optionScrollControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,47 +104,84 @@ class _PlayerStyleSelectionSheetState
       _PlayerStyleAxis.lyrics => _applyLyrics,
     };
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              label('player.action.style'),
-              style: Theme.of(context).textTheme.titleLarge,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.constrainHeight(
+          MediaQuery.sizeOf(context).height *
+              PlayerStyleSelectionSheet.heightFactorOf(context),
+        );
+        final wide = constraints.maxWidth >= 560;
+        final compact = wide && height < 480;
+        final previewWidth = compact
+            ? 64.0
+            : math.min(108.0 + (wide ? 16 : 0), math.max(48.0, height * 0.22));
+        final preview = PlayerStyleLivePreview(
+          stageId: selection.stageId,
+          backdropId: selection.backdropId,
+          lyricsId: selection.lyricsId,
+          localeCode: selection.localeCode,
+          track: widget.track,
+          previewWidth: previewWidth,
+        );
+        final grid = _StyleOptionGrid(
+          key: ValueKey(_activeAxis),
+          columns: wide && !compact ? 5 : 3,
+          controller: _optionScrollControllers[_activeAxis]!,
+          options: options,
+          selectedId: selectedId,
+          pendingId: _activeAxis == _PlayerStyleAxis.stage
+              ? _pendingStageId
+              : null,
+          onSelected: onSelected,
+        );
+        return SizedBox(
+          key: const ValueKey('player-style-selection-layout'),
+          height: height,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    label('player.action.style'),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  if (!compact) ...[preview, const SizedBox(height: 16)],
+                  _AxisTabBar(
+                    selected: _activeAxis,
+                    labels: <_PlayerStyleAxis, String>{
+                      _PlayerStyleAxis.stage: label('player.style.group.stage'),
+                      _PlayerStyleAxis.backdrop: label(
+                        'player.style.group.backdrop',
+                      ),
+                      _PlayerStyleAxis.lyrics: label(
+                        'player.style.group.lyrics',
+                      ),
+                    },
+                    onSelected: (axis) => setState(() => _activeAxis = axis),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: compact
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(width: 156, child: preview),
+                              const SizedBox(width: 20),
+                              Expanded(child: grid),
+                            ],
+                          )
+                        : grid,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            PlayerStyleLivePreview(
-              stageId: selection.stageId,
-              backdropId: selection.backdropId,
-              lyricsId: selection.lyricsId,
-              localeCode: selection.localeCode,
-              track: widget.track,
-            ),
-            const SizedBox(height: 16),
-            _AxisTabBar(
-              selected: _activeAxis,
-              labels: <_PlayerStyleAxis, String>{
-                _PlayerStyleAxis.stage: label('player.style.group.stage'),
-                _PlayerStyleAxis.backdrop: label('player.style.group.backdrop'),
-                _PlayerStyleAxis.lyrics: label('player.style.group.lyrics'),
-              },
-              onSelected: (axis) => setState(() => _activeAxis = axis),
-            ),
-            const SizedBox(height: 12),
-            _StyleOptionStrip(
-              options: options,
-              selectedId: selectedId,
-              pendingId: _activeAxis == _PlayerStyleAxis.stage
-                  ? _pendingStageId
-                  : null,
-              onSelected: onSelected,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -287,6 +346,7 @@ class _AxisTabBar extends StatelessWidget {
               20,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             for (final axis in _PlayerStyleAxis.values)
               Expanded(
@@ -308,7 +368,9 @@ class _AxisTabBar extends StatelessWidget {
                             style: theme.textTheme.labelLarge?.copyWith(
                               color: axis == selected
                                   ? colorScheme.onSurface
-                                  : colorScheme.onSurfaceVariant,
+                                  : colorScheme.onSurface.withValues(
+                                      alpha: 0.8,
+                                    ),
                               fontWeight: axis == selected
                                   ? FontWeight.w600
                                   : FontWeight.w400,
@@ -348,17 +410,19 @@ class _StyleOptionSpec {
   final String previewAsset;
 }
 
-class _StyleOptionStrip extends StatelessWidget {
-  const _StyleOptionStrip({
+class _StyleOptionGrid extends StatelessWidget {
+  const _StyleOptionGrid({
+    required this.columns,
+    required this.controller,
     required this.options,
     required this.selectedId,
     required this.pendingId,
     required this.onSelected,
+    super.key,
   });
 
-  static const double _itemWidth = 82;
-  static const double _spacing = 8;
-
+  final int columns;
+  final ScrollController controller;
   final List<_StyleOptionSpec> options;
   final String selectedId;
   final String? pendingId;
@@ -368,30 +432,30 @@ class _StyleOptionStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final contentWidth =
-            options.length * _itemWidth + (options.length - 1) * _spacing;
-        final centerOptions = contentWidth <= constraints.maxWidth;
-        return SingleChildScrollView(
-          key: const ValueKey<String>('player-style-option-strip'),
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          child: SizedBox(
-            width: centerOptions ? constraints.maxWidth : contentWidth,
-            child: Row(
-              mainAxisAlignment: centerOptions
-                  ? MainAxisAlignment.center
-                  : MainAxisAlignment.start,
-              children: <Widget>[
-                for (var index = 0; index < options.length; index++) ...[
-                  if (index > 0) const SizedBox(width: _spacing),
-                  _StyleOptionCard(
-                    spec: options[index],
-                    selected: options[index].id == selectedId,
-                    pending: options[index].id == pendingId,
-                    enabled: pendingId == null,
-                    onTap: () => onSelected(options[index].id),
+        const spacing = 12.0;
+        final itemWidth =
+            (constraints.maxWidth - (columns - 1) * spacing) / columns;
+        return Scrollbar(
+          controller: controller,
+          child: SingleChildScrollView(
+            key: const ValueKey('player-style-option-grid'),
+            controller: controller,
+            primary: false,
+            child: Wrap(
+              spacing: spacing,
+              runSpacing: 12,
+              children: [
+                for (final option in options)
+                  SizedBox(
+                    width: itemWidth,
+                    child: _StyleOptionCard(
+                      spec: option,
+                      selected: option.id == selectedId,
+                      pending: option.id == pendingId,
+                      enabled: pendingId == null,
+                      onTap: () => onSelected(option.id),
+                    ),
                   ),
-                ],
               ],
             ),
           ),
@@ -425,7 +489,7 @@ class _StyleOptionCard extends StatelessWidget {
       selected: selected,
       label: spec.label,
       child: SizedBox(
-        width: _StyleOptionStrip._itemWidth,
+        width: double.infinity,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -442,8 +506,8 @@ class _StyleOptionCard extends StatelessWidget {
                   children: <Widget>[
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      width: 60,
-                      height: 92,
+                      width: 82,
+                      height: 126,
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(7),
@@ -515,10 +579,10 @@ class _StyleOptionCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.labelSmall?.copyWith(
+                        style: theme.textTheme.labelMedium?.copyWith(
                           color: selected
                               ? colorScheme.onSurface
-                              : colorScheme.onSurfaceVariant,
+                              : colorScheme.onSurface.withValues(alpha: 0.8),
                           fontWeight: selected
                               ? FontWeight.w600
                               : FontWeight.w400,

@@ -16,6 +16,7 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   bool showDragHandle = true,
   double? fixedHeightFactor,
   double? heightFactor,
+  double? maxWidth,
   bool fitContent = false,
 }) {
   final inheritedTheme = Theme.of(context);
@@ -64,6 +65,7 @@ Future<T?> showPlayerStyledBottomSheet<T>({
               (isScrollControlled
                   ? LayoutTokens.playerActionSheetHeightFactor
                   : 0.45),
+          maxWidth: maxWidth,
           showDragHandle: showDragHandle,
           fitContent: fitContent,
           resolveTheme: (theme) => buildAppPlayerSheetTheme(
@@ -82,6 +84,7 @@ Future<T?> showPlayerStyledBottomSheet<T>({
           constraints:
               fixedHeightFactor == null && (fitContent || isScrollControlled)
               ? BoxConstraints(
+                  maxWidth: maxWidth ?? double.infinity,
                   maxHeight:
                       MediaQuery.sizeOf(context).height *
                       (heightFactor ??
@@ -89,7 +92,9 @@ Future<T?> showPlayerStyledBottomSheet<T>({
                               ? LayoutTokens.playerActionSheetHeightFactor
                               : 0.45)),
                 )
-              : null,
+              : maxWidth == null
+              ? null
+              : BoxConstraints(maxWidth: maxWidth),
           showDragHandle: false,
           backgroundColor: Colors.transparent,
           barrierColor: Colors.black.withValues(alpha: 0.54),

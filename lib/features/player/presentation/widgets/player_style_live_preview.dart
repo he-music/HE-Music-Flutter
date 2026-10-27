@@ -42,6 +42,7 @@ class PlayerStyleLivePreview extends StatelessWidget {
     required this.lyricsId,
     required this.localeCode,
     this.track,
+    this.previewWidth = 96,
     super.key,
   });
 
@@ -50,6 +51,7 @@ class PlayerStyleLivePreview extends StatelessWidget {
   final String lyricsId;
   final String localeCode;
   final PlayerTrack? track;
+  final double previewWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +71,7 @@ class PlayerStyleLivePreview extends StatelessWidget {
         children: <Widget>[
           Flexible(
             child: _PreviewPane(
+              width: previewWidth,
               label: AppI18n.tByLocaleCode(
                 localeCode,
                 'player.style.preview.cover',
@@ -88,6 +91,7 @@ class PlayerStyleLivePreview extends StatelessWidget {
           const SizedBox(width: 16),
           Flexible(
             child: _PreviewPane(
+              width: previewWidth,
               label: AppI18n.tByLocaleCode(
                 localeCode,
                 'player.style.preview.lyrics',
@@ -388,11 +392,13 @@ class _LyricStagePreview extends StatelessWidget {
 
 class _PreviewPane extends StatelessWidget {
   const _PreviewPane({
+    required this.width,
     required this.label,
     required this.frameKey,
     required this.child,
   });
 
+  final double width;
   final String label;
   final Key frameKey;
   final Widget child;
@@ -403,13 +409,13 @@ class _PreviewPane extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        _PreviewPhoneFrame(frameKey: frameKey, child: child),
+        _PreviewPhoneFrame(frameKey: frameKey, width: width, child: child),
         const SizedBox(height: 6),
         Text(
           label,
           textAlign: TextAlign.center,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
           ),
         ),
       ],
@@ -418,10 +424,14 @@ class _PreviewPane extends StatelessWidget {
 }
 
 class _PreviewPhoneFrame extends StatelessWidget {
-  const _PreviewPhoneFrame({required this.frameKey, required this.child});
+  const _PreviewPhoneFrame({
+    required this.frameKey,
+    required this.width,
+    required this.child,
+  });
 
   static const Size _logicalSize = Size(360, 640);
-  static const double _previewWidth = 96;
+  final double width;
 
   final Key frameKey;
   final Widget child;
@@ -433,7 +443,7 @@ class _PreviewPhoneFrame extends StatelessWidget {
     return RepaintBoundary(
       key: frameKey,
       child: SizedBox(
-        width: _previewWidth,
+        width: width,
         child: AspectRatio(
           aspectRatio: 9 / 16,
           child: DecoratedBox(

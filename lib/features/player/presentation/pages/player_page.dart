@@ -1443,6 +1443,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     showPlayerStyledBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      fixedHeightFactor: PlayerStyleSelectionSheet.heightFactorOf(context),
+      maxWidth: 640,
       showDragHandle: true,
       builder: (context) => PlayerStyleSelectionSheet(
         track: ref.read(playerControllerProvider).currentTrack,

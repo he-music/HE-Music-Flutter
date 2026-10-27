@@ -2,6 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+
+import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.dart';
 
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -14,6 +19,70 @@ import 'package:he_music_flutter/features/player/presentation/widgets/player_sty
 import '../../../../helpers/expect_text_height_fits.dart';
 
 void main() {
+  for (final glass in [false, true]) {
+    for (final size in [
+      const Size(390, 844),
+      const Size(880, 1000),
+      const Size(900, 430),
+    ]) {
+      testWidgets('三类选项切换和滚动保持面板与预览固定 glass=$glass size=$size', (tester) async {
+        final harness = await _pumpSheet(
+          tester,
+          _FakeSpectrumPermission(
+            current: RealtimeSpectrumPermissionState.granted,
+          ),
+          surfaceSize: size,
+          glass: glass,
+        );
+        final layout = find.byKey(
+          const ValueKey('player-style-selection-layout'),
+        );
+        final preview = find.byKey(
+          const ValueKey('player-style-live-preview-cover-frame'),
+        );
+        final tabs = find.byKey(const ValueKey('player-style-axis-stage'));
+        final layoutRect = tester.getRect(layout);
+        final previewRect = tester.getRect(preview);
+        final tabsRect = tester.getRect(tabs);
+        expect(layoutRect.width, lessThanOrEqualTo(640.01));
+
+        for (final axis in ['backdrop', 'lyrics', 'stage', 'lyrics']) {
+          await tester.tap(find.byKey(ValueKey('player-style-axis-$axis')));
+          for (var frame = 0; frame < 8; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(tester.getRect(layout), layoutRect);
+            expect(tester.getRect(preview), previewRect);
+            expect(tester.getRect(tabs), tabsRect);
+          }
+        }
+
+        final lyrics = AppPlayerLyricsRegistry.instance.options;
+        final columns = layoutRect.width >= 560 && layoutRect.height >= 480
+            ? 5
+            : 3;
+        final first = tester.getRect(
+          find.byKey(
+            ValueKey('player-style-option-${lyrics.first.metadata.id}'),
+          ),
+        );
+        final nextRow = tester.getRect(
+          find.byKey(
+            ValueKey('player-style-option-${lyrics[columns].metadata.id}'),
+          ),
+        );
+        expect(nextRow.top, greaterThan(first.bottom));
+        expect(nextRow.left, closeTo(first.left, 0.1));
+
+        final lastId = lyrics.last.metadata.id;
+        await _selectStyleOption(tester, axis: 'lyrics', optionId: lastId);
+        expect(harness.config.state.playerLyricsId, lastId);
+        expect(tester.getRect(layout), layoutRect);
+        expect(tester.getRect(preview), previewRect);
+        expect(tester.getRect(tabs), tabsRect);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
   testWidgets('style names and category tabs accommodate large text', (
     tester,
   ) async {
@@ -200,8 +269,8 @@ void main() {
         ValueKey<String>('player-style-live-preview-$page-frame'),
       );
       final previewSize = tester.getSize(preview);
-      expect(previewSize.width, 96);
-      expect(previewSize.height, closeTo(96 * 16 / 9, 0.01));
+      expect(previewSize.width, 108);
+      expect(previewSize.height, closeTo(108 * 16 / 9, 0.01));
       expect(
         find.byKey(ValueKey<String>('player-style-preview-$page')),
         findsOneWidget,
@@ -378,10 +447,13 @@ Future<_SheetHarness> _pumpSheet(
   _FakeSpectrumPermission permission, {
   Size surfaceSize = const Size(430, 1200),
   double textScale = 1,
+  bool glass = false,
   PlayerTrack? track,
 }) async {
-  await tester.binding.setSurfaceSize(surfaceSize);
-  addTearDown(() => tester.binding.setSurfaceSize(null));
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = surfaceSize;
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
   late _TestConfigController config;
   await tester.pumpWidget(
     ProviderScope(
@@ -392,22 +464,36 @@ Future<_SheetHarness> _pumpSheet(
         }),
         realtimeSpectrumPermissionPortProvider.overrideWithValue(permission),
       ],
-      child: MaterialApp(
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
-        ),
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => FilledButton(
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (context) => PlayerStyleSelectionSheet(track: track),
+      child: AppGlassScope(
+        enabled: glass,
+        mode: AppGlassMode.low,
+        child: GlassAdaptiveScope(
+          minQuality: GlassQuality.minimal,
+          maxQuality: GlassQuality.minimal,
+          initialQuality: GlassQuality.minimal,
+          child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => FilledButton(
+                  onPressed: () => showPlayerStyledBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    fixedHeightFactor: PlayerStyleSelectionSheet.heightFactorOf(
+                      context,
+                    ),
+                    maxWidth: 640,
+                    builder: (context) =>
+                        PlayerStyleSelectionSheet(track: track),
+                  ),
+                  child: const Text('Open'),
+                ),
               ),
-              child: const Text('Open'),
             ),
           ),
         ),

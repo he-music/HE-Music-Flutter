@@ -11,6 +11,14 @@ import '../skin/app_skin_theme.dart';
 const _sheetHorizontalMargin = 8.0;
 const _sheetBottomMargin = 8.0;
 
+double _horizontalMargin(BuildContext context, double? maxWidth) =>
+    maxWidth == null
+    ? _sheetHorizontalMargin
+    : ((MediaQuery.sizeOf(context).width - maxWidth) / 2).clamp(
+        _sheetHorizontalMargin,
+        double.infinity,
+      );
+
 /// A modal route whose glass and barrier resolve the live navigator theme.
 /// The public scaffold retains the package's detents and drag mechanics.
 Future<T?> showLiveGlassSheet<T>({
@@ -20,6 +28,7 @@ Future<T?> showLiveGlassSheet<T>({
   bool useSafeArea = true,
   bool showDragHandle = true,
   double heightFactor = 0.45,
+  double? maxWidth,
   // Fit shrink-wrapped content within heightFactor, keeping one detent.
   bool fitContent = false,
   ThemeData Function(ThemeData)? resolveTheme,
@@ -30,6 +39,7 @@ Future<T?> showLiveGlassSheet<T>({
       useSafeArea: useSafeArea,
       showDragHandle: showDragHandle,
       heightFactor: heightFactor,
+      maxWidth: maxWidth,
       fitContent: fitContent,
       resolveTheme: resolveTheme,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
@@ -43,6 +53,7 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
     required this.useSafeArea,
     required this.showDragHandle,
     required this.heightFactor,
+    required this.maxWidth,
     required this.fitContent,
     required this.resolveTheme,
     required this.barrierLabel,
@@ -52,6 +63,7 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
   final bool useSafeArea;
   final bool showDragHandle;
   final double heightFactor;
+  final double? maxWidth;
   final bool fitContent;
   final ThemeData Function(ThemeData)? resolveTheme;
   final _controller = GlassModalSheetController();
@@ -92,6 +104,7 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
           child: _MeasuredGlassSheetPage(
             enabled: fitContent,
             maxHeightFactor: heightFactor,
+            horizontalMargin: _horizontalMargin(context, maxWidth),
             showDragHandle: showDragHandle,
             contentBuilder: (sheetContext) => Material(
               type: MaterialType.transparency,
@@ -123,7 +136,7 @@ class _LiveGlassSheetRoute<T> extends PopupRoute<T> {
                 initialState: GlassSheetState.half,
                 detents: const {GlassSheetDetent.medium},
                 halfSize: fittedHeightFactor,
-                horizontalMargin: _sheetHorizontalMargin,
+                horizontalMargin: _horizontalMargin(context, maxWidth),
                 bottomMargin: _sheetBottomMargin,
                 topBorderRadius: 56,
                 fullTopBorderRadius: 46,
@@ -176,6 +189,7 @@ class _MeasuredGlassSheetPage extends StatefulWidget {
   const _MeasuredGlassSheetPage({
     required this.enabled,
     required this.maxHeightFactor,
+    required this.horizontalMargin,
     required this.showDragHandle,
     required this.contentBuilder,
     required this.pageBuilder,
@@ -183,6 +197,7 @@ class _MeasuredGlassSheetPage extends StatefulWidget {
 
   final bool enabled;
   final double maxHeightFactor;
+  final double horizontalMargin;
   final bool showDragHandle;
   final WidgetBuilder contentBuilder;
   final Widget Function(BuildContext, double, Widget) pageBuilder;
@@ -225,9 +240,9 @@ class _MeasuredGlassSheetPageState extends State<_MeasuredGlassSheetPage> {
           child: Padding(
             // Measure wrapping at the visible sheet's inset content width.
             padding: EdgeInsets.fromLTRB(
-              _sheetHorizontalMargin,
+              widget.horizontalMargin,
               widget.showDragHandle ? 20 : 0,
-              _sheetHorizontalMargin,
+              widget.horizontalMargin,
               0,
             ),
             child: widget.contentBuilder(context),
