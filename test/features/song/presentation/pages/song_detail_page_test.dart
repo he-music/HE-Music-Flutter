@@ -880,12 +880,15 @@ void main() {
   );
 
   for (final scenario in [
-    (width: 240.0, scale: 1.0),
-    (width: 390.0, scale: 1.0),
-    (width: 320.0, scale: 2.0),
+    (width: 240.0, scale: 1.0, glass: false),
+    (width: 390.0, scale: 1.0, glass: false),
+    (width: 320.0, scale: 2.0, glass: false),
+    (width: 240.0, scale: 1.0, glass: true),
+    (width: 390.0, scale: 1.0, glass: true),
+    (width: 320.0, scale: 2.0, glass: true),
   ]) {
     testWidgets(
-      'header places text beside cover and actions below at ${scenario.width}/${scenario.scale}',
+      'header places text beside cover and actions below at ${scenario.width}/${scenario.scale} glass=${scenario.glass}',
       (tester) async {
         await tester.binding.setSurfaceSize(Size(scenario.width, 1000));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -909,10 +912,14 @@ void main() {
               data: MediaQueryData(
                 textScaler: TextScaler.linear(scenario.scale),
               ),
-              child: const SongDetailPage(
-                id: 'song-1',
-                platform: 'qq',
-                title: '测试歌曲',
+              child: AppGlassScope(
+                enabled: scenario.glass,
+                mode: AppGlassMode.standard,
+                child: const SongDetailPage(
+                  id: 'song-1',
+                  platform: 'qq',
+                  title: '测试歌曲',
+                ),
               ),
             ),
           ),

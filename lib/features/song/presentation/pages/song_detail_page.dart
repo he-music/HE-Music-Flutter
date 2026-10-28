@@ -10,7 +10,10 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/glass/app_glass_material.dart';
 import '../../../../app/theme/glass/app_glass_scope.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
@@ -23,6 +26,7 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/helpers/root_route_navigation_helper.dart';
@@ -157,23 +161,30 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
               sliver: SliverMainAxisGroup(
                 slivers: <Widget>[
                   SliverToBoxAdapter(
+                    child: _SongDetailAppBar(
+                      title: song.title.trim().isEmpty
+                          ? widget.title
+                          : song.title,
+                      config: config,
+                      onBack: () => context.appPopOrGo(),
+                      onMore: (anchorContext) =>
+                          _showMoreSongActions(anchorContext, song, coverUrl),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       child: _SongHeroCard(
                         key: const ValueKey<String>(
                           'song-detail-header-compact',
                         ),
-                        config: config,
                         title: song.title.trim().isEmpty
                             ? widget.title
                             : song.title,
                         coverUrl: coverUrl,
                         artistLabel: song.artist,
                         albumLabel: song.album?.name.trim() ?? '',
-                        onBack: () => context.appPopOrGo(),
                         actions: _buildPrimaryActions(song, config),
-                        onMore: (anchorContext) =>
-                            _showMoreSongActions(anchorContext, song, coverUrl),
                         onTapArtist: song.artists.isEmpty
                             ? null
                             : () => unawaited(
@@ -420,29 +431,86 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
   }
 }
 
+class _SongDetailAppBar extends StatelessWidget {
+  const _SongDetailAppBar({
+    required this.title,
+    required this.config,
+    required this.onBack,
+    required this.onMore,
+  });
+
+  final String title;
+  final AppConfigState config;
+  final VoidCallback onBack;
+  final ValueChanged<BuildContext> onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleWidget = Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+    );
+    final moreButton = Builder(
+      builder: (buttonContext) => MusicDetailActionButton(
+        icon: const Icon(Icons.more_horiz_rounded),
+        tooltip: AppI18n.t(config, 'common.more'),
+        onPressed: () => onMore(buttonContext),
+      ),
+    );
+
+    return SizedBox(
+      key: const ValueKey<String>('song-detail-top-bar'),
+      height: kToolbarHeight,
+      child: AppGlassScope.controlsEnabled(context)
+          ? GlassAppBar(
+              toolbarHeight: kToolbarHeight,
+              centerTitle: false,
+              buttonSettings: AppGlassMaterial.settings(
+                context,
+                navigation: true,
+              ),
+              leading: MusicDetailActionButton(
+                icon: const AppSkinIcon(role: AppSkinIconRole.back),
+                tooltip: AppI18n.t(config, 'common.back'),
+                onPressed: onBack,
+              ),
+              title: titleWidget,
+              actions: <Widget>[moreButton],
+            )
+          : AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              leading: AppBackButton(onPressed: onBack),
+              title: titleWidget,
+              actions: <Widget>[moreButton],
+            ),
+    );
+  }
+}
+
 class _SongHeroCard extends StatelessWidget {
   const _SongHeroCard({
-    required this.config,
     required this.title,
     required this.coverUrl,
     required this.artistLabel,
     required this.albumLabel,
     required this.actions,
-    required this.onBack,
-    required this.onMore,
     this.onTapArtist,
     this.onTapAlbum,
     super.key,
   });
 
-  final AppConfigState config;
   final String title;
   final String coverUrl;
   final String artistLabel;
   final String albumLabel;
   final Widget actions;
-  final VoidCallback onBack;
-  final ValueChanged<BuildContext> onMore;
   final VoidCallback? onTapArtist;
   final VoidCallback? onTapAlbum;
 
@@ -452,31 +520,7 @@ class _SongHeroCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        SizedBox(
-          key: const ValueKey<String>('song-detail-top-bar'),
-          height: kToolbarHeight,
-          child: AppBar(
-            automaticallyImplyLeading: false,
-            toolbarHeight: kToolbarHeight,
-            leadingWidth: 40,
-            titleSpacing: 0,
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            leading: AppBackButton(onPressed: onBack),
-            title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-            actions: <Widget>[
-              Builder(
-                builder: (buttonContext) => IconButton(
-                  onPressed: () => onMore(buttonContext),
-                  icon: const Icon(Icons.more_horiz_rounded),
-                  tooltip: AppI18n.t(config, 'common.more'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 8),
         LayoutBuilder(
           builder: (context, constraints) {
             final coverSize = (constraints.maxWidth * 0.27)
@@ -636,7 +680,7 @@ class _HeroActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Icon(playIcon, size: 24),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         Text(playLabel),
       ],
     );
@@ -651,6 +695,7 @@ class _HeroActions extends StatelessWidget {
           GlassButton.custom(
             onTap: onPlay,
             label: playLabel,
+            shape: const LiquidRoundedRectangle(borderRadius: 16),
             useOwnLayer: true,
             quality: AppGlassScope.qualityOf(context),
             style: GlassButtonStyle.prominent,
@@ -659,12 +704,13 @@ class _HeroActions extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 48),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
+                  horizontal: 20,
                   vertical: 12,
                 ),
                 child: DefaultTextStyle(
                   style: theme.textTheme.labelLarge!.copyWith(
                     color: colors.onPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
                   child: IconTheme(
                     data: IconThemeData(color: colors.onPrimary),
@@ -679,8 +725,13 @@ class _HeroActions extends StatelessWidget {
             onPressed: onPlay,
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              textStyle: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             child: playContent,
           ),
