@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -91,6 +92,7 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
   int _artworkLoadGeneration = 0;
   int _songWatchGeneration = 0;
   int _visibleSongLimit = songPageSize;
+  Future<void>? _scanOperation;
 
   /// 当前搜索状态
   LocalLibrarySearchState searchState = const LocalLibrarySearchState();
@@ -111,7 +113,9 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
 
   @override
   Future<List<LocalSong>> build() async {
+    final artworkExtractor = ref.read(localArtworkExtractorProvider);
     ref.onDispose(() {
+      artworkExtractor.cancel();
       _debounceTimer?.cancel();
       _songSubscription?.cancel();
       _artistSubscription?.cancel();
@@ -141,26 +145,41 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     await prefs.setBool('local_sort_ascending', sortAscending);
   }
 
-  Future<void> scanLibrary() async {
+  Future<void> scanLibrary() => _scanOperation ??= _scanLibrary().whenComplete(
+    () => _scanOperation = null,
+  );
+
+  Future<void> _scanLibrary() async {
+    await ref.read(localArtworkExtractorProvider).cancelAndWait();
+    if (!ref.mounted) return;
     state = const AsyncLoading();
     final repository = ref.read(localMusicRepositoryProvider);
-    final granted = await repository.requestPermission();
-    if (!granted) {
-      state = AsyncError(permissionDeniedMessage, StackTrace.current);
-      return;
-    }
-    state = await AsyncValue.guard(repository.scanSongs);
-    if (state.hasValue) {
-      _startWatchingGroups();
-      // 提取完成后重新监听 DB 流，获取最新的 has_artwork 状态并加载封面
-      _startBackgroundArtworkExtraction().then((_) {
-        startWatchingSongs();
-      });
+    final result = await AsyncValue.guard(() async {
+      if (!await repository.requestPermission()) throw permissionDeniedMessage;
+      return repository.scanSongs();
+    });
+    if (!ref.mounted) return;
+    if (result.hasValue) {
+      // Resume paginated queries immediately; artwork batches update the same
+      // database stream without replacing the whole list after extraction.
+      startWatchingSongs();
+      unawaited(_startBackgroundArtworkExtraction());
+    } else {
+      state = result;
     }
   }
 
   Future<void> _startBackgroundArtworkExtraction() async {
-    await ref.read(localArtworkExtractorProvider).extractAll();
+    try {
+      await ref.read(localArtworkExtractorProvider).extractAll();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Artwork extraction failed',
+        name: 'LocalMusicScan',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// 开始监听分组数据流
@@ -324,10 +343,13 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
   }
 
   Future<void> clearLibrary() async {
+    await _scanOperation;
+    if (!ref.mounted) return;
+    final extractor = ref.read(localArtworkExtractorProvider);
+    await extractor.cancelAndWait();
+    if (!ref.mounted) return;
     final repository = ref.read(localMusicRepositoryProvider);
     await repository.clearLibrary();
-    final extractor = ref.read(localArtworkExtractorProvider);
-    extractor.cancel();
     await extractor.clearAllArtwork();
     _songSubscription?.cancel();
     _artistSubscription?.cancel();

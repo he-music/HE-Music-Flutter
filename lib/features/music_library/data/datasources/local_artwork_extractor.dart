@@ -7,18 +7,22 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/audio/local_audio_metadata_reader.dart';
 import 'local_music_dao.dart';
+import 'local_artwork_scan.dart';
 
 /// 后台封面提取器
 ///
-/// 扫描结束后查询 has_artwork=0 的歌曲，使用 Isolate 并发提取封面写入磁盘缓存。
-/// - 并发控制：最多 3 个文件同时处理
-/// - 可取消：用户离开页面或新扫描启动时取消当前任务
-/// - 容错：单个文件提取失败跳过，不阻塞后续
+/// 按文件指纹缓存封面检查结果，最多并发读取 3 个文件。
+/// 每 30 首批量更新数据库；取消后等待在途任务退出，避免旧任务覆盖新扫描。
 class LocalArtworkExtractor {
-  LocalArtworkExtractor(this._dao, this._metadataReader);
+  LocalArtworkExtractor(
+    this._dao,
+    this._metadataReader, {
+    Future<String> Function()? artworkDirectory,
+  }) : _artworkDirectory = artworkDirectory;
 
   final LocalMusicDao _dao;
   final LocalAudioMetadataReader _metadataReader;
+  final Future<String> Function()? _artworkDirectory;
 
   CancelableOperation? _currentOperation;
   String? _artworkDir;
@@ -26,10 +30,11 @@ class LocalArtworkExtractor {
   /// 获取封面缓存目录
   Future<String> get artworkDir async {
     if (_artworkDir != null) return _artworkDir!;
-    final appDir = await getApplicationDocumentsDirectory();
-    _artworkDir = p.join(appDir.path, 'artwork');
+    _artworkDir = _artworkDirectory != null
+        ? await _artworkDirectory()
+        : p.join((await getApplicationDocumentsDirectory()).path, 'artwork');
     final dir = Directory(_artworkDir!);
-    if (!dir.existsSync()) {
+    if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
     return _artworkDir!;
@@ -37,86 +42,81 @@ class LocalArtworkExtractor {
 
   /// 启动后台封面提取任务
   ///
-  /// 查询所有 has_artwork=0 的歌曲，并发提取封面。
-  /// 返回提取成功的数量。
+  /// 只检查未知封面或达到重试时间的失败项；确认无封面的文件无需重读。
+  /// 返回本次成功提取的数量。
   Future<int> extractAll() async {
-    // 取消之前的任务
-    cancel();
-
+    final previous = _currentOperation;
+    previous?.cancel();
     final operation = CancelableOperation();
     _currentOperation = operation;
-
     try {
-      final songsWithoutArtwork = await _dao.getSongsWithoutArtwork();
-      if (songsWithoutArtwork.isEmpty || operation.isCancelled) return 0;
-
+      await previous?.done;
+      if (operation.isCancelled) return 0;
+      final jobs = await _dao.getPendingArtwork();
+      if (jobs.isEmpty || operation.isCancelled) return 0;
       final dir = await artworkDir;
       var successCount = 0;
-      // 并发控制信号量
-      var running = 0;
-      final completer = Completer<void>();
-      var index = 0;
-
-      void processNext() {
-        while (running < 3 && index < songsWithoutArtwork.length) {
-          if (operation.isCancelled) {
-            if (!completer.isCompleted) completer.complete();
-            return;
+      for (var start = 0; start < jobs.length; start += 30) {
+        if (operation.isCancelled) break;
+        final chunk = jobs.sublist(start, (start + 30).clamp(0, jobs.length));
+        final results = <LocalArtworkResult>[];
+        var nextIndex = 0;
+        Future<void> worker() async {
+          while (!operation.isCancelled && nextIndex < chunk.length) {
+            final job = chunk[nextIndex++];
+            final result = await _extractSingle(job, dir, operation);
+            if (result != null) results.add(result);
           }
-          final filePath = songsWithoutArtwork[index++];
-          running++;
-          _extractSingle(filePath, dir)
-              .then((success) {
-                if (success) successCount++;
-              })
-              .catchError((_) {
-                // 单个文件失败跳过
-              })
-              .whenComplete(() {
-                running--;
-                if (index >= songsWithoutArtwork.length && running == 0) {
-                  if (!completer.isCompleted) completer.complete();
-                } else {
-                  processNext();
-                }
-              });
         }
-      }
 
-      processNext();
-      await completer.future;
+        await Future.wait(
+          List.generate(chunk.length < 3 ? chunk.length : 3, (_) => worker()),
+        );
+        if (operation.isCancelled) break;
+        await _dao.commitArtworkResults(results);
+        successCount += results
+            .where((result) => result.state == LocalArtworkState.present)
+            .length;
+      }
       return successCount;
     } finally {
-      if (_currentOperation == operation) {
-        _currentOperation = null;
-      }
+      operation.complete();
+      if (_currentOperation == operation) _currentOperation = null;
     }
   }
 
   /// 取消当前提取任务
   void cancel() {
     _currentOperation?.cancel();
-    _currentOperation = null;
+  }
+
+  Future<void> cancelAndWait() async {
+    final operation = _currentOperation;
+    operation?.cancel();
+    await operation?.done;
   }
 
   /// 提取单个文件的封面
-  Future<bool> _extractSingle(String filePath, String artworkDir) async {
+  Future<LocalArtworkResult?> _extractSingle(
+    LocalArtworkJob job,
+    String artworkDir,
+    CancelableOperation operation,
+  ) async {
     try {
-      final metadata = await _metadataReader.read(filePath, fetchArtwork: true);
-      if (metadata?.artworkBytes == null || metadata!.artworkBytes!.isEmpty) {
-        return false;
-      }
-
-      // SHA-256 文件名
-      final hash = sha256.convert(filePath.codeUnits).toString();
+      final bytes = await _metadataReader.readArtwork(job.filePath);
+      if (operation.isCancelled) return null;
+      final hash = sha256.convert(job.filePath.codeUnits).toString();
       final artworkFile = File(p.join(artworkDir, '$hash.jpg'));
-      await artworkFile.writeAsBytes(metadata.artworkBytes!);
-
-      // 更新 DB 标记
-      await _dao.markArtworkExtractedByFilePath(filePath);
-      return true;
+      if (bytes == null || bytes.isEmpty) {
+        if (await artworkFile.exists()) await artworkFile.delete();
+        return LocalArtworkResult(job, LocalArtworkState.absent);
+      }
+      await artworkFile.writeAsBytes(bytes);
+      if (operation.isCancelled) return null;
+      return LocalArtworkResult(job, LocalArtworkState.present);
     } catch (_) {
-      return false;
+      if (operation.isCancelled) return null;
+      return LocalArtworkResult(job, LocalArtworkState.failed);
     }
   }
 
@@ -144,7 +144,7 @@ class LocalArtworkExtractor {
 
   /// 清除全部封面缓存文件
   Future<void> clearAllArtwork() async {
-    cancel();
+    await cancelAndWait();
     final dir = Directory(await artworkDir);
     if (await dir.exists()) {
       await for (final file in dir.list()) {
@@ -227,6 +227,12 @@ class LocalArtworkExtractor {
 /// 可取消的异步操作
 class CancelableOperation {
   bool _isCancelled = false;
+  final _completion = Completer<void>();
+  Future<void> get done => _completion.future;
+
+  void complete() {
+    if (!_completion.isCompleted) _completion.complete();
+  }
 
   bool get isCancelled => _isCancelled;
 

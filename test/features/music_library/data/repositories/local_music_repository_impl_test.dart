@@ -407,6 +407,7 @@ class _FakeLocalAudioMetadataReader extends LocalAudioMetadataReader {
   Future<LocalAudioMetadata?> read(
     String filePath, {
     bool fetchArtwork = false,
+    bool fetchLyrics = true,
   }) async {
     readCount++;
     readPaths.add(filePath);

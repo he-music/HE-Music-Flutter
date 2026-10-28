@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: help codegen build-android build-macos build-ios build-linux build-windows regen \
+.PHONY: help codegen build-android build-macos build-ios build-linux build-windows build-windows-container regen \
 	check-build-tool check-macos-targets check-macos-host check-ios-targets check-linux-host check-windows-host
 
 RUST_MANIFEST := rust/Cargo.toml
@@ -34,6 +34,7 @@ help:
 	@echo "  make build-ios      # Rebuild iOS xcframework from current Rust sources"
 	@echo "  make build-linux    # Validate a Linux Rust plugin build on a Linux host"
 	@echo "  make build-windows  # Validate a Windows Rust plugin build on a Windows host"
+	@echo "  make build-windows-container  # Cross-build the Windows x64 DLL using Podman"
 	@echo "  make regen          # Run codegen + rebuild Android, macOS, and iOS artifacts"
 
 codegen:
@@ -116,6 +117,9 @@ build-linux: check-linux-host
 	CARGOKIT_OUTPUT_DIR="$(CURDIR)/linux" \
 	CARGOKIT_TARGET_PLATFORM=linux-x64 \
 	"$(RUN_BUILD_TOOL)" build-cmake
+
+build-windows-container:
+	bash scripts/build_windows_container.sh
 
 check-windows-host:
 	@if [ -n "$$OS" ] && [ "$$OS" = "Windows_NT" ]; then exit 0; fi; \

@@ -1,0 +1,28 @@
+# Build tools only: application users consume the checked-in Windows DLL.
+ARG RUST_IMAGE=docker.io/library/rust:1.94.1-slim-bookworm
+FROM ${RUST_IMAGE}
+
+ARG CARGO_XWIN_VERSION=0.23.1
+ARG PIP_INDEX_URL=https://pypi.org/simple
+ARG RUSTUP_DIST_SERVER=https://static.rust-lang.org
+ARG DEBIAN_MIRROR=http://deb.debian.org/debian
+
+RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install --no-install-recommends -y \
+        ca-certificates clang lld llvm python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /opt/windows-build \
+    && /opt/windows-build/bin/pip install --no-cache-dir \
+        --index-url "${PIP_INDEX_URL}" \
+        "cargo-xwin==${CARGO_XWIN_VERSION}" "pefile==2024.8.26"
+RUN RUSTUP_DIST_SERVER="${RUSTUP_DIST_SERVER}" \
+    rustup target add x86_64-pc-windows-msvc
+
+ENV PATH="/opt/windows-build/bin:/usr/lib/llvm-14/bin:${PATH}" \
+    CARGO_TARGET_DIR=/target \
+    CARGO_BUILD_JOBS=2 \
+    CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS="-C target-feature=+crt-static" \
+    XWIN_ARCH=x86_64 \
+    XWIN_CACHE_DIR=/xwin-cache
+WORKDIR /work

@@ -1,4 +1,5 @@
 import 'dart:io' show File, FileSystemException, Platform;
+import 'dart:developer' as developer;
 import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
 
@@ -39,6 +40,7 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
   final LocalMusicQueryDataSource _dataSource;
   final LocalAudioMetadataReader _metadataReader;
   final LocalMusicDao _dao;
+  Future<List<LocalSong>>? _scanInFlight;
 
   @override
   Future<bool> requestPermission() {
@@ -51,7 +53,12 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
   /// 1. 轻量元数据扫描（不含封面）→ 写入 DB
   /// 2. 后台封面提取（由调用方触发，见 kq6 任务）
   @override
-  Future<List<LocalSong>> scanSongs() async {
+  Future<List<LocalSong>> scanSongs() =>
+      _scanInFlight ??= _scanSongs().whenComplete(() => _scanInFlight = null);
+
+  Future<List<LocalSong>> _scanSongs() async {
+    final totalWatch = Stopwatch()..start();
+    final discoveryWatch = Stopwatch()..start();
     // macOS：从数据库读取用户配置的扫描目录
     // 注意：不要自动插入默认目录，macOS App Sandbox 会阻止未授权的访问
     // 用户需要通过文件夹管理器明确选择要扫描的目录
@@ -59,6 +66,8 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
         ? await _dao.getEnabledScanFolders('macos')
         : <String>[];
     final tracks = await _dataSource.scanSongs(scanFolders: scanFolders);
+    discoveryWatch.stop();
+    final metadataWatch = Stopwatch()..start();
 
     final batchId = const Uuid().v4();
     final scanSource = _detectScanSource();
@@ -96,20 +105,41 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     }
 
     final companions = <LocalSongsCompanion>[];
+    final changedCompanions = <LocalSongsCompanion>[];
+    final unchangedSongIds = <String>[];
     final artistsBySongId = <String, List<String>>{};
     for (final result in scanned.whereType<_ScannedLocalTrack>()) {
       companions.add(result.song);
+      if (result.unchanged) {
+        unchangedSongIds.add(result.song.id.value);
+      } else {
+        changedCompanions.add(result.song);
+      }
       if (result.replaceArtistRelations) {
         artistsBySongId[result.song.id.value] = result.artistNames;
       }
     }
 
+    metadataWatch.stop();
+    final databaseWatch = Stopwatch()..start();
     await _dao.commitScanBatch(
-      songs: companions,
+      songs: changedCompanions,
       artistsBySongId: artistsBySongId,
+      unchangedSongIds: unchangedSongIds,
       scanSource: scanSource,
       batchId: batchId,
       replaceOnlyProvidedArtists: true,
+    );
+
+    databaseWatch.stop();
+    developer.log(
+      'discovery=${discoveryWatch.elapsedMilliseconds}ms '
+      'metadata=${metadataWatch.elapsedMilliseconds}ms '
+      'database=${databaseWatch.elapsedMilliseconds}ms '
+      'total=${totalWatch.elapsedMilliseconds}ms '
+      'discovered=${tracks.length} reused=${unchangedSongIds.length} '
+      'changed=${changedCompanions.length}',
+      name: 'LocalMusicScan',
     );
 
     // 返回写入的歌曲列表
@@ -203,7 +233,11 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     String batchId,
     int now,
   ) async {
-    final modifiedAt = _readTrackModifiedAt(track, scanSource, fallback: now);
+    final modifiedAt = await _readTrackModifiedAt(
+      track,
+      scanSource,
+      fallback: now,
+    );
     final existing = existingRows[track.id];
     if (_canReuseExistingSong(existing, track, modifiedAt)) {
       final song = _buildCompanionFromExisting(
@@ -216,14 +250,18 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
       );
       return _ScannedLocalTrack(
         song: song,
-        artistNames: _splitArtistNames(song.artist.value),
+        artistNames: existing.metadataEdited == 1
+            ? _splitArtistNames(song.artist.value)
+            : const [],
         replaceArtistRelations: existing.metadataEdited == 1,
+        unchanged: true,
       );
     }
 
     final metadata = await _metadataReader.read(
       track.filePath,
       fetchArtwork: false,
+      fetchLyrics: false,
     );
     // 合并时长：优先使用元数据中的实际时长。
     final effectiveDuration =
@@ -341,9 +379,6 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
 
     // 提取文件夹路径（仅 Android/macOS）
     final folderPath = scanSource != 'ios' ? _parentPath(track.filePath) : null;
-    // 文件修改时间用于后续增量判断；不可读时保留扫描时间作为兜底。
-    final effectiveModifiedAt =
-        modifiedAt ?? _readTrackModifiedAt(track, scanSource, fallback: now);
 
     return LocalSongsCompanion(
       id: Value(track.id),
@@ -368,7 +403,7 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
       scanSource: Value(scanSource),
       createdAt: Value(now),
       updatedAt: Value(now),
-      modifiedAt: Value(effectiveModifiedAt),
+      modifiedAt: Value(modifiedAt),
     );
   }
 
@@ -431,11 +466,11 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     return segments.sublist(0, segments.length - 1).join('/');
   }
 
-  int? _readTrackModifiedAt(
+  Future<int?> _readTrackModifiedAt(
     LocalMusicQueryTrack track,
     String scanSource, {
     required int fallback,
-  }) {
+  }) async {
     if (track.modifiedAt != null) {
       return track.modifiedAt;
     }
@@ -445,9 +480,9 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     return _readModifiedAt(track.filePath, fallback: fallback);
   }
 
-  int _readModifiedAt(String filePath, {required int fallback}) {
+  Future<int> _readModifiedAt(String filePath, {required int fallback}) async {
     try {
-      return File(filePath).statSync().modified.millisecondsSinceEpoch;
+      return (await File(filePath).stat()).modified.millisecondsSinceEpoch;
     } on FileSystemException {
       return fallback;
     }
@@ -502,9 +537,11 @@ class _ScannedLocalTrack {
     required this.song,
     required this.artistNames,
     required this.replaceArtistRelations,
+    this.unchanged = false,
   });
 
   final LocalSongsCompanion song;
   final List<String> artistNames;
   final bool replaceArtistRelations;
+  final bool unchanged;
 }

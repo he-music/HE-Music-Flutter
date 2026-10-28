@@ -100,7 +100,7 @@ pub enum PictureType {
 }
 
 impl_enum_from!(
-    lofty::PictureType,
+    lofty::picture::PictureType,
     PictureType,
     Other;
     Other,
@@ -141,7 +141,7 @@ pub enum MimeType {
 }
 
 impl_enum_from!(
-    lofty::MimeType,
+    lofty::picture::MimeType,
     MimeType,
     Png;
     Png,

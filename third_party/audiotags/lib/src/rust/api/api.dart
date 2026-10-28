@@ -9,10 +9,30 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'picture.dart';
 import 'tag.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_file`, `insert_text_values`
+// These functions are ignored because they are not marked as `pub`: `get_file_with_options`, `get_file`, `insert_text_values`
 
+/// Compatibility entry point: read all supported fields.
 Future<Tag> read({required String path}) =>
     RustLib.instance.api.crateApiApiRead(path: path);
+
+/// Select field groups before parsing and before copying data across FFI.
+/// Tag containers must still be traversed when reading text, lyrics, or pictures.
+Future<Tag> readWithOptions(
+        {required String path,
+        required bool tags,
+        required bool properties,
+        required bool lyrics,
+        required bool pictures}) =>
+    RustLib.instance.api.crateApiApiReadWithOptions(
+        path: path,
+        tags: tags,
+        properties: properties,
+        lyrics: lyrics,
+        pictures: pictures);
+
+/// Read one preferred cover without computing audio properties or returning text tags.
+Future<Picture?> readArtwork({required String path}) =>
+    RustLib.instance.api.crateApiApiReadArtwork(path: path);
 
 Future<void> write({required String path, required Tag data}) =>
     RustLib.instance.api.crateApiApiWrite(path: path, data: data);

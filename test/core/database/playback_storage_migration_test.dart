@@ -34,6 +34,12 @@ void main() {
     ]) {
       await original.customStatement('DROP TABLE $table');
     }
+    await original.customStatement(
+      'ALTER TABLE local_songs DROP COLUMN artwork_state',
+    );
+    await original.customStatement(
+      'ALTER TABLE local_songs DROP COLUMN artwork_checked_at',
+    );
     await original.customStatement('PRAGMA user_version = 3');
     await original.close();
     final upgraded = LocalMusicDatabase.forTesting(NativeDatabase(file));
@@ -47,7 +53,7 @@ void main() {
     expect(
       (await upgraded.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      6,
+      7,
     );
   });
 
@@ -69,6 +75,12 @@ void main() {
             ),
           );
       await original.customStatement('DROP TABLE lyric_offsets');
+      await original.customStatement(
+        'ALTER TABLE local_songs DROP COLUMN artwork_state',
+      );
+      await original.customStatement(
+        'ALTER TABLE local_songs DROP COLUMN artwork_checked_at',
+      );
       await original.customStatement('PRAGMA user_version = 5');
       await original.close();
       final upgraded = LocalMusicDatabase.forTesting(NativeDatabase(file));
@@ -81,7 +93,7 @@ void main() {
       expect(
         (await upgraded.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version'),
-        6,
+        7,
       );
     },
   );

@@ -1,0 +1,43 @@
+{
+  "target": "x86_64-pc-windows-msvc",
+  "format": "PE32+ DLL (AMD64)",
+  "sha256": "572cbdd9bef94af49abfbbfe72c83b614862f16272d61ca0cef2cc185e758d4c",
+  "rust_source_sha256": "4b0702a061cda536cbd6e3aa905103dd2f59ebb6acaa93f7dd5bc705496a9673",
+  "frb_content_hash": -1549657682,
+  "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)",
+  "cargo_xwin": "cargo-xwin 0.23.1",
+  "crt": "static",
+  "imports": [
+    "api-ms-win-core-synch-l1-2-0.dll",
+    "bcryptprimitives.dll",
+    "kernel32.dll",
+    "ntdll.dll"
+  ],
+  "exports": [
+    "frb_dart_fn_deliver_output",
+    "frb_dart_opaque_dart2rust_encode",
+    "frb_dart_opaque_drop_thread_box_persistent_handle",
+    "frb_dart_opaque_rust2dart_decode",
+    "frb_free_wire_sync_rust2dart_dco",
+    "frb_free_wire_sync_rust2dart_sse",
+    "frb_get_rust_content_hash",
+    "frb_init_frb_dart_api_dl",
+    "frb_pde_ffi_dispatcher_primary",
+    "frb_pde_ffi_dispatcher_sync",
+    "frb_rust_vec_u8_free",
+    "frb_rust_vec_u8_new",
+    "frb_rust_vec_u8_resize",
+    "free_zero_copy_buffer_f32",
+    "free_zero_copy_buffer_f64",
+    "free_zero_copy_buffer_i16",
+    "free_zero_copy_buffer_i32",
+    "free_zero_copy_buffer_i64",
+    "free_zero_copy_buffer_i8",
+    "free_zero_copy_buffer_u16",
+    "free_zero_copy_buffer_u32",
+    "free_zero_copy_buffer_u64",
+    "free_zero_copy_buffer_u8",
+    "store_dart_post_cobject"
+  ],
+  "validation": "Static PE inspection; not executed on Windows"
+}

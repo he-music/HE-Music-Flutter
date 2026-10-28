@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:audiotags/audiotags.dart' as at;
 import 'package:flutter_test/flutter_test.dart';
@@ -57,6 +58,45 @@ void main() {
 
     expect(metadata, isNotNull);
     expect(metadata!.artist, '周杰伦 / 五月天 / 林俊杰');
+  });
+
+  test(
+    'scan disables artwork and lyrics before calling the native reader',
+    () async {
+      at.AudioTagReadOptions? requested;
+      final reader = LocalAudioMetadataReader(
+        readTagWithOptions: (_, {required options}) async {
+          requested = options;
+          return at.Tag(
+            title: 'Song',
+            artists: [],
+            albumArtists: [],
+            pictures: [],
+            lyrics: 'unused',
+          );
+        },
+        fileExists: (_) async => true,
+      );
+      final metadata = await reader.read('/tmp/song.mp3', fetchLyrics: false);
+      expect(requested!.tags, isTrue);
+      expect(requested!.properties, isTrue);
+      expect(requested!.pictures, isFalse);
+      expect(requested!.lyrics, isFalse);
+      expect(metadata!.embeddedLyrics, isNull);
+    },
+  );
+
+  test('artwork uses its dedicated reader and propagates IO failure', () async {
+    final reader = LocalAudioMetadataReader(
+      readArtwork: (_) async => throw const FileSystemException('unavailable'),
+      readTag: (_) => throw StateError('Full tag read is not expected'),
+    );
+    await expectLater(
+      reader.readArtwork('/tmp/missing.mp3'),
+      throwsA(isA<FileSystemException>()),
+    );
+    final absent = LocalAudioMetadataReader(readArtwork: (_) async => null);
+    expect(await absent.readArtwork('/tmp/no-cover.mp3'), isNull);
   });
 
   group('edge cases', () {

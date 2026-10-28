@@ -321,6 +321,9 @@ class _TestPlayerController extends PlayerController {
 
 class _TestArtworkExtractor implements LocalArtworkExtractor {
   @override
+  void cancel() {}
+
+  @override
   Future<File?> getArtworkFile(String filePath) async => null;
 
   @override

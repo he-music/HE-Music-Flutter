@@ -244,6 +244,7 @@ class _Metadata extends LocalAudioMetadataReader {
   Future<LocalAudioMetadata?> read(
     String filePath, {
     bool fetchArtwork = false,
+    bool fetchLyrics = true,
   }) async {
     calls++;
     return const LocalAudioMetadata(embeddedLyrics: '[00:00.00]embedded');

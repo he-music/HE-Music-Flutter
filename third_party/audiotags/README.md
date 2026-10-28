@@ -23,6 +23,35 @@ int? duration = tag?.duration;
 List<Picture>? pictures = tag?.pictures;
 ```
 
+### Selective reads
+
+`read(path)` remains a full read. Field groups can be selected before parsing
+and before copying results over FFI:
+
+```dart
+// Tags + duration/bitrate/sample rate, without lyrics or embedded pictures.
+final metadata = await AudioTags.read(path, options: AudioTagReadOptions.scan);
+
+// Opt in to specific groups; all unspecified groups default to false.
+final text = await AudioTags.read(
+  path,
+  options: const AudioTagReadOptions.only(tags: true, lyrics: true),
+);
+
+// A single preferred front cover, falling back to the first non-empty image.
+// Audio properties are not calculated and text fields are not returned.
+final cover = await AudioTags.readArtwork(path);
+```
+
+`AudioTagReadOptions.all` enables all groups. With the normal options constructor,
+groups default to true, so `AudioTagReadOptions(pictures: false)` skips pictures
+while preserving the other fields. Tags and lyrics still share the container's
+parsing pass; selecting individual text fields would not avoid that pass. The
+underlying Lofty 0.22 parser can skip cover-art parsing and audio-property work.
+MP4 artwork does not retain front/back types, so its first image is used.
+`readArtwork` returns null for a successful read with no artwork and throws on
+I/O or parsing failure, allowing callers to cache absence separately from errors.
+
 ### Write
 
 ```dart
@@ -79,6 +108,7 @@ make build-macos
 make build-ios
 make build-linux
 make build-windows
+make build-windows-container  # macOS/Linux + Podman, no host Rust required
 make regen
 ```
 
@@ -96,6 +126,8 @@ Command summary:
   Rebuilds the checked-in Linux prebuilt library `linux/libaudiotags.so` on a Linux host.
 - `make build-windows`
   Rebuilds the checked-in Windows prebuilt libraries in `windows/` on a Windows host.
+- `make build-windows-container`
+  Cross-compiles the Windows x64 MSVC DLL in a Podman container and checks its PE format, FRB exports, and binding hash before publishing the artifacts.
 - `make regen`
   Runs codegen and then rebuilds Android, macOS, and iOS checked-in artifacts.
 
@@ -141,6 +173,53 @@ Linux and Windows notes:
 - `make build-linux` must run on Linux.
 - `make build-windows` must run on Windows.
 - Both commands now refresh checked-in desktop prebuilt artifacts so consumers of this vendored library do not need Rust during normal app builds.
+
+### Windows prebuilt library from macOS or Linux
+
+Normal Flutter Windows builds consume `windows/audiotags.dll` through the plugin's
+CMake configuration. Application users do **not** need Rust, cargo-xwin, or Podman.
+The following tooling is only for maintainers refreshing the native library.
+
+With Podman installed and its machine running, execute from this package root:
+
+```sh
+make build-windows-container
+```
+
+The build uses Rust 1.94.1 and cargo-xwin 0.23.1 in a Linux container, targets
+`x86_64-pc-windows-msvc`, and links the C runtime statically. It works from an ARM64
+host without running an x86 Windows container. Rust sources are mounted read-only;
+Cargo compilation, crate downloads, and the MSVC SDK use separate named volumes.
+The first build downloads the toolchain and SDK; later builds reuse those caches.
+
+Outputs:
+
+- `windows/audiotags.dll`: the runtime library bundled with the application.
+- `windows/audiotags.dll.lib`: the MSVC import library, available for native linking.
+- `windows/audiotags.build.json`: checksums, source fingerprint, compiler versions,
+  imported DLLs, exported symbols, and static validation results.
+- `build/windows-container/audiotags.inspection.txt`: detailed LLVM PE inspection
+  output (not checked in).
+
+The verifier checks the actual x64 constant-return machine code of
+`frb_get_rust_content_hash` against both generated Rust and Dart binding hashes.
+It also checks required FFI exports and rejects extra compiler runtime DLL
+imports. These checks do **not** execute Windows code. Loading the library and
+running the Flutter Windows application still require later Windows validation.
+Only Windows x64 is covered by this prebuilt artifact.
+
+Optional build configuration:
+
+```sh
+AUDIOTAGS_CONTAINER_ENGINE=podman \
+AUDIOTAGS_PYPI_INDEX_URL=https://pypi.org/simple \
+AUDIOTAGS_RUSTUP_DIST_SERVER=https://static.rust-lang.org \
+AUDIOTAGS_DEBIAN_MIRROR=http://deb.debian.org/debian \
+make build-windows-container
+```
+
+`AUDIOTAGS_WINDOWS_IMAGE` can override the local build-tool image name. These
+variables configure maintenance tooling and do not change application settings.
 
 ### Why This Exists
 

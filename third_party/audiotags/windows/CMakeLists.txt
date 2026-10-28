@@ -48,7 +48,7 @@ set(AUDIOTAGS_PREBUILT_DLL "${CMAKE_CURRENT_SOURCE_DIR}/audiotags.dll")
 if(NOT EXISTS "${AUDIOTAGS_PREBUILT_DLL}")
   message(FATAL_ERROR
     "Missing prebuilt Windows library: ${AUDIOTAGS_PREBUILT_DLL}. "
-    "Rebuild it from the vendored library root with `make build-windows`."
+    "Rebuild it from the vendored library root with `make build-windows-container` (Podman) or `make build-windows` (Windows)."
   )
 endif()
 

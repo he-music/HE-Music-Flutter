@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../../../../core/database/local_music_database.dart';
 import '../../domain/entities/local_song.dart';
 import '../../domain/repositories/local_music_repository.dart';
+import 'local_artwork_scan.dart';
 
 /// 本地音乐数据访问对象
 ///
@@ -13,6 +14,11 @@ class LocalMusicDao {
   LocalMusicDao(this._db);
 
   final LocalMusicDatabase _db;
+
+  static const _fileChangedSql =
+      'local_songs.file_path != excluded.file_path OR '
+      'local_songs.file_size != excluded.file_size OR '
+      'local_songs.modified_at IS NOT excluded.modified_at';
 
   static const _upsertSongSql =
       'INSERT INTO local_songs '
@@ -34,6 +40,11 @@ class LocalMusicDao {
       'mime_type = excluded.mime_type, '
       'bitrate = excluded.bitrate, '
       'sample_rate = excluded.sample_rate, '
+      'has_artwork = CASE WHEN $_fileChangedSql THEN 0 ELSE local_songs.has_artwork END, '
+      "artwork_state = CASE WHEN $_fileChangedSql THEN 'unknown' ELSE local_songs.artwork_state END, "
+      'artwork_checked_at = CASE WHEN $_fileChangedSql THEN NULL ELSE local_songs.artwork_checked_at END, '
+      'file_path = excluded.file_path, '
+      "status = 'active', "
       'modified_at = excluded.modified_at, '
       'folder_path = excluded.folder_path, '
       'scan_batch_id = excluded.scan_batch_id, '
@@ -345,11 +356,13 @@ class LocalMusicDao {
     required Map<String, List<String>> artistsBySongId,
     required String scanSource,
     required String batchId,
+    List<String> unchangedSongIds = const [],
     bool replaceOnlyProvidedArtists = false,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     await _db.transaction(() async {
       await _upsertSongsInBatch(songs, scanSource, batchId, now);
+      await _markUnchangedSongsSeen(unchangedSongIds, scanSource, batchId);
       await _replaceSongArtistsForBatch(
         artistsBySongId,
         scanSource,
@@ -408,6 +421,63 @@ class LocalMusicDao {
     );
   }
 
+  Future<List<LocalArtworkJob>> getPendingArtwork({
+    DateTime? now,
+    Duration retryDelay = const Duration(hours: 24),
+  }) async {
+    final retryBefore = (now ?? DateTime.now())
+        .subtract(retryDelay)
+        .millisecondsSinceEpoch;
+    final rows =
+        await (_db.select(_db.localSongs)..where(
+              (song) =>
+                  song.status.equals('active') &
+                  (song.artworkState.equals(LocalArtworkState.unknown.name) |
+                      (song.artworkState.equals(LocalArtworkState.failed.name) &
+                          (song.artworkCheckedAt.isNull() |
+                              song.artworkCheckedAt.isSmallerOrEqualValue(
+                                retryBefore,
+                              )))),
+            ))
+            .get();
+    return rows
+        .map(
+          (row) => LocalArtworkJob(
+            songId: row.id,
+            filePath: row.filePath,
+            fileSize: row.fileSize,
+            modifiedAt: row.modifiedAt,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  /// Apply only results for the exact file version that was read. A scan may
+  /// have changed or removed the song while the native artwork reader ran.
+  Future<void> commitArtworkResults(List<LocalArtworkResult> results) async {
+    if (results.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.batch((batch) {
+      for (final result in results) {
+        final job = result.job;
+        batch.customStatement(
+          'UPDATE local_songs SET has_artwork = ?, artwork_state = ?, artwork_checked_at = ? '
+          "WHERE id = ? AND file_path = ? AND file_size = ? AND modified_at IS ? AND status = 'active'",
+          [
+            result.state == LocalArtworkState.present ? 1 : 0,
+            result.state.name,
+            now,
+            job.songId,
+            job.filePath,
+            job.fileSize,
+            job.modifiedAt,
+          ],
+          {TableUpdate.onTable(_db.localSongs, kind: UpdateKind.update)},
+        );
+      }
+    });
+  }
+
   /// 获取没有封面的歌曲文件路径列表
   Future<List<String>> getSongsWithoutArtwork() async {
     final query = _db.select(_db.localSongs)
@@ -419,15 +489,23 @@ class LocalMusicDao {
   /// 标记封面已提取
   Future<void> markArtworkExtracted(String songId) async {
     await (_db.update(_db.localSongs)..where((t) => t.id.equals(songId))).write(
-      const LocalSongsCompanion(hasArtwork: Value(1)),
+      const LocalSongsCompanion(
+        hasArtwork: Value(1),
+        artworkState: Value('present'),
+      ),
     );
   }
 
   /// 按文件路径标记封面已提取
   Future<void> markArtworkExtractedByFilePath(String filePath) async {
-    await (_db.update(_db.localSongs)
-          ..where((t) => t.filePath.equals(filePath)))
-        .write(const LocalSongsCompanion(hasArtwork: Value(1)));
+    await (_db.update(
+      _db.localSongs,
+    )..where((t) => t.filePath.equals(filePath))).write(
+      const LocalSongsCompanion(
+        hasArtwork: Value(1),
+        artworkState: Value('present'),
+      ),
+    );
   }
 
   // ========== 播放统计 ==========
@@ -529,6 +607,28 @@ class LocalMusicDao {
 
   // ========== 内部工具 ==========
 
+  Future<void> _markUnchangedSongsSeen(
+    List<String> ids,
+    String scanSource,
+    String batchId,
+  ) async {
+    // Keep below SQLite's variable limit and preserve metadata/artwork timestamps.
+    for (var start = 0; start < ids.length; start += 400) {
+      final end = (start + 400).clamp(0, ids.length);
+      await (_db.update(_db.localSongs)..where(
+            (song) =>
+                song.scanSource.equals(scanSource) &
+                song.id.isIn(ids.sublist(start, end)),
+          ))
+          .write(
+            LocalSongsCompanion(
+              scanBatchId: Value(batchId),
+              status: const Value('active'),
+            ),
+          );
+    }
+  }
+
   Future<void> _upsertSongsInBatch(
     List<LocalSongsCompanion> songs,
     String scanSource,
@@ -574,6 +674,7 @@ class LocalMusicDao {
     String batchId, {
     required bool replaceOnlyProvidedArtists,
   }) async {
+    if (replaceOnlyProvidedArtists && artistsBySongId.isEmpty) return;
     final currentSongs =
         await (_db.select(_db.localSongs)..where(
               (song) =>

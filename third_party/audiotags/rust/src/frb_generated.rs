@@ -37,7 +37,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.7.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1546393296;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1549657682;
 
 // Section: executor
 
@@ -113,6 +113,82 @@ fn wire__crate__api__api__read_impl(
             move |context| {
                 transform_result_sse::<_, crate::api::error::AudioTagsError>((move || {
                     let output_ok = crate::api::api::read(api_path)?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__api__read_artwork_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "read_artwork",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::error::AudioTagsError>((move || {
+                    let output_ok = crate::api::api::read_artwork(api_path)?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__api__read_with_options_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "read_with_options",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_path = <String>::sse_decode(&mut deserializer);
+            let api_tags = <bool>::sse_decode(&mut deserializer);
+            let api_properties = <bool>::sse_decode(&mut deserializer);
+            let api_lyrics = <bool>::sse_decode(&mut deserializer);
+            let api_pictures = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::error::AudioTagsError>((move || {
+                    let output_ok = crate::api::api::read_with_options(
+                        api_path,
+                        api_tags,
+                        api_properties,
+                        api_lyrics,
+                        api_pictures,
+                    )?;
                     Ok(output_ok)
                 })())
             }
@@ -364,6 +440,17 @@ impl SseDecode for Option<crate::api::picture::MimeType> {
     }
 }
 
+impl SseDecode for Option<crate::api::picture::Picture> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::picture::Picture>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<u32> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -490,9 +577,11 @@ fn pde_ffi_dispatcher_primary_impl(
     match func_id {
         1 => wire__crate__api__picture__picture_new_impl(port, ptr, rust_vec_len, data_len),
         2 => wire__crate__api__api__read_impl(port, ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__tag__tag_default_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__tag__tag_is_empty_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__api__write_impl(port, ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__api__read_artwork_impl(port, ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__api__read_with_options_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__tag__tag_default_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__tag__tag_is_empty_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__api__write_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -779,6 +868,16 @@ impl SseEncode for Option<crate::api::picture::MimeType> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::picture::MimeType>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::picture::Picture> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::picture::Picture>::sse_encode(value, serializer);
         }
     }
 }

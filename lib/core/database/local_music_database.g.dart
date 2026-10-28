@@ -175,6 +175,29 @@ class $LocalSongsTable extends LocalSongs
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _artworkStateMeta = const VerificationMeta(
+    'artworkState',
+  );
+  @override
+  late final GeneratedColumn<String> artworkState = GeneratedColumn<String>(
+    'artwork_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('unknown'),
+  );
+  static const VerificationMeta _artworkCheckedAtMeta = const VerificationMeta(
+    'artworkCheckedAt',
+  );
+  @override
+  late final GeneratedColumn<int> artworkCheckedAt = GeneratedColumn<int>(
+    'artwork_checked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _metadataEditedMeta = const VerificationMeta(
     'metadataEdited',
   );
@@ -270,6 +293,8 @@ class $LocalSongsTable extends LocalSongs
     bitrate,
     sampleRate,
     hasArtwork,
+    artworkState,
+    artworkCheckedAt,
     metadataEdited,
     status,
     scanBatchId,
@@ -402,6 +427,24 @@ class $LocalSongsTable extends LocalSongs
         hasArtwork.isAcceptableOrUnknown(data['has_artwork']!, _hasArtworkMeta),
       );
     }
+    if (data.containsKey('artwork_state')) {
+      context.handle(
+        _artworkStateMeta,
+        artworkState.isAcceptableOrUnknown(
+          data['artwork_state']!,
+          _artworkStateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('artwork_checked_at')) {
+      context.handle(
+        _artworkCheckedAtMeta,
+        artworkCheckedAt.isAcceptableOrUnknown(
+          data['artwork_checked_at']!,
+          _artworkCheckedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('metadata_edited')) {
       context.handle(
         _metadataEditedMeta,
@@ -531,6 +574,14 @@ class $LocalSongsTable extends LocalSongs
         DriftSqlType.int,
         data['${effectivePrefix}has_artwork'],
       )!,
+      artworkState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}artwork_state'],
+      )!,
+      artworkCheckedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}artwork_checked_at'],
+      ),
       metadataEdited: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}metadata_edited'],
@@ -585,6 +636,8 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
   final int? bitrate;
   final int? sampleRate;
   final int hasArtwork;
+  final String artworkState;
+  final int? artworkCheckedAt;
   final int metadataEdited;
   final String status;
   final String scanBatchId;
@@ -609,6 +662,8 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
     this.bitrate,
     this.sampleRate,
     required this.hasArtwork,
+    required this.artworkState,
+    this.artworkCheckedAt,
     required this.metadataEdited,
     required this.status,
     required this.scanBatchId,
@@ -648,6 +703,10 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
       map['sample_rate'] = Variable<int>(sampleRate);
     }
     map['has_artwork'] = Variable<int>(hasArtwork);
+    map['artwork_state'] = Variable<String>(artworkState);
+    if (!nullToAbsent || artworkCheckedAt != null) {
+      map['artwork_checked_at'] = Variable<int>(artworkCheckedAt);
+    }
     map['metadata_edited'] = Variable<int>(metadataEdited);
     map['status'] = Variable<String>(status);
     map['scan_batch_id'] = Variable<String>(scanBatchId);
@@ -688,6 +747,10 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
           ? const Value.absent()
           : Value(sampleRate),
       hasArtwork: Value(hasArtwork),
+      artworkState: Value(artworkState),
+      artworkCheckedAt: artworkCheckedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artworkCheckedAt),
       metadataEdited: Value(metadataEdited),
       status: Value(status),
       scanBatchId: Value(scanBatchId),
@@ -722,6 +785,8 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
       bitrate: serializer.fromJson<int?>(json['bitrate']),
       sampleRate: serializer.fromJson<int?>(json['sampleRate']),
       hasArtwork: serializer.fromJson<int>(json['hasArtwork']),
+      artworkState: serializer.fromJson<String>(json['artworkState']),
+      artworkCheckedAt: serializer.fromJson<int?>(json['artworkCheckedAt']),
       metadataEdited: serializer.fromJson<int>(json['metadataEdited']),
       status: serializer.fromJson<String>(json['status']),
       scanBatchId: serializer.fromJson<String>(json['scanBatchId']),
@@ -751,6 +816,8 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
       'bitrate': serializer.toJson<int?>(bitrate),
       'sampleRate': serializer.toJson<int?>(sampleRate),
       'hasArtwork': serializer.toJson<int>(hasArtwork),
+      'artworkState': serializer.toJson<String>(artworkState),
+      'artworkCheckedAt': serializer.toJson<int?>(artworkCheckedAt),
       'metadataEdited': serializer.toJson<int>(metadataEdited),
       'status': serializer.toJson<String>(status),
       'scanBatchId': serializer.toJson<String>(scanBatchId),
@@ -778,6 +845,8 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
     Value<int?> bitrate = const Value.absent(),
     Value<int?> sampleRate = const Value.absent(),
     int? hasArtwork,
+    String? artworkState,
+    Value<int?> artworkCheckedAt = const Value.absent(),
     int? metadataEdited,
     String? status,
     String? scanBatchId,
@@ -802,6 +871,10 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
     bitrate: bitrate.present ? bitrate.value : this.bitrate,
     sampleRate: sampleRate.present ? sampleRate.value : this.sampleRate,
     hasArtwork: hasArtwork ?? this.hasArtwork,
+    artworkState: artworkState ?? this.artworkState,
+    artworkCheckedAt: artworkCheckedAt.present
+        ? artworkCheckedAt.value
+        : this.artworkCheckedAt,
     metadataEdited: metadataEdited ?? this.metadataEdited,
     status: status ?? this.status,
     scanBatchId: scanBatchId ?? this.scanBatchId,
@@ -840,6 +913,12 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
       hasArtwork: data.hasArtwork.present
           ? data.hasArtwork.value
           : this.hasArtwork,
+      artworkState: data.artworkState.present
+          ? data.artworkState.value
+          : this.artworkState,
+      artworkCheckedAt: data.artworkCheckedAt.present
+          ? data.artworkCheckedAt.value
+          : this.artworkCheckedAt,
       metadataEdited: data.metadataEdited.present
           ? data.metadataEdited.value
           : this.metadataEdited,
@@ -877,6 +956,8 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
           ..write('bitrate: $bitrate, ')
           ..write('sampleRate: $sampleRate, ')
           ..write('hasArtwork: $hasArtwork, ')
+          ..write('artworkState: $artworkState, ')
+          ..write('artworkCheckedAt: $artworkCheckedAt, ')
           ..write('metadataEdited: $metadataEdited, ')
           ..write('status: $status, ')
           ..write('scanBatchId: $scanBatchId, ')
@@ -906,6 +987,8 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
     bitrate,
     sampleRate,
     hasArtwork,
+    artworkState,
+    artworkCheckedAt,
     metadataEdited,
     status,
     scanBatchId,
@@ -934,6 +1017,8 @@ class LocalSongRow extends DataClass implements Insertable<LocalSongRow> {
           other.bitrate == this.bitrate &&
           other.sampleRate == this.sampleRate &&
           other.hasArtwork == this.hasArtwork &&
+          other.artworkState == this.artworkState &&
+          other.artworkCheckedAt == this.artworkCheckedAt &&
           other.metadataEdited == this.metadataEdited &&
           other.status == this.status &&
           other.scanBatchId == this.scanBatchId &&
@@ -960,6 +1045,8 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
   final Value<int?> bitrate;
   final Value<int?> sampleRate;
   final Value<int> hasArtwork;
+  final Value<String> artworkState;
+  final Value<int?> artworkCheckedAt;
   final Value<int> metadataEdited;
   final Value<String> status;
   final Value<String> scanBatchId;
@@ -985,6 +1072,8 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
     this.bitrate = const Value.absent(),
     this.sampleRate = const Value.absent(),
     this.hasArtwork = const Value.absent(),
+    this.artworkState = const Value.absent(),
+    this.artworkCheckedAt = const Value.absent(),
     this.metadataEdited = const Value.absent(),
     this.status = const Value.absent(),
     this.scanBatchId = const Value.absent(),
@@ -1011,6 +1100,8 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
     this.bitrate = const Value.absent(),
     this.sampleRate = const Value.absent(),
     this.hasArtwork = const Value.absent(),
+    this.artworkState = const Value.absent(),
+    this.artworkCheckedAt = const Value.absent(),
     this.metadataEdited = const Value.absent(),
     this.status = const Value.absent(),
     required String scanBatchId,
@@ -1048,6 +1139,8 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
     Expression<int>? bitrate,
     Expression<int>? sampleRate,
     Expression<int>? hasArtwork,
+    Expression<String>? artworkState,
+    Expression<int>? artworkCheckedAt,
     Expression<int>? metadataEdited,
     Expression<String>? status,
     Expression<String>? scanBatchId,
@@ -1074,6 +1167,8 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
       if (bitrate != null) 'bitrate': bitrate,
       if (sampleRate != null) 'sample_rate': sampleRate,
       if (hasArtwork != null) 'has_artwork': hasArtwork,
+      if (artworkState != null) 'artwork_state': artworkState,
+      if (artworkCheckedAt != null) 'artwork_checked_at': artworkCheckedAt,
       if (metadataEdited != null) 'metadata_edited': metadataEdited,
       if (status != null) 'status': status,
       if (scanBatchId != null) 'scan_batch_id': scanBatchId,
@@ -1102,6 +1197,8 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
     Value<int?>? bitrate,
     Value<int?>? sampleRate,
     Value<int>? hasArtwork,
+    Value<String>? artworkState,
+    Value<int?>? artworkCheckedAt,
     Value<int>? metadataEdited,
     Value<String>? status,
     Value<String>? scanBatchId,
@@ -1128,6 +1225,8 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
       bitrate: bitrate ?? this.bitrate,
       sampleRate: sampleRate ?? this.sampleRate,
       hasArtwork: hasArtwork ?? this.hasArtwork,
+      artworkState: artworkState ?? this.artworkState,
+      artworkCheckedAt: artworkCheckedAt ?? this.artworkCheckedAt,
       metadataEdited: metadataEdited ?? this.metadataEdited,
       status: status ?? this.status,
       scanBatchId: scanBatchId ?? this.scanBatchId,
@@ -1190,6 +1289,12 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
     if (hasArtwork.present) {
       map['has_artwork'] = Variable<int>(hasArtwork.value);
     }
+    if (artworkState.present) {
+      map['artwork_state'] = Variable<String>(artworkState.value);
+    }
+    if (artworkCheckedAt.present) {
+      map['artwork_checked_at'] = Variable<int>(artworkCheckedAt.value);
+    }
     if (metadataEdited.present) {
       map['metadata_edited'] = Variable<int>(metadataEdited.value);
     }
@@ -1236,6 +1341,8 @@ class LocalSongsCompanion extends UpdateCompanion<LocalSongRow> {
           ..write('bitrate: $bitrate, ')
           ..write('sampleRate: $sampleRate, ')
           ..write('hasArtwork: $hasArtwork, ')
+          ..write('artworkState: $artworkState, ')
+          ..write('artworkCheckedAt: $artworkCheckedAt, ')
           ..write('metadataEdited: $metadataEdited, ')
           ..write('status: $status, ')
           ..write('scanBatchId: $scanBatchId, ')
@@ -4616,6 +4723,8 @@ typedef $$LocalSongsTableCreateCompanionBuilder =
       Value<int?> bitrate,
       Value<int?> sampleRate,
       Value<int> hasArtwork,
+      Value<String> artworkState,
+      Value<int?> artworkCheckedAt,
       Value<int> metadataEdited,
       Value<String> status,
       required String scanBatchId,
@@ -4643,6 +4752,8 @@ typedef $$LocalSongsTableUpdateCompanionBuilder =
       Value<int?> bitrate,
       Value<int?> sampleRate,
       Value<int> hasArtwork,
+      Value<String> artworkState,
+      Value<int?> artworkCheckedAt,
       Value<int> metadataEdited,
       Value<String> status,
       Value<String> scanBatchId,
@@ -4782,6 +4893,16 @@ class $$LocalSongsTableFilterComposer
 
   ColumnFilters<int> get hasArtwork => $composableBuilder(
     column: $table.hasArtwork,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artworkState => $composableBuilder(
+    column: $table.artworkState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get artworkCheckedAt => $composableBuilder(
+    column: $table.artworkCheckedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4960,6 +5081,16 @@ class $$LocalSongsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get artworkState => $composableBuilder(
+    column: $table.artworkState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get artworkCheckedAt => $composableBuilder(
+    column: $table.artworkCheckedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get metadataEdited => $composableBuilder(
     column: $table.metadataEdited,
     builder: (column) => ColumnOrderings(column),
@@ -5062,6 +5193,16 @@ class $$LocalSongsTableAnnotationComposer
 
   GeneratedColumn<int> get hasArtwork => $composableBuilder(
     column: $table.hasArtwork,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get artworkState => $composableBuilder(
+    column: $table.artworkState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get artworkCheckedAt => $composableBuilder(
+    column: $table.artworkCheckedAt,
     builder: (column) => column,
   );
 
@@ -5189,6 +5330,8 @@ class $$LocalSongsTableTableManager
                 Value<int?> bitrate = const Value.absent(),
                 Value<int?> sampleRate = const Value.absent(),
                 Value<int> hasArtwork = const Value.absent(),
+                Value<String> artworkState = const Value.absent(),
+                Value<int?> artworkCheckedAt = const Value.absent(),
                 Value<int> metadataEdited = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String> scanBatchId = const Value.absent(),
@@ -5214,6 +5357,8 @@ class $$LocalSongsTableTableManager
                 bitrate: bitrate,
                 sampleRate: sampleRate,
                 hasArtwork: hasArtwork,
+                artworkState: artworkState,
+                artworkCheckedAt: artworkCheckedAt,
                 metadataEdited: metadataEdited,
                 status: status,
                 scanBatchId: scanBatchId,
@@ -5241,6 +5386,8 @@ class $$LocalSongsTableTableManager
                 Value<int?> bitrate = const Value.absent(),
                 Value<int?> sampleRate = const Value.absent(),
                 Value<int> hasArtwork = const Value.absent(),
+                Value<String> artworkState = const Value.absent(),
+                Value<int?> artworkCheckedAt = const Value.absent(),
                 Value<int> metadataEdited = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 required String scanBatchId,
@@ -5266,6 +5413,8 @@ class $$LocalSongsTableTableManager
                 bitrate: bitrate,
                 sampleRate: sampleRate,
                 hasArtwork: hasArtwork,
+                artworkState: artworkState,
+                artworkCheckedAt: artworkCheckedAt,
                 metadataEdited: metadataEdited,
                 status: status,
                 scanBatchId: scanBatchId,

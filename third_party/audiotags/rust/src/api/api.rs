@@ -1,61 +1,98 @@
-use super::{error::AudioTagsError, tag::Tag};
+use super::{error::AudioTagsError, picture::Picture, tag::Tag};
 use lofty::{
-    Accessor, AudioFile, ItemKey, ItemValue, Probe, TagExt, TagItem, TagType, TaggedFile,
-    TaggedFileExt,
+    config::{ParseOptions, WriteOptions},
+    file::{AudioFile, TaggedFile, TaggedFileExt},
+    prelude::{Accessor, ItemKey, TagExt},
+    probe::Probe,
+    tag::{ItemValue, TagItem, TagType},
 };
 
-/// Returns a `TaggedFile` at the given path.
-fn get_file(path: &str) -> Result<TaggedFile, AudioTagsError> {
-    match Probe::open(path) {
-        Ok(file) => match file.read() {
-            Ok(file) => Ok(file),
-            Err(err) => Err(AudioTagsError::OpenFile {
-                message: err.to_string(),
-            }),
-        },
-        Err(_) => Err(AudioTagsError::InvalidPath),
-    }
+fn get_file_with_options(path: &str, options: ParseOptions) -> Result<TaggedFile, AudioTagsError> {
+    Probe::open(path)
+        .map_err(|_| AudioTagsError::InvalidPath)?
+        .options(options)
+        .read()
+        .map_err(|err| AudioTagsError::OpenFile {
+            message: err.to_string(),
+        })
 }
 
+fn get_file(path: &str) -> Result<TaggedFile, AudioTagsError> {
+    get_file_with_options(path, ParseOptions::new())
+}
+
+/// Compatibility entry point: read all supported fields.
 pub fn read(path: String) -> Result<Tag, AudioTagsError> {
-    let file = get_file(&path)?;
+    read_with_options(path, true, true, true, true)
+}
 
-    let tag = match file.primary_tag() {
-        Some(primary_tag) => Ok(primary_tag),
-        None => match file.first_tag() {
-            Some(first_tag) => Ok(first_tag),
-            None => Err(AudioTagsError::NoTags),
-        },
-    }?;
-
-    let mut tag = Tag::from(tag);
-    let properties = file.properties();
-    tag.duration = Some(properties.duration().as_secs() as u32);
-    tag.bitrate = properties.audio_bitrate().or_else(|| properties.overall_bitrate());
-    tag.sample_rate = properties.sample_rate();
-
+/// Select field groups before parsing and before copying data across FFI.
+/// Tag containers must still be traversed when reading text, lyrics, or pictures.
+pub fn read_with_options(
+    path: String,
+    tags: bool,
+    properties: bool,
+    lyrics: bool,
+    pictures: bool,
+) -> Result<Tag, AudioTagsError> {
+    let options = ParseOptions::new()
+        .read_properties(properties)
+        .read_tags(tags || lyrics || pictures)
+        .read_cover_art(pictures);
+    let file = get_file_with_options(&path, options)?;
+    let source = file.primary_tag().or_else(|| file.first_tag());
+    if source.is_none() && (tags || lyrics || pictures) {
+        return Err(AudioTagsError::NoTags);
+    }
+    let mut tag = source
+        .map(|tag| Tag::from_selected(tag, tags, lyrics, pictures))
+        .unwrap_or_default();
+    if properties {
+        let properties = file.properties();
+        tag.duration = Some(properties.duration().as_secs() as u32);
+        tag.bitrate = properties
+            .audio_bitrate()
+            .or_else(|| properties.overall_bitrate());
+        tag.sample_rate = properties.sample_rate();
+    }
     Ok(tag)
 }
 
+/// Read one preferred cover without computing audio properties or returning text tags.
+pub fn read_artwork(path: String) -> Result<Option<Picture>, AudioTagsError> {
+    let file = get_file_with_options(
+        &path,
+        ParseOptions::new()
+            .read_properties(false)
+            .read_cover_art(true),
+    )?;
+    let pictures = file
+        .primary_tag()
+        .or_else(|| file.first_tag())
+        .map(|tag| tag.pictures());
+    Ok(pictures.and_then(|pictures| {
+        pictures
+            .iter()
+            .find(|picture| {
+                picture.pic_type() == lofty::picture::PictureType::CoverFront
+                    && !picture.data().is_empty()
+            })
+            .or_else(|| pictures.iter().find(|picture| !picture.data().is_empty()))
+            .map(|picture| {
+                Picture::new(
+                    picture.pic_type().into(),
+                    picture.mime_type().cloned().map(Into::into),
+                    picture.data().to_vec(),
+                )
+            })
+    }))
+}
 pub fn write(path: String, data: Tag) -> Result<(), AudioTagsError> {
     let mut file = get_file(&path)?;
 
-    // Remove the existing tags.
-    for tag in file.tags() {
-        if let Err(err) = tag.remove_from_path(&path) {
-            return Err(AudioTagsError::Write {
-                message: format!("Could not remove existing tag. {err:?}"),
-            });
-        }
-    }
-
-    // If there is no data to be written, then return.
-    if data.is_empty() {
-        return Ok(());
-    }
-
-    // Create a new tag.
-    file.insert_tag(lofty::Tag::new(file.primary_tag_type()));
+    // Replace the primary tag and let Lofty remove other tag containers in the
+    // same write. Removing an MP4 tag before writing can leave an empty meta atom.
+    file.insert_tag(lofty::tag::Tag::new(file.primary_tag_type()));
     let tag_type = file.primary_tag_type();
     let tag = file.primary_tag_mut().unwrap();
 
@@ -115,7 +152,7 @@ pub fn write(path: String, data: Tag) -> Result<(), AudioTagsError> {
 
         tag.set_picture(
             i,
-            lofty::Picture::new_unchecked(
+            lofty::picture::Picture::new_unchecked(
                 picture.picture_type.into(),
                 mime_type,
                 None,
@@ -136,7 +173,7 @@ pub fn write(path: String, data: Tag) -> Result<(), AudioTagsError> {
         }
     }
 
-    match tag.save_to_path(path) {
+    match tag.save_to_path(path, WriteOptions::default().remove_others(true)) {
         Ok(_) => Ok(()),
         Err(err) => Err(AudioTagsError::Write {
             message: format!("Failed to write tag to file. {err:?}"),
@@ -144,7 +181,12 @@ pub fn write(path: String, data: Tag) -> Result<(), AudioTagsError> {
     }
 }
 
-fn insert_text_values(tag: &mut lofty::Tag, tag_type: TagType, key: ItemKey, values: &[String]) {
+fn insert_text_values(
+    tag: &mut lofty::tag::Tag,
+    tag_type: TagType,
+    key: ItemKey,
+    values: &[String],
+) {
     let values = values
         .iter()
         .map(|item| item.trim())
@@ -153,39 +195,42 @@ fn insert_text_values(tag: &mut lofty::Tag, tag_type: TagType, key: ItemKey, val
 
     if tag_type == TagType::VorbisComments {
         match values.as_slice() {
-            [] => {},
+            [] => {}
             [single] => {
                 tag.insert_text(key, (*single).to_owned());
-            },
+            }
             _ => {
                 for item in values {
                     let _ = tag.push(TagItem::new(key.clone(), ItemValue::Text(item.to_owned())));
                 }
-            },
+            }
         }
         return;
     }
 
     match values.as_slice() {
-        [] => {},
+        [] => {}
         [single] => {
             tag.insert_text(key, (*single).to_owned());
-        },
+        }
         _ if tag_type == TagType::Id3v2 => {
             tag.insert_text(key, values.join("\0"));
-        },
+        }
         _ => {
             for item in values {
                 let _ = tag.push(TagItem::new(key.clone(), ItemValue::Text(item.to_owned())));
             }
-        },
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::insert_text_values;
-    use lofty::{ItemKey, Tag, TagType};
+    use lofty::{
+        prelude::ItemKey,
+        tag::{Tag, TagType},
+    };
 
     #[test]
     fn insert_text_values_splits_null_separated_artists_for_vorbis_comments() {

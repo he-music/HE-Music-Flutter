@@ -9,10 +9,12 @@ import java.io.File
 
 class MainActivity : AudioServiceActivity() {
     private var videoPip: VideoPictureInPictureHandler? = null
+    private var localAudioQuery: LocalAudioQueryHandler? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         videoPip = VideoPictureInPictureHandler(this, messenger)
+        localAudioQuery = LocalAudioQueryHandler(applicationContext, messenger)
         MethodChannel(
             messenger,
             "com.hemusic/audio_cache_capacity",
@@ -54,6 +56,8 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        localAudioQuery?.dispose()
+        localAudioQuery = null
         videoPip?.dispose()
         videoPip = null
         super.cleanUpFlutterEngine(flutterEngine)

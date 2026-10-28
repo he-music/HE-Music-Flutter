@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.7.0';
 
   @override
-  int get rustContentHash => -1546393296;
+  int get rustContentHash => -1549657682;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -86,6 +86,15 @@ abstract class RustLibApi extends BaseApi {
       required List<int> bytes});
 
   Future<Tag> crateApiApiRead({required String path});
+
+  Future<Picture?> crateApiApiReadArtwork({required String path});
+
+  Future<Tag> crateApiApiReadWithOptions(
+      {required String path,
+      required bool tags,
+      required bool properties,
+      required bool lyrics,
+      required bool pictures});
 
   Future<Tag> crateApiTagTagDefault();
 
@@ -156,12 +165,69 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Picture?> crateApiApiReadArtwork({required String path}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(path, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 3, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_opt_box_autoadd_picture,
+        decodeErrorData: sse_decode_audio_tags_error,
+      ),
+      constMeta: kCrateApiApiReadArtworkConstMeta,
+      argValues: [path],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiApiReadArtworkConstMeta => const TaskConstMeta(
+        debugName: "read_artwork",
+        argNames: ["path"],
+      );
+
+  @override
+  Future<Tag> crateApiApiReadWithOptions(
+      {required String path,
+      required bool tags,
+      required bool properties,
+      required bool lyrics,
+      required bool pictures}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(path, serializer);
+        sse_encode_bool(tags, serializer);
+        sse_encode_bool(properties, serializer);
+        sse_encode_bool(lyrics, serializer);
+        sse_encode_bool(pictures, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 4, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_tag,
+        decodeErrorData: sse_decode_audio_tags_error,
+      ),
+      constMeta: kCrateApiApiReadWithOptionsConstMeta,
+      argValues: [path, tags, properties, lyrics, pictures],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiApiReadWithOptionsConstMeta => const TaskConstMeta(
+        debugName: "read_with_options",
+        argNames: ["path", "tags", "properties", "lyrics", "pictures"],
+      );
+
+  @override
   Future<Tag> crateApiTagTagDefault() {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 3, port: port_);
+            funcId: 5, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_tag,
@@ -185,7 +251,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_box_autoadd_tag(that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 4, port: port_);
+            funcId: 6, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -210,7 +276,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(path, serializer);
         sse_encode_box_autoadd_tag(data, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 5, port: port_);
+            funcId: 7, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -270,6 +336,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MimeType dco_decode_box_autoadd_mime_type(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_mime_type(raw);
+  }
+
+  @protected
+  Picture dco_decode_box_autoadd_picture(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_picture(raw);
   }
 
   @protected
@@ -342,6 +414,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MimeType? dco_decode_opt_box_autoadd_mime_type(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_mime_type(raw);
+  }
+
+  @protected
+  Picture? dco_decode_opt_box_autoadd_picture(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_picture(raw);
   }
 
   @protected
@@ -460,6 +538,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Picture sse_decode_box_autoadd_picture(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_picture(deserializer));
+  }
+
+  @protected
   Tag sse_decode_box_autoadd_tag(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_tag(deserializer));
@@ -556,6 +640,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_mime_type(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  Picture? sse_decode_opt_box_autoadd_picture(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_picture(deserializer));
     } else {
       return null;
     }
@@ -688,6 +783,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_picture(Picture self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_picture(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_tag(Tag self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_tag(self, serializer);
@@ -780,6 +881,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_mime_type(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_picture(
+      Picture? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_picture(self, serializer);
     }
   }
 

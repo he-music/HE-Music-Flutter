@@ -33,6 +33,10 @@ class LocalSongs extends Table {
   IntColumn get sampleRate => integer().named('sample_rate').nullable()();
   IntColumn get hasArtwork =>
       integer().named('has_artwork').withDefault(const Constant(0))();
+  TextColumn get artworkState =>
+      text().named('artwork_state').withDefault(const Constant('unknown'))();
+  IntColumn get artworkCheckedAt =>
+      integer().named('artwork_checked_at').nullable()();
   IntColumn get metadataEdited =>
       integer().named('metadata_edited').withDefault(const Constant(0))();
   TextColumn get status => text().withDefault(const Constant('active'))();
@@ -137,7 +141,7 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
   LocalMusicDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -165,6 +169,13 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
       }
       if (from < 6) {
         await m.createTable(lyricOffsets);
+      }
+      if (from < 7) {
+        await m.addColumn(localSongs, localSongs.artworkState);
+        await m.addColumn(localSongs, localSongs.artworkCheckedAt);
+        await customStatement(
+          "UPDATE local_songs SET artwork_state = 'present' WHERE has_artwork = 1",
+        );
       }
     },
     beforeOpen: (details) async {

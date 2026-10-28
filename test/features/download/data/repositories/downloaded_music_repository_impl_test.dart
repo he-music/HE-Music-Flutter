@@ -76,6 +76,12 @@ void main() {
       await fixture.database.customStatement(
         "DELETE FROM storage_migrations WHERE storage_key = 'downloaded_music.v1'",
       );
+      await fixture.database.customStatement(
+        'ALTER TABLE local_songs DROP COLUMN artwork_state',
+      );
+      await fixture.database.customStatement(
+        'ALTER TABLE local_songs DROP COLUMN artwork_checked_at',
+      );
       await fixture.database.customStatement('PRAGMA user_version = 4');
       await fixture.reopen();
       expect((await fixture.repository.watchSongs().first).single.id, task.id);

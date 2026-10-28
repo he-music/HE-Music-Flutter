@@ -1,4 +1,4 @@
-use lofty::{Accessor, ItemKey};
+use lofty::prelude::{Accessor, ItemKey};
 
 use super::picture::Picture;
 
@@ -62,54 +62,58 @@ impl Tag {
     }
 }
 
-impl From<&lofty::Tag> for Tag {
-    fn from(tag: &lofty::Tag) -> Self {
-        let pictures = tag
-            .pictures()
-            .iter()
-            .map(|picture| {
-                let mime_type = picture.mime_type().map(|p| p.clone().into());
-
-                Picture::new(
-                    picture.pic_type().into(),
-                    mime_type,
-                    picture.data().to_vec(),
-                )
-            })
-            .collect::<Vec<Picture>>();
-
-        let bpm = if let Some(bpm_decimal) = tag.get_string(&ItemKey::Bpm) {
-            Some(str::parse::<f32>(bpm_decimal).unwrap())
-        } else {
-            tag.get_string(&ItemKey::IntegerBpm)
-                .map(|bpm_int| str::parse::<f32>(bpm_int).unwrap())
-        };
-        let artists = collect_text_values(tag, &ItemKey::TrackArtist);
-        let album_artists = collect_text_values(tag, &ItemKey::AlbumArtist);
-        Tag {
-            title: tag.title().map(|f| f.to_string()),
-            artists,
-            album: tag.album().map(|f| f.to_string()),
-            album_artists,
-            year: tag.year(),
-            genre: tag.genre().map(|f| f.to_string()),
-            track_number: tag.track(),
-            track_total: tag.track_total(),
-            disc_number: tag.disk(),
-            disc_total: tag.disk_total(),
-            lyrics: tag.get_string(&ItemKey::Lyrics).map(|e| e.to_string()),
-            pictures,
-            duration: None,
-            bitrate: None,
-            sample_rate: None,
-            bpm,
-        }
+impl From<&lofty::tag::Tag> for Tag {
+    fn from(tag: &lofty::tag::Tag) -> Self {
+        Self::from_selected(tag, true, true, true)
     }
 }
 
-fn collect_text_values(tag: &lofty::Tag, key: &ItemKey) -> Vec<String> {
-    tag
-        .get_strings(key)
+impl Tag {
+    pub(crate) fn from_selected(
+        tag: &lofty::tag::Tag,
+        tags: bool,
+        lyrics: bool,
+        pictures: bool,
+    ) -> Self {
+        let mut result = Self::default();
+        if tags {
+            result.title = tag.title().map(|value| value.to_string());
+            result.artists = collect_text_values(tag, &ItemKey::TrackArtist);
+            result.album = tag.album().map(|value| value.to_string());
+            result.album_artists = collect_text_values(tag, &ItemKey::AlbumArtist);
+            result.year = tag.year();
+            result.genre = tag.genre().map(|value| value.to_string());
+            result.track_number = tag.track();
+            result.track_total = tag.track_total();
+            result.disc_number = tag.disk();
+            result.disc_total = tag.disk_total();
+            result.bpm = tag
+                .get_string(&ItemKey::Bpm)
+                .or_else(|| tag.get_string(&ItemKey::IntegerBpm))
+                .and_then(|value| value.parse().ok());
+        }
+        if lyrics {
+            result.lyrics = tag.get_string(&ItemKey::Lyrics).map(str::to_owned);
+        }
+        if pictures {
+            result.pictures = tag
+                .pictures()
+                .iter()
+                .map(|picture| {
+                    Picture::new(
+                        picture.pic_type().into(),
+                        picture.mime_type().cloned().map(Into::into),
+                        picture.data().to_vec(),
+                    )
+                })
+                .collect();
+        }
+        result
+    }
+}
+
+fn collect_text_values(tag: &lofty::tag::Tag, key: &ItemKey) -> Vec<String> {
+    tag.get_strings(key)
         .flat_map(|value| value.split('\0'))
         .map(str::trim)
         .filter(|item| !item.is_empty())
@@ -120,7 +124,10 @@ fn collect_text_values(tag: &lofty::Tag, key: &ItemKey) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::Tag as ApiTag;
-    use lofty::{ItemKey, ItemValue, Tag, TagItem, TagType};
+    use lofty::{
+        prelude::ItemKey,
+        tag::{ItemValue, Tag, TagItem, TagType},
+    };
 
     #[test]
     fn from_lofty_tag_joins_multi_artist_vorbis_values_with_null() {

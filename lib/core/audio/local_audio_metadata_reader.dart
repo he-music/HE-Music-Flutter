@@ -34,21 +34,34 @@ class LocalAudioMetadata {
 }
 
 typedef ReadAudioTagCallback = Future<at.Tag?> Function(String path);
+typedef ReadAudioTagWithOptionsCallback =
+    Future<at.Tag?> Function(
+      String path, {
+      required at.AudioTagReadOptions options,
+    });
+typedef ReadAudioArtworkCallback = Future<at.Picture?> Function(String path);
 typedef FileExistsCallback = Future<bool> Function(String path);
 
 class LocalAudioMetadataReader {
   const LocalAudioMetadataReader({
     ReadAudioTagCallback? readTag,
+    ReadAudioTagWithOptionsCallback? readTagWithOptions,
+    ReadAudioArtworkCallback? readArtwork,
     FileExistsCallback? fileExists,
   }) : _readTag = readTag,
+       _readTagWithOptions = readTagWithOptions,
+       _readArtwork = readArtwork,
        _fileExists = fileExists;
 
   final ReadAudioTagCallback? _readTag;
+  final ReadAudioTagWithOptionsCallback? _readTagWithOptions;
+  final ReadAudioArtworkCallback? _readArtwork;
   final FileExistsCallback? _fileExists;
 
   Future<LocalAudioMetadata?> read(
     String filePath, {
     bool fetchArtwork = false,
+    bool fetchLyrics = true,
   }) async {
     final normalizedPath = filePath.trim();
     if (normalizedPath.isEmpty) {
@@ -61,7 +74,15 @@ class LocalAudioMetadataReader {
     }
 
     try {
-      final tag = await (_readTag ?? at.AudioTags.read)(normalizedPath);
+      final tag = _readTag != null
+          ? await _readTag(normalizedPath)
+          : await (_readTagWithOptions ?? at.AudioTags.read)(
+              normalizedPath,
+              options: at.AudioTagReadOptions(
+                lyrics: fetchLyrics,
+                pictures: fetchArtwork,
+              ),
+            );
       if (tag == null) {
         return null;
       }
@@ -71,7 +92,7 @@ class LocalAudioMetadataReader {
         album: _normalizeText(tag.album),
         duration: _toDuration(tag.duration),
         artworkBytes: fetchArtwork ? _pickArtwork(tag.pictures) : null,
-        embeddedLyrics: _normalizeText(tag.lyrics),
+        embeddedLyrics: fetchLyrics ? _normalizeText(tag.lyrics) : null,
         bitrate: tag.bitrate,
         sampleRate: tag.sampleRate,
         genre: _normalizeText(tag.genre),
@@ -86,6 +107,13 @@ class LocalAudioMetadataReader {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Null means the file was read successfully but contains no artwork.
+  /// Errors propagate so callers can retry instead of caching a false absence.
+  Future<Uint8List?> readArtwork(String filePath) async {
+    final picture = await (_readArtwork ?? at.AudioTags.readArtwork)(filePath);
+    return picture?.bytes;
   }
 
   Future<bool> _defaultFileExists(String path) async {
