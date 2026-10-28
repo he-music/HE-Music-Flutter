@@ -47,6 +47,22 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> waitForTextContaining(
+    WidgetTester tester,
+    String text, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (find.textContaining(text).evaluate().isNotEmpty) return;
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 5)),
+      );
+    }
+    fail('Timed out waiting for text containing "$text"');
+  }
+
   Future<T> runStore<T>(
     WidgetTester tester,
     Future<T> Function() action,
@@ -109,7 +125,7 @@ void main() {
         await tester.tap(find.text('手动选择歌词'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('全部删除'));
-        await settleIo(tester);
+        await waitForTextContaining(tester, '0 首');
         stats = await runStore(tester, store.statistics);
         expect(stats.manualCount, 0);
         expect(find.textContaining('0 首'), findsOneWidget);

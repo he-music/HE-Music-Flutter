@@ -425,6 +425,7 @@ void main() {
   test('全局网络失败停留目标且不扫描后续歌曲', () async {
     final requestedIds = <String>[];
     final errors = <Map<dynamic, dynamic>>[];
+    final transitionError = Completer<Map<dynamic, dynamic>>();
     final targetEvents = <Map<dynamic, dynamic>>[];
     final handler = HeAudioHandler(
       fetchSongUrlOverride:
@@ -453,6 +454,9 @@ void main() {
       if (event is Map) {
         if (event['type'] == 'playbackTransitionError') {
           errors.add(event);
+          if (!transitionError.isCompleted) {
+            transitionError.complete(event);
+          }
         } else if (event['type'] == 'manualSkipTarget') {
           targetEvents.add(event);
         }
@@ -464,11 +468,14 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     await handler.skipToNext();
-    await Future<void>.delayed(const Duration(milliseconds: 200));
+    final transitionErrorEvent = await transitionError.future.timeout(
+      const Duration(seconds: 2),
+    );
 
     expect(handler.mediaItem.value?.id, 'song-0');
     expect(requestedIds, isNot(contains('song-2')));
-    expect(errors.last['code'], 'globalTransient');
+    expect(errors, hasLength(1));
+    expect(transitionErrorEvent['code'], 'globalTransient');
     expect(targetEvents.map((event) => event['status']), <String>[
       'pending',
       'cleared',
