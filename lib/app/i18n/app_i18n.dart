@@ -88,6 +88,7 @@ abstract final class AppI18n {
 
       'app.title': 'HE Music',
       'common.back': '返回',
+      'common.back_to_top': '回到顶部',
       'common.more': '更多',
       'common.retry': '重试',
       'common.scan': '扫描',
@@ -1124,6 +1125,7 @@ abstract final class AppI18n {
 
       'app.title': 'HE Music',
       'common.back': 'Back',
+      'common.back_to_top': 'Back to top',
       'common.more': 'More',
       'common.retry': 'Retry',
       'common.scan': 'Scan',

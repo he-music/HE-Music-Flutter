@@ -17,6 +17,7 @@ import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
+import '../../../../shared/widgets/song_detail_scroll_view.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
@@ -179,7 +180,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
     final metaItems = _buildMetaItems(context, content, songs.length);
 
-    return NestedScrollView(
+    return SongDetailScrollView(
+      batchMode: _isBatchMode,
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return <Widget>[
           MusicDetailSliverAppBar(
