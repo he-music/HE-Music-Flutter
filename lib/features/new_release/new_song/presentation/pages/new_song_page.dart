@@ -11,6 +11,8 @@ import '../../../../../app/router/app_routes.dart';
 import '../../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../../shared/helpers/song_batch_helpers.dart';
 import '../../../../../shared/models/he_music_models.dart';
+import '../../../../../shared/providers/song_sort_providers.dart';
+import '../../../../../shared/widgets/song_sort_button.dart';
 import '../../../../../shared/widgets/app_back_button.dart';
 import '../../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../../shared/widgets/online_platform_tabs.dart';
@@ -62,20 +64,29 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(newSongPageControllerProvider);
     final controller = ref.read(newSongPageControllerProvider.notifier);
+    final canSort =
+        !state.tabsLoading &&
+        !state.songsLoading &&
+        !state.loadingMore &&
+        !state.hasMore &&
+        state.songsErrorMessage == null;
+    final songs = canSort
+        ? ref.watch(sortedSongInfoProvider(state.songs))
+        : state.songs;
 
     return DetailPageShell(
       onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: _songActions
-                  .collectSelectedSongs(state.songs, _selectedSongKeys)
+                  .collectSelectedSongs(songs, _selectedSongKeys)
                   .isNotEmpty,
               loading: _submittingBatch,
-              onPlayPressed: () => unawaited(_playSelectedSongs(state.songs)),
+              onPlayPressed: () => unawaited(_playSelectedSongs(songs)),
               onAddToQueuePressed: () =>
-                  unawaited(_appendSelectedSongsToQueue(state.songs)),
+                  unawaited(_appendSelectedSongsToQueue(songs)),
               onAddToPlaylistPressed: () =>
-                  unawaited(_addSelectedSongsToPlaylist(state.songs)),
+                  unawaited(_addSelectedSongsToPlaylist(songs)),
             )
           : null,
       child: Scaffold(
@@ -120,16 +131,13 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
             const Divider(height: 1),
             Expanded(
               child: SongInfoListSection(
-                songs: state.songs,
+                songs: songs,
                 resolveSongCover: _songActions.resolveCoverUrl,
                 resolvePlatformId: _songActions.resolvePlatformId,
                 artistAlbumTextBuilder: (song) => song.artistAlbumText,
                 subtitleTextBuilder: (song) => song.displaySubtitle,
-                onTapSong: (song, coverUrl, index) => _songActions.playAll(
-                  context,
-                  state.songs,
-                  startIndex: index,
-                ),
+                onTapSong: (song, coverUrl, index) =>
+                    _songActions.playAll(context, songs, startIndex: index),
                 onLikeSong: (song) => _songActions.toggleSongFavorite(song),
                 onMoreSong: (song, coverUrl) => _songActions.showSongActions(
                   context: context,
@@ -137,8 +145,7 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
                   coverUrl: coverUrl,
                 ),
                 initialLoading:
-                    state.songs.isEmpty &&
-                    (state.tabsLoading || state.songsLoading),
+                    songs.isEmpty && (state.tabsLoading || state.songsLoading),
                 errorMessage: state.songsErrorMessage,
                 onRetry: controller.retry,
                 enablePaging: true,
@@ -150,28 +157,35 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
                     AppI18n.t(ref.read(appConfigProvider), 'new_song.empty'),
                   ),
                 ),
+                headerTrailing: SongSortButton(
+                  enabled: canSort && songs.isNotEmpty,
+                  allowDuration: songs.every((song) => song.duration > 0),
+                  allowSize:
+                      songs.isNotEmpty &&
+                      songs.every((song) => song.size != null),
+                ),
                 countText: AppI18n.format(
                   ref.read(appConfigProvider),
                   'detail.play_all_count',
-                  <String, String>{'count': '${state.songs.length}'},
+                  <String, String>{'count': '${songs.length}'},
                 ),
-                onPlayAll: state.songs.isEmpty
+                onPlayAll: songs.isEmpty
                     ? null
-                    : () => _songActions.playAll(context, state.songs),
+                    : () => _songActions.playAll(context, songs),
                 batchMode: _isBatchMode,
                 selectedSongKeys: _selectedSongKeys,
                 selectedCount: _songActions
-                    .collectSelectedSongs(state.songs, _selectedSongKeys)
+                    .collectSelectedSongs(songs, _selectedSongKeys)
                     .length,
                 allSelected: areAllLoadedSongsSelected(
-                  state.songs,
+                  songs,
                   _selectedSongKeys,
                   songIdOf: (song) => song.id,
                   platformOf: _songActions.resolvePlatformId,
                 ),
                 onEnterBatchMode: () => _setBatchMode(true),
                 onCancelBatch: () => _setBatchMode(false),
-                onSelectAllLoaded: () => _selectAllLoadedSongs(state.songs),
+                onSelectAllLoaded: () => _selectAllLoadedSongs(songs),
                 onToggleSongSelection: _toggleSongSelection,
               ),
             ),

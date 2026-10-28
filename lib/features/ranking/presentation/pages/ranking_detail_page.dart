@@ -10,6 +10,8 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
 import '../../../../shared/helpers/song_batch_helpers.dart';
+import '../../../../shared/providers/song_sort_providers.dart';
+import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -84,20 +86,28 @@ class _RankingDetailPageState extends ConsumerState<RankingDetailPage> {
         state.detail?.info.name ??
         widget.title ??
         AppI18n.t(config, 'ranking.fallback_title');
+    final canSort =
+        !state.loading &&
+        !state.loadingMore &&
+        !state.hasMore &&
+        state.errorMessage == null;
+    final songs = canSort
+        ? ref.watch(sortedSongInfoProvider(state.songs))
+        : state.songs;
 
     return DetailPageShell(
       onBackRequested: _isBatchMode ? () => _setBatchMode(false) : null,
       bottomBar: _isBatchMode
           ? SongBatchActionBar(
               enabled: _songActions
-                  .collectSelectedSongs(state.songs, _selectedSongKeys)
+                  .collectSelectedSongs(songs, _selectedSongKeys)
                   .isNotEmpty,
               loading: _submittingBatch,
-              onPlayPressed: () => unawaited(_playSelectedSongs(state.songs)),
+              onPlayPressed: () => unawaited(_playSelectedSongs(songs)),
               onAddToQueuePressed: () =>
-                  unawaited(_appendSelectedSongsToQueue(state.songs)),
+                  unawaited(_appendSelectedSongsToQueue(songs)),
               onAddToPlaylistPressed: () =>
-                  unawaited(_addSelectedSongsToPlaylist(state.songs)),
+                  unawaited(_addSelectedSongsToPlaylist(songs)),
             )
           : null,
       child: state.loading
@@ -113,11 +123,22 @@ class _RankingDetailPageState extends ConsumerState<RankingDetailPage> {
           : _Body(
               request: _request,
               state: state,
+              songs: songs,
+              sortButton: SongSortButton(
+                enabled: canSort && songs.isNotEmpty,
+                allowDuration: songs.every((song) => song.duration > 0),
+                allowSize:
+                    songs.isNotEmpty &&
+                    songs.every((song) => song.size != null),
+                onChanged: (_) => _songActions.syncQueueOrder(
+                  ref.read(sortedSongInfoProvider(state.songs)),
+                ),
+              ),
               onLoadMore: () => controller.loadMore(_request),
               onPreviewCover: (title, coverUrl) =>
                   _previewCover(title, coverUrl),
               onPlaySong: (song, coverUrl, index) =>
-                  _songActions.playAll(context, state.songs, startIndex: index),
+                  _songActions.playAll(context, songs, startIndex: index),
               resolveSongCover: _songActions.resolveCoverUrl,
               resolvePlatformId: _songActions.resolvePlatformId,
               onLikeSong: _songActions.toggleSongFavorite,
@@ -126,21 +147,21 @@ class _RankingDetailPageState extends ConsumerState<RankingDetailPage> {
                 song: song,
                 coverUrl: coverUrl,
               ),
-              onPlayAll: () => _songActions.playAll(context, state.songs),
+              onPlayAll: () => _songActions.playAll(context, songs),
               batchMode: _isBatchMode,
               selectedSongKeys: _selectedSongKeys,
               selectedCount: _songActions
-                  .collectSelectedSongs(state.songs, _selectedSongKeys)
+                  .collectSelectedSongs(songs, _selectedSongKeys)
                   .length,
               allSelected: areAllLoadedSongsSelected(
-                state.songs,
+                songs,
                 _selectedSongKeys,
                 songIdOf: (song) => song.id,
                 platformOf: (song) => song.platform,
               ),
               onEnterBatchMode: () => _setBatchMode(true),
               onCancelBatch: () => _setBatchMode(false),
-              onSelectAllLoaded: () => _selectAllLoadedSongs(state.songs),
+              onSelectAllLoaded: () => _selectAllLoadedSongs(songs),
               onToggleSongSelection: _toggleSongSelection,
               onShowDescription: (text) =>
                   showDetailDescriptionSheet(context, title: title, text: text),
@@ -252,6 +273,8 @@ class _Body extends ConsumerWidget {
   const _Body({
     required this.request,
     required this.state,
+    required this.songs,
+    required this.sortButton,
     required this.onLoadMore,
     required this.onPreviewCover,
     required this.onPlaySong,
@@ -273,6 +296,8 @@ class _Body extends ConsumerWidget {
 
   final RankingDetailRequest request;
   final RankingDetailState state;
+  final List<RankingSong> songs;
+  final Widget sortButton;
   final Future<void> Function() onLoadMore;
   final void Function(String title, String coverUrl) onPreviewCover;
   final void Function(RankingSong, String coverUrl, int index) onPlaySong;
@@ -321,17 +346,18 @@ class _Body extends ConsumerWidget {
             pinned: true,
             delegate: MusicDetailPlayAllHeader(
               height: MusicDetailPlayAllHeader.heightFor(context),
+              trailing: sortButton,
               countText: AppI18n.format(
                 config,
                 'detail.play_all_count',
-                <String, String>{'count': '${state.songs.length}'},
+                <String, String>{'count': '${songs.length}'},
               ),
               onPlayAll: onPlayAll,
-              onBatchAction: state.songs.isEmpty ? null : onEnterBatchMode,
+              onBatchAction: songs.isEmpty ? null : onEnterBatchMode,
               batchMode: batchMode,
               selectedCount: selectedCount,
               allSelected: allSelected,
-              onSelectAll: state.songs.isEmpty ? null : onSelectAllLoaded,
+              onSelectAll: songs.isEmpty ? null : onSelectAllLoaded,
               onCancelBatch: batchMode ? onCancelBatch : null,
             ),
           ),
@@ -345,7 +371,7 @@ class _Body extends ConsumerWidget {
           0,
         ),
         child: SongInfoListSection(
-          songs: state.songs,
+          songs: songs,
           resolveSongCover: resolveSongCover,
           resolvePlatformId: resolvePlatformId,
           onTapSong: onPlaySong,

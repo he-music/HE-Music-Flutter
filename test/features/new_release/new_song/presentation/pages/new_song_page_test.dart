@@ -28,10 +28,108 @@ import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_widgets.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
+import 'package:he_music_flutter/shared/providers/song_sort_providers.dart';
+import 'package:he_music_flutter/shared/utils/song_sort.dart';
+import 'package:he_music_flutter/shared/widgets/song_sort_button.dart';
+import 'package:he_music_flutter/shared/widgets/song_info_list_section.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../../helpers/expect_text_height_fits.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('new songs sort after pagination and play the displayed order', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      SongSortPreferenceController.storageKey:
+          '{"field":"duration","ascending":true}',
+    });
+    final api = _PaginatedNewSongApiClient();
+    final player = _TestPlayerController();
+    await tester.pumpWidget(
+      _buildTestApp(apiClient: api, playerController: player),
+    );
+    await tester.pump();
+    await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NewSongPage)),
+    );
+    expect(
+      tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<SongInfoListSection>(find.byType(SongInfoListSection))
+          .songs
+          .map((song) => song.id),
+      ['song-2', 'song-1'],
+    );
+
+    final loading = container
+        .read(newSongPageControllerProvider.notifier)
+        .loadMore();
+    await tester.pump();
+    expect(
+      tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
+      isFalse,
+    );
+    api.lastPage.complete();
+    await loading;
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
+      isTrue,
+    );
+    expect(
+      tester.getTopLeft(find.text('末页新歌')).dy,
+      lessThan(tester.getTopLeft(find.text('今日新歌')).dy),
+    );
+    expect(player.lastReplacedQueue, isEmpty);
+
+    await tester.tap(find.text('今日新歌'));
+    await tester.pump();
+    expect(player.lastReplacedQueue.map((track) => track.id), [
+      'song-3',
+      'song-1',
+      'song-2',
+    ]);
+    expect(player.state.currentIndex, 1);
+    await tester.tap(find.byIcon(Icons.play_circle_fill_rounded));
+    await tester.pump();
+    expect(player.lastReplacedQueue.map((track) => track.id), [
+      'song-3',
+      'song-1',
+      'song-2',
+    ]);
+    expect(player.state.currentIndex, 0);
+
+    await tester.tap(find.text('Batch'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Select all'));
+    await tester.pump();
+    await tester.tap(find.text('Play'));
+    await tester.pumpAndSettle();
+    expect(player.lastReplacedQueue.map((track) => track.id), [
+      'song-3',
+      'song-1',
+      'song-2',
+    ]);
+
+    await container
+        .read(songSortPreferenceProvider.notifier)
+        .setPreference(const SongSortPreference());
+    await tester.pump();
+    expect(
+      tester
+          .widget<SongInfoListSection>(find.byType(SongInfoListSection))
+          .songs
+          .map((song) => song.id),
+      ['song-2', 'song-1', 'song-3'],
+    );
+  });
   testWidgets('new song category accommodates large text', (tester) async {
     await tester.pumpWidget(_buildTestApp(textScale: 3));
     await tester.pumpAndSettle();
@@ -219,6 +317,41 @@ class _FakeNewSongApiClient extends NewSongApiClient {
   }
 }
 
+class _PaginatedNewSongApiClient extends _FakeNewSongApiClient {
+  final lastPage = Completer<void>();
+
+  @override
+  Future<NewReleasePageResult<SongInfo>> fetchSongs({
+    required String platform,
+    required String tabId,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    if (pageIndex > 1) await lastPage.future;
+    return NewReleasePageResult<SongInfo>(
+      list: pageIndex == 1
+          ? [
+              _buildSong(
+                platform,
+                id: 'song-2',
+                name: '较长新歌',
+                duration: 240000,
+              ),
+              _buildSong(platform),
+            ]
+          : [
+              _buildSong(
+                platform,
+                id: 'song-3',
+                name: '末页新歌',
+                duration: 100000,
+              ),
+            ],
+      hasMore: pageIndex == 1,
+    );
+  }
+}
+
 class _FakeEmptyNewSongApiClient extends _FakeNewSongApiClient {
   @override
   Future<NewReleasePageResult<SongInfo>> fetchSongs({
@@ -360,12 +493,17 @@ class _FavoriteToggleCall {
   int get hashCode => Object.hash(songId, platform, like);
 }
 
-SongInfo _buildSong(String platform) {
+SongInfo _buildSong(
+  String platform, {
+  String id = 'song-1',
+  String name = '今日新歌',
+  int duration = 180000,
+}) {
   return SongInfo(
-    name: '今日新歌',
+    name: name,
     subtitle: '',
-    id: 'song-1',
-    duration: 180000,
+    id: id,
+    duration: duration,
     mvId: '',
     album: const SongInfoAlbumInfo(id: 'album-1', name: '专辑'),
     artists: const <SongInfoArtistInfo>[
