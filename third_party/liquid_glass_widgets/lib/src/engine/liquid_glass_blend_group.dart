@@ -189,6 +189,7 @@ class _RawLiquidGlassBlendGroup extends SingleChildRenderObjectWidget {
     RenderLiquidGlassBlendGroup renderObject,
   ) {
     renderObject
+      ..renderLink = renderLink
       ..blend = blend
       ..devicePixelRatio = MediaQuery.devicePixelRatioOf(context)
       ..settings = settings
@@ -219,12 +220,32 @@ class RenderLiquidGlassBlendGroup extends RenderLiquidGlassGeometry
 
   set link(GlassGroupLink value) {
     if (_link == value) return;
-    _link.removeListener(_onLinkUpdate);
-    _link.onShapeTransformChanged = null;
+    _releaseLink();
     _link = value;
     value.addListener(_onLinkUpdate);
     value.onShapeTransformChanged = _onShapeTransformChanged;
     markNeedsPaint();
+  }
+
+  /// Stops listening to [_link].
+  ///
+  /// The transform callback is a single slot, and Flutter creates a
+  /// replacement render object before it disposes this one, so the slot is
+  /// only cleared if it still holds this object's callback.
+  void _releaseLink() {
+    _link.removeListener(_onLinkUpdate);
+    if (_link.onShapeTransformChanged == _onShapeTransformChanged) {
+      _link.onShapeTransformChanged = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    // The link belongs to the LiquidGlassBlendGroup state and can outlive
+    // this render object; it must not keep calling into it.
+    // ChangeNotifier allows removeListener after it is disposed.
+    _releaseLink();
+    super.dispose();
   }
 
   double _blend = 0;
@@ -243,14 +264,81 @@ class RenderLiquidGlassBlendGroup extends RenderLiquidGlassGeometry
   }
 
   void _onShapeTransformChanged(RenderObject renderObject) {
+    // The matte is in this group's space, so a shape that is still where the
+    // matte was built for needs nothing, however far the whole group moved
+    // on screen. Repainting anyway would cost a frame and a matte rebuild
+    // after every layout-only move.
+    if (_shapeAtCachedTransform(renderObject)) return;
     markGeometryNeedsUpdate();
     markNeedsPaint();
+    _enclosingGlassLayer()?.markNeedsPaint();
+  }
+
+  /// The glass layer this group paints into, whose space the matte is in.
+  LiquidGlassRenderObject? _enclosingGlassLayer() {
+    RenderObject? node = parent;
+    while (node != null && node is! LiquidGlassRenderObject) {
+      node = node.parent;
+    }
+    return node as LiquidGlassRenderObject?;
+  }
+
+  bool _shapeMatchesTransform(RenderObject shape, Matrix4? built) {
+    if (built == null || !shape.attached) return false;
+    try {
+      return MatrixUtils.matrixEquals(shape.getTransformTo(this), built);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Whether [shape] sits in this group exactly where the cached matte was
+  /// built for it. False whenever that can't be told.
+  bool _shapeAtCachedTransform(RenderObject shape) {
+    final cached = geometry;
+    if (cached == null || geometryState != LiquidGlassGeometryState.updated) {
+      return false;
+    }
+    for (final entry in cached.shapes) {
+      if (identical(entry.renderObject, shape)) {
+        return _shapeMatchesTransform(shape, entry.shapeToGeometry);
+      }
+    }
+    return false;
+  }
+
+  @override
+  bool get isGeometryCacheValid {
+    final cached = geometry;
+    if (cached == null) return false;
+    var i = 0;
+    for (final MapEntry(key: renderObject, value: (shape, glassContainsChild))
+        in link.shapeEntries) {
+      if (!renderObject.attached || !renderObject.hasSize) continue;
+      if (i >= cached.shapes.length) return false;
+      final existing = cached.shapes[i++];
+      if (!identical(existing.renderObject, renderObject) ||
+          existing.shape != shape ||
+          existing.glassContainsChild != glassContainsChild ||
+          !_shapeMatchesTransform(renderObject, existing.shapeToGeometry)) {
+        return false;
+      }
+    }
+    return i == cached.shapes.length;
   }
 
   @override
   void onTransformChanged() {
+    // The layer follows a move of its own (see
+    // RenderLiquidGlassLayer.updateAtComposite). If every shape is still
+    // where the matte was rasterized for it, the whole layer only travelled
+    // together: nothing to repaint and the matte is still right.
+    final layer = _enclosingGlassLayer();
+    if (layer != null && layer.attached && layer.matteMatchesShapeTransforms) {
+      return;
+    }
     markNeedsPaint();
-    renderLink?.notifyGeometryChanged(this);
+    layer?.markNeedsPaint();
   }
 
   @override
@@ -271,6 +359,13 @@ class RenderLiquidGlassBlendGroup extends RenderLiquidGlassGeometry
         blend * devicePixelRatio,
       ]);
     });
+    // uNativeEdge, after the shape array.
+    geometryShader.setFloatUniforms(
+      initialIndex: 8 + LiquidGlassBlendGroup.maxShapesPerLayer * 7,
+      (value) => value.setFloat(
+        settings.rimShade > 0 || settings.frost > 0 ? 1.0 : 0.0,
+      ),
+    );
   }
 
   @override
@@ -352,7 +447,15 @@ class RenderLiquidGlassBlendGroup extends RenderLiquidGlassGeometry
     }
 
     return (
-      (layerBounds ?? Rect.zero).inflate(blend * .25),
+      // The geometry pass draws the outer half of the SDF anti-aliasing ramp
+      // (and, under uNativeEdge, a 1px silhouette expansion for the rim
+      // outline / frost) outside shapeBounds: reserve 3 physical pixels for
+      // that band plus a transparent border texel, since the matte's edge
+      // texels are what the shadow blurs and what the render pass clamps to
+      // outside the matte.
+      (layerBounds ?? Rect.zero).inflate(
+        blend * .25 + 3 / devicePixelRatio,
+      ),
       shapes,
       anyShapeChangedInLayer,
     );

@@ -59,7 +59,8 @@ class GlassTabBarExtraButton {
     this.enabled = true,
   })  : menuItems = null,
         menuAlignment = null,
-        menuWidth = 200;
+        menuWidth = 200,
+        menuHeight = null;
 
   /// Opens a [GlassMenu] pull-down when the extra button is tapped.
   ///
@@ -84,6 +85,7 @@ class GlassTabBarExtraButton {
     this.enabled = true,
     this.menuAlignment,
     this.menuWidth = 200,
+    this.menuHeight,
   }) : onTap = _noOp;
 
   /// Icon widget displayed in the button.
@@ -157,6 +159,9 @@ class GlassTabBarExtraButton {
   ///
   /// Defaults to 200. Set via [GlassTabBarExtraButton.menu].
   final double menuWidth;
+
+  /// Optional fixed height of the expanded menu panel in logical pixels.
+  final double? menuHeight;
 
   /// Whether this button opens a menu rather than firing a tap callback.
   bool get isMenu => menuItems != null;

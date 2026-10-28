@@ -7,7 +7,7 @@ import '../skin/app_skin_theme.dart';
 /// controls, with only the backing hue supplied by the active skin.
 /// https://github.com/sdegenaar/liquid_glass_widgets/blob/main/example/lib/apple_music/apple_music_demo.dart
 abstract final class AppGlassMaterial {
-  /// Matches liquid_glass_widgets 1.6.1's kDefaultSheetSettings.
+  /// Matches liquid_glass_widgets 1.16.0's kDefaultSheetSettings.
   /// The preset is internal, so reproduce its values through the public API.
   /// Used for the half-open surface; full expansion uses the solid fill.
   static const sheet = LiquidGlassSettings(

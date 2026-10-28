@@ -611,6 +611,7 @@ class _RenderGlassGlowLayer extends RenderProxyBox {
 
   @override
   void detach() {
+    _needsAncestorPropagation = false;
     _clipper?.removeListener(_markNeedsClip);
     super.detach();
   }
@@ -660,18 +661,58 @@ class _RenderGlassGlowLayer extends RenderProxyBox {
     _propagateToAncestorLiquidGlass();
   }
 
+  bool _needsAncestorPropagation = false;
+
+  /// Returns true only if every [RenderBox] in the ancestor chain from `this`
+  /// up to [ancestor] (inclusive) is attached and has been laid out.
+  bool _canTransformToAncestor(RenderObject ancestor) {
+    if (!attached || !ancestor.attached) return false;
+    RenderObject? node = this;
+    while (node != null) {
+      if (node is RenderBox && !node.hasSize) {
+        return false;
+      }
+      if (node == ancestor) {
+        return true;
+      }
+      node = node.parent;
+    }
+    return false;
+  }
+
   /// Propagates touch specular data to an ancestor [LiquidGlassRenderObject]
   /// when [GlassGlow] is placed inside a glass surface (e.g. inside [GlassButton]).
   void _propagateToAncestorLiquidGlass() {
-    if (!_propagateToAncestor) return;
+    if (!_propagateToAncestor) {
+      _needsAncestorPropagation = false;
+      RenderObject? p = parent;
+      while (p != null) {
+        if (p is LiquidGlassRenderObject) {
+          p.setTouchSpecular(Offset.zero, 0.0);
+          break;
+        }
+        p = p.parent;
+      }
+      return;
+    }
+
     RenderObject? p = parent;
     while (p != null) {
       if (p is LiquidGlassRenderObject) {
-        if (attached && p.attached && hasSize && p.hasSize) {
-          final layerPos = p.globalToLocal(localToGlobal(_glowOffset));
+        if (_canTransformToAncestor(p)) {
+          _needsAncestorPropagation = false;
+          final layerPos = localToGlobal(_glowOffset, ancestor: p);
           p.setTouchSpecular(layerPos, _glowColor.a);
         } else {
           p.setTouchSpecular(_glowOffset, _glowColor.a);
+          if (!_needsAncestorPropagation && attached) {
+            _needsAncestorPropagation = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!attached || !_needsAncestorPropagation) return;
+              _needsAncestorPropagation = false;
+              _propagateToAncestorLiquidGlass();
+            });
+          }
         }
         break;
       }

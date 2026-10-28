@@ -118,6 +118,7 @@ class GlassSlider extends StatefulWidget {
     this.activeColor,
     this.inactiveColor,
     this.thumbColor = CupertinoColors.white,
+    this.thumbShadow,
     this.trackHeight = 4.0,
     this.thumbRadius = 15.0,
     this.settings,
@@ -186,6 +187,26 @@ class GlassSlider extends StatefulWidget {
   ///
   /// Defaults to white.
   final Color thumbColor;
+
+  /// Shadows cast by the resting thumb, painted outside the glass clip.
+  ///
+  /// When null, uses a soft black shadow at 15% opacity with an 8 logical-pixel
+  /// blur and a 2 logical-pixel downward offset. An empty list disables it.
+  /// Each shadow's color alpha is multiplied by the interaction/material fade;
+  /// its blur, spread and offset remain unchanged while pressing and releasing.
+  /// This controls the thumb only, independently of glass surface elevation.
+  ///
+  /// To restore the stronger default used before this option was introduced:
+  /// ```dart
+  /// thumbShadow: const [
+  ///   BoxShadow(
+  ///     color: Color.from(alpha: 0.25, red: 0, green: 0, blue: 0),
+  ///     blurRadius: 8,
+  ///     offset: Offset(0, 2),
+  ///   ),
+  /// ],
+  /// ```
+  final List<BoxShadow>? thumbShadow;
 
   /// Height of the track.
   ///
@@ -256,14 +277,19 @@ class GlassSlider extends StatefulWidget {
 
 class _GlassSliderState extends State<GlassSlider>
     with TickerProviderStateMixin {
-  // Cache default colors to avoid allocations
-  static const _defaultThumbShadowColor =
-      Color(0x40000000); // black.withValues(alpha: 0.25)
+  static const _defaultThumbShadow = [
+    BoxShadow(
+      color: Color.from(alpha: 0.15, red: 0, green: 0, blue: 0),
+      blurRadius: 8,
+      offset: Offset(0, 2),
+    ),
+  ];
 
   double? _dragValue;
   bool _isDragging = false;
   // Scale (squash/stretch) and jelly controller
   late AnimationController _scaleController;
+  late CurvedAnimation _scaleCurve;
   late Animation<double> _scaleAnimation;
   late SingleSpringController _jellyController;
 
@@ -271,6 +297,7 @@ class _GlassSliderState extends State<GlassSlider>
   final ValueNotifier<bool> _isFocused = ValueNotifier(false);
 
   late AnimationController _thicknessController;
+  late CurvedAnimation _thicknessCurve;
   late Animation<double> _thicknessAnimation;
 
   @override
@@ -284,16 +311,15 @@ class _GlassSliderState extends State<GlassSlider>
     );
 
     // iOS 26: Thumb "balloons in size" when dragging (1.25x = 25% larger)
+    _scaleCurve = CurvedAnimation(
+      parent: _scaleController,
+      curve: Curves.easeOutBack, // Slight overshoot for organic feel
+      reverseCurve: Curves.easeInBack,
+    );
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 1.35, // More dramatic balloon effect
-    ).animate(
-      CurvedAnimation(
-        parent: _scaleController,
-        curve: Curves.easeOutBack, // Slight overshoot for organic feel
-        reverseCurve: Curves.easeInBack,
-      ),
-    );
+    ).animate(_scaleCurve);
 
     // Simple 0→1 hold: fades the white pill out on press-down and
     // keeps it clear for the entire drag. Reverses back on release.
@@ -302,16 +328,15 @@ class _GlassSliderState extends State<GlassSlider>
       vsync: this,
     );
 
+    _thicknessCurve = CurvedAnimation(
+      parent: _thicknessController,
+      curve: Curves.easeOut,
+      reverseCurve: Curves.easeIn,
+    );
     _thicknessAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(
-      CurvedAnimation(
-        parent: _thicknessController,
-        curve: Curves.easeOut,
-        reverseCurve: Curves.easeIn,
-      ),
-    );
+    ).animate(_thicknessCurve);
 
     // Jelly spring: snappy with slight bounce for organic squash/stretch.
     // The controller drives a normalised position; its VELOCITY is what
@@ -327,9 +352,13 @@ class _GlassSliderState extends State<GlassSlider>
 
   @override
   void dispose() {
+    _scaleCurve.dispose();
+    _thicknessCurve.dispose();
     _scaleController.dispose();
     _thicknessController.dispose();
     _jellyController.dispose();
+    _isHovered.dispose();
+    _isFocused.dispose();
     super.dispose();
   }
 
@@ -654,6 +683,8 @@ class _GlassSliderState extends State<GlassSlider>
     // properly removes the child from the compositing tree, allowing the
     // native LiquidGlass refraction to show through when the material fades.
     final materialOpacity = (1.0 - transition * 1.2).clamp(0.0, 1.0);
+    final thumbShadow = widget.thumbShadow ?? _defaultThumbShadow;
+    final shadowOpacity = (1.0 - transition) * materialOpacity;
     final materialContent = Opacity(
       opacity: materialOpacity,
       child: Container(
@@ -679,30 +710,30 @@ class _GlassSliderState extends State<GlassSlider>
         clipBehavior: Clip.none,
         children: [
           // Paint outside GlassEffect's shape clip, in the same thumb transform.
-          // Fold the material fade into this single shadow's alpha to avoid an
+          // Fold the material fade into each shadow's alpha to avoid an
           // extra opacity layer around the blurred shadow on Impeller.
-          Positioned.fill(
-            child: Center(
-              child: SizedBox(
-                width: thumbWidth,
-                height: thumbHeight,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(borderRadius),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _defaultThumbShadowColor.withValues(
-                          alpha: 0.25 * (1.0 - transition) * materialOpacity,
-                        ),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+          if (thumbShadow.isNotEmpty)
+            Positioned.fill(
+              child: Center(
+                child: SizedBox(
+                  width: thumbWidth,
+                  height: thumbHeight,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(borderRadius),
+                      boxShadow: [
+                        for (final shadow in thumbShadow)
+                          shadow.copyWith(
+                            color: shadow.color.withValues(
+                              alpha: shadow.color.a * shadowOpacity,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           GlassEffect(
             shape: thumbShape,
             // Light mode: clear refractive glass with thicker body — visibility comes

@@ -69,6 +69,113 @@ enum GlassSheetMode {
   persistent,
 }
 
+/// Where a sheet sits across a screen with room on either side of it.
+///
+/// Mirrors SwiftUI's `presentationPlacement(_:)`. Only iPhone Duo's inner
+/// display has that room today: in its vertical bar strip layout
+/// ([GlassVerticalBar]) a sheet in a regular width is a card as wide as the
+/// display's shorter side less its margins — 653pt on the inner display in
+/// landscape — and this decides where the card sits. Everywhere else a sheet
+/// spans the width, the outer display in landscape included, and this is not
+/// read.
+enum GlassSheetPlacement {
+  /// The system decides: the card is centred, as natively.
+  automatic,
+
+  /// The card is centred on the screen.
+  center,
+
+  /// The card sits against the leading edge.
+  leading,
+
+  /// The card sits against the trailing edge.
+  ///
+  /// Where the strip is on that side the card covers it, and the sheet's own
+  /// bar moves into the strip — the one placement on the inner display whose
+  /// toolbar goes vertical, as natively.
+  trailing,
+}
+
+/// The sheet's insets from the left and right edges of the screen in iPhone
+/// Duo's vertical bar strip layout.
+///
+/// Natively a sheet there keeps [margin] from each side, 8pt. In a
+/// [regularWidth] it is no wider than the display's shorter side less those
+/// margins, and [placement] positions it across whatever width is left; in a
+/// compact one it spans the width.
+EdgeInsets _stripSheetInsets({
+  required Size screenSize,
+  required bool regularWidth,
+  required double margin,
+  required GlassSheetPlacement placement,
+  required TextDirection textDirection,
+}) {
+  final spare = regularWidth
+      ? math.max(0.0, screenSize.width - screenSize.shortestSide)
+      : 0.0;
+  final leadingShare = switch (placement) {
+    GlassSheetPlacement.automatic || GlassSheetPlacement.center => 0.5,
+    GlassSheetPlacement.leading => 0.0,
+    GlassSheetPlacement.trailing => 1.0,
+  };
+  final left = spare *
+      (textDirection == TextDirection.ltr ? leadingShare : 1.0 - leadingShare);
+  return EdgeInsets.only(left: margin + left, right: margin + spare - left);
+}
+
+/// Distance from the top of the screen to a sheet's top edge at its large
+/// detent in iPhone Duo's vertical bar strip layout.
+///
+/// The status bar is in the strip there, so natively the sheet rises to 8pt
+/// from the top rather than stopping below the status bar.
+const double _kStripSheetTop = 8.0;
+
+/// Distance from a sheet's top and leading edges to the title row of its own
+/// bar in iPhone Duo's vertical bar strip layout, as natively.
+const double _kStripSheetRowInset = 16.0;
+
+/// The strip a sheet's own bar lays out in, or null where its bar stays
+/// horizontal.
+///
+/// Natively a sheet takes the strip's place when it covers the strip: on the
+/// outer display always, and on the inner display at
+/// [GlassSheetPlacement.trailing]. Its bar then stacks down the sheet's own
+/// strip, which lies over the screen's, and keeps its title in a row at the
+/// sheet's top-leading corner. The first control stays clear of the status
+/// cluster at the top of the screen's strip, and otherwise starts level with
+/// the title row — at a medium detent, say. A centred or leading card keeps a
+/// horizontal bar.
+///
+/// [frame] is the sheet at rest, in screen coordinates.
+GlassVerticalBarData? _sheetVerticalBar({
+  required GlassVerticalBarData? bar,
+  required Rect frame,
+  required Size screenSize,
+  required TextDirection textDirection,
+}) {
+  if (bar == null) return null;
+  final stripOnRight = (bar.edge == GlassVerticalBarEdge.trailing) ==
+      (textDirection == TextDirection.ltr);
+  // The sheet's edge on the strip's side, as a distance from the strip's
+  // inner edge.
+  final reach = stripOnRight
+      ? frame.right - (screenSize.width - bar.width)
+      : bar.width - frame.left;
+  if (reach <
+      GlassVerticalBarMetrics.inset + GlassVerticalBarMetrics.controlExtent) {
+    return null;
+  }
+  return GlassVerticalBarData(
+    edge: bar.edge,
+    width: reach,
+    top: math.max(bar.top - frame.top, _kStripSheetRowInset),
+    bottom: bar.bottom,
+    collapsesTabBar: bar.collapsesTabBar,
+    rowTop: _kStripSheetRowInset,
+    titleInset: _kStripSheetRowInset,
+  );
+}
+
 /// Controls how the sheet transitions from its glass look to a solid color
 /// as it expands toward [GlassSheetState.full].
 enum GlassFillTransition {
@@ -455,6 +562,11 @@ class GlassModalSheetController {
   /// sheet is, not where it was a frame ago); the null case distinguishes
   /// "not mounted yet" from a sheet genuinely sitting at 0.0.
   double? get _livePosition => _state?._animationController.value;
+
+  /// Freezes the sheet at its current position when the closing morph takes
+  /// over, so a dismissal does not keep sliding the sheet toward the floor
+  /// while the morph portal shrinks it back into the trigger.
+  void _freezeForMorphClose() => _state?._animationController.stop();
 }
 
 // ===========================================================================

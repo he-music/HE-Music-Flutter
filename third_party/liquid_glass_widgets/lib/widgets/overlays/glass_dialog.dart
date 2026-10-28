@@ -3,18 +3,18 @@ import 'package:flutter/cupertino.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 
 import '../../types/glass_quality.dart';
-import '../containers/glass_card.dart';
+import '../containers/glass_container.dart';
 import '../../theme/glass_theme_helpers.dart';
 
 /// A glass morphism alert dialog following Apple's iOS design patterns.
 ///
 /// [GlassDialog] provides a modal dialog with liquid glass effect,
-/// composing [GlassCard] and [CupertinoButton] as building blocks.
+/// composing [GlassContainer.card] and [CupertinoButton] as building blocks.
 ///
 /// ## Key Features
 ///
 /// - Liquid glass backdrop with blur effect
-/// - Composable design using GlassCard + CupertinoButton
+/// - Composable design using GlassContainer.card + CupertinoButton
 /// - iOS-style alert layout
 /// - 1-3 action buttons with smart layout
 /// - Customizable glass settings
@@ -147,6 +147,7 @@ class GlassDialog extends StatelessWidget {
           actions.length > 0 && actions.length <= 3,
           'GlassDialog must have 1-3 actions',
         );
+
 
   // ===========================================================================
   // Content Properties
@@ -282,7 +283,7 @@ class GlassDialog extends StatelessWidget {
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
-        child: GlassCard(
+        child: GlassContainer.card(
           useOwnLayer: true,
           settings: settings,
           quality: effectiveQuality,
@@ -329,9 +330,45 @@ class GlassDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildActions(BuildContext context) {
-    // 1-2 actions: Horizontal layout
-    if (actions.length <= 2) {
+  /// Whether every label fits on one line in half the dialog's width.
+  ///
+  /// Mirrors iOS: two actions whose labels would wrap are stacked instead.
+  bool _labelsFitSideBySide(BuildContext context, double width) {
+    if (actions.length < 2) return true;
+    // Two buttons and the 8 pt gap between them; the label keeps clear of
+    // the button's 12 pt corners on both sides.
+    final labelWidth = (width - 8) / 2 - 2 * 12;
+    final baseStyle = DefaultTextStyle.of(context).style;
+    for (final action in actions) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: action.label,
+          style: baseStyle.merge(_labelStyle(action)),
+        ),
+        maxLines: 1,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final fits = painter.width <= labelWidth;
+      painter.dispose();
+      if (!fits) return false;
+    }
+    return true;
+  }
+
+  TextStyle _labelStyle(GlassDialogAction action) => TextStyle(
+        fontSize: 16,
+        fontWeight: action.isPrimary ? FontWeight.bold : FontWeight.w600,
+      );
+
+  Widget _buildActions(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) =>
+            _buildActionsIn(context, constraints.maxWidth),
+      );
+
+  Widget _buildActionsIn(BuildContext context, double width) {
+    // 1-2 actions: Horizontal layout, unless a label does not fit
+    if (actions.length <= 2 && _labelsFitSideBySide(context, width)) {
       return Row(
         children: [
           for (var index = 0; index < actions.length; index++) ...[
@@ -342,7 +379,7 @@ class GlassDialog extends StatelessWidget {
       );
     }
 
-    // 3 actions: Vertical layout (iOS pattern)
+    // 3 actions, or labels too long for a row: Vertical layout (iOS pattern)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: actions.asMap().entries.map((entry) {
@@ -374,11 +411,7 @@ class GlassDialog extends StatelessWidget {
       child: Text(
         action.label,
         textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: action.isPrimary ? FontWeight.bold : FontWeight.w600,
-          color: foregroundColor,
-        ),
+        style: _labelStyle(action).copyWith(color: foregroundColor),
       ),
     );
   }

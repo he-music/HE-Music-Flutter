@@ -319,6 +319,20 @@ class GlassThemeVariant {
     glowColors: GlassGlowColors.fallback,
   );
 
+  /// iOS 27 `glassEffect(.regular)` light theme variant.
+  static const GlassThemeVariant ios27Light = GlassThemeVariant(
+    settings: GlassThemeSettings.ios27Light,
+    quality: GlassQuality.premium,
+    glowColors: GlassGlowColors.fallback,
+  );
+
+  /// iOS 27 `glassEffect(.regular)` dark theme variant.
+  static const GlassThemeVariant ios27Dark = GlassThemeVariant(
+    settings: GlassThemeSettings.ios27Dark,
+    quality: GlassQuality.premium,
+    glowColors: GlassGlowColors.fallback,
+  );
+
   /// Shader-free theme variant for maximum compatibility.
   ///
   /// All glass widgets in this subtree use [GlassQuality.minimal]: plain
@@ -413,6 +427,15 @@ class GlassThemeData {
     this.interaction = const GlassInteractionSettings(),
     this.brightness,
   });
+
+  /// Creates glass theme data configured with authentic iOS 27
+  /// `glassEffect(.regular)` optics ([GlassThemeVariant.ios27Light] and
+  /// [GlassThemeVariant.ios27Dark]).
+  const GlassThemeData.ios27({
+    this.interaction = const GlassInteractionSettings(),
+    this.brightness,
+  })  : light = GlassThemeVariant.ios27Light,
+        dark = GlassThemeVariant.ios27Dark;
 
   /// Creates glass theme data from a flat set of common properties.
   ///

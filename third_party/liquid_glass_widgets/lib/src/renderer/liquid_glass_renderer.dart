@@ -8,12 +8,19 @@
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 
-export '../engine/glass_glow.dart' show GlassGlow, GlassGlowLayer;
+export '../engine/glass_glow.dart'
+    show GlassGlow, GlassGlowLayer, GlassGlowLayerState;
 export '../engine/liquid_glass.dart' show LiquidGlass;
 export '../engine/liquid_glass_blend_group.dart' show LiquidGlassBlendGroup;
 export '../engine/liquid_glass_layer.dart' show LiquidGlassLayer;
+export '../engine/rendering/liquid_glass_render_object.dart'
+    show InheritedGeometryRenderLink;
 export '../engine/liquid_glass_settings.dart'
-    show GlassBodyMode, LiquidGlassSettings, PlatformViewGlassMode;
+    show
+        GlassBodyMode,
+        GlassLensModel,
+        LiquidGlassSettings,
+        PlatformViewGlassMode;
 export '../engine/liquid_shape.dart';
 export '../engine/stretch.dart'
     show

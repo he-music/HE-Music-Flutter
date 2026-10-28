@@ -75,7 +75,7 @@ void main() {
           expect(dialog.message, '所有歌曲将恢复默认歌词。此操作无法撤销。');
           expect(dialog.content, isNull);
           expect(dialog.actions.last.isDestructive, isTrue);
-          expect(find.byType(GlassCard), findsOneWidget);
+          expect(find.byType(GlassContainer), findsOneWidget);
           expect(find.byType(GlassButton), findsNothing);
           final buttons = find.descendant(
             of: find.byType(GlassDialog),
@@ -140,7 +140,7 @@ void main() {
     );
     final buttons = find.byType(CupertinoButton);
     expect(buttons, findsNWidgets(3));
-    expect(find.byType(GlassCard), findsOneWidget);
+    expect(find.byType(GlassContainer), findsOneWidget);
     expect(find.byType(GlassButton), findsNothing);
     final firstRect = tester.getRect(buttons.first);
     for (var index = 1; index < 3; index++) {
@@ -149,6 +149,64 @@ void main() {
       expect(rect.left, closeTo(firstRect.left, 0.01));
       expect(rect.top, greaterThan(firstRect.bottom));
     }
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('long glass dialog actions stack and remain readable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var confirmed = false;
+    const cancelLabel = '保留当前播放列表中的全部歌曲';
+    const confirmLabel = '删除当前播放列表中的全部歌曲';
+    await tester.pumpWidget(
+      GlassAdaptiveScope(
+        minQuality: GlassQuality.minimal,
+        maxQuality: GlassQuality.minimal,
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: GlassDialog(
+              title: '清空播放列表？',
+              actions: [
+                GlassDialogAction(label: cancelLabel, onPressed: _noop),
+                GlassDialogAction(
+                  label: confirmLabel,
+                  isDestructive: true,
+                  onPressed: () => confirmed = true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final buttons = find.byType(CupertinoButton);
+    expect(buttons, findsNWidgets(2));
+    expect(find.byType(GlassButton), findsNothing);
+    final firstRect = tester.getRect(buttons.first);
+    final secondRect = tester.getRect(buttons.last);
+    expect(secondRect.top, greaterThan(firstRect.bottom));
+    expect(secondRect.width, closeTo(firstRect.width, 0.01));
+    for (final (index, label) in [cancelLabel, confirmLabel].indexed) {
+      final buttonRect = tester.getRect(buttons.at(index));
+      final labelRect = tester.getRect(find.text(label));
+      expect(buttonRect.height, greaterThanOrEqualTo(44));
+      expect(labelRect.left, greaterThanOrEqualTo(buttonRect.left));
+      expect(labelRect.right, lessThanOrEqualTo(buttonRect.right));
+      expect(labelRect.top, greaterThanOrEqualTo(buttonRect.top));
+      expect(labelRect.bottom, lessThanOrEqualTo(buttonRect.bottom));
+    }
+    await tester.tap(find.text(confirmLabel));
+    await tester.pumpAndSettle();
+    expect(confirmed, isTrue);
     expect(tester.takeException(), isNull);
   });
 }

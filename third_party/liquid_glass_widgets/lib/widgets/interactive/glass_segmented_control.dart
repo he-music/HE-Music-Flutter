@@ -32,17 +32,21 @@ import '../../src/widgets/interactive/segmented_control_internal.dart';
 /// - **Flexible Sizing**: Automatically sizes segments evenly
 /// - **Customizable Appearance**: Full control over colors, sizes, and effects
 ///
-/// ## ⚠️ Do Not Wrap in GlassContainer or GlassCard
+/// ## ⚠️ Do Not Wrap in a Refractive GlassContainer or GlassContainer.card
 ///
-/// Placing this widget inside a [GlassContainer] or [GlassCard] is an
-/// anti-pattern that causes two problems:
+/// Placing this widget inside a default `glass` [GlassContainer] or
+/// [GlassContainer.card] is an anti-pattern that causes two problems:
 ///
-/// 1. **Visual degradation** — the container sets `avoidsRefraction: true`
+/// 1. **Visual degradation** — the glass container sets `avoidsRefraction: true`
 ///    on its children, causing the indicator's glass refraction to fall back
 ///    to a non-refracting path.
 /// 2. **Jelly-physics clipping** — with `useOwnLayer: true` on the container,
 ///    the container's own-layer clip cuts the indicator's jelly overshoot
 ///    during drag animations.
+///
+/// Exception: inside a `surfaceStyle: GlassSurfaceStyle.solid` card or
+/// `GlassGroupedSection` there is no glass layer and `avoidsRefraction` is not
+/// set, so placing [GlassSegmentedControl] inside a `solid` card works normally.
 ///
 /// The track background is already handled by [backgroundColor] — no outer
 /// container is needed. For a standalone glass layer, use [useOwnLayer] on
@@ -608,7 +612,7 @@ class _GlassSegmentedControlState extends State<GlassSegmentedControl> {
       final isLight = GlassTheme.brightnessOf(context) == Brightness.light;
       final bg = widget.backgroundColor ??
           (isLight ? _defaultLightBg : _defaultDarkBg);
-      final borderRadius = BorderRadius.circular(widget.borderRadius);
+      final borderRadius = GlassDefaults.safeBorderRadius(widget.borderRadius);
 
       final content = Container(
         height: widget.height,
@@ -672,7 +676,7 @@ class _GlassSegmentedControlState extends State<GlassSegmentedControl> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(widget.borderRadius),
+          borderRadius: GlassDefaults.safeBorderRadius(widget.borderRadius),
         ),
         child: Padding(
           padding: widget.padding,

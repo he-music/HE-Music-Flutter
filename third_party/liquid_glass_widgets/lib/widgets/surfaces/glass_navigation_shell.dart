@@ -1,11 +1,15 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:flutter/widgets.dart';
 
 import '../../constants/glass_defaults.dart';
 import '../../src/engine/liquid_glass_settings.dart';
+import '../../src/widgets/surfaces/vertical_bar_regions.dart';
 import '../effects/glass_materialize.dart';
 import '../overlays/glass_modal_sheet.dart';
 import 'glass_bar_item.dart';
+import 'glass_large_title.dart';
+import 'glass_vertical_bar.dart';
 import 'shared/glass_nav_pinned_host.dart';
 
 /// What a single route contributes to the pinned navigation chrome.
@@ -21,6 +25,8 @@ class GlassNavBarRegistration {
     required this.showsBackButton,
     this.onBack,
     this.buttonSettings,
+    this.buttonSize,
+    this.toolbarHeight,
     @Deprecated(
       'A hoisted sheet item presents out of the hoisted capsule; the tap is '
       'no longer handed back.',
@@ -28,7 +34,16 @@ class GlassNavBarRegistration {
     this.presentSheet,
     this.horizontalInset,
     this.platformViewBackdrop = false,
-  });
+    this.largeTitleController,
+    this.stripRowTop,
+  })  : assert(
+          buttonSize == null || buttonSize > 0,
+          'buttonSize must be positive',
+        ),
+        assert(
+          toolbarHeight == null || toolbarHeight >= 0,
+          'toolbarHeight must not be negative',
+        );
 
   /// The trailing cluster items for this route.
   final List<GlassBarItem> actions;
@@ -48,6 +63,26 @@ class GlassNavBarRegistration {
 
   /// Glass settings applied to this route's pinned chrome.
   final LiquidGlassSettings? buttonSettings;
+
+  /// Diameter of standalone bar buttons (including the automatic back button
+  /// and [GlassBarItemBackground.separate], [GlassBarItemBackground.own], and
+  /// [GlassBarItemBackground.none] items), in logical pixels.
+  ///
+  /// Defaults to [GlassNavPinnedMetrics.backDiameter] (`44.0`). Shared
+  /// multi-item capsules ([GlassBarItemBackground.shared]) use
+  /// `buttonSize + (GlassNavPinnedMetrics.slot - GlassNavPinnedMetrics.backDiameter)`
+  /// (`buttonSize + 2.0`), preserving the `46 / 44` ratio.
+  ///
+  /// Ignored in iPhone Duo's vertical bar strip, where controls use
+  /// [GlassVerticalBarMetrics.controlExtent].
+  final double? buttonSize;
+
+  /// Height of the horizontal toolbar row that the pinned chrome centres
+  /// within, in logical pixels.
+  ///
+  /// Defaults to [GlassNavPinnedMetrics.toolbarHeight] (`44.0`), or
+  /// [buttonSize] when [buttonSize] is larger.
+  final double? toolbarHeight;
 
   /// No longer called: a [GlassBarItem.sheet] presents out of the hoisted
   /// capsule itself, which the shell keeps through the presentation. See
@@ -71,6 +106,15 @@ class GlassNavBarRegistration {
   /// app's page gutter rather than to this default passes that gutter here.
   final double? horizontalInset;
 
+  /// Distance from the top of the screen to the row that keeps the items
+  /// staying horizontal, in iPhone Duo's vertical bar strip.
+  ///
+  /// Defaults to [GlassVerticalBarMetrics.edgeMargin], the row [GlassAppBar]
+  /// draws its title in. A bar the app draws with a header of its own passes the top
+  /// of that header's row, so the items land in it rather than above it.
+  /// Elsewhere it is not read.
+  final double? stripRowTop;
+
   /// Whether the pinned chrome floats over a native platform view.
   ///
   /// The shell draws a hoisted cluster with its own [GlassButton], and the
@@ -81,6 +125,14 @@ class GlassNavBarRegistration {
   /// routes the shell's copy there, exactly as [GlassButton.platformViewBackdrop]
   /// does for the bar's own.
   final bool platformViewBackdrop;
+
+  /// The large title this route's bar collapses with, if any.
+  ///
+  /// Only read in iPhone Duo's vertical bar strip, where the title row holds
+  /// the large title: the items that stay horizontal share that row, so they
+  /// scroll away with the title, and the whole chrome hides while the title's
+  /// search is open ([GlassLargeTitleController.isSearchPresented]).
+  final GlassLargeTitleController? largeTitleController;
 
   /// The tappable items in [actions], with spacers removed.
   List<GlassBarActionItem> get actionItems =>
@@ -130,6 +182,9 @@ class GlassNavigationShell extends StatefulWidget {
     required this.child,
     this.enabled = true,
     this.effectTransition = GlassEffectTransition.materialize,
+    this.swipeCommitTransition = GlassSwipeCommitTransition.effect,
+    this.verticalBarBehavior = GlassVerticalBarBehavior.automatic,
+    this.verticalBarCompression = GlassVerticalBarCompression.automatic,
   });
 
   /// The subtree containing the [Navigator], typically the `child` handed to
@@ -154,6 +209,33 @@ class GlassNavigationShell extends StatefulWidget {
   /// two routes: with a knob on each bar, a push between routes that disagree
   /// would have no answer for which one wins.
   final GlassEffectTransition effectTransition;
+
+  /// How the chrome transitions once an interactive back-swipe commits.
+  ///
+  /// Defaults to [GlassSwipeCommitTransition.effect], which plays
+  /// [effectTransition] as for any other pop.
+  final GlassSwipeCommitTransition swipeCommitTransition;
+
+  /// Whether bars move into iPhone Duo's vertical bar strip.
+  ///
+  /// Defaults to [GlassVerticalBarBehavior.automatic]: where the device
+  /// reserves a strip, the pinned chrome stacks in it — back button first,
+  /// then the leading and trailing groups in order — and the title stays in a
+  /// horizontal row at the top of the content, beside any item that stays
+  /// horizontal (see [GlassBarActionItem.axisBehavior]). [GlassTabBar.bottom]
+  /// and [GlassToolbar] follow, from the bottom of the strip up. Read the
+  /// result with [GlassVerticalBar.maybeOf].
+  ///
+  /// Only the shell's own subtree follows, and only while [enabled]: UIKit
+  /// moves the bars a container owns and no others.
+  final GlassVerticalBarBehavior verticalBarBehavior;
+
+  /// What gives way when the vertical bar strip runs out of height.
+  ///
+  /// Defaults to [GlassVerticalBarCompression.automatic]. Set on the shell
+  /// because the choice is between the tab bar and the pinned chrome, which
+  /// only the shell sees together.
+  final GlassVerticalBarCompression verticalBarCompression;
 
   /// The nearest enclosing shell, or null if there is none.
   static GlassNavigationShellState? maybeOf(BuildContext context) {
@@ -318,6 +400,8 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) _scheduleNotify();
       });
+    VerticalBarRegions.instance.addListener(_onVerticalBarRegions);
+    VerticalBarRegions.instance.edge.addListener(_onVerticalBarRegions);
   }
 
   @override
@@ -379,6 +463,7 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
   /// Removes [route] from the registry.
   void unregister(ModalRoute<dynamic> route) {
     if (_registry.remove(route) == null) return;
+    if (identical(_sheetHold?.route, route)) _dropSheetHold();
     _unlisten(route.animation);
     _unlisten(route.secondaryAnimation);
     final listener = _clockListeners.remove(route);
@@ -579,9 +664,14 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
   ///
   /// Called by the pinned host on the tap, before the item presents, so the
   /// hold is in place by the frame the sheet's route lands and the group is
-  /// never unmounted from under the droplet. A tap that presents nothing, or
-  /// presents without the morph, leaves the anchor unemptied; such a hold is
-  /// dropped at the end of the following frame and the chrome hands back as
+  /// never unmounted from under the droplet. The hold is inert until a route
+  /// is presented over [route] — the chrome stays hoisted exactly as it was —
+  /// so the presenter may take as long as it needs to get there: measuring
+  /// the sheet's content offscreen, awaiting a fetch. A tap that presents
+  /// nothing leaves a hold that the next tap, presentation or unregistration
+  /// of the route replaces. One whose presentation arrives with the anchor
+  /// unemptied — a dialog, a sheet shown without the morph — is dropped at
+  /// the end of that presentation's first frame, and the chrome hands back as
   /// for any other presentation. So is one whose presentation has gone.
   void holdForSheet(
     ModalRoute<dynamic> route,
@@ -589,19 +679,32 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
     GlassMorphAnchor anchor,
   ) {
     _dropSheetHold();
-    final hold = _SheetHold(route: route, item: item, anchor: anchor);
-    _sheetHold = hold;
+    _sheetHold = _SheetHold(route: route, item: item, anchor: anchor);
     anchor.presentationChanges.addListener(_onSheetPresentationChanged);
-    // The presenter empties the trigger during the sheet route's first build,
-    // which is the coming frame. Still full at the end of it means no morph
-    // is coming out of this capsule.
+  }
+
+  /// Whether [hold] keeps its capsule through the presentation now over its
+  /// route.
+  ///
+  /// True once the anchor has been emptied. Before that, the presenter empties
+  /// the trigger during the sheet route's first build, and this may resolve
+  /// earlier in the same frame — so the first presented-over resolve keeps
+  /// the capsule and asks again at the end of the frame: still full then
+  /// means no morph is coming out of it, and the hold is dropped.
+  bool _sheetHoldClaimed(_SheetHold hold) {
+    if (hold.anchor.isPresenting) return true;
+    if (hold.presented) return false;
+    hold.presented = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !identical(_sheetHold, hold) || anchor.isPresenting) {
+      if (!mounted ||
+          !identical(_sheetHold, hold) ||
+          hold.anchor.isPresenting) {
         return;
       }
       _dropSheetHold();
       _scheduleNotify();
     });
+    return true;
   }
 
   void _onSheetPresentationChanged() {
@@ -715,6 +818,8 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
         popping: true,
         topRoute: exiting.topRoute,
         transition: exiting.transition,
+        crossFade: widget.swipeCommitTransition ==
+            GlassSwipeCommitTransition.crossFade,
       );
     }
 
@@ -735,7 +840,11 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
     // out of, which stays up at rest on its own.
     if (_isPresentedOver(top.key)) {
       final hold = _sheetHold;
-      if (hold == null || !identical(hold.route, top.key)) return null;
+      if (hold == null ||
+          !identical(hold.route, top.key) ||
+          !_sheetHoldClaimed(hold)) {
+        return null;
+      }
       return GlassNavPinnedState(
         from: from,
         to: top.value,
@@ -749,8 +858,9 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
     }
     // A hold is for one presentation; with that gone, so is the hold. Dropped
     // here rather than on the route's pop so a trigger unmounted while the
-    // sheet was up cannot leave one behind.
-    _dropSheetHold();
+    // sheet was up cannot leave one behind. One still waiting for its
+    // presentation to arrive is left alone.
+    if (_sheetHold?.presented ?? false) _dropSheetHold();
 
     // Progress of the top route's own entrance: 1 at rest, 0 when it has just
     // been pushed, and scrubbed by the interactive back-swipe during a pop.
@@ -879,6 +989,8 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
 
   @override
   void dispose() {
+    VerticalBarRegions.instance.removeListener(_onVerticalBarRegions);
+    VerticalBarRegions.instance.edge.removeListener(_onVerticalBarRegions);
     for (final animation in _listened) {
       animation.removeListener(_onAnimationTick);
       animation.removeStatusListener(_onAnimationStatus);
@@ -895,13 +1007,137 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
     super.dispose();
   }
 
+  // ---------------------------------------------------------------------------
+  // Vertical bar strip
+  // ---------------------------------------------------------------------------
+
+  /// The strip resolved by the last build, or null.
+  GlassVerticalBarData? _verticalBar;
+
+  /// The strip this shell resolved for the screen, or null where its bars are
+  /// horizontal.
+  ///
+  /// A subtree can keep its own bars horizontal under it with
+  /// [GlassVerticalBar.disabled]; [GlassVerticalBar.maybeOf] answers for a
+  /// particular context.
+  GlassVerticalBarData? get verticalBar => _verticalBar;
+
+  /// Height each bar at the bottom of the strip takes, keyed by its owner.
+  final Map<Object, double> _verticalBarBottom = <Object, double>{};
+
+  /// How much of the vertical bar strip, measured from the bottom of the
+  /// screen, the bars stacked there take — a tab bar, a toolbar.
+  ///
+  /// The pinned chrome is laid out in what is left above it, and overflows
+  /// into a ••• menu where that is not enough. Zero with nothing reserved.
+  double get verticalBarBottom => _verticalBarBottom.values
+      .fold(0.0, (max, extent) => extent > max ? extent : max);
+
+  /// Reserves [extent] of the strip's bottom for [owner], replacing any
+  /// earlier reservation it made.
+  ///
+  /// Called by the package's tab bar and toolbar while they lay out in the
+  /// strip. A bar drawn there by the app reserves its own height, plus the
+  /// strip's [GlassVerticalBarData.bottom], the same way.
+  void reserveVerticalBarBottom(Object owner, double extent) {
+    if (_verticalBarBottom[owner] == extent) return;
+    _verticalBarBottom[owner] = extent;
+    _scheduleNotify();
+  }
+
+  /// Drops [owner]'s reservation.
+  void releaseVerticalBarBottom(Object owner) {
+    if (_verticalBarBottom.remove(owner) != null) _scheduleNotify();
+  }
+
+  void _onVerticalBarRegions() => setState(() {});
+
+  /// The strip this shell's bars lay out in, or null where they are
+  /// horizontal.
+  ///
+  /// Read from the insets the shell itself sees, which is above any [SafeArea]
+  /// a page puts around its content, and from the regions UIKit reserves for
+  /// the status cluster and the camera, which Flutter does not report on iOS
+  /// yet. See [GlassVerticalBar.resolve].
+  GlassVerticalBarData? _resolveVerticalBar(BuildContext context) {
+    if (!isActive ||
+        widget.verticalBarBehavior == GlassVerticalBarBehavior.disabled) {
+      return null;
+    }
+    final bar = GlassVerticalBar.resolve(
+      viewPadding: MediaQuery.viewPaddingOf(context),
+      size: MediaQuery.sizeOf(context),
+      platform: defaultTargetPlatform,
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      displayFeatures: [
+        ...MediaQuery.displayFeaturesOf(context),
+        ...VerticalBarRegions.instance.value,
+      ],
+      systemEdge: VerticalBarRegions.instance.edge.value,
+      compression: widget.verticalBarCompression,
+    );
+    // Followed on iOS whether or not a strip is up yet: where UIKit leaves the
+    // strip to the app, its edge is the only sign of it.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      VerticalBarRegions.instance.observe();
+    }
+    return bar;
+  }
+
+  /// [child] under the media query the app should see.
+  ///
+  /// The regions UIKit reserves join [MediaQueryData.displayFeatures], which
+  /// is where Flutter will report them once it does on iOS
+  /// (flutter/flutter#193025): the status cluster and the camera as cutouts,
+  /// and the fold of a half-folded display as a hinge, which
+  /// [DisplayFeatureSubScreen] keeps dialogs and sheets to one side of. And
+  /// for a strip UIKit leaves to the app, its width joins the insets on its
+  /// side, so the content keeps clear of it as it does of a strip the system
+  /// insets for.
+  Widget _mediaQueryFor(
+    BuildContext context,
+    GlassVerticalBarData? bar,
+    Widget child,
+  ) {
+    final regions = VerticalBarRegions.instance.value;
+    final insetsStrip = bar != null && !bar.systemInset;
+    if (regions.isEmpty && !insetsStrip) return child;
+    var data = MediaQuery.of(context);
+    if (regions.isNotEmpty) {
+      final reported = {for (final f in data.displayFeatures) f.bounds};
+      data = data.copyWith(displayFeatures: [
+        ...data.displayFeatures,
+        for (final region in regions)
+          if (!reported.contains(region.bounds)) region,
+      ]);
+    }
+    if (insetsStrip) {
+      final ltr = (Directionality.maybeOf(context) ?? TextDirection.ltr) ==
+          TextDirection.ltr;
+      final onLeft = (bar.edge == GlassVerticalBarEdge.leading) == ltr;
+      EdgeInsets add(EdgeInsets insets) => insets.copyWith(
+            left: onLeft ? insets.left + bar.width : insets.left,
+            right: onLeft ? insets.right : insets.right + bar.width,
+          );
+      data = data.copyWith(
+        padding: add(data.padding),
+        viewPadding: add(data.viewPadding),
+      );
+    }
+    return MediaQuery(data: data, child: child);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final verticalBar = _verticalBar = _resolveVerticalBar(context);
     return _GlassNavigationShellScope(
       state: this,
       child: Stack(
         children: [
-          widget.child,
+          GlassVerticalBar(
+            data: verticalBar,
+            child: _mediaQueryFor(context, verticalBar, widget.child),
+          ),
           // The chrome gets an Overlay of its own because it deliberately sits
           // above the app's Navigator, and therefore outside the Navigator's
           // Overlay — a GlassBarItem.menu portals to the root overlay, and up
@@ -918,7 +1154,10 @@ class GlassNavigationShellState extends State<GlassNavigationShell>
                 builder: (context, _) {
                   final state = resolveState();
                   if (state == null) return const SizedBox.shrink();
-                  return GlassNavPinnedHost(state: state);
+                  return GlassVerticalBar(
+                    data: verticalBar,
+                    child: GlassNavPinnedHost(state: state),
+                  );
                 },
               ),
             ),
@@ -944,7 +1183,7 @@ class _GlassNavigationShellScope extends InheritedWidget {
 
 /// A capsule kept hoisted through the sheet presented out of it.
 class _SheetHold {
-  const _SheetHold({
+  _SheetHold({
     required this.route,
     required this.item,
     required this.anchor,
@@ -959,6 +1198,12 @@ class _SheetHold {
   /// The hoisted capsule's anchor, whose [GlassMorphAnchor.isPresenting] is
   /// the hold's lifetime.
   final GlassMorphAnchor anchor;
+
+  /// Whether a route has been presented over [route] since the tap.
+  ///
+  /// Until then the hold is waiting for the sheet to arrive and is not
+  /// dropped by a resolve that finds nothing presented over the route.
+  bool presented = false;
 }
 
 /// A [ChangeNotifier] whose notification is callable by its owner.

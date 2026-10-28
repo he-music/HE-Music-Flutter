@@ -302,6 +302,7 @@ class SegmentedControlContentState extends State<SegmentedControlContent> {
         if (!_isDragging) setState(() => _isDown = false);
       },
       child: GestureDetector(
+        excludeFromSemantics: true,
         onHorizontalDragDown:
             widget.direction == Axis.horizontal ? _onDragDown : null,
         onHorizontalDragUpdate:
@@ -413,8 +414,7 @@ class SegmentedControlContentState extends State<SegmentedControlContent> {
                             tracksSelection: true,
                             isSelected: widget.selectedIndex == i,
                             semanticLabel: widget.segments[i].semanticLabel ??
-                                widget.segments[i].label ??
-                                '',
+                                widget.segments[i].label,
                             onKeyboardActivate: () => _onSegmentTap(i),
                             semanticOnTap: () => _onSegmentTap(i),
                             isFocusedNotifier: _focusNotifiers[i],

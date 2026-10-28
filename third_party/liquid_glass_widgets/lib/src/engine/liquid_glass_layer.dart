@@ -11,10 +11,17 @@
 import 'dart:ui';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
+import '../renderer/glass_backdrop_group.dart';
+import '../renderer/glass_backdrop_group_boundary.dart';
+import '../renderer/glass_frost_budget.dart';
 import '../renderer/glass_materialize_scope.dart';
 import '../renderer/liquid_glass_push_back_scope.dart';
+import '../renderer/liquid_glass_renderer.dart'
+    show debugPaintLiquidGlassGeometry;
 import '../renderer/liquid_glass_self_scale_scope.dart';
 import 'glass_glow.dart';
 import 'internal/transform_tracking_repaint_boundary_mixin.dart';
@@ -214,6 +221,7 @@ class LiquidGlassLayer extends StatefulWidget {
 class _LiquidGlassLayerState extends State<LiquidGlassLayer>
     with SingleTickerProviderStateMixin {
   late final GeometryRenderLink _link = GeometryRenderLink();
+  late final BackdropKey _backdropKey = BackdropKey();
 
   @override
   void dispose() {
@@ -240,6 +248,9 @@ class _LiquidGlassLayerState extends State<LiquidGlassLayer>
     }
 
     return BackdropGroup(
+      // Inside a GlassBackdropGroup the blur and frost passes share the
+      // group's backdrop read instead of this layer's own.
+      backdropKey: GlassBackdropGroup.keyOf(context) ?? _backdropKey,
       child: _ScaleSafeRepaintBoundary(
         // Inflate the RepaintBoundary texture by clipExpansion so that any
         // ancestor Transform.scale (e.g. LiquidStretch press animation) can
@@ -346,12 +357,8 @@ class _TouchSpecularBridgeState extends State<_TouchSpecularBridge> {
     final layerBox = GlassGlowLayer.maybeOf(context)?.context.findRenderObject()
         as RenderBox?;
     final Offset pos;
-    if (layerBox != null &&
-        layerBox.attached &&
-        ro.attached &&
-        layerBox.hasSize &&
-        ro.hasSize) {
-      pos = ro.globalToLocal(layerBox.localToGlobal(v.position));
+    if (layerBox != null && layerBox.attached && layerBox.hasSize) {
+      pos = layerBox.localToGlobal(v.position);
     } else {
       pos = v.position;
     }
@@ -423,7 +430,7 @@ class _RawShapes extends SingleChildRenderObjectWidget {
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
       renderShader: renderShader,
       backdropKey: backdropKey,
-      settings: settings,
+      settings: GlassFrostBudget.apply(context, settings),
       shadows: shadows,
       link: link,
       clipExpansion: clipExpansion,
@@ -431,7 +438,7 @@ class _RawShapes extends SingleChildRenderObjectWidget {
       captureOriginInScreenSpace: captureOriginInScreenSpace,
       selfScaled: selfScaled,
       pushBackActive: pushBackActive,
-    );
+    )..sharedBackdrop = GlassBackdropGroup.keyOf(context) != null;
   }
 
   @override
@@ -442,14 +449,15 @@ class _RawShapes extends SingleChildRenderObjectWidget {
     renderObject
       ..link = link
       ..devicePixelRatio = MediaQuery.devicePixelRatioOf(context)
-      ..settings = settings
+      ..settings = GlassFrostBudget.apply(context, settings)
       ..shadows = shadows
       ..backdropKey = backdropKey
       ..clipExpansion = clipExpansion
       ..captureImage = captureImage
       ..captureOriginInScreenSpace = captureOriginInScreenSpace
       ..selfScaled = selfScaled
-      ..pushBackActive = pushBackActive;
+      ..pushBackActive = pushBackActive
+      ..sharedBackdrop = GlassBackdropGroup.keyOf(context) != null;
   }
 }
 
@@ -471,16 +479,107 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
         _selfScaled = selfScaled,
         _pushBackActive = pushBackActive;
 
-  // ── Cached blur filter ──────────────────────────────────────────────────
-  // The BackdropFilterLayer's blur filter is rebuilt only when blurSigma
-  // changes — not on every paint frame during jelly/morph animations.
+  // ── Cached filters ──────────────────────────────────────────────────────
+  // The BackdropFilterLayers' filters are rebuilt only when their settings
+  // change — not on every paint frame during jelly/morph animations.
   ImageFilter? _cachedBlur;
   double _cachedBlurSigma = -1;
+  ImageFilter? _cachedFrost;
+  double _cachedFrostSigma = -1;
+  ColorFilter? _cachedWeight;
+  double _cachedWeightValue = 1;
+  ImageFilter? _cachedSharedFrost;
+
+  /// Whether this layer's blur and frost share the backdrop read of an
+  /// enclosing [GlassBackdropGroup]; see there.
+  bool get sharedBackdrop => _sharedBackdrop;
+  bool _sharedBackdrop = false;
+  set sharedBackdrop(bool value) {
+    if (_sharedBackdrop == value) return;
+    _sharedBackdrop = value;
+    markNeedsPaint();
+  }
+
+  /// The group this layer shares the backdrop read with, while it does.
+  RenderGlassBackdropGroupBoundary? _group;
+
+  /// Whether the last paint shared the group's backdrop read.
+  @visibleForTesting
+  bool get debugSharesBackdrop => _sharesBackdrop;
+  bool _sharesBackdrop = false;
+
+  /// Runs the group check [paintLiquidGlass] runs; see there.
+  @visibleForTesting
+  bool debugResolveSharing() => _resolveSharing();
+
+  /// Whether this surface has a visible backer pad painted beneath it (see
+  /// `AdaptiveGlass._wrapWithBacker`). The glass's blur has to read that pad
+  /// back; a read shared with other members is taken when the first of them
+  /// paints, before this surface's pad exists, and would be drawn over it.
+  bool get _hasBacker => (settings.effectiveBackerColor?.a ?? 0) > 0;
+
+  /// Joins or leaves the enclosing group for this paint, and says whether
+  /// the blur and frost share its backdrop read: only with another member
+  /// in it, only while no render pass of its own opens between this layer
+  /// and the group (see [opensRenderPassBelow]), and never with a backer of
+  /// its own to read back.
+  bool _resolveSharing() {
+    final group = sharedBackdrop && backdropKey != null && !_hasBacker
+        ? enclosingBackdropGroup(this)
+        : null;
+    if (!identical(group, _group)) {
+      _group?.leave(this);
+      _group = group;
+    }
+    group?.join(this);
+    return _sharesBackdrop = group != null && group.memberCount >= 2;
+  }
+
+  @override
+  void detach() {
+    _group?.leave(this);
+    _group = null;
+    _uniformsTransform = null;
+    _uniformsPassRect = null;
+    super.detach();
+  }
+
+  // ── Baked shadow ────────────────────────────────────────────────────────
+  // The shadows drawn once into an image while the geometry holds still, so
+  // a resting surface doesn't pay a saveLayer and a blur for them on every
+  // frame the backdrop moves. See _paintShadows.
+  ui.Image? _lastShadowGeometry;
+  ui.Image? _bakedShadow;
+  Rect _bakedShadowRect = Rect.zero;
+  ui.Image? _bakedShadowGeometry;
+  List<BoxShadow>? _bakedShadowList;
+  Rect _bakedShadowBounds = Rect.zero;
+  double _bakedShadowDpr = 0;
 
   final _shaderHandle = LayerHandle<BackdropFilterLayer>();
   final _blurLayerHandle = LayerHandle<BackdropFilterLayer>();
+  final _frostLayerHandle = LayerHandle<BackdropFilterLayer>();
+  final _weightLayerHandle = LayerHandle<BackdropFilterLayer>();
   final _clipRectLayerHandle = LayerHandle<ClipRectLayer>();
   final _clipPathLayerHandle = LayerHandle<ClipPathLayer>();
+  final _frostClipLayerHandle = LayerHandle<ClipPathLayer>();
+  final _frostRowsLayerHandle = LayerHandle<ClipPathLayer>();
+
+  /// The union of [shapes]' paths in local coordinates.
+  Path _shapePath(
+    List<(RenderLiquidGlassGeometry, GeometryCache, Matrix4)> shapes,
+  ) {
+    final path = Path();
+    for (final geometry in shapes) {
+      if (!geometry.$1.attached) continue;
+      path.addPath(
+        geometry.$2.path,
+        Offset.zero,
+        matrix4: geometry.$3.storage,
+      );
+    }
+    return path;
+  }
 
   EdgeInsets _clipExpansion;
   set clipExpansion(EdgeInsets value) {
@@ -555,17 +654,18 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
   /// values so [matteTransform] and [captureOriginInScreenSpace] can return
   /// coordinates that match the unscaled [captureImage] texture.
   ///
-  /// Called from [paint] on every frame — not from
-  /// [onTransformChanged] — because [GeometryTransformTrackingLayer] skips
-  /// the callback on the very first frame (when [_lastTransform] is null), and
-  /// only fires again when the accumulated transform actually changes between
-  /// scene builds.  A CupertinoSheet that opens before any movement would leave
+  /// Called from [paint] on every frame, and from [_updateAtComposite] when
+  /// a move reuses the last paint — not from [onTransformChanged] — because
+  /// [GeometryTransformTrackingLayer] skips the callback on the very first
+  /// frame (when [_lastTransform] is null), and only fires again when the
+  /// accumulated transform actually changes between scene builds.  A
+  /// CupertinoSheet that opens before any movement would leave
   /// [_unscaledTransform] null if we relied on [onTransformChanged] alone,
   /// causing the frozen-coordinate fallback to silently miss.
   ///
-  /// Updating a cached field inside [paint] is safe: it calls no
-  /// [markNeedsPaint], no [setState], and no layout-invalidation, so it does
-  /// not violate Flutter's read-only paint contract.
+  /// Updating a cached field inside [paint] or while compositing is safe: it
+  /// calls no [markNeedsPaint], no [setState], and no layout-invalidation, so
+  /// it does not violate Flutter's read-only paint contract.
   void _updateScaleState(
       Matrix4 currentTransform, Offset currentCaptureOrigin) {
     if (!_hasScale(currentTransform)) {
@@ -600,6 +700,93 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
   }
 
   @override
+  GeometryTransformTrackingLayer setUpLayer(Offset offset) =>
+      super.setUpLayer(offset)..updateAtComposite = _updateAtComposite;
+
+  /// The offset of the last [paintLiquidGlass], which its clips are shifted by.
+  Offset _paintOffset = Offset.zero;
+
+  /// The transform and enclosing backdrop pass rect the shader filter's
+  /// screen-space uniforms were last written for, by [paintLiquidGlass] or
+  /// [_updateAtComposite].
+  Matrix4? _uniformsTransform;
+  Rect? _uniformsPassRect;
+
+  /// The backdrop pass rect the screen-space uniforms were last written for,
+  /// for tests.
+  @visibleForTesting
+  Rect? get debugUniformsPassRect => _uniformsPassRect;
+
+  /// Moves the last paint's screen-space uniforms to where an ancestor moved
+  /// this layer without repainting it (a reused repaint boundary: layout or a
+  /// scroll that only translated it), or when an ancestor glass layer opened,
+  /// closed, or resized its backdrop pass later in the same paint flush, in the
+  /// frame being composited.
+  bool _updateAtComposite() {
+    final shaderLayer = _shaderHandle.layer;
+    final clipLayer = _clipRectLayerHandle.layer;
+    if (!attached ||
+        debugPaintLiquidGlassGeometry ||
+        shaderLayer == null ||
+        clipLayer == null ||
+        geometryImage == null ||
+        captureImage != null) {
+      return false;
+    }
+    final transform = getTransformTo(null);
+    final passRect = enclosingBackdropPassRect();
+    // Painted this frame where it is now and in the same backdrop pass:
+    // the layers are already current.
+    if (transform == _uniformsTransform && passRect == _uniformsPassRect) {
+      return true;
+    }
+    // A move is repainted by the caller when this returns false. A change of
+    // enclosing pass alone is not a move, so it has to ask for itself.
+    final passChanged = passRect != _uniformsPassRect;
+    bool needsFullPaint() {
+      if (passChanged) {
+        final binding = SchedulerBinding.instance;
+        if (binding.schedulerPhase
+            case SchedulerPhase.idle || SchedulerPhase.postFrameCallbacks) {
+          markNeedsPaint();
+        } else {
+          binding.addPostFrameCallback((_) {
+            if (attached) markNeedsPaint();
+          });
+        }
+      }
+      return false;
+    }
+
+    _uniformsTransform = null;
+    _uniformsPassRect = null;
+    final prevFrostRows = frostRowsPath;
+    _updateScaleState(transform, super.captureOriginInScreenSpace);
+    writeScreenUniforms();
+    // uFrost.x switches on frostRowsPath; that needs the full paint.
+    if ((frostRowsPath != null) != (prevFrostRows != null)) {
+      return needsFullPaint();
+    }
+    // Re-add the clips around changed layers instead of their retained copy.
+    if (!_Recomposite.mark(clipLayer)) return needsFullPaint();
+    if (frostRowsPath case final rows?) {
+      final rowsLayer = _frostRowsLayerHandle.layer;
+      if (rowsLayer == null) return needsFullPaint();
+      if (!identical(rows, prevFrostRows)) {
+        if (!_Recomposite.mark(_frostClipLayerHandle.layer)) {
+          return needsFullPaint();
+        }
+        rowsLayer.clipPath = rows.shift(_paintOffset);
+      }
+    }
+    // The filter holds the uniforms it was created with.
+    shaderLayer.filter = ImageFilter.shader(renderShader!);
+    _uniformsTransform = transform;
+    _uniformsPassRect = passRect;
+    return true;
+  }
+
+  @override
   void paint(PaintingContext context, Offset offset) {
     if (!attached) return;
     // Refresh before the base paint reads matteTransform to build geometry.
@@ -616,65 +803,34 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     Rect boundingBox,
   ) {
     if (!attached) return;
+    _paintOffset = offset;
+    _uniformsTransform = getTransformTo(null);
+    _uniformsPassRect = enclosingBackdropPassRect();
+    final shared = _resolveSharing();
 
     // ── Pass 0: SDF Shadows ──────────────────────────────────────────────────
     if (shadows.isNotEmpty && geometryImage != null) {
-      final localBounds = geometryLocalBounds.shift(offset);
-
-      for (final shadow in shadows) {
-        if (shadow.color.a == 0) continue;
-
-        // Inflate clip rect to ensure large blurs aren't cut off
-        final shadowClip = localBounds.shift(shadow.offset).inflate(
-              shadow.spreadRadius + shadow.blurRadius * 3,
-            );
-
-        context.canvas.saveLayer(shadowClip, Paint());
-
-        // 1. Draw the geometry matte as a blurred, tinted shadow
-        final shadowPaint = Paint()
-          ..colorFilter = ColorFilter.mode(shadow.color, BlendMode.srcIn)
-          ..imageFilter = ImageFilter.blur(
-            sigmaX: shadow.blurSigma,
-            sigmaY: shadow.blurSigma,
-            tileMode: TileMode.decal,
-          );
-
-        context.canvas.drawImageRect(
-          geometryImage!,
-          Rect.fromLTWH(
-            0,
-            0,
-            geometryImage!.width.toDouble(),
-            geometryImage!.height.toDouble(),
-          ),
-          localBounds.shift(shadow.offset),
-          shadowPaint,
-        );
-
-        // 2. GPU Cutout (dstOut): punch out the interior using the same geometry
-        // matte to prevent the glass from blurring its own shadow (dirty rim).
-        context.canvas.drawImageRect(
-          geometryImage!,
-          Rect.fromLTWH(
-            0,
-            0,
-            geometryImage!.width.toDouble(),
-            geometryImage!.height.toDouble(),
-          ),
-          localBounds,
-          Paint()..blendMode = BlendMode.dstOut,
-        );
-
-        context.canvas.restore();
-      }
+      _paintShadows(
+        context.canvas,
+        offset,
+        geometryImage!,
+        geometryLocalBounds,
+      );
     }
 
-    // ── Pass 1: Blur ─────────────────────────────────────────────────────────
+    // ── Pass 1a: Blur ────────────────────────────────────────────────────────
     // Use Flutter's native ImageFilter.blur for smooth, multi-pass Gaussian
     // quality (the inline 9-tap shader approximation was pixelated with text).
     // Clip tightly to the actual pill shape path — no expansion needed here.
-    if (settings.effectiveBlur > 0) {
+    //
+    // Under a frost the render shader blurs the ghost itself, from the sharp
+    // rows the frost pass leaves (see Pass 1b), so there is no blur pass
+    // unless the blur is wider than the shader takes.
+    final frostRows = frostRowsPath;
+    if (settings.effectiveBlur > 0 &&
+        (frostRows == null ||
+            settings.effectiveBlur * devicePixelRatio >
+                LiquidGlassRenderObject.frostGhostMaxSigma)) {
       final blurSigma = settings.effectiveBlur;
       // Reuse cached blur filter when sigma hasn't changed.
       if (_cachedBlur == null || _cachedBlurSigma != blurSigma) {
@@ -687,24 +843,17 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
       }
 
       final blurLayer = (_blurLayerHandle.layer ??= BackdropFilterLayer())
-        ..backdropKey =
-            backdropKey // Scoped to this LiquidGlassLayer's BackdropGroup
+        // Outside a group the key is this layer's own BackdropGroup. A group
+        // member that does not share this frame (alone, or in a render pass
+        // of its own) must not use the group's key.
+        ..backdropKey = shared || !sharedBackdrop ? backdropKey : null
         ..filter = _cachedBlur!;
 
-      final clipPath = Path();
-      for (final geometry in shapes) {
-        if (!geometry.$1.attached) continue;
-        clipPath.addPath(
-          geometry.$2.path,
-          Offset.zero,
-          matrix4: geometry.$3.storage,
-        );
-      }
       _clipPathLayerHandle.layer = context.pushClipPath(
         needsCompositing,
         offset,
         boundingBox,
-        clipPath,
+        _shapePath(shapes),
         (context, offset) {
           context.pushLayer(
             blurLayer,
@@ -716,9 +865,125 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
         },
         oldLayer: _clipPathLayerHandle.layer,
       );
+    } else if (frostRows != null) {
+      _blurLayerHandle.layer = null;
+      // Straight onto the backdrop, where the frost will read it.
+      _clipPathLayerHandle.layer = context.pushClipPath(
+        needsCompositing,
+        offset,
+        boundingBox,
+        _shapePath(shapes),
+        (context, offset) {
+          paintShapeContents(context, offset, shapes, insideGlass: true);
+        },
+        oldLayer: _clipPathLayerHandle.layer,
+      );
     } else {
       _blurLayerHandle.layer = null;
       _clipPathLayerHandle.layer = null;
+    }
+
+    // ── Pass 1b: Frost ───────────────────────────────────────────────────────
+    // The cloud of iOS 27 glass: a wide blur of the backdrop, written only to
+    // alternate pixel rows of the shape (frostRowsPath), so the sharp
+    // backdrop survives on the rows between. The render shader reads both
+    // and makes the ghost, the clamp and the mix itself (uFrost), which keeps
+    // the frost to one plain blur pass: on Impeller any other filter stage
+    // composed with a backdrop blur measured as costly as a pass over the
+    // whole screen. Not part of the layer's BackdropGroup, so that content
+    // painted inside the glass above is in what it reads, unless the layer
+    // sits in a GlassBackdropGroup.
+    if (frostRows != null) {
+      final frostSigma = settings.effectiveFrost;
+      if (_cachedFrost == null || _cachedFrostSigma != frostSigma) {
+        _cachedSharedFrost = null;
+        _cachedFrost = ImageFilter.blur(
+          tileMode: TileMode.mirror,
+          sigmaX: frostSigma,
+          sigmaY: frostSigma,
+        );
+        _cachedFrostSigma = frostSigma;
+      }
+      final weight = settings.frostWeight;
+      final weighted = weight != 1.0 && weight > 0;
+      if (weighted && (_cachedWeight == null || _cachedWeightValue != weight)) {
+        // alpha = base + slope * luma, with white weighing `weight` times
+        // black and the heavier end at 1.
+        final base = weight > 1 ? 1 / weight : 1.0;
+        final slope = weight > 1 ? 1 - 1 / weight : weight - 1;
+        _cachedWeight = ColorFilter.matrix(<double>[
+          1, 0, 0, 0, 0, //
+          0, 1, 0, 0, 0, //
+          0, 0, 1, 0, 0, //
+          slope * 0.2126, slope * 0.7152, slope * 0.0722, base, 0, //
+        ]);
+        _cachedWeightValue = weight;
+        _cachedSharedFrost = null;
+      }
+      // In a GlassBackdropGroup the frost reads the group's shared backdrop,
+      // so the weight can't be written into the backdrop by a pass of its
+      // own first: it goes ahead of the blur in the same filter. Alone that
+      // costs more than the two passes; shared, the engine runs the filter
+      // once for every surface with the same settings.
+      ImageFilter frostFilter = _cachedFrost!;
+      if (shared && weighted) {
+        frostFilter = _cachedSharedFrost ??= ImageFilter.compose(
+          outer: _cachedFrost!,
+          inner: _cachedWeight!,
+        );
+      }
+      final frostLayer = (_frostLayerHandle.layer ??= BackdropFilterLayer())
+        ..backdropKey = shared ? backdropKey : null
+        // Replaces rather than covers the weighted pixels below, so the
+        // cloud rows keep the blurred weight in their alpha.
+        ..blendMode = weighted ? BlendMode.src : BlendMode.srcOver
+        ..filter = frostFilter;
+
+      // frostWeight: the shape is first given an alpha that weights each
+      // pixel by its luminance, colour premultiplied by it, so the blur's
+      // unpremultiplied result is a weighted mean in which light (or dark)
+      // pixels count for more; the sharp rows unpremultiply back to what
+      // they were. A lone colour filter stays within the clip; ahead of the
+      // blur in one filter it would not.
+      if (weighted && !shared) {
+        (_weightLayerHandle.layer ??= BackdropFilterLayer())
+          ..backdropKey = null
+          // Only the alpha is taken: the pixels beneath keep their colour,
+          // premultiplied by it.
+          ..blendMode = BlendMode.dstIn
+          ..filter = _cachedWeight!;
+      } else {
+        _weightLayerHandle.layer = null;
+      }
+
+      _frostClipLayerHandle.layer = context.pushClipPath(
+        needsCompositing,
+        offset,
+        boundingBox,
+        _shapePath(shapes),
+        (context, offset) {
+          if (_weightLayerHandle.layer case final weightLayer?) {
+            context.pushLayer(weightLayer, (context, offset) {}, offset);
+          }
+          _frostRowsLayerHandle.layer = context.pushClipPath(
+            needsCompositing,
+            offset,
+            boundingBox,
+            frostRows,
+            (context, offset) {
+              context.pushLayer(frostLayer, (context, offset) {}, offset);
+            },
+            clipBehavior: Clip.hardEdge,
+            oldLayer: _frostRowsLayerHandle.layer,
+          );
+        },
+        oldLayer: _frostClipLayerHandle.layer ?? _ClipPathLayer(),
+      );
+    } else {
+      _frostLayerHandle.layer = null;
+      _weightLayerHandle.layer = null;
+      _frostClipLayerHandle.layer = null;
+      _frostRowsLayerHandle.layer = null;
     }
 
     // ── Pass 2: Glass refraction + lighting shader ────────────────────────────
@@ -766,9 +1031,15 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
       // the offscreen surface when we're no longer using the backdrop path.
       _shaderHandle.layer = null;
       _clipRectLayerHandle.layer = null;
+      // Capture path does not open a live backdrop pass — clear so that
+      // descendant glass does not inherit a stale pass rect.
+      backdropPassClipRectLocal = null;
       return;
     }
     // BackdropFilter path (default): live compositor read via BackdropFilterLayer.
+    // Publish the clip rect so descendant premium glass can find the pass their
+    // FlutterFragCoord() is relative to (see enclosingBackdropPassRect).
+    backdropPassClipRectLocal = clipRect;
     final shaderLayer = (_shaderHandle.layer ??= BackdropFilterLayer())
       ..filter = ImageFilter.shader(renderShader!);
 
@@ -785,12 +1056,144 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
           offset,
         );
       },
-      oldLayer: _clipRectLayerHandle.layer,
+      oldLayer: _clipRectLayerHandle.layer ?? _ClipRectLayer(),
     );
+  }
+
+  /// Draws [shadows] under the glass.
+  ///
+  /// While the geometry changes from frame to frame (a jelly squash, a morph)
+  /// they are drawn live. Once the same geometry image is painted a second
+  /// time they are drawn once into an image and that image is drawn from
+  /// then on: same pixels, but no saveLayer and no blur per frame.
+  void _paintShadows(
+    Canvas canvas,
+    Offset offset,
+    ui.Image geometry,
+    Rect bounds,
+  ) {
+    final stable = identical(geometry, _lastShadowGeometry);
+    _lastShadowGeometry = geometry;
+    if (stable) {
+      if (!identical(_bakedShadowGeometry, geometry) ||
+          !listEquals(_bakedShadowList, shadows) ||
+          _bakedShadowBounds != bounds ||
+          _bakedShadowDpr != devicePixelRatio) {
+        _bakeShadows(geometry, bounds);
+      }
+      if (_bakedShadow case final baked?) {
+        canvas.drawImageRect(
+          baked,
+          Rect.fromLTWH(0, 0, baked.width.toDouble(), baked.height.toDouble()),
+          _bakedShadowRect.shift(offset),
+          Paint()..filterQuality = FilterQuality.low,
+        );
+        return;
+      }
+    }
+    _drawShadows(canvas, bounds.shift(offset), geometry);
+  }
+
+  void _bakeShadows(ui.Image geometry, Rect bounds) {
+    _bakedShadow?.dispose();
+    _bakedShadow = null;
+    _bakedShadowGeometry = geometry;
+    _bakedShadowList = List.of(shadows);
+    _bakedShadowBounds = bounds;
+    _bakedShadowDpr = devicePixelRatio;
+
+    Rect? area;
+    for (final shadow in shadows) {
+      if (shadow.color.a == 0) continue;
+      final clip = _shadowClip(bounds, shadow);
+      area = area == null ? clip : area.expandToInclude(clip);
+    }
+    if (area == null) return;
+    final dpr = devicePixelRatio;
+    final width = (area.width * dpr).ceil();
+    final height = (area.height * dpr).ceil();
+    if (width <= 0 || height <= 0) return;
+    // Whole physical pixels, so the image is drawn back unscaled.
+    final rect = Rect.fromLTWH(area.left, area.top, width / dpr, height / dpr);
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)
+      ..scale(dpr)
+      ..translate(-rect.left, -rect.top);
+    _drawShadows(canvas, bounds, geometry);
+    final picture = recorder.endRecording();
+    _bakedShadow = picture.toImageSync(width, height);
+    picture.dispose();
+    _bakedShadowRect = rect;
+  }
+
+  /// Paints the shadows as a paint pass would, for tests: [geometry] stands
+  /// in for the geometry matte and [bounds] for where it lies.
+  @visibleForTesting
+  void debugPaintShadows(
+    Canvas canvas,
+    Offset offset,
+    ui.Image geometry,
+    Rect bounds,
+  ) =>
+      _paintShadows(canvas, offset, geometry, bounds);
+
+  /// The image the shadows are baked into, once the geometry held still.
+  @visibleForTesting
+  ui.Image? get debugBakedShadow => _bakedShadow;
+
+  static Rect _shadowClip(Rect bounds, BoxShadow shadow) =>
+      // Inflated so large blurs aren't cut off.
+      bounds
+          .shift(shadow.offset)
+          .inflate(shadow.spreadRadius + shadow.blurRadius * 3);
+
+  void _drawShadows(Canvas canvas, Rect bounds, ui.Image geometry) {
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      geometry.width.toDouble(),
+      geometry.height.toDouble(),
+    );
+    for (final shadow in shadows) {
+      if (shadow.color.a == 0) continue;
+
+      canvas.saveLayer(_shadowClip(bounds, shadow), Paint());
+
+      // 1. Draw the geometry matte as a blurred, tinted shadow
+      final shadowPaint = Paint()
+        ..colorFilter = ColorFilter.mode(shadow.color, BlendMode.srcIn)
+        ..imageFilter = ImageFilter.blur(
+          sigmaX: shadow.blurSigma,
+          sigmaY: shadow.blurSigma,
+          tileMode: TileMode.decal,
+        );
+      canvas.drawImageRect(
+        geometry,
+        src,
+        bounds.shift(shadow.offset),
+        shadowPaint,
+      );
+
+      // 2. GPU Cutout (dstOut): punch out the interior using the same geometry
+      // matte to prevent the glass from blurring its own shadow (dirty rim).
+      canvas.drawImageRect(
+        geometry,
+        src,
+        bounds,
+        Paint()..blendMode = BlendMode.dstOut,
+      );
+
+      canvas.restore();
+    }
   }
 
   @override
   void dispose() {
+    _bakedShadow?.dispose();
+    _bakedShadow = null;
+    _bakedShadowGeometry = null;
+    _lastShadowGeometry = null;
     // Eagerly clear filter references on the backdrop layers before nulling
     // the handles. During isolate shutdown on Mali GPUs, GC finalization of
     // BackdropFilterLayer retains DlRuntimeEffectColorSource → TextureVK →
@@ -798,10 +1201,42 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     // the filter property breaks this retention chain immediately.
     _shaderHandle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
     _blurLayerHandle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
+    _frostLayerHandle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
+    _weightLayerHandle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
     _shaderHandle.layer = null;
     _blurLayerHandle.layer = null;
+    _frostLayerHandle.layer = null;
+    _weightLayerHandle.layer = null;
     _clipRectLayerHandle.layer = null;
     _clipPathLayerHandle.layer = null;
+    _frostClipLayerHandle.layer = null;
+    _frostRowsLayerHandle.layer = null;
+    _uniformsTransform = null;
+    _uniformsPassRect = null;
+    backdropPassClipRectLocal = null;
     super.dispose();
   }
 }
+
+/// A layer that can be re-added to the scene being built, in place of its
+/// retained copy, when a layer below it changed during compositing.
+///
+/// [Layer.markNeedsAddToScene] does not propagate to the parent. That is
+/// enough here because the parent these clips share with the
+/// [GeometryTransformTrackingLayer] is re-added on every frame:
+/// [Layer.updateSubtreeNeedsAddToScene] marks it for the tracking layer's
+/// [Layer.alwaysNeedsAddToScene].
+mixin _Recomposite on Layer {
+  /// Marks [layer] to be re-added; false when it is not a [_Recomposite].
+  static bool mark(Layer? layer) {
+    if (layer case final _Recomposite layer) {
+      layer.markNeedsAddToScene();
+      return true;
+    }
+    return false;
+  }
+}
+
+class _ClipRectLayer = ClipRectLayer with _Recomposite;
+
+class _ClipPathLayer = ClipPathLayer with _Recomposite;

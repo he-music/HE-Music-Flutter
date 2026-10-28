@@ -445,6 +445,7 @@ class _DismissibleSheetWrapperState extends State<_DismissibleSheetWrapper> {
 
 class _GlassSheetState extends State<GlassSheet> with TickerProviderStateMixin {
   late AnimationController _saturationController;
+  late CurvedAnimation _saturationCurve;
   late Animation<double> _saturationAnimation;
   bool _isInteractingWithChild = false;
 
@@ -455,14 +456,16 @@ class _GlassSheetState extends State<GlassSheet> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _saturationAnimation = CurvedAnimation(
+    _saturationCurve = CurvedAnimation(
       parent: _saturationController,
       curve: Curves.easeOut,
-    ).drive(Tween(begin: 0.0, end: 1.0));
+    );
+    _saturationAnimation = _saturationCurve.drive(Tween(begin: 0.0, end: 1.0));
   }
 
   @override
   void dispose() {
+    _saturationCurve.dispose();
     _saturationController.dispose();
     super.dispose();
   }

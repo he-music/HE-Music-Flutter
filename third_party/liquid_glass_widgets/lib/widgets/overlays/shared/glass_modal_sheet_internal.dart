@@ -8,7 +8,8 @@ class _SheetLayout extends StatelessWidget {
   final double stretch;
   final double interactionStretch;
   final double resistance;
-  final double hPad;
+  final double left;
+  final double right;
   final double effectiveBottom;
   final double effectiveHeight;
   final double topRadius;
@@ -16,6 +17,7 @@ class _SheetLayout extends StatelessWidget {
   final double colorOpacity;
   final double glassOpacity;
   final Color effectiveExpandedColor;
+  final LiquidGlassSettings effectiveSettings;
   final LiquidGlassSettings fadedSettings;
   final GlassQuality effectiveQuality;
   final bool platformViewBackdrop;
@@ -57,7 +59,8 @@ class _SheetLayout extends StatelessWidget {
     required this.stretch,
     required this.interactionStretch,
     required this.resistance,
-    required this.hPad,
+    required this.left,
+    required this.right,
     required this.effectiveBottom,
     required this.effectiveHeight,
     required this.topRadius,
@@ -65,6 +68,7 @@ class _SheetLayout extends StatelessWidget {
     required this.colorOpacity,
     required this.glassOpacity,
     required this.effectiveExpandedColor,
+    required this.effectiveSettings,
     required this.fadedSettings,
     required this.effectiveQuality,
     required this.platformViewBackdrop,
@@ -96,6 +100,10 @@ class _SheetLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final morphScope = _SheetMorphScope.maybeOf(context);
+    final inMorph = morphScope?.inMorph ?? false;
+    final morphContentOpacity = morphScope?.contentOpacity ?? 1.0;
+
     final handleZone = _SheetHandleZone(
       indicatorWidth: dragIndicatorWidth,
       indicatorHeight: dragIndicatorHeight,
@@ -104,16 +112,19 @@ class _SheetLayout extends StatelessWidget {
       onDismiss: onDismiss,
     );
 
-    final contentZone = _SheetContent(
-      scrollController: scrollController,
-      isFullScreen: contentScrollProgress > _kTopDetentThreshold,
-      padding: padding,
-      child: child,
+    final contentZone = CupertinoUserInterfaceLevel(
+      data: CupertinoUserInterfaceLevelData.elevated,
+      child: _SheetContent(
+        scrollController: scrollController,
+        isFullScreen: contentScrollProgress > _kTopDetentThreshold,
+        padding: padding,
+        child: child,
+      ),
     );
 
     return Positioned(
-      left: hPad,
-      right: hPad,
+      left: left,
+      right: right,
       bottom: effectiveBottom,
       height: effectiveHeight,
       child: Listener(
@@ -168,24 +179,21 @@ class _SheetLayout extends StatelessWidget {
                 isFullyExpanded ? (maintainContentGlass ? 1.0 : 0.0) : 1.0;
 
             // Fade glass uniformly via settings rather than an Opacity widget.
-            //
-            // IMPORTANT: blur is clamped to a minimum of 0.001 rather than
-            // allowing it to reach exactly 0. When `AdaptiveGlass` receives
-            // `settings.effectiveBlur == 0` it switches its return type from
-            // the normal glass widget to `_FrostedFallback`. A type change at
-            // the same slot causes Flutter to tear down the existing element
-            // subtree and rebuild it from scratch — firing `initState` on all
-            // child `State` objects and destroying scroll positions, controllers,
-            // etc. A 0.001 blur is visually imperceptible but keeps the tree
-            // structure (and therefore the element identity) stable.
             final currentSettings = contentSettings.copyWith(
               glassColor: contentSettings.glassColor.withValues(
                 alpha: contentSettings.glassColor.a * glassVisibility,
               ),
-              blur: (contentSettings.blur * glassVisibility)
-                  .clamp(0.001, double.infinity),
+              blur: contentSettings.blur * glassVisibility,
+              frost: contentSettings.frost * glassVisibility,
               thickness: contentSettings.thickness * glassVisibility,
             );
+            final surfaceSettings = inMorph
+                ? SheetMorphGeometry.dormantSurface(currentSettings)
+                : currentSettings;
+            final childSettings =
+                (maintainContentGlass && expandProgressValue > 0.9)
+                    ? (fullStateContentSettings ?? effectiveSettings)
+                    : effectiveSettings;
 
             final shape = LiquidVerticalRoundedSuperellipse(
               topRadius: currentTopRadius,
@@ -197,6 +205,7 @@ class _SheetLayout extends StatelessWidget {
                 state: currentStateNotifier.value,
                 progress: expandProgressValue,
                 isExpanded: expandProgressValue > 0.9,
+                submergedBottom: effectiveBottom < 0 ? -effectiveBottom : 0.0,
               ),
               child: LiquidStretch(
                 interactionScale: interactionScale,
@@ -233,7 +242,7 @@ class _SheetLayout extends StatelessWidget {
                     Positioned.fill(
                       child: AdaptiveGlass(
                         shape: shape,
-                        settings: currentSettings,
+                        settings: surfaceSettings,
                         quality: effectiveQuality,
                         platformViewBackdrop: platformViewBackdrop,
                         useOwnLayer: true,
@@ -252,7 +261,7 @@ class _SheetLayout extends StatelessWidget {
                                 key: const Key('glass_modal_sheet_fill'),
                                 decoration: BoxDecoration(
                                   color: effectiveExpandedColor.withValues(
-                                    alpha: colorOpacity,
+                                    alpha: inMorph ? 0.0 : colorOpacity,
                                   ),
                                 ),
                               ),
@@ -263,8 +272,11 @@ class _SheetLayout extends StatelessWidget {
                                 final isDark =
                                     GlassTheme.brightnessOf(innerContext) ==
                                         Brightness.dark;
+                                final outerMaterialize =
+                                    GlassMaterializeScope.maybeOf(innerContext);
                                 return GlassGlow(
-                                  glowColor: (enableInteractionGlow &&
+                                  glowColor: (!inMorph &&
+                                          enableInteractionGlow &&
                                           glassOpacity > 0.05 &&
                                           expandProgress < 0.9)
                                       ? (glowColor ??
@@ -280,26 +292,57 @@ class _SheetLayout extends StatelessWidget {
                                       : const Color(0x00000000),
                                   glowRadius: glowRadius,
                                   hitTestBehavior: HitTestBehavior.translucent,
-                                  pulse: (enableSaturationGlow &&
+                                  pulse: (!inMorph &&
+                                          enableSaturationGlow &&
                                           expandProgress < 0.9)
                                       ? saturationAnimation.value
                                       : 0,
-                                  child: Stack(
-                                    children: [
-                                      Positioned.fill(
-                                        // Replaces Material(color: transparent) — SizedBox.expand
-                                        // provides identical visual output for a glass sheet child.
-                                        child: SizedBox.expand(child: child!),
+                                  child: Opacity(
+                                    opacity: morphContentOpacity,
+                                    child: GlassMaterializeScope(
+                                      glassProgress: morphContentOpacity *
+                                          (outerMaterialize?.glassProgress ??
+                                              1.0),
+                                      contentOpacity:
+                                          outerMaterialize?.contentOpacity ??
+                                              1.0,
+                                      contentSigma:
+                                          outerMaterialize?.contentSigma ?? 0.0,
+                                      child: Stack(
+                                        children: [
+                                          Positioned.fill(
+                                            // Replaces Material(color: transparent) — SizedBox.expand
+                                            // provides identical visual output for a glass sheet child.
+                                            // Isolate child glass controls so they don't union into
+                                            // the sheet container's own blend group.
+                                            // Provide [currentSettings] via [InheritedLiquidGlass] so
+                                            // nested glass controls inherit the sheet's active settings
+                                            // rather than [surfaceSettings] (which is dormant while
+                                            // [inMorph] is true).
+                                            child: InheritedLiquidGlass(
+                                              settings: childSettings,
+                                              quality: effectiveQuality,
+                                              child: GlassIsolationScope(
+                                                isolated: true,
+                                                defaultQuality:
+                                                    effectiveQuality,
+                                                child: SizedBox.expand(
+                                                  child: child!,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          if (showDragIndicator)
+                                            Positioned(
+                                              top: 0,
+                                              left: 0,
+                                              right: 0,
+                                              height: 44,
+                                              child: handleZone,
+                                            ),
+                                        ],
                                       ),
-                                      if (showDragIndicator)
-                                        Positioned(
-                                          top: 0,
-                                          left: 0,
-                                          right: 0,
-                                          height: 44,
-                                          child: handleZone,
-                                        ),
-                                    ],
+                                    ),
                                   ),
                                 ); // GlassGlow
                               }), // Builder
@@ -644,11 +687,17 @@ class SheetStateInfo {
   /// Whether the sheet is currently in its expanded (full) state.
   final bool isExpanded;
 
+  /// The distance in logical pixels that the sheet's bottom edge is submerged
+  /// past the bottom of the device screen (e.g. to hide bottom rounded corners
+  /// in [GlassSheetState.full]), or 0.0 if resting at or above the screen edge.
+  final double submergedBottom;
+
   /// Creates a [SheetStateInfo] snapshot.
   const SheetStateInfo({
     required this.state,
     required this.progress,
     required this.isExpanded,
+    this.submergedBottom = 0.0,
   });
 }
 
@@ -677,7 +726,8 @@ class GlassModalSheetStateProvider extends InheritedWidget {
   bool updateShouldNotify(GlassModalSheetStateProvider oldWidget) {
     return info.state != oldWidget.info.state ||
         info.progress != oldWidget.info.progress ||
-        info.isExpanded != oldWidget.info.isExpanded;
+        info.isExpanded != oldWidget.info.isExpanded ||
+        info.submergedBottom != oldWidget.info.submergedBottom;
   }
 }
 
@@ -744,6 +794,9 @@ class GlassModalSheetScaffold extends StatelessWidget {
 
   /// Background color used when the sheet is fully expanded and opaque.
   final Color? expandedColor;
+
+  /// [expandedColor] while the glass brightness is dark.
+  final Color? expandedDarkColor;
 
   /// Rendering quality (BackdropFilter vs Shader). Defaults to standard.
   final GlassQuality? quality;
@@ -846,6 +899,11 @@ class GlassModalSheetScaffold extends StatelessWidget {
   /// rubber-bands at its lowest detent instead. Forwarded to the sheet.
   final bool dismissible;
 
+  /// Whether a tap on [body] outside the sheet dismisses it, as a modal
+  /// barrier's would. Applies only in [GlassSheetMode.dismissible]; the swipe
+  /// is [dismissible]'s. Default: true.
+  final bool barrierDismissible;
+
   /// Horizontal padding specifically for the 'peek' state.
   final double? peekHorizontalMargin;
 
@@ -860,6 +918,11 @@ class GlassModalSheetScaffold extends StatelessWidget {
 
   /// Corner radius for 'peek' state.
   final double? peekBottomRadius;
+
+  /// Where the sheet sits across a screen with room beside it.
+  ///
+  /// See [GlassModalSheet.placement].
+  final GlassSheetPlacement placement;
 
   /// Creates a [GlassModalSheetScaffold].
   const GlassModalSheetScaffold({
@@ -878,6 +941,7 @@ class GlassModalSheetScaffold extends StatelessWidget {
     this.fillThreshold = 0.85,
     this.settings,
     this.expandedColor,
+    this.expandedDarkColor,
     this.controller,
     this.onStateChanged,
     this.mode = GlassSheetMode.dismissible,
@@ -910,11 +974,13 @@ class GlassModalSheetScaffold extends StatelessWidget {
     this.fullStateContentSettings,
     this.detents = const {GlassSheetDetent.medium, GlassSheetDetent.large},
     this.dismissible = true,
+    this.barrierDismissible = true,
     this.peekHorizontalMargin,
     this.peekBottomMargin,
     this.peekWidth,
     this.peekTopBorderRadius,
     this.peekBottomRadius,
+    this.placement = GlassSheetPlacement.automatic,
   }) : assert(
             detents.length > 0,
             'GlassModalSheetScaffold needs at least one detent — add medium '
@@ -929,9 +995,16 @@ class GlassModalSheetScaffold extends StatelessWidget {
           child: mode == GlassSheetMode.dismissible
               ? GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    controller?.snapToState(GlassSheetState.hidden);
-                  },
+                  // A pointer convenience over the whole page: as a semantic
+                  // tap it would merge into whatever node encloses the body.
+                  // Screen readers dismiss through the sheet's drag handle,
+                  // which carries its own tap action while it is shown
+                  // (showDragIndicator); without it the app's own close
+                  // control is the way out.
+                  excludeFromSemantics: true,
+                  onTap: barrierDismissible
+                      ? () => controller?.snapToState(GlassSheetState.hidden)
+                      : null,
                   child: RepaintBoundary(child: body),
                 )
               : RepaintBoundary(child: body),
@@ -949,6 +1022,7 @@ class GlassModalSheetScaffold extends StatelessWidget {
           fillThreshold: fillThreshold,
           settings: settings,
           expandedColor: expandedColor,
+          expandedDarkColor: expandedDarkColor,
           controller: controller,
           onStateChanged: onStateChanged,
           mode: mode,
@@ -986,6 +1060,7 @@ class GlassModalSheetScaffold extends StatelessWidget {
           peekWidth: peekWidth,
           peekTopBorderRadius: peekTopBorderRadius,
           peekBottomRadius: peekBottomRadius,
+          placement: placement,
           child: sheet,
         ),
       ],

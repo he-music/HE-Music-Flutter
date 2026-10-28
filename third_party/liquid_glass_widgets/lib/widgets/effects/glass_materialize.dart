@@ -27,6 +27,16 @@ enum GlassEffectTransition {
   identity,
 }
 
+/// How pinned chrome transitions once an interactive back-swipe commits.
+enum GlassSwipeCommitTransition {
+  /// The shell's [GlassEffectTransition], as for any other pop.
+  effect,
+
+  /// A short plain cross-fade without blur, scale or swell — what iOS 26
+  /// does after a swipe.
+  crossFade,
+}
+
 // =============================================================================
 // GlassMaterializeTransition
 // =============================================================================

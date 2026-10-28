@@ -86,6 +86,41 @@ class GlassDefaults {
   /// sentinel is the safe cross-platform choice.
   static const double capsuleRadius = 9999.0;
 
+  /// Maximum safe finite corner radius used to guard against [double.infinity]
+  /// collapsing to 0.0 in Flutter's RRect scaling algorithm.
+  ///
+  /// When a corner radius exceeds rectangle dimensions, Flutter's RRect
+  /// algorithm scales radii by `min(1.0, size / (r1 + r2))`. If `r` is
+  /// [double.infinity], `size / infinity` evaluates to `0.0`, collapsing
+  /// all corners to sharp 90-degree rectangles. A large-but-finite value
+  /// (99999.0) scales down to `size / 2.0` (a perfect pill/circle) at any
+  /// conceivable resolution without IEEE-754 overflow.
+  static const double maxSafeRadius = 99999.0;
+
+  /// Clamps or replaces non-finite radii (such as [double.infinity]) with [maxSafeRadius],
+  /// while ensuring the radius is at least 0.0.
+  static double safeRadius(double radius) {
+    if (!radius.isFinite) {
+      return maxSafeRadius;
+    }
+    return radius.clamp(0.0, maxSafeRadius).toDouble();
+  }
+
+  /// Converts a radius to a [Radius.circular] with safe finite bounds.
+  static Radius safeCircularRadius(double radius) =>
+      Radius.circular(safeRadius(radius));
+
+  /// Converts a radius to a [BorderRadius.circular] with safe finite bounds.
+  static BorderRadius safeBorderRadius(double radius) =>
+      BorderRadius.circular(safeRadius(radius));
+
+  /// Converts top and bottom radii to a vertical [BorderRadius] with safe finite bounds.
+  static BorderRadius safeVerticalBorderRadius(double top, double bottom) =>
+      BorderRadius.vertical(
+        top: safeCircularRadius(top),
+        bottom: safeCircularRadius(bottom),
+      );
+
   // ============================================================================
   // Padding
   // ============================================================================

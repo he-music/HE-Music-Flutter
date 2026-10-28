@@ -525,7 +525,7 @@ class AnimatedGlassIndicator extends StatelessWidget {
           Positioned.fromRelativeRect(
             rect: rect!,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(borderRadius),
+              borderRadius: GlassDefaults.safeBorderRadius(borderRadius),
               child: BackdropFilter(
                 filter: ImageFilter.blur(
                   sigmaX: (innerBlur * backgroundOpacity)
@@ -626,7 +626,7 @@ class _OuterShadowPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rrect = RRect.fromRectAndRadius(
       Offset.zero & size,
-      Radius.circular(borderRadius),
+      GlassDefaults.safeCircularRadius(borderRadius),
     );
     var slack = 0.0;
     for (final s in shadows) {

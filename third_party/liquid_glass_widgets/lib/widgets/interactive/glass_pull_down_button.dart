@@ -26,6 +26,8 @@ class GlassPullDownButton extends StatelessWidget {
     this.menuAlignment,
     this.quality,
     this.onSelected,
+    this.enableContinuousSwipe = true,
+    this.continuousSwipeSlop = 10.0,
   }) : icon = icon ?? const Icon(CupertinoIcons.ellipsis_circle);
 
   /// The shape of the trigger button.
@@ -85,6 +87,24 @@ class GlassPullDownButton extends StatelessWidget {
   /// This is called in addition to the individual [GlassMenuItem.onTap] callback.
   final ValueChanged<String>? onSelected;
 
+  /// Whether to enable iOS-style continuous swipe-to-select.
+  ///
+  /// When true, pressing down on the button opens the menu immediately and
+  /// allows the user to slide to an item and release to activate it in a
+  /// single continuous gesture without lifting their finger.
+  ///
+  /// Defaults to `true`.
+  final bool enableContinuousSwipe;
+
+  /// The movement slop in logical pixels required to arm continuous swipe.
+  ///
+  /// If the pointer is released within this distance of the initial touch-down,
+  /// the gesture is treated as a tap and the menu remains open without
+  /// selecting an item.
+  ///
+  /// Defaults to 10.0.
+  final double continuousSwipeSlop;
+
   @override
   Widget build(BuildContext context) {
     // Inherit quality from parent layer if not explicitly set
@@ -100,7 +120,10 @@ class GlassPullDownButton extends StatelessWidget {
     return GlassMenu(
       menuWidth: menuWidth,
       menuAlignment: menuAlignment,
+      autoAdjustToScreen: true,
       quality: effectiveQuality,
+      enableContinuousSwipe: enableContinuousSwipe,
+      continuousSwipeSlop: continuousSwipeSlop,
       triggerBuilder: (context, toggleMenu) {
         if (label != null && label!.isNotEmpty) {
           return GlassButton.custom(
@@ -153,11 +176,22 @@ class GlassPullDownButton extends StatelessWidget {
             isDestructive: item.isDestructive,
             subtitle: item.subtitle,
             enabled: item.enabled,
+            height: item.height,
+            isPressed: item.isPressed,
+            isSelected: item.isSelected,
+            titleStyle: item.titleStyle,
+            subtitleStyle: item.subtitleStyle,
+            iconColor: item.iconColor,
+            iconSize: item.iconSize,
+            maxLines: item.maxLines,
+            enablePressScale: item.enablePressScale,
+            closeDelay: item.closeDelay,
+            submenu: item.submenu,
+            trailing: item.trailing,
             onTap: () {
               item.onTap.call();
               onSelected!(item.title);
             },
-            trailing: item.trailing,
           );
         }
         return item;

@@ -29,7 +29,7 @@ class AppFormDialog extends StatelessWidget {
               insetPadding +
               EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
           child: SingleChildScrollView(
-            child: GlassCard(
+            child: GlassContainer.card(
               useOwnLayer: true,
               padding: EdgeInsets.zero,
               settings: AppGlassMaterial.sheetFor(context),

@@ -469,48 +469,6 @@ class _LightweightLiquidGlassState extends State<LightweightLiquidGlass>
     // instead of the full glass effect — visually identical to the old fallback
     // but with a stable Element identity.
 
-    // clipShape drives both the ClipPath fallback and the fast-path
-    // ClipRRect / ClipRSuperellipse wrappers below.
-    // - LiquidRoundedRectangle    → RoundedRectangleBorder  → ClipRRect
-    // - LiquidRoundedSuperellipse → RoundedSuperellipseBorder → ClipRSuperellipse
-    // - Everything else           → widget.shape             → ClipPath
-    //
-    // ClipRRect/ClipRSuperellipse are preferred over ClipPath because Flutter
-    // PR #177551 (3.41+) forwards these clip types to the iOS PlatformView
-    // mutator stack, letting BackdropFilter clip correctly over PlatformViews.
-    final ShapeBorder clipShape;
-    if (widget.shape is LiquidVerticalRoundedSuperellipse) {
-      final s = widget.shape as LiquidVerticalRoundedSuperellipse;
-      clipShape = RoundedSuperellipseBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(s.topRadius),
-          bottom: Radius.circular(s.bottomRadius),
-        ),
-      );
-    } else if (widget.shape is LiquidRoundedSuperellipse) {
-      final s = widget.shape as LiquidRoundedSuperellipse;
-      clipShape = RoundedSuperellipseBorder(
-        borderRadius: BorderRadius.all(Radius.circular(s.borderRadius)),
-      );
-    } else if (widget.shape is LiquidRoundedRectangle) {
-      final s = widget.shape as LiquidRoundedRectangle;
-      clipShape = RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(s.borderRadius)),
-      );
-    } else {
-      clipShape = widget.shape;
-    }
-
-    final BorderRadius? roundedRectRadius =
-        (clipShape is RoundedRectangleBorder &&
-                clipShape.borderRadius is BorderRadius)
-            ? clipShape.borderRadius as BorderRadius
-            : null;
-    final BorderRadius? superellipseRadius =
-        (clipShape is RoundedSuperellipseBorder &&
-                clipShape.borderRadius is BorderRadius)
-            ? clipShape.borderRadius as BorderRadius
-            : null;
     final Widget effect = _LightweightGlassEffect(
       shader: shader,
       settings: settings,
@@ -524,14 +482,19 @@ class _LightweightLiquidGlassState extends State<LightweightLiquidGlass>
       backgroundKey: widget.backgroundKey,
       child: widget.child,
     );
-    if (roundedRectRadius != null) {
-      return ClipRRect(borderRadius: roundedRectRadius, child: effect);
-    }
-    if (superellipseRadius != null) {
-      return ClipRSuperellipse(borderRadius: superellipseRadius, child: effect);
+
+    // ClipRRect/ClipRSuperellipse are preferred over ClipPath because Flutter
+    // PR #177551 (3.41+) forwards these clip types to the iOS PlatformView
+    // mutator stack, letting BackdropFilter clip correctly over PlatformViews.
+    final shapeRadius = widget.shape.toBorderRadius();
+    if (shapeRadius != null) {
+      if (widget.shape.isSuperellipse) {
+        return ClipRSuperellipse(borderRadius: shapeRadius, child: effect);
+      }
+      return ClipRRect(borderRadius: shapeRadius, child: effect);
     }
     return ClipPath(
-      clipper: ShapeBorderClipper(shape: clipShape),
+      clipper: ShapeBorderClipper(shape: widget.shape.toOutlinedBorder()),
       child: effect,
     );
   }

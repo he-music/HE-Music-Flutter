@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/rendering.dart';
+import '../../src/renderer/glass_backdrop_group.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
@@ -517,13 +518,19 @@ class _GlassEffectState extends State<GlassEffect>
       // coverage:ignore-start
       // Unreachable in unit tests: isImpeller=false (no real GPU renderer).
       // Tested on physical device / Impeller integration tests only.
-      return LiquidGlass.withOwnLayer(
-        shape: widget.shape,
-        settings: widget.settings,
-        clipExpansion: widget.clipExpansion,
-        captureImage: _backgroundImage,
-        captureOriginInScreenSpace: _lastCapturePosition ?? Offset.zero,
-        child: widget.child,
+      // An indicator lies over the glass it moves on, so it stays out of a
+      // GlassBackdropGroup the bar may be in: glass in a group can't see
+      // the glass of the same group below it.
+      return GlassBackdropGroup(
+        enabled: false,
+        child: LiquidGlass.withOwnLayer(
+          shape: widget.shape,
+          settings: widget.settings,
+          clipExpansion: widget.clipExpansion,
+          captureImage: _backgroundImage,
+          captureOriginInScreenSpace: _lastCapturePosition ?? Offset.zero,
+          child: widget.child,
+        ),
       );
       // coverage:ignore-end
     }

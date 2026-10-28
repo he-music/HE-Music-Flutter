@@ -168,7 +168,7 @@ void main() {
         const AppFormDialog(child: SizedBox(width: 400, child: TextField())),
       ),
     );
-    expect(find.byType(GlassCard), findsOneWidget);
+    expect(find.byType(GlassContainer), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Form input');
     expect(find.text('Form input'), findsOneWidget);
     expect(tester.takeException(), isNull);

@@ -427,6 +427,7 @@ class BottomBarExtraBtn extends StatelessWidget {
       return GlassMenu(
         menuAlignment: config.menuAlignment,
         menuWidth: config.menuWidth,
+        menuHeight: config.menuHeight,
         autoAdjustToScreen: true,
         items: config.menuItems!,
         triggerBuilder: (context, toggleMenu) => buildButton(toggleMenu),
@@ -550,10 +551,6 @@ class TabIndicatorState extends State<TabIndicator>
   @override
   void notifyTabChanged(int index) => widget.onTabChanged(index);
 
-  // Cache fallback indicator color to avoid allocations
-  static const _fallbackIndicatorColor =
-      Color(0x1AFFFFFF); // white.withValues(alpha: 0.1)
-
   final GlobalKey _iconLayerKey = GlobalKey();
 
   // Cached shape to avoid recreation on every animation frame
@@ -573,10 +570,11 @@ class TabIndicatorState extends State<TabIndicator>
 
   @override
   Widget build(BuildContext context) {
-    final theme = CupertinoTheme.of(context);
+    final brightness = GlassTheme.brightnessOf(context);
     final indicatorColor = widget.indicatorColor ??
-        theme.textTheme.textStyle.color?.withValues(alpha: .1) ??
-        _fallbackIndicatorColor;
+        (brightness == Brightness.dark
+            ? CupertinoColors.white.withValues(alpha: .1)
+            : CupertinoColors.black.withValues(alpha: .1));
     final targetAlignment = computeTabAlignment(widget.tabIndex);
 
     // Nested-arc default: if the outer bar is a capsule sentinel (≥ 9999),
@@ -621,6 +619,7 @@ class TabIndicatorState extends State<TabIndicator>
               child: GestureDetector(
                 key: ValueKey(gestureEpoch),
                 behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
                 onHorizontalDragDown: onBarDragDown,
                 onHorizontalDragStart: onBarDragStart,
                 onHorizontalDragUpdate: onBarDragUpdate,
@@ -752,7 +751,8 @@ class TabIndicatorState extends State<TabIndicator>
         clipper: _InverseBarClipper(_barShape),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.barBorderRadius),
+            borderRadius:
+                GlassDefaults.safeBorderRadius(widget.barBorderRadius),
             boxShadow: shadows,
           ),
         ),

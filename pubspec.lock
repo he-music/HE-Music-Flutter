@@ -875,7 +875,7 @@ packages:
       path: "third_party/liquid_glass_widgets"
       relative: true
     source: path
-    version: "1.6.1"
+    version: "1.16.0"
   local_audio_scan:
     dependency: "direct main"
     description:

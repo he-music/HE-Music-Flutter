@@ -54,6 +54,9 @@ class GlassSearchBarConfig {
     this.onSearchFocusChanged,
     this.onSearchFieldTap,
     this.onCancelTap,
+    this.clearButtonSemanticLabel,
+    this.micButtonSemanticLabel,
+    this.cancelButtonSemanticLabel,
   });
 
   /// Called with `true` when search is activated, `false` when dismissed.
@@ -101,6 +104,12 @@ class GlassSearchBarConfig {
   final Color? micIconColor;
 
   /// Text style for the hint text. Uses a sensible default when null.
+  ///
+  /// Its font size, weight and family are shared with the typed text, so the
+  /// field does not change metrics as the user starts typing. Its colour is
+  /// the hint's; typed text takes [textColor] instead, and falls back to this
+  /// colour only when [textColor] is null. To mute the hint while keeping the
+  /// typed text strong, set both.
   final TextStyle? hintStyle;
 
   /// Optional controller for the search text field.
@@ -153,6 +162,8 @@ class GlassSearchBarConfig {
   /// where `UIUserInterfaceStyle` overrides propagate to every sub-view.
   ///
   /// Pass an explicit colour (including a [CupertinoDynamicColor]) to override.
+  /// An explicit colour always wins for typed text, including over a colour
+  /// set on [hintStyle], which then applies to the hint alone.
   final Color? textColor;
 
   /// Color of the text cursor (blinking caret) in the expanded
@@ -264,7 +275,9 @@ class GlassSearchBarConfig {
   /// layout. `false` removes it entirely: the tab pill takes over the
   /// reclaimed width, and the pill is genuinely absent rather than
   /// invisible — it contributes no glass shape to the blend layer, so
-  /// nothing fuses with the tab pill's trailing edge.
+  /// nothing fuses with the tab pill's trailing edge. In iPhone Duo's
+  /// vertical bar strip the capsule likewise ends at the last tab, with no
+  /// search slot.
   ///
   /// The value may change at runtime: the pill spring-scales in and out in
   /// place at its slot, on the same spring the pill morphs use. That is the
@@ -340,4 +353,23 @@ class GlassSearchBarConfig {
   ///
   /// When null (the default), the standard dismiss behaviour runs unchanged.
   final VoidCallback? onCancelTap;
+
+  // ── Accessibility ───────────────────────────────────────────────────────────
+
+  /// Screen reader label of the clear (×) button inside the expanded field.
+  ///
+  /// Defaults to the app's [CupertinoLocalizations.clearButtonLabel].
+  final String? clearButtonSemanticLabel;
+
+  /// Screen reader label of the microphone button (for example "Dictate").
+  ///
+  /// The button is exposed whenever [onMicTap] is set. Flutter has no
+  /// localized string for dictation, so without this label it is announced
+  /// by its role alone.
+  final String? micButtonSemanticLabel;
+
+  /// Screen reader label of the dismiss (×) pill beside the search field.
+  ///
+  /// Defaults to the app's [CupertinoLocalizations.cancelButtonLabel].
+  final String? cancelButtonSemanticLabel;
 }

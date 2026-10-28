@@ -12,6 +12,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter/rendering.dart';
+import '../../constants/glass_defaults.dart';
 import '../renderer/fragment_shader_extensions.dart';
 import 'liquid_glass.dart';
 import 'liquid_glass_blend_group.dart';
@@ -100,7 +101,13 @@ abstract class RenderLiquidGlassGeometry extends RenderProxyBox {
     if (_renderLink == value) return;
     _renderLink?.unregisterGeometry(this);
     _renderLink = value;
-    _renderLink?.registerGeometry(this);
+    // Registration follows attachment: [attach] registers and [detach]
+    // unregisters. Registering here while detached would add this object a
+    // second time on the next attach.
+    if (attached) _renderLink?.registerGeometry(this);
+    // The matte is laid out in the new layer's space.
+    markGeometryNeedsUpdate(force: true);
+    markNeedsPaint();
   }
 
   /// The current state of the geometry.
@@ -198,9 +205,16 @@ abstract class RenderLiquidGlassGeometry extends RenderProxyBox {
     return path;
   }
 
+  /// Whether the cached [geometry] still matches the current shapes and their
+  /// transforms relative to this render object.
+  @protected
+  bool get isGeometryCacheValid => true;
+
   /// Should be called from within [paint] to maybe rebuild the [geometry].
   GeometryCache? maybeRebuildGeometry() {
-    if (geometryState == LiquidGlassGeometryState.updated && geometry != null) {
+    if (geometryState == LiquidGlassGeometryState.updated &&
+        geometry != null &&
+        isGeometryCacheValid) {
       return geometry;
     }
 
@@ -209,9 +223,11 @@ abstract class RenderLiquidGlassGeometry extends RenderProxyBox {
     if (geometryState == LiquidGlassGeometryState.mightNeedUpdate &&
         !anyShapeChangedInLayer &&
         geometry != null) {
-      renderLink?.notifyGeometryChanged(this);
-
-      // Only render once we are done building
+      // Nothing about the shapes changed in the group's space, so the layer's
+      // matte is still right and the link is not marked dirty. Only the
+      // recorded Picture is turned into an image (once; rendered caches
+      // return themselves), so later matte rebuilds blit it instead of
+      // replaying the geometry shader.
       geometry = geometry!.render();
       geometryState = LiquidGlassGeometryState.updated;
       return geometry;
@@ -355,6 +371,7 @@ class UnrenderedGeometryCache extends GeometryCache {
     // rapid layout changes (jelly animations, modal expansion). Return a
     // minimal 1×1 cache rather than handing the GPU an invalid texture request.
     if (width < 1 || height < 1) {
+      dispose();
       final recorder = PictureRecorder();
       Canvas(recorder);
       final fallback = recorder.endRecording();
@@ -369,6 +386,9 @@ class UnrenderedGeometryCache extends GeometryCache {
       );
     }
     final image = await matte.toImage(width, height);
+    // Like [render], this cache is consumed: release the recorded Picture
+    // now rather than leaving it to the finalizer.
+    dispose();
     return RenderedGeometryCache(
       matte: image,
       matteBounds: matteBounds,
@@ -473,7 +493,9 @@ extension on LiquidGlassSettings {
     // its own setter. If blend is ever pulled into LiquidGlassSettings, add it
     // to this check at that point.
     return effectiveThickness != other.effectiveThickness ||
-        refractiveIndex != other.refractiveIndex;
+        refractiveIndex != other.refractiveIndex ||
+        // A rim outline or a frost switches the matte's edge (uNativeEdge).
+        (rimShade > 0 || frost > 0) != (other.rimShade > 0 || other.frost > 0);
   }
 }
 
@@ -521,15 +543,15 @@ class ShapeGeometry {
   static double _getRadiusFromGlassShape(LiquidShape shape) {
     switch (shape) {
       case LiquidRoundedSuperellipse():
-        return shape.borderRadius;
+        return GlassDefaults.safeRadius(shape.borderRadius);
       case LiquidRoundedRectangle():
-        return shape.borderRadius;
+        return GlassDefaults.safeRadius(shape.borderRadius);
       case LiquidVerticalRoundedRectangle():
-        return shape.topRadius;
+        return GlassDefaults.safeRadius(shape.topRadius);
       case LiquidOval():
         return 0;
       case LiquidVerticalRoundedSuperellipse():
-        return shape.topRadius;
+        return GlassDefaults.safeRadius(shape.topRadius);
     }
   }
 
@@ -543,15 +565,15 @@ class ShapeGeometry {
   static double _getBottomRadiusFromGlassShape(LiquidShape shape) {
     switch (shape) {
       case LiquidRoundedSuperellipse():
-        return shape.borderRadius;
+        return GlassDefaults.safeRadius(shape.borderRadius);
       case LiquidRoundedRectangle():
-        return shape.borderRadius;
+        return GlassDefaults.safeRadius(shape.borderRadius);
       case LiquidVerticalRoundedRectangle():
-        return shape.bottomRadius;
+        return GlassDefaults.safeRadius(shape.bottomRadius);
       case LiquidOval():
         return 0;
       case LiquidVerticalRoundedSuperellipse():
-        return shape.bottomRadius;
+        return GlassDefaults.safeRadius(shape.bottomRadius);
     }
   }
 

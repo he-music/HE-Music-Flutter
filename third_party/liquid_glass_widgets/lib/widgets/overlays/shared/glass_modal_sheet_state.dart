@@ -5,7 +5,7 @@ class _GlassModalSheetState extends State<GlassModalSheet>
   // ── Animation Controllers ─────────────────────────────────────────────────
   late AnimationController _animationController;
   late AnimationController _saturationController;
-  late Animation<double> _saturationAnimation;
+  late CurvedAnimation _saturationAnimation;
   final _progressNotifier = _ProgressNotifier();
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -50,6 +50,14 @@ class _GlassModalSheetState extends State<GlassModalSheet>
 
   // ── Geometry & Metrics ────────────────────────────────────────────────────
   late SheetGeometry _geometry;
+
+  /// The vertical bar strip the sheet is presented over, or null where bars
+  /// are horizontal. See [GlassVerticalBar].
+  GlassVerticalBarData? _verticalBar;
+
+  /// The large detent's height in the strip layout, which the strip's
+  /// absence leaves to the default. See [GlassModalSheet._stripFullSize].
+  double? _stripFullSize;
 
   /// The view size the drag math divides by, cached because pointer moves
   /// arrive faster than an inherited lookup is worth. Read it through
@@ -103,6 +111,17 @@ class _GlassModalSheetState extends State<GlassModalSheet>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _verticalBar = GlassVerticalBar.maybeOf(context);
+    final stripFullSize = GlassModalSheet._stripFullSize(context);
+    if (stripFullSize != _stripFullSize) {
+      _stripFullSize = stripFullSize;
+      _geometry = _buildGeometry();
+    }
+  }
+
+  @override
   void didUpdateWidget(GlassModalSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.controller != oldWidget.controller) {
@@ -139,6 +158,7 @@ class _GlassModalSheetState extends State<GlassModalSheet>
     _animationController.removeListener(_onPositionTick);
     _animationController.dispose();
     _progressNotifier.dispose();
+    _saturationAnimation.dispose();
     _saturationController.dispose();
     _scrollController.dispose();
     _currentStateNotifier.dispose();
@@ -169,7 +189,7 @@ class _GlassModalSheetState extends State<GlassModalSheet>
   SheetGeometry _buildGeometry() => SheetGeometry(
         mode: widget.mode,
         halfSize: widget.halfSize,
-        fullSize: widget.fullSize,
+        fullSize: widget.fullSize ?? _stripFullSize,
         peekSize: widget.peekSize,
         enablePeek: SheetGeometry.resolvePeek(
           detents: widget.detents,
@@ -860,8 +880,13 @@ class _GlassModalSheetState extends State<GlassModalSheet>
       // Physical height adjusts so the top edge always stays at targetVisualHeight
       effectiveHeight = targetVisualHeight - effectiveBottom;
 
-      hPad =
-          lerpDouble(widget.horizontalMargin, 0.0, (t / 0.92).clamp(0.0, 1.0))!;
+      // Edge to edge at the large detent, except in the strip layout, where
+      // natively the sheet keeps its margins.
+      hPad = lerpDouble(
+        widget.horizontalMargin,
+        _verticalBar == null ? 0.0 : widget.horizontalMargin,
+        (t / 0.92).clamp(0.0, 1.0),
+      )!;
       // Independent lerp for top and bottom radii
       final baseRadiusTop = lerpDouble(
           topRadiusBase,
@@ -901,7 +926,8 @@ class _GlassModalSheetState extends State<GlassModalSheet>
   @override
   Widget build(BuildContext context) {
     final isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
-    final effectiveExpandedColor = widget.expandedColor ??
+    final effectiveExpandedColor = (isDark ? widget.expandedDarkColor : null) ??
+        widget.expandedColor ??
         (isDark
             ? const Color(0xFF1C1C1E)
             : CupertinoColors.white); // 0xFF1C1C1E is systemGray6 in dark mode
@@ -993,6 +1019,64 @@ class _GlassModalSheetState extends State<GlassModalSheet>
 
         _currentEffectiveHeight = metrics.effectiveHeight;
 
+        // In the strip layout the sheet is a card no wider than the display's
+        // shorter side, placed across the rest, and it takes the strip's
+        // place where it covers it.
+        final verticalBar = _verticalBar;
+        final textDirection = Directionality.of(context);
+        final frameInsets = verticalBar == null
+            ? null
+            : _stripSheetInsets(
+                screenSize: mqSize,
+                regularWidth: VerticalBarTitleRow.regularWidth(context),
+                margin: metrics.hPad,
+                placement: widget.placement,
+                textDirection: textDirection,
+              );
+        // The content's safe area is the sheet's at rest — what is left of
+        // the screen's lateral insets once the sheet's own are taken off —
+        // and its bar follows the sheet's own strip, or stays horizontal.
+        // Built the same way either side of a posture change, so the content
+        // is never remounted.
+        final restingInsets = verticalBar == null
+            ? EdgeInsets.zero
+            : _stripSheetInsets(
+                screenSize: mqSize,
+                regularWidth: VerticalBarTitleRow.regularWidth(context),
+                margin: widget.horizontalMargin,
+                placement: widget.placement,
+                textDirection: textDirection,
+              );
+        final mediaQuery = MediaQuery.of(context);
+        EdgeInsets inset(EdgeInsets padding) => padding.copyWith(
+              left: math.max(0.0, padding.left - restingInsets.left),
+              right: math.max(0.0, padding.right - restingInsets.right),
+            );
+        // On one side of a half-folded display, the sheet is measured against
+        // the strip where that side sits on the screen.
+        final side = _SheetSubScreen.maybeOf(context);
+        final content = GlassVerticalBar(
+          data: _sheetVerticalBar(
+            bar: verticalBar,
+            frame: Rect.fromLTRB(
+              restingInsets.left,
+              (1.0 - _geometry.positionForState(_currentState, mqHeight)) *
+                  mqHeight,
+              mqSize.width - restingInsets.right,
+              mqHeight,
+            ).shift(side?.rect.topLeft ?? Offset.zero),
+            screenSize: side?.screenSize ?? mqSize,
+            textDirection: textDirection,
+          ),
+          child: MediaQuery(
+            data: mediaQuery.copyWith(
+              padding: inset(mediaQuery.padding),
+              viewPadding: inset(mediaQuery.viewPadding),
+            ),
+            child: focusBridge,
+          ),
+        );
+
         final fadedSettings = metrics.effectiveSettings.copyWith(
           glassColor: metrics.effectiveSettings.glassColor.withValues(
               alpha: metrics.effectiveSettings.glassColor.a *
@@ -1013,7 +1097,8 @@ class _GlassModalSheetState extends State<GlassModalSheet>
           stretch: widget.stretch,
           interactionStretch: metrics.interactionStretch,
           resistance: widget.resistance,
-          hPad: metrics.hPad,
+          left: frameInsets?.left ?? metrics.hPad,
+          right: frameInsets?.right ?? metrics.hPad,
           effectiveBottom: metrics.effectiveBottom,
           effectiveHeight: metrics.effectiveHeight,
           topRadius: metrics.topRadius,
@@ -1026,6 +1111,7 @@ class _GlassModalSheetState extends State<GlassModalSheet>
           colorOpacity: metrics.colorOpacity,
           glassOpacity: metrics.glassOpacity,
           effectiveExpandedColor: metrics.effectiveExpandedColor,
+          effectiveSettings: metrics.effectiveSettings,
           fadedSettings: fadedSettings,
           effectiveQuality: effectiveQuality,
           saturationAnimation: _saturationAnimation,
@@ -1046,7 +1132,7 @@ class _GlassModalSheetState extends State<GlassModalSheet>
           topFadeHeight: widget.topFadeHeight,
           onDismiss: () => _snapToState(GlassSheetState.hidden),
           suppressInteractionOnChildren: widget.suppressInteractionOnChildren,
-          child: focusBridge,
+          child: content,
         );
 
         // ScrollMetricsNotification covers content that has not been dragged

@@ -10,6 +10,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import '../../constants/glass_defaults.dart';
+
 /// Represents a shape that can be used by a [LiquidGlass] widget.
 // ignore: deprecated_member_use
 sealed class LiquidShape extends OutlinedBorder {
@@ -52,6 +54,21 @@ sealed class LiquidShape extends OutlinedBorder {
   /// and is obfuscation-safe — unlike `runtimeType.toString()` heuristics or
   /// `dynamic` property access, which break under `--obfuscate`.
   double get effectiveRadius;
+
+  /// Returns the [BorderRadius] associated with this shape if it has rounded
+  /// corners, or `null` if the shape is inherently non-rectangular (e.g. [LiquidOval]).
+  ///
+  /// Non-finite radii (such as [double.infinity]) are safely guarded via
+  /// [GlassDefaults.safeRadius] so that Flutter's RRect scaling algorithm does
+  /// not collapse the corners to zero.
+  BorderRadius? toBorderRadius() => null;
+
+  /// Returns whether this shape is a superellipse (squircle) rather than a
+  /// standard rounded rectangle.
+  bool get isSuperellipse => false;
+
+  /// Returns the equivalent standard Flutter [OutlinedBorder] representing this shape.
+  OutlinedBorder toOutlinedBorder() => _equivalentOutlinedBorder;
 }
 
 /// Represents a squircle shape that can be used by a [LiquidGlass] widget.
@@ -73,8 +90,14 @@ class LiquidRoundedSuperellipse extends LiquidShape {
   double get effectiveRadius => borderRadius;
 
   @override
+  BorderRadius toBorderRadius() => GlassDefaults.safeBorderRadius(borderRadius);
+
+  @override
+  bool get isSuperellipse => true;
+
+  @override
   OutlinedBorder get _equivalentOutlinedBorder => RoundedSuperellipseBorder(
-        borderRadius: BorderRadius.all(Radius.circular(borderRadius)),
+        borderRadius: toBorderRadius(),
         side: side,
       );
 
@@ -169,8 +192,11 @@ class LiquidRoundedRectangle extends LiquidShape {
   double get effectiveRadius => borderRadius;
 
   @override
+  BorderRadius toBorderRadius() => GlassDefaults.safeBorderRadius(borderRadius);
+
+  @override
   OutlinedBorder get _equivalentOutlinedBorder => RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(borderRadius)),
+        borderRadius: toBorderRadius(),
         side: side,
       );
 
@@ -230,11 +256,12 @@ class LiquidVerticalRoundedRectangle extends LiquidShape {
   double get effectiveRadius => math.max(topRadius, bottomRadius);
 
   @override
+  BorderRadius toBorderRadius() =>
+      GlassDefaults.safeVerticalBorderRadius(topRadius, bottomRadius);
+
+  @override
   OutlinedBorder get _equivalentOutlinedBorder => RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(topRadius),
-          bottom: Radius.circular(bottomRadius),
-        ),
+        borderRadius: toBorderRadius(),
         side: side,
       );
 
@@ -300,11 +327,15 @@ class LiquidVerticalRoundedSuperellipse extends LiquidShape {
   double get effectiveRadius => math.max(topRadius, bottomRadius);
 
   @override
+  BorderRadius toBorderRadius() =>
+      GlassDefaults.safeVerticalBorderRadius(topRadius, bottomRadius);
+
+  @override
+  bool get isSuperellipse => true;
+
+  @override
   OutlinedBorder get _equivalentOutlinedBorder => RoundedSuperellipseBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(topRadius),
-          bottom: Radius.circular(bottomRadius),
-        ),
+        borderRadius: toBorderRadius(),
         side: side,
       );
 

@@ -14,6 +14,7 @@ import '../../../types/glass_quality.dart';
 import '../../../widgets/shared/adaptive_liquid_glass_layer.dart';
 import '../../../widgets/shared/glass_content_aware_scope.dart';
 import '../../../theme/glass_theme_data.dart';
+import '../../../theme/glass_theme.dart';
 import '../../../theme/glass_theme_helpers.dart';
 import '../../../widgets/surfaces/shared/tab_bar_extra_button.dart'
     show GlassExtraButtonPlacement, GlassTabBarExtraButton;
@@ -82,7 +83,7 @@ class TabBarBottomLayout extends StatefulWidget {
     this.indicatorExpansion =
         const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     this.interactionGlowColor,
-    this.interactionGlowRadius = 1.5,
+    this.interactionGlowRadius,
     this.interactionBehavior = GlassInteractionBehavior.full,
     this.pressScale = 1.04,
     this.platformViewBackdrop = false,
@@ -139,7 +140,11 @@ class TabBarBottomLayout extends StatefulWidget {
   final double? indicatorBorderRadius;
   final EdgeInsetsGeometry indicatorExpansion;
   final Color? interactionGlowColor;
-  final double interactionGlowRadius;
+
+  /// Radius of the interaction glow, as a fraction of the layer's shortest
+  /// side. Null asks for the iOS 26 calibration — see
+  /// [resolveTabBarInteractionGlow].
+  final double? interactionGlowRadius;
   final GlassInteractionBehavior interactionBehavior;
   final double pressScale;
   final bool platformViewBackdrop;
@@ -217,12 +222,21 @@ class _TabBarBottomLayoutState extends State<TabBarBottomLayout>
       fallback: GlassQuality.premium,
     );
 
-    // Resolve interaction glow color: explicit param → GlassThemeData.primary → null
-    // (null lets the internal widget use its own hardcoded fallback).
     final resolvedGlowColors =
         GlassThemeData.of(context).glowColorsFor(context);
-    final effectiveInteractionGlowColor =
-        widget.interactionGlowColor ?? resolvedGlowColors.primary;
+    // A null radius asks for native mode: the calibration GlassButton has
+    // resolved from a null `glowRadius` since 1.3.0. An explicit radius keeps
+    // the theme's palette, so a tuned app keeps what it tuned. The resolved
+    // colour may still be null, which lets the internal widget fall back to
+    // its own hardcoded highlight.
+    final glow = resolveTabBarInteractionGlow(
+      interactionGlowRadius: widget.interactionGlowRadius,
+      interactionGlowColor: widget.interactionGlowColor,
+      themeGlowColor: resolvedGlowColors.primary,
+      themeGlowBlurRadius: resolvedGlowColors.glowBlurRadius,
+      isDark: GlassTheme.brightnessOf(context) == Brightness.dark,
+    );
+    final effectiveInteractionGlowColor = glow.color;
 
     final dynamicLabelColor = resolveBarLabelColor(context, darkAmount);
     final resolvedSelectedIconColor =
@@ -230,9 +244,12 @@ class _TabBarBottomLayoutState extends State<TabBarBottomLayout>
     final resolvedUnselectedIconColor =
         widget.unselectedIconColor ?? dynamicLabelColor;
 
-    // Glow appearance fields come from the theme; they cannot be set per-widget
-    // because they are part of the theme palette.
-    final effectiveGlowBlurRadius = resolvedGlowColors.glowBlurRadius;
+    // Spread and opacity come from the theme; they cannot be set per-widget
+    // because they are part of the theme palette. The blur is the exception:
+    // native mode owns it, because the radius and the falloff are one
+    // calibration and a wide radius under the theme's sigma-4 is a disc with
+    // an edge on it.
+    final effectiveGlowBlurRadius = glow.blurRadius;
     final effectiveGlowSpreadRadius = resolvedGlowColors.glowSpreadRadius;
     final effectiveGlowOpacity = resolvedGlowColors.glowOpacity;
 
@@ -366,7 +383,7 @@ class _TabBarBottomLayoutState extends State<TabBarBottomLayout>
                         interactionGlowColor: widget.interactionBehavior.hasGlow
                             ? effectiveInteractionGlowColor
                             : const Color(0x00000000),
-                        interactionGlowRadius: widget.interactionGlowRadius,
+                        interactionGlowRadius: glow.radius,
                         interactionGlowBlurRadius: effectiveGlowBlurRadius,
                         interactionGlowSpreadRadius: effectiveGlowSpreadRadius,
                         interactionGlowOpacity: effectiveGlowOpacity,

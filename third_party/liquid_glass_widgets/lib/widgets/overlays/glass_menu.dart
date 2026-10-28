@@ -1,9 +1,13 @@
+import 'dart:async' show scheduleMicrotask;
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+import '../../src/utils/glass_localizations.dart';
 import '../../utils/glass_morph_controller.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
+import '../../src/widgets/surfaces/vertical_bar_presentation.dart';
 
 import '../../constants/glass_defaults.dart';
 import '../../types/glass_quality.dart';
@@ -13,6 +17,7 @@ import '../shared/inherited_liquid_glass.dart';
 import 'glass_menu_item.dart';
 import '../../theme/glass_theme_helpers.dart';
 import '../../theme/glass_theme.dart';
+import '../shared/glass_accessibility_scope.dart';
 
 part 'shared/glass_menu_internal.dart';
 
@@ -70,7 +75,7 @@ enum GlassMenuAlignment {
 /// - **Seamless crossfade**: Button only appears at final 5% to preserve morph illusion
 /// - **Dimension interpolation**: Width, height, and border radius morph smoothly
 /// - **Position aware**: Menu expands from button position
-/// - **Settings inheritance**: Inherits parent layer settings like GlassCard (thin rim by default)
+/// - **Settings inheritance**: Inherits parent layer settings like GlassContainer.card (thin rim by default)
 /// - **No button animation**: Trigger button remains static, only shape morphs
 class GlassMenu extends StatefulWidget {
   /// The widget that triggers the menu.
@@ -81,6 +86,14 @@ class GlassMenu extends StatefulWidget {
   /// If your trigger is interactive (like a [GlassButton]), use [triggerBuilder]
   /// instead to manually handle the tap event.
   final Widget? trigger;
+
+  /// What the [trigger] opens, announced by screen readers (for example
+  /// "More actions").
+  ///
+  /// The [trigger] is exposed as a button. A text trigger names itself, so
+  /// this matters most for an icon. Not used with [triggerBuilder], whose
+  /// widget carries its own semantics.
+  final String? semanticLabel;
 
   /// A builder for the trigger widget that provides access to the menu toggle callback.
   ///
@@ -194,6 +207,15 @@ class GlassMenu extends StatefulWidget {
   /// If provided, the menu will have a fixed height and internal scrolling.
   final double? menuHeight;
 
+  /// Maximum vertical extent of the root and all layered submenu cards.
+  ///
+  /// External placement owners can set their available bounds height without
+  /// enabling [autoAdjustToScreen]. Each card uses the space remaining after
+  /// its source-row offset and scrolls when necessary. In exceptionally short
+  /// viewports the header moves toward the anchor to keep navigation reachable.
+  /// Null imposes no external limit; automatic screen adjustment still applies.
+  final double? maxStackHeight;
+
   /// The minimum distance between the menu and the screen edges.
   ///
   /// Only applies when [autoAdjustToScreen] is true.
@@ -253,6 +275,55 @@ class GlassMenu extends StatefulWidget {
   /// the underlying [AdaptiveLiquidGlassLayer].
   final bool platformViewBackdrop;
 
+  /// Speed profile for the open/close morph animation.
+  ///
+  /// Defaults to [MorphSpeed.normal] for native iOS 26 parity. Use
+  /// [MorphSpeed.fast] on high-frequency trigger surfaces (e.g. toolbars where
+  /// users tap repeatedly) or [MorphSpeed.instant] when Reduce Motion is
+  /// active and you want a single-frame transition without bouncing.
+  final MorphSpeed morphSpeed;
+
+  /// Whether to enable iOS-style continuous swipe-to-select.
+  ///
+  /// When true, pressing down on the trigger opens the menu immediately and
+  /// allows the user to slide across items and release to activate in a single
+  /// unbroken gesture without lifting their finger.
+  ///
+  /// If the finger is released within [continuousSwipeSlop] of the touch-down
+  /// origin, the gesture is treated as a tap and the menu remains open for
+  /// subsequent interaction (tap mode).
+  ///
+  /// Defaults to `false` for raw [GlassMenu] (opt-in for backward compatibility
+  /// with custom triggers); enabled by default on [GlassPullDownButton].
+  final bool enableContinuousSwipe;
+
+  /// The movement threshold in logical pixels required to arm continuous swipe.
+  ///
+  /// While the pointer displacement is below this distance, the interaction is
+  /// considered within the press deadband, preventing accidental item selection
+  /// on quick taps or presses.
+  ///
+  /// Defaults to 10.0.
+  final double continuousSwipeSlop;
+
+  /// Called with the submenu depth (0 = root list) and the resting height of
+  /// the whole visible stack — the menu body, plus every open submenu card
+  /// that extends past it — whenever the stack changes: when the menu opens,
+  /// and on every [GlassMenuItem.submenu] push or header pop, just before the
+  /// layering morph animates.
+  ///
+  /// The height is measured from the menu's anchored edge, the way
+  /// [GlassMenu.menuAlignment] grows the body: a menu anchored at its top
+  /// (growing down) reports the distance from the body's top to the stack's
+  /// lowest edge, one anchored at its bottom reports the distance from the
+  /// body's bottom to the stack's highest edge.
+  ///
+  /// Lets an external owner that positions the menu itself (typically with
+  /// [autoAdjustToScreen] off) make room for a taller stack — or give it back
+  /// when a card closes — for example by moving the menu with
+  /// [GlassMenuController.setFollowOffset].
+  final void Function(int depth, double height)? onLevelChanged;
+
   /// Creates a liquid glass menu.
   const GlassMenu({
     super.key,
@@ -275,6 +346,7 @@ class GlassMenu extends StatefulWidget {
     this.allowPositiveY,
     this.allowNegativeY,
     this.menuHeight,
+    this.maxStackHeight,
     this.menuPadding = EdgeInsets.zero,
     this.selectionColor = const Color(0x3DFFFFFF),
     this.enableInteractionGlow = true,
@@ -287,7 +359,13 @@ class GlassMenu extends StatefulWidget {
     this.showDismissBarrier = true,
     this.morphFromZero = false,
     this.platformViewBackdrop = false,
-  }) : assert(trigger != null || triggerBuilder != null,
+    this.morphSpeed = MorphSpeed.normal,
+    this.enableContinuousSwipe = false,
+    this.continuousSwipeSlop = 10.0,
+    this.semanticLabel,
+    this.onLevelChanged,
+  })  : assert(maxStackHeight == null || maxStackHeight > 0),
+        assert(trigger != null || triggerBuilder != null,
             'Either trigger or triggerBuilder must be provided');
 
   @override
@@ -329,4 +407,33 @@ class GlassMenuController {
   /// that move the anchor AFTER opening — e.g. a canvas tile trailing under a
   /// rubberband, where the menu should stay glued to the tile.
   void setFollowOffset(Offset offset) => _state?.setFollowOffset(offset);
+
+  /// Drives slide-to-select with a pointer the menu never receives itself.
+  ///
+  /// Use this when your own gesture code owns the finger, for example a
+  /// long-press recogniser that opened the menu with [open]. Call it with the
+  /// pointer's global position on every move: the item under that point
+  /// highlights, with a selection haptic each time the highlight moves to a
+  /// new item. As with touch slide-to-select, nothing highlights on a
+  /// scrollable menu.
+  ///
+  /// Returns whether [globalPosition] lies over the open menu. A no-op that
+  /// returns `false` while the menu is closed or closing.
+  bool glideTo(Offset globalPosition) =>
+      _state?._glideTo(globalPosition) ?? false;
+
+  /// Ends a glide started with [glideTo], typically when the finger lifts.
+  ///
+  /// Activates the highlighted item exactly as a tap would (runs it and
+  /// closes, or opens its [GlassMenuItem.submenu]) and returns `true`. With
+  /// nothing highlighted, it clears the glide, leaves the menu open, and
+  /// returns `false`.
+  bool endGlide() => _state?._endGlide() ?? false;
+
+  /// Clears a glide's highlight without activating anything, for example
+  /// when the gesture that owns the finger is cancelled.
+  void cancelGlide() => _state?._cancelGlide();
+
+  /// How many submenus deep the open menu currently is (0 = root list).
+  int get submenuDepth => _state?._submenuStack.length ?? 0;
 }
