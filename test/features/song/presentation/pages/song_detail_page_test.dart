@@ -1349,6 +1349,37 @@ void main() {
         find.byType(CustomScrollView),
       );
       expect(find.text('播放'), findsWidgets);
+      final actions = find.byKey(
+        const ValueKey<String>('song-detail-actions-row-compact'),
+      );
+      expect(
+        find.descendant(
+          of: actions,
+          matching: find.byIcon(Icons.play_arrow_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: actions,
+          matching: find.byIcon(Icons.favorite_border_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('收藏歌曲'), findsNothing);
+      await tester.tap(find.byTooltip('收藏歌曲'));
+      await tester.pump();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SongDetailPage)),
+      );
+      final online =
+          container.read(onlineControllerProvider.notifier)
+              as _TestOnlineController;
+      expect(online.favorites.single, (
+        id: 'song-1',
+        platform: 'qq',
+        like: true,
+      ));
       final initialHeader = tester.widget(
         find.byKey(const ValueKey<String>('song-detail-header-compact')),
       );
@@ -1365,6 +1396,13 @@ void main() {
       );
       expect(find.text('暂停'), findsOneWidget);
       expect(
+        find.descendant(
+          of: actions,
+          matching: find.byIcon(Icons.pause_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(
         tester.widget(
           find.byKey(const ValueKey<String>('song-detail-header-compact')),
         ),
@@ -1374,13 +1412,25 @@ void main() {
         tester.widget<SongDetailInfoCards>(find.byType(SongDetailInfoCards)),
         same(initialCards),
       );
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(SongDetailPage)),
-      );
       (container.read(favoriteSongStatusProvider.notifier)
               as _TestFavoriteSongStatusController)
           .like('song-1');
       await tester.pump();
+      expect(
+        find.descendant(
+          of: actions,
+          matching: find.byIcon(Icons.favorite_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('收藏歌曲'), findsNothing);
+      await tester.tap(find.byTooltip('取消收藏'));
+      await tester.pump();
+      expect(online.favorites.last, (
+        id: 'song-1',
+        platform: 'qq',
+        like: false,
+      ));
       expect(
         tester.widget(
           find.byKey(const ValueKey<String>('song-detail-header-compact')),

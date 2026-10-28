@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/glass/app_glass_scope.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
@@ -136,8 +138,11 @@ class _SongDetailPageState extends ConsumerState<SongDetailPage> {
     );
     final config = ref.read(appConfigProvider);
     final song = content.song;
-    final platforms =
-        ref.watch(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
+    final platforms = ref.watch(
+      onlinePlatformsProvider.select(
+        (state) => state.value ?? const <OnlinePlatform>[],
+      ),
+    );
     final coverUrl = _songActions.resolveCoverUrl(song);
 
     return LayoutBuilder(
@@ -607,31 +612,107 @@ class _HeroActions extends StatelessWidget {
   final VoidCallback onToggleFavorite;
 
   @override
-  Widget build(BuildContext context) => Wrap(
-    key: const ValueKey<String>('song-detail-actions-row-compact'),
-    spacing: 8,
-    runSpacing: 8,
-    children: <Widget>[
-      FilledButton(
-        onPressed: onPlay,
-        child: Text(
-          AppI18n.t(
-            config,
-            showPauseAction ? 'player.action.pause' : 'song.action.play',
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final useGlass = AppGlassScope.controlsEnabled(context);
+    final playLabel = AppI18n.t(
+      config,
+      showPauseAction ? 'player.action.pause' : 'song.action.play',
+    );
+    final favoriteLabel = AppI18n.t(
+      config,
+      isFavorited ? 'detail.favorite.remove_song' : 'detail.favorite.add_song',
+    );
+    final playIcon = showPauseAction
+        ? Icons.pause_rounded
+        : Icons.play_arrow_rounded;
+    final favoriteIcon = Icon(
+      isFavorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+      color: isFavorited ? colors.primary : colors.onSurfaceVariant,
+      size: 24,
+    );
+    final playContent = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(playIcon, size: 24),
+        const SizedBox(width: 6),
+        Text(playLabel),
+      ],
+    );
+
+    return Wrap(
+      key: const ValueKey<String>('song-detail-actions-row-compact'),
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[
+        if (useGlass)
+          GlassButton.custom(
+            onTap: onPlay,
+            label: playLabel,
+            useOwnLayer: true,
+            quality: AppGlassScope.qualityOf(context),
+            style: GlassButtonStyle.prominent,
+            settings: LiquidGlassSettings(glassColor: colors.primary),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                child: DefaultTextStyle(
+                  style: theme.textTheme.labelLarge!.copyWith(
+                    color: colors.onPrimary,
+                  ),
+                  child: IconTheme(
+                    data: IconThemeData(color: colors.onPrimary),
+                    child: playContent,
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          FilledButton(
+            onPressed: onPlay,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: const StadiumBorder(),
+            ),
+            child: playContent,
           ),
+        Semantics(
+          toggled: isFavorited,
+          child: useGlass
+              ? Tooltip(
+                  message: favoriteLabel,
+                  excludeFromSemantics: true,
+                  child: GlassIconButton(
+                    icon: favoriteIcon,
+                    onPressed: onToggleFavorite,
+                    semanticLabel: favoriteLabel,
+                    size: 48,
+                    useOwnLayer: true,
+                    quality: AppGlassScope.qualityOf(context),
+                  ),
+                )
+              : IconButton.filledTonal(
+                  onPressed: onToggleFavorite,
+                  tooltip: favoriteLabel,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size.square(48),
+                    backgroundColor: isFavorited
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerHighest,
+                    shape: const CircleBorder(),
+                  ),
+                  icon: favoriteIcon,
+                ),
         ),
-      ),
-      OutlinedButton(
-        onPressed: onToggleFavorite,
-        child: Text(
-          AppI18n.t(
-            config,
-            isFavorited
-                ? 'detail.favorite.remove_song'
-                : 'detail.favorite.add_song',
-          ),
-        ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
