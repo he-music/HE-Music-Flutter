@@ -21,6 +21,7 @@ class SongListComponent extends ConsumerStatefulWidget {
     this.onRetryLoadMore,
     this.skeletonCount = 8,
     this.empty,
+    this.controller,
     super.key,
   });
 
@@ -35,6 +36,7 @@ class SongListComponent extends ConsumerStatefulWidget {
   final Future<void> Function()? onRetryLoadMore;
   final int skeletonCount;
   final Widget? empty;
+  final ScrollController? controller;
 
   @override
   ConsumerState<SongListComponent> createState() => _SongListComponentState();
@@ -68,6 +70,7 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
     );
     if (widget.initialLoading) {
       return ListView.separated(
+        controller: widget.controller,
         padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
         itemCount: widget.skeletonCount,
         separatorBuilder: (context, index) => const SizedBox(height: 2),
@@ -89,6 +92,7 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
             !widget.hasMore);
     final list = ListView.separated(
       padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+      controller: widget.controller,
       itemCount: widget.itemCount + (showFooter ? 1 : 0),
       separatorBuilder: (context, index) {
         if (showFooter && index == widget.itemCount - 1) {

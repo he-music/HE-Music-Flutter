@@ -7,6 +7,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/plaza_widgets.dart';
@@ -95,17 +96,21 @@ class _VideoPlazaPageState extends ConsumerState<VideoPlazaPage> {
                       label: AppI18n.t(config, 'video.plaza.empty'),
                     );
                   }
-                  return _VideoPlazaBody(
-                    scrollController: _scrollController,
-                    state: state,
-                    onRetry: () =>
-                        ref.read(videoPlazaControllerProvider.notifier).retry(),
-                    onSelectFilter: (groupId, value) => ref
-                        .read(videoPlazaControllerProvider.notifier)
-                        .selectFilter(groupId: groupId, value: value),
-                    onLoadMoreRetry: () => ref
-                        .read(videoPlazaControllerProvider.notifier)
-                        .loadMore(),
+                  return ScrollToTopOverlay(
+                    controller: _scrollController,
+                    child: _VideoPlazaBody(
+                      scrollController: _scrollController,
+                      state: state,
+                      onRetry: () => ref
+                          .read(videoPlazaControllerProvider.notifier)
+                          .retry(),
+                      onSelectFilter: (groupId, value) => ref
+                          .read(videoPlazaControllerProvider.notifier)
+                          .selectFilter(groupId: groupId, value: value),
+                      onLoadMoreRetry: () => ref
+                          .read(videoPlazaControllerProvider.notifier)
+                          .loadMore(),
+                    ),
                   );
                 },
                 loading: () => const _VideoPlazaLoadingView(),

@@ -19,6 +19,7 @@ import '../widgets/search_artist_list_item.dart';
 import '../widgets/search_playlist_list_item.dart';
 import 'online_search_models.dart';
 import 'online_search_feedback.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 
 class OnlineSearchResultList extends ConsumerStatefulWidget {
   const OnlineSearchResultList({
@@ -108,33 +109,37 @@ class _OnlineSearchResultListState
       );
     }
     if (widget.type == SearchType.song || widget.type == SearchType.lyric) {
-      return SongListComponent(
-        itemCount: widget.songResults.length,
-        itemBuilder: (context, index) {
-          final item = widget.songResults[index];
-          return OnlineSearchSongResultItem(
-            key: ValueKey<String>(
-              'search-song-${item.song.id}|${item.song.platform}',
-            ),
-            item: item,
-            searchKeyword: widget.searchKeyword,
-            likedSongKeys: widget.likedSongKeys,
-            allowFullLyric: widget.type == SearchType.lyric,
-            onTapSong: widget.onTapSongItem,
-            onLikeSong: widget.onLikeSongItem,
-            onMoreSong: widget.onMoreSongItem,
-          );
-        },
-        loadMoreErrorMessage: widget.loadMoreError,
-        onRetryLoadMore: widget.onLoadMore,
-        empty: SearchFeedback(
-          localeCode: localeCode,
-          onEditQuery: widget.onEditQuery,
+      return ScrollToTopOverlay(
+        controller: _commonScrollController,
+        child: SongListComponent(
+          itemCount: widget.songResults.length,
+          controller: _commonScrollController,
+          itemBuilder: (context, index) {
+            final item = widget.songResults[index];
+            return OnlineSearchSongResultItem(
+              key: ValueKey<String>(
+                'search-song-${item.song.id}|${item.song.platform}',
+              ),
+              item: item,
+              searchKeyword: widget.searchKeyword,
+              likedSongKeys: widget.likedSongKeys,
+              allowFullLyric: widget.type == SearchType.lyric,
+              onTapSong: widget.onTapSongItem,
+              onLikeSong: widget.onLikeSongItem,
+              onMoreSong: widget.onMoreSongItem,
+            );
+          },
+          loadMoreErrorMessage: widget.loadMoreError,
+          onRetryLoadMore: widget.onLoadMore,
+          empty: SearchFeedback(
+            localeCode: localeCode,
+            onEditQuery: widget.onEditQuery,
+          ),
+          initialLoading: widget.initialLoading,
+          loadingMore: widget.loadingMore,
+          hasMore: widget.hasMore,
+          onLoadMore: widget.onLoadMore,
         ),
-        initialLoading: widget.initialLoading,
-        loadingMore: widget.loadingMore,
-        hasMore: widget.hasMore,
-        onLoadMore: widget.onLoadMore,
       );
     }
     if (widget.initialLoading) {
@@ -151,72 +156,75 @@ class _OnlineSearchResultListState
     }
     final showFooter =
         widget.loadingMore || widget.loadMoreError != null || !widget.hasMore;
-    return ListView.separated(
+    return ScrollToTopOverlay(
       controller: _commonScrollController,
-      padding: EdgeInsets.only(
-        top: 2,
-        bottom: 4 + MediaQuery.paddingOf(context).bottom,
-      ),
-      itemCount: widget.results.length + (showFooter ? 1 : 0),
-      separatorBuilder: (context, index) {
-        if (showFooter && index == widget.results.length - 1) {
-          return const SizedBox(height: 10);
-        }
-        return const SizedBox(height: 2);
-      },
-      itemBuilder: (context, index) {
-        if (index >= widget.results.length) {
-          return _buildFooter(context);
-        }
-        final item = widget.results[index];
-        final image = resolveTemplateCoverUrl(
-          platforms: platforms,
-          platformId: text(item['platform']),
-          cover: text(item['cover']) == '-' ? '' : text(item['cover']),
-          size: 300,
-        );
-        final title = displayTitle(widget.type, item);
-        final subtitle = displaySubtitle(widget.type, item);
-        return switch (widget.type) {
-          SearchType.playlist => SearchPlaylistListItem(
-            title: title,
-            subtitle: subtitle,
-            coverUrl: image,
-            songCountText: buildPlaylistSongCountText(
-              count: searchPlaylistInfo(item).songCount,
-              localeCode: localeCode,
+      child: ListView.separated(
+        controller: _commonScrollController,
+        padding: EdgeInsets.only(
+          top: 2,
+          bottom: 4 + MediaQuery.paddingOf(context).bottom,
+        ),
+        itemCount: widget.results.length + (showFooter ? 1 : 0),
+        separatorBuilder: (context, index) {
+          if (showFooter && index == widget.results.length - 1) {
+            return const SizedBox(height: 10);
+          }
+          return const SizedBox(height: 2);
+        },
+        itemBuilder: (context, index) {
+          if (index >= widget.results.length) {
+            return _buildFooter(context);
+          }
+          final item = widget.results[index];
+          final image = resolveTemplateCoverUrl(
+            platforms: platforms,
+            platformId: text(item['platform']),
+            cover: text(item['cover']) == '-' ? '' : text(item['cover']),
+            size: 300,
+          );
+          final title = displayTitle(widget.type, item);
+          final subtitle = displaySubtitle(widget.type, item);
+          return switch (widget.type) {
+            SearchType.playlist => SearchPlaylistListItem(
+              title: title,
+              subtitle: subtitle,
+              coverUrl: image,
+              songCountText: buildPlaylistSongCountText(
+                count: searchPlaylistInfo(item).songCount,
+                localeCode: localeCode,
+              ),
+              onTap: () => widget.onTapItem(item),
             ),
-            onTap: () => widget.onTapItem(item),
-          ),
-          SearchType.album || SearchType.audiobook => SearchAlbumListItem(
-            title: title,
-            subtitle: subtitle,
-            coverUrl: image,
-            finishedLabel: searchAlbumInfo(item).isFinished
-                ? AppI18n.tByLocaleCode(localeCode, 'detail.album.finished')
-                : null,
-            onTap: () => widget.onTapItem(item),
-          ),
-          SearchType.artist => SearchArtistListItem(
-            localeCode: localeCode,
-            title: title,
-            coverUrl: image,
-            songCount: artistSongCount(item),
-            albumCount: artistAlbumCount(item),
-            videoCount: artistVideoCount(item),
-            onTap: () => widget.onTapItem(item),
-          ),
-          SearchType.video => VideoListItem(
-            title: title,
-            creator: subtitle == '-' ? null : subtitle,
-            duration: '${searchVideoInfo(item).duration}',
-            coverUrl: image,
-            playCount: searchVideoInfo(item).playCount,
-            onTap: () => widget.onTapItem(item),
-          ),
-          _ => const SizedBox.shrink(),
-        };
-      },
+            SearchType.album || SearchType.audiobook => SearchAlbumListItem(
+              title: title,
+              subtitle: subtitle,
+              coverUrl: image,
+              finishedLabel: searchAlbumInfo(item).isFinished
+                  ? AppI18n.tByLocaleCode(localeCode, 'detail.album.finished')
+                  : null,
+              onTap: () => widget.onTapItem(item),
+            ),
+            SearchType.artist => SearchArtistListItem(
+              localeCode: localeCode,
+              title: title,
+              coverUrl: image,
+              songCount: artistSongCount(item),
+              albumCount: artistAlbumCount(item),
+              videoCount: artistVideoCount(item),
+              onTap: () => widget.onTapItem(item),
+            ),
+            SearchType.video => VideoListItem(
+              title: title,
+              creator: subtitle == '-' ? null : subtitle,
+              duration: '${searchVideoInfo(item).duration}',
+              coverUrl: image,
+              playCount: searchVideoInfo(item).playCount,
+              onTap: () => widget.onTapItem(item),
+            ),
+            _ => const SizedBox.shrink(),
+          };
+        },
+      ),
     );
   }
 

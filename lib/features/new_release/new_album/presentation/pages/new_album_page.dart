@@ -8,6 +8,7 @@ import '../../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../../shared/widgets/app_back_button.dart';
 import '../../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../../shared/widgets/media_grid_card.dart';
+import '../../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../../shared/widgets/plaza_widgets.dart';
@@ -93,10 +94,13 @@ class _NewAlbumPageState extends ConsumerState<NewAlbumPage> {
               ),
             const Divider(height: 1),
             Expanded(
-              child: _NewAlbumBody(
-                scrollController: _scrollController,
-                state: state,
-                onRetry: controller.retry,
+              child: ScrollToTopOverlay(
+                controller: _scrollController,
+                child: _NewAlbumBody(
+                  scrollController: _scrollController,
+                  state: state,
+                  onRetry: controller.retry,
+                ),
               ),
             ),
           ],

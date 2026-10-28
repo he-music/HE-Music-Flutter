@@ -9,6 +9,40 @@ import 'package:he_music_flutter/features/music_library/presentation/widgets/loc
 
 void main() {
   testWidgets(
+    'desktop song list can return to top through its shared controller',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          () => Stream.value(const [_song]),
+          platform: TargetPlatform.macOS,
+          builder: (context, songs) => ListView.builder(
+            itemExtent: 64,
+            itemCount: 100,
+            itemBuilder: (context, index) => Text('歌曲 $index'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final list = find.byType(ListView);
+      await tester.drag(list, const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      final controller = tester
+          .state<ScrollableState>(
+            find.descendant(of: list, matching: find.byType(Scrollable)),
+          )
+          .position;
+      expect(controller.pixels, greaterThan(0));
+      final button = find
+          .byIcon(Icons.vertical_align_top_rounded)
+          .hitTestable();
+      expect(button, findsOneWidget);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(controller.pixels, controller.minScrollExtent);
+      expect(button, findsNothing);
+    },
+  );
+  testWidgets(
     'changing query hides old results until the new stream responds',
     (tester) async {
       final nextSongs = StreamController<List<LocalSong>>();
@@ -78,9 +112,13 @@ Widget _app(
   Stream<List<LocalSong>> Function() watchSongs, {
   bool dark = false,
   String sourceKey = 'artist',
+  TargetPlatform platform = TargetPlatform.android,
+  Widget Function(BuildContext, List<LocalSong>)? builder,
 }) => ProviderScope(
   child: MaterialApp(
-    theme: dark ? ThemeData.dark() : ThemeData.light(),
+    theme: (dark ? ThemeData.dark() : ThemeData.light()).copyWith(
+      platform: platform,
+    ),
     locale: const Locale('zh'),
     supportedLocales: const [Locale('zh'), Locale('en')],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -90,7 +128,7 @@ Widget _app(
         watchSongs: watchSongs,
         localeCode: 'zh',
         emptyText: '没有歌曲',
-        builder: (context, songs) => Text(songs.single.title),
+        builder: builder ?? (context, songs) => Text(songs.single.title),
       ),
     ),
   ),

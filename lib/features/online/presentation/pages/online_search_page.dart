@@ -83,6 +83,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       <String, List<SearchSongInfo>>{};
   final Map<String, OnlineComprehensiveSearchResult> _comprehensiveResultCache =
       <String, OnlineComprehensiveSearchResult>{};
+  final _comprehensiveScrollController = ScrollController();
   final Map<String, String> _searchErrorCache = <String, String>{};
   final Map<String, String> _loadMoreErrorCache = <String, String>{};
   bool _sourceChosen = false;
@@ -293,6 +294,8 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
                       songResults: songResults,
                       searchKeyword: effectiveKeyword,
                       comprehensiveResult: comprehensiveResult,
+                      comprehensiveScrollController:
+                          _comprehensiveScrollController,
                       error: error,
                       initialLoading: initialLoading,
                       likedSongKeys: const <String>{},
@@ -330,6 +333,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       ..dispose();
     _suggestions.dispose();
     _searchController.dispose();
+    _comprehensiveScrollController.dispose();
     super.dispose();
   }
 

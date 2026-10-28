@@ -18,6 +18,7 @@ import '../../../../shared/widgets/detail_description_sheet.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
+import '../../../../shared/widgets/song_detail_scroll_view.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../domain/entities/recommend_song_list_info.dart';
@@ -138,7 +139,8 @@ class _RecommendSongListPageState extends ConsumerState<RecommendSongListPage> {
     DetailSongActionHandler songActions,
   ) {
     final songs = ref.watch(sortedSongInfoProvider(info.songs));
-    return NestedScrollView(
+    return SongDetailScrollView(
+      batchMode: _isBatchMode,
       headerSliverBuilder: (context, innerBoxIsScrolled) => <Widget>[
         MusicDetailSliverAppBar(
           title: info.title,

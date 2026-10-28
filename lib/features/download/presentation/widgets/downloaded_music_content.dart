@@ -12,6 +12,7 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_list_item.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
@@ -38,6 +39,7 @@ class DownloadedMusicContent extends ConsumerStatefulWidget {
 class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
     with WidgetsBindingObserver {
   final Set<String> _busySongs = {};
+  final _scrollController = ScrollController();
   String text(String key) => AppI18n.tByLocaleCode(widget.locale, key);
 
   @override
@@ -49,6 +51,7 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -107,47 +110,51 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
               onPlayAll: () => unawaited(_play(playable, 0)),
             ),
             Expanded(
-              child: ListView.builder(
-                itemCount: allSongs.length,
-                itemBuilder: (context, index) {
-                  final song = allSongs[index];
-                  final task = song.task;
-                  return Consumer(
-                    builder: (context, ref, child) {
-                      final cover = ref
-                          .watch(
-                            downloadedArtworkProvider(task.artworkPath ?? ''),
-                          )
-                          .value;
-                      return SongListItem(
-                        key: ValueKey('downloaded-song-${song.id}'),
-                        data: SongListItemData(
-                          title: task.title,
-                          artistAlbumText: [task.artist, task.album]
-                              .whereType<String>()
-                              .where((value) => value.isNotEmpty)
-                              .join(' · '),
-                          subtitleText: song.isAvailable
-                              ? '${task.effectiveFileExtension.toUpperCase()} · ${task.quality.label}'
-                              : text('download.library.missing'),
-                          coverBytes: cover,
-                          isCurrent: ref.watch(
-                            playerControllerProvider.select(
-                              (state) =>
-                                  state.displayTrack?.path == song.filePath,
+              child: ScrollToTopOverlay(
+                controller: _scrollController,
+                child: ListView.builder(
+                  itemCount: allSongs.length,
+                  controller: _scrollController,
+                  itemBuilder: (context, index) {
+                    final song = allSongs[index];
+                    final task = song.task;
+                    return Consumer(
+                      builder: (context, ref, child) {
+                        final cover = ref
+                            .watch(
+                              downloadedArtworkProvider(task.artworkPath ?? ''),
+                            )
+                            .value;
+                        return SongListItem(
+                          key: ValueKey('downloaded-song-${song.id}'),
+                          data: SongListItemData(
+                            title: task.title,
+                            artistAlbumText: [task.artist, task.album]
+                                .whereType<String>()
+                                .where((value) => value.isNotEmpty)
+                                .join(' · '),
+                            subtitleText: song.isAvailable
+                                ? '${task.effectiveFileExtension.toUpperCase()} · ${task.quality.label}'
+                                : text('download.library.missing'),
+                            coverBytes: cover,
+                            isCurrent: ref.watch(
+                              playerControllerProvider.select(
+                                (state) =>
+                                    state.displayTrack?.path == song.filePath,
+                              ),
                             ),
                           ),
-                        ),
-                        onTap: song.isAvailable
-                            ? () => unawaited(
-                                _play(playable, playable.indexOf(song)),
-                              )
-                            : null,
-                        onMoreTap: () => unawaited(_showActions(song)),
-                      );
-                    },
-                  );
-                },
+                          onTap: song.isAvailable
+                              ? () => unawaited(
+                                  _play(playable, playable.indexOf(song)),
+                                )
+                              : null,
+                          onMoreTap: () => unawaited(_showActions(song)),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],

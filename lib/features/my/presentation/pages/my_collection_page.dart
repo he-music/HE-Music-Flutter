@@ -15,6 +15,7 @@ import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/song_list_component.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../../../online/presentation/widgets/search_playlist_list_item.dart';
 import '../../domain/entities/my_favorite_item.dart';
@@ -178,7 +179,7 @@ class _TypeTabs extends StatelessWidget {
   }
 }
 
-class _CollectionList extends ConsumerWidget {
+class _CollectionList extends ConsumerStatefulWidget {
   const _CollectionList({
     required this.config,
     required this.selectedType,
@@ -196,78 +197,102 @@ class _CollectionList extends ConsumerWidget {
   final ValueChanged<MyFavoriteItem> onRemove;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CollectionList> createState() => _CollectionListState();
+}
+
+class _CollectionListState extends ConsumerState<_CollectionList> {
+  final _scrollController = ScrollController();
+
+  AppConfigState get config => widget.config;
+  MyFavoriteType get selectedType => widget.selectedType;
+  List<MyFavoriteItem> get items => widget.items;
+  bool get initialLoading => widget.initialLoading;
+  String get emptyText => widget.emptyText;
+  ValueChanged<MyFavoriteItem> get onRemove => widget.onRemove;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     if (items.isEmpty && !initialLoading) {
       return Center(child: Text(emptyText));
     }
-    return SongListComponent(
-      itemCount: items.length,
-      initialLoading: initialLoading,
-      enablePaging: false,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        if (selectedType == MyFavoriteType.playlists) {
-          return SearchPlaylistListItem(
-            title: item.title,
-            subtitle: item.subtitle,
-            coverUrl: item.coverUrl,
-            songCountText: buildPlaylistSongCountText(
-              count: item.songCount,
-              localeCode: config.localeCode,
+    return ScrollToTopOverlay(
+      controller: _scrollController,
+      child: SongListComponent(
+        itemCount: items.length,
+        controller: _scrollController,
+        initialLoading: initialLoading,
+        enablePaging: false,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          if (selectedType == MyFavoriteType.playlists) {
+            return SearchPlaylistListItem(
+              title: item.title,
+              subtitle: item.subtitle,
+              coverUrl: item.coverUrl,
+              songCountText: buildPlaylistSongCountText(
+                count: item.songCount,
+                localeCode: config.localeCode,
+              ),
+              onTap: () {
+                context.push(
+                  Uri(
+                    path: AppRoutes.playlistDetail,
+                    queryParameters: <String, String>{
+                      'id': item.id,
+                      'platform': item.platform,
+                      'title': item.title,
+                    },
+                  ).toString(),
+                );
+              },
+            );
+          }
+          return ListTile(
+            onTap: switch (selectedType) {
+              MyFavoriteType.artists => () {
+                context.push(
+                  Uri(
+                    path: AppRoutes.artistDetail,
+                    queryParameters: <String, String>{
+                      'id': item.id,
+                      'platform': item.platform,
+                      'title': item.title,
+                    },
+                  ).toString(),
+                );
+              },
+              MyFavoriteType.albums => () {
+                context.push(
+                  Uri(
+                    path: AppRoutes.albumDetail,
+                    queryParameters: <String, String>{
+                      'id': item.id,
+                      'platform': item.platform,
+                      'title': item.title,
+                    },
+                  ).toString(),
+                );
+              },
+              _ => null,
+            },
+            leading: _CoverAvatar(coverUrl: item.coverUrl),
+            title: Text(item.title),
+            subtitle: Text(item.subtitle),
+            trailing: IconButton(
+              onPressed: () => onRemove(item),
+              icon: const AppSkinIcon(role: AppSkinIconRole.myCollectionRemove),
+              color: Theme.of(context).colorScheme.error,
+              tooltip: AppI18n.t(config, 'my.collection.remove'),
             ),
-            onTap: () {
-              context.push(
-                Uri(
-                  path: AppRoutes.playlistDetail,
-                  queryParameters: <String, String>{
-                    'id': item.id,
-                    'platform': item.platform,
-                    'title': item.title,
-                  },
-                ).toString(),
-              );
-            },
           );
-        }
-        return ListTile(
-          onTap: switch (selectedType) {
-            MyFavoriteType.artists => () {
-              context.push(
-                Uri(
-                  path: AppRoutes.artistDetail,
-                  queryParameters: <String, String>{
-                    'id': item.id,
-                    'platform': item.platform,
-                    'title': item.title,
-                  },
-                ).toString(),
-              );
-            },
-            MyFavoriteType.albums => () {
-              context.push(
-                Uri(
-                  path: AppRoutes.albumDetail,
-                  queryParameters: <String, String>{
-                    'id': item.id,
-                    'platform': item.platform,
-                    'title': item.title,
-                  },
-                ).toString(),
-              );
-            },
-            _ => null,
-          },
-          leading: _CoverAvatar(coverUrl: item.coverUrl),
-          title: Text(item.title),
-          subtitle: Text(item.subtitle),
-          trailing: IconButton(
-            onPressed: () => onRemove(item),
-            icon: const AppSkinIcon(role: AppSkinIconRole.myCollectionRemove),
-            color: Theme.of(context).colorScheme.error,
-            tooltip: AppI18n.t(config, 'my.collection.remove'),
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 }

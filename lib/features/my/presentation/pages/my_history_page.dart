@@ -30,6 +30,7 @@ import '../../../player/presentation/providers/player_providers.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../../../shared/widgets/song_list_component.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/song_actions_sheet.dart';
 import '../providers/favorite_song_status_providers.dart';
 import '../providers/my_history_providers.dart';
@@ -109,7 +110,7 @@ class MyHistoryPage extends ConsumerWidget {
   }
 }
 
-class _HistoryList extends ConsumerWidget {
+class _HistoryList extends ConsumerStatefulWidget {
   const _HistoryList({
     required this.items,
     required this.emptyText,
@@ -121,7 +122,24 @@ class _HistoryList extends ConsumerWidget {
   final ValueChanged<int> onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HistoryList> createState() => _HistoryListState();
+}
+
+class _HistoryListState extends ConsumerState<_HistoryList> {
+  final _scrollController = ScrollController();
+
+  List<PlayerHistoryItem> get items => widget.items;
+  String get emptyText => widget.emptyText;
+  ValueChanged<int> get onTap => widget.onTap;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final localeCode = ref.watch(
       appConfigProvider.select((config) => config.localeCode),
     );
@@ -153,71 +171,79 @@ class _HistoryList extends ConsumerWidget {
   }
 
   Widget _buildSongs(WidgetRef ref, String localeCode) {
-    return SongListComponent(
-      itemCount: items.length,
-      enablePaging: false,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return Consumer(
-          key: ValueKey((item.id, item.platform, item.playedAt)),
-          builder: (context, ref, child) {
-            final song = _toSongInfo(item);
-            final coverUrl = _cover(item.artworkUrl);
-            final songId = item.id.trim();
-            final platform = item.platform?.trim() ?? '';
-            final canToggleFavorite =
-                songId.isNotEmpty &&
-                platform.isNotEmpty &&
-                platform.toLowerCase() != 'local';
-            final isLiked =
-                canToggleFavorite &&
-                ref.watch(
-                  favoriteSongStatusProvider.select(
-                    (state) => state.songKeys.contains(
-                      buildFavoriteSongKey(songId: songId, platform: platform),
+    return ScrollToTopOverlay(
+      controller: _scrollController,
+      child: SongListComponent(
+        itemCount: items.length,
+        controller: _scrollController,
+        enablePaging: false,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return Consumer(
+            key: ValueKey((item.id, item.platform, item.playedAt)),
+            builder: (context, ref, child) {
+              final song = _toSongInfo(item);
+              final coverUrl = _cover(item.artworkUrl);
+              final songId = item.id.trim();
+              final platform = item.platform?.trim() ?? '';
+              final canToggleFavorite =
+                  songId.isNotEmpty &&
+                  platform.isNotEmpty &&
+                  platform.toLowerCase() != 'local';
+              final isLiked =
+                  canToggleFavorite &&
+                  ref.watch(
+                    favoriteSongStatusProvider.select(
+                      (state) => state.songKeys.contains(
+                        buildFavoriteSongKey(
+                          songId: songId,
+                          platform: platform,
+                        ),
+                      ),
                     ),
+                  );
+              final isCurrent = ref.watch(
+                playerControllerProvider.select(
+                  (state) => isCurrentSongIdentity(
+                    currentTrackIdentityOf(state.displayTrack),
+                    song,
                   ),
-                );
-            final isCurrent = ref.watch(
-              playerControllerProvider.select(
-                (state) => isCurrentSongIdentity(
-                  currentTrackIdentityOf(state.displayTrack),
-                  song,
                 ),
-              ),
-            );
-            final artwork = ref
-                .watch(localArtworkBytesProvider(item.artworkPath ?? ''))
-                .value;
-            return OnlineSongListItem(
-              song: song,
-              coverUrl: coverUrl,
-              coverBytes: artwork,
-              subtitleText: _playedText(item.playedAt, localeCode),
-              isCurrent: isCurrent,
-              isLiked: isLiked,
-              onTap: () => onTap(index),
-              onLikeTap: canToggleFavorite
-                  ? () => _toggleSongLike(
-                      ref: ref,
-                      songId: songId,
-                      platform: platform,
-                      liked: isLiked,
-                    )
-                  : null,
-              onMoreTap: () => _showSongActions(
-                context: context,
-                ref: ref,
-                config: ref.read(appConfigProvider),
-                platforms: ref.read(onlinePlatformsProvider).value ?? const [],
-                item: item,
+              );
+              final artwork = ref
+                  .watch(localArtworkBytesProvider(item.artworkPath ?? ''))
+                  .value;
+              return OnlineSongListItem(
                 song: song,
                 coverUrl: coverUrl,
-              ),
-            );
-          },
-        );
-      },
+                coverBytes: artwork,
+                subtitleText: _playedText(item.playedAt, localeCode),
+                isCurrent: isCurrent,
+                isLiked: isLiked,
+                onTap: () => onTap(index),
+                onLikeTap: canToggleFavorite
+                    ? () => _toggleSongLike(
+                        ref: ref,
+                        songId: songId,
+                        platform: platform,
+                        liked: isLiked,
+                      )
+                    : null,
+                onMoreTap: () => _showSongActions(
+                  context: context,
+                  ref: ref,
+                  config: ref.read(appConfigProvider),
+                  platforms:
+                      ref.read(onlinePlatformsProvider).value ?? const [],
+                  item: item,
+                  song: song,
+                  coverUrl: coverUrl,
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 

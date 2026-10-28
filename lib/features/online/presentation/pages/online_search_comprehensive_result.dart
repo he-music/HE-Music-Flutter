@@ -19,6 +19,7 @@ import '../widgets/search_album_list_item.dart';
 import '../widgets/search_artist_list_item.dart';
 import '../widgets/search_playlist_list_item.dart';
 import 'online_search_models.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 
 class OnlineSearchComprehensiveSkeleton extends StatelessWidget {
   const OnlineSearchComprehensiveSkeleton({super.key});
@@ -112,6 +113,7 @@ class _ComprehensiveSkeletonRow extends StatelessWidget {
 class OnlineSearchComprehensiveResult extends ConsumerWidget {
   const OnlineSearchComprehensiveResult({
     required this.result,
+    required this.controller,
     required this.likedSongKeys,
     required this.onTapItem,
     required this.onTapSongItem,
@@ -122,6 +124,7 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
     super.key,
   });
 
+  final ScrollController controller;
   final OnlineComprehensiveSearchResult result;
   final Set<String> likedSongKeys;
   final void Function(SearchType type, Map<String, dynamic> item) onTapItem;
@@ -172,63 +175,67 @@ class OnlineSearchComprehensiveResult extends ConsumerWidget {
           );
     }
     // best match 区域 + 各分类 section，统一用 CustomScrollView 滚动
-    return CustomScrollView(
-      slivers: <Widget>[
-        if (!result.song.isEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                LayoutTokens.compactPageGutter,
-                0,
-                LayoutTokens.compactPageGutter,
-                14,
+    return ScrollToTopOverlay(
+      controller: controller,
+      child: CustomScrollView(
+        controller: controller,
+        slivers: <Widget>[
+          if (!result.song.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  LayoutTokens.compactPageGutter,
+                  0,
+                  LayoutTokens.compactPageGutter,
+                  14,
+                ),
+                child: _SectionBlock(
+                  type: SearchType.song,
+                  hasMore: result.song.hasMore,
+                  onMoreSection: onMoreSection,
+                  child: _SongSectionList(
+                    items: result.song.items,
+                    searchKeyword: result.keyword,
+                    likedSongKeys: likedSongKeys,
+                    onTapSongItem: onTapSongItem,
+                    onLikeSongItem: onLikeSongItem,
+                    onMoreSongItem: onMoreSongItem,
+                  ),
+                ),
               ),
-              child: _SectionBlock(
-                type: SearchType.song,
-                hasMore: result.song.hasMore,
-                onMoreSection: onMoreSection,
-                child: _SongSectionList(
-                  items: result.song.items,
+            ),
+          // 猜你想搜区域
+          if (hasBestMatch)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _BestMatchBlock(
+                  items: result.bestMatch,
                   searchKeyword: result.keyword,
                   likedSongKeys: likedSongKeys,
+                  onTapItem: onTapItem,
                   onTapSongItem: onTapSongItem,
                   onLikeSongItem: onLikeSongItem,
                   onMoreSongItem: onMoreSongItem,
                 ),
               ),
             ),
-          ),
-        // 猜你想搜区域
-        if (hasBestMatch)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: _BestMatchBlock(
-                items: result.bestMatch,
-                searchKeyword: result.keyword,
-                likedSongKeys: likedSongKeys,
-                onTapItem: onTapItem,
-                onTapSongItem: onTapSongItem,
-                onLikeSongItem: onLikeSongItem,
-                onMoreSongItem: onMoreSongItem,
-              ),
+          // 各分类搜索结果 section
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: LayoutTokens.compactPageGutter,
+            ),
+            sliver: SliverList.separated(
+              itemCount: sections.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 14),
+              itemBuilder: (context, index) => sections[index],
             ),
           ),
-        // 各分类搜索结果 section
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: LayoutTokens.compactPageGutter,
+          SliverToBoxAdapter(
+            child: SizedBox(height: 12 + MediaQuery.paddingOf(context).bottom),
           ),
-          sliver: SliverList.separated(
-            itemCount: sections.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 14),
-            itemBuilder: (context, index) => sections[index],
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: SizedBox(height: 12 + MediaQuery.paddingOf(context).bottom),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

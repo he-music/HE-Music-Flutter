@@ -33,6 +33,7 @@ import '../../../../shared/widgets/music_control_surface.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
+import '../../../../shared/widgets/song_detail_scroll_view.dart';
 import '../../../my/presentation/providers/favorite_collection_status_providers.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../../online/domain/entities/online_platform.dart';
@@ -214,7 +215,8 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
                   unawaited(_addSelectedSongsToPlaylist(songs)),
             )
           : null,
-      child: NestedScrollView(
+      child: SongDetailScrollView(
+        batchMode: _isSongBatchMode,
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return <Widget>[
             _ArtistSliverHeader(

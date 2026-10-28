@@ -33,6 +33,7 @@ class SongInfoListSection extends StatelessWidget {
     this.artistAlbumTextBuilder,
     this.subtitleTextBuilder,
     this.initialLoading = false,
+    this.scrollController,
     this.errorMessage,
     this.onRetry,
     this.enablePaging = false,
@@ -66,6 +67,7 @@ class SongInfoListSection extends StatelessWidget {
   final SongInfoNullableTextBuilder? artistAlbumTextBuilder;
   final SongInfoTextBuilder? subtitleTextBuilder;
   final bool initialLoading;
+  final ScrollController? scrollController;
   final String? errorMessage;
   final Future<void> Function()? onRetry;
   final bool enablePaging;
@@ -120,6 +122,7 @@ class SongInfoListSection extends StatelessWidget {
       return _RetryBody(message: errorMessage!, onRetry: onRetry);
     }
     return SongListComponent(
+      controller: scrollController,
       initialLoading: initialLoading,
       itemCount: songs.length,
       enablePaging: enablePaging,

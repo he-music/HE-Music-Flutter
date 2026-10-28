@@ -9,6 +9,7 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/glass/app_glass_scope.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../domain/entities/update_release.dart';
 import '../../domain/entities/update_version.dart';
 import '../providers/update_providers.dart';
@@ -143,84 +144,90 @@ class _ReleaseHistoryPageState extends ConsumerState<ReleaseHistoryPage> {
     if (releases.isEmpty && _loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    return SingleChildScrollView(
+    return ScrollToTopOverlay(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_latest != null && !_showEarlier && _current != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 16),
-                  child: Text(
-                    _t(
-                      'update.history.since',
-                    ).replaceAll('{version}', 'v${_current!.normalized}'),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_latest != null && !_showEarlier && _current != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 16),
+                    child: Text(
+                      _t(
+                        'update.history.since',
+                      ).replaceAll('{version}', 'v${_current!.normalized}'),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-              if (releases.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 48),
-                  child: Text(
-                    _t(
-                      _failed
-                          ? 'update.history.failed'
-                          : 'update.history.empty',
+                if (releases.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48),
+                    child: Text(
+                      _t(
+                        _failed
+                            ? 'update.history.failed'
+                            : 'update.history.empty',
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-              for (final release in releases) ...[
-                _versionEntry(release),
-                Divider(
-                  height: 1,
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ],
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              if (_failed && releases.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 24),
-                  child: Text(
-                    _t('update.history.failed'),
-                    textAlign: TextAlign.center,
+                for (final release in releases) ...[
+                  _versionEntry(release),
+                  Divider(
+                    height: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant,
                   ),
-                ),
-              if (_failed || _hasMore || (_latest != null && !_showEarlier))
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 8,
-                    children: [
-                      if (_failed || _hasMore)
-                        TextButton(
-                          onPressed: _loading ? null : _load,
-                          child: Text(
-                            _t(
-                              _failed ? 'common.retry' : 'update.history.more',
+                ],
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                if (_failed && releases.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Text(
+                      _t('update.history.failed'),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (_failed || _hasMore || (_latest != null && !_showEarlier))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      children: [
+                        if (_failed || _hasMore)
+                          TextButton(
+                            onPressed: _loading ? null : _load,
+                            child: Text(
+                              _t(
+                                _failed
+                                    ? 'common.retry'
+                                    : 'update.history.more',
+                              ),
                             ),
                           ),
-                        ),
-                      if (_latest != null && !_showEarlier)
-                        TextButton(
-                          onPressed: () => setState(() => _showEarlier = true),
-                          child: Text(_t('update.history.earlier')),
-                        ),
-                    ],
+                        if (_latest != null && !_showEarlier)
+                          TextButton(
+                            onPressed: () =>
+                                setState(() => _showEarlier = true),
+                            child: Text(_t('update.history.earlier')),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

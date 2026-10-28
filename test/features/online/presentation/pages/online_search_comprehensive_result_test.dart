@@ -20,6 +20,12 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 
+ScrollController _scrollController() {
+  final controller = ScrollController();
+  addTearDown(controller.dispose);
+  return controller;
+}
+
 void main() {
   for (final scale in <double>[1.3, 2, 3]) {
     testWidgets('recommendation cards fit large text at scale $scale', (
@@ -30,6 +36,7 @@ void main() {
           child: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(scale)),
             child: OnlineSearchComprehensiveResult(
+              controller: _scrollController(),
               result: const OnlineComprehensiveSearchResult(
                 keyword: 'Love',
                 bestMatch: <BestMatchRecommendItem>[
@@ -59,6 +66,15 @@ void main() {
         ),
       );
       await tester.pump();
+      expect(
+        tester
+            .widget<OnlineSearchComprehensiveResult>(
+              find.byType(OnlineSearchComprehensiveResult),
+            )
+            .controller
+            .hasClients,
+        isTrue,
+      );
       expect(tester.takeException(), isNull);
       final list = find.byWidgetPredicate(
         (widget) =>
@@ -99,6 +115,7 @@ void main() {
       await tester.pumpWidget(
         _buildApp(
           child: OnlineSearchResultPage(
+            comprehensiveScrollController: _scrollController(),
             localeCode: 'en',
             selectedType: SearchType.comprehensive,
             onTypeChanged: (_) {},
@@ -185,6 +202,7 @@ void main() {
     await tester.pumpWidget(
       _buildApp(
         child: OnlineSearchComprehensiveResult(
+          controller: _scrollController(),
           result: OnlineComprehensiveSearchResult(
             keyword: 'taylor swift',
             artist: OnlineComprehensiveSearchSection(
@@ -292,6 +310,7 @@ void main() {
       await tester.pumpWidget(
         _buildApp(
           child: OnlineSearchComprehensiveResult(
+            controller: _scrollController(),
             result: OnlineComprehensiveSearchResult(
               keyword: 'taylor swift',
               artist: OnlineComprehensiveSearchSection(
@@ -355,6 +374,7 @@ void main() {
       await tester.pumpWidget(
         _buildApp(
           child: OnlineSearchComprehensiveResult(
+            controller: _scrollController(),
             result: const OnlineComprehensiveSearchResult(
               keyword: 'Love',
               bestMatch: <BestMatchRecommendItem>[
@@ -401,6 +421,7 @@ void main() {
     await tester.pumpWidget(
       _buildApp(
         child: OnlineSearchComprehensiveResult(
+          controller: _scrollController(),
           result: const OnlineComprehensiveSearchResult(
             keyword: 'Love',
             song: OnlineComprehensiveSearchSection<SearchSongInfo>(

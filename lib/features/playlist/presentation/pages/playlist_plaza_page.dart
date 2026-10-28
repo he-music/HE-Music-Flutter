@@ -9,6 +9,7 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/media_grid_card.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
@@ -98,22 +99,25 @@ class _PlaylistPlazaPageState extends ConsumerState<PlaylistPlazaPage> {
                       label: AppI18n.t(config, 'playlist.plaza.empty'),
                     );
                   }
-                  return _PlaylistPlazaBody(
-                    scrollController: _scrollController,
-                    state: state,
-                    onRetry: () => ref
-                        .read(playlistPlazaControllerProvider.notifier)
-                        .retry(),
-                    onLoadMoreRetry: () => ref
-                        .read(playlistPlazaControllerProvider.notifier)
-                        .loadMore(),
-                    onCategorySelected: (id) => ref
-                        .read(playlistPlazaControllerProvider.notifier)
-                        .selectCategory(id),
-                    onShowAllCategories: () => _showAllCategoriesSheet(
-                      context,
-                      state,
-                      supportedPlatforms,
+                  return ScrollToTopOverlay(
+                    controller: _scrollController,
+                    child: _PlaylistPlazaBody(
+                      scrollController: _scrollController,
+                      state: state,
+                      onRetry: () => ref
+                          .read(playlistPlazaControllerProvider.notifier)
+                          .retry(),
+                      onLoadMoreRetry: () => ref
+                          .read(playlistPlazaControllerProvider.notifier)
+                          .loadMore(),
+                      onCategorySelected: (id) => ref
+                          .read(playlistPlazaControllerProvider.notifier)
+                          .selectCategory(id),
+                      onShowAllCategories: () => _showAllCategoriesSheet(
+                        context,
+                        state,
+                        supportedPlatforms,
+                      ),
                     ),
                   );
                 },

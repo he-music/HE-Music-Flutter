@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/song_list_component.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../domain/entities/local_song.dart';
 
 /// Keep the subscription stable across theme/locale rebuilds and allow retry.
@@ -28,6 +29,19 @@ class LocalSongsStreamView extends StatefulWidget {
 
 class _LocalSongsStreamViewState extends State<LocalSongsStreamView> {
   late Stream<List<LocalSong>> _stream = widget.watchSongs();
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant LocalSongsStreamView oldWidget) {
@@ -64,7 +78,14 @@ class _LocalSongsStreamViewState extends State<LocalSongsStreamView> {
           ),
         );
       }
-      return widget.builder(context, songs);
+      return PrimaryScrollController(
+        automaticallyInheritForPlatforms: TargetPlatform.values.toSet(),
+        controller: _scrollController,
+        child: ScrollToTopOverlay(
+          controller: _scrollController,
+          child: widget.builder(context, songs),
+        ),
+      );
     },
   );
 

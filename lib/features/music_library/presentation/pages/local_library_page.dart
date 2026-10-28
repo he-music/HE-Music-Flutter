@@ -26,6 +26,7 @@ import '../../../../shared/widgets/app_search_field.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../shared/widgets/song_list_item.dart';
 import '../../../../shared/widgets/song_list_component.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../../domain/entities/local_song.dart';
 import '../../domain/repositories/local_music_repository.dart';
@@ -49,6 +50,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
   _LocalLibraryView _view = _LocalLibraryView.songs;
   bool _initialized = false;
 
+  final _scrollController = ScrollController();
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -64,6 +66,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -102,6 +105,8 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
             child: state.when(
               data: (songs) => _SongList(
                 songs: songs,
+                scrollController: _scrollController,
+                enableScrollToTop: !isMultiSelectMode,
                 view: _view,
                 onScan: controller.scanLibrary,
                 onClear: controller.clearLibrary,
@@ -448,6 +453,8 @@ class _LocalLibrarySelectionBottomBar extends ConsumerWidget {
 class _SongList extends StatelessWidget {
   const _SongList({
     required this.songs,
+    required this.scrollController,
+    required this.enableScrollToTop,
     required this.view,
     required this.onScan,
     required this.onClear,
@@ -471,6 +478,8 @@ class _SongList extends StatelessWidget {
   });
 
   final List<LocalSong> songs;
+  final ScrollController scrollController;
+  final bool enableScrollToTop;
   final _LocalLibraryView view;
   final Future<void> Function() onScan;
   final Future<void> Function() onClear;
@@ -653,28 +662,33 @@ class _SongList extends StatelessWidget {
   }
 
   Widget _buildSongList() {
-    return SongListComponent(
-      itemCount: songs.length,
-      loadingMore: loadingMore,
-      hasMore: hasMore,
-      onLoadMore: onLoadMore,
-      loadMoreErrorMessage: loadMoreErrorMessage,
-      onRetryLoadMore: onLoadMore,
-      // macOS 上歌曲为空时显示扫描按钮
-      empty: Platform.isMacOS && songs.isEmpty
-          ? _EmptyLibrary(onScan: onScan, localeCode: localeCode)
-          : null,
-      itemBuilder: (context, index) {
-        final song = songs[index];
-        return _LocalSongRow(
-          song: song,
-          localeCode: localeCode,
-          onLongPress: () => onLongPress(song.id),
-          onPlayTap: () => onPlayTap(index),
-          onMoreTap: () => onMoreTap(song),
-          onSelectionToggle: () => onSelectionToggle(song.id),
-        );
-      },
+    return ScrollToTopOverlay(
+      controller: scrollController,
+      enabled: enableScrollToTop,
+      child: SongListComponent(
+        itemCount: songs.length,
+        controller: scrollController,
+        loadingMore: loadingMore,
+        hasMore: hasMore,
+        onLoadMore: onLoadMore,
+        loadMoreErrorMessage: loadMoreErrorMessage,
+        onRetryLoadMore: onLoadMore,
+        // macOS 上歌曲为空时显示扫描按钮
+        empty: Platform.isMacOS && songs.isEmpty
+            ? _EmptyLibrary(onScan: onScan, localeCode: localeCode)
+            : null,
+        itemBuilder: (context, index) {
+          final song = songs[index];
+          return _LocalSongRow(
+            song: song,
+            localeCode: localeCode,
+            onLongPress: () => onLongPress(song.id),
+            onPlayTap: () => onPlayTap(index),
+            onMoreTap: () => onMoreTap(song),
+            onSelectionToggle: () => onSelectionToggle(song.id),
+          );
+        },
+      ),
     );
   }
 
@@ -687,27 +701,32 @@ class _SongList extends StatelessWidget {
         child: Text(AppI18n.tByLocaleCode(localeCode, 'local.empty.artist')),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      itemCount: groups.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 4),
-      itemBuilder: (context, index) {
-        final group = groups[index];
-        return _GroupListItem(
-          title: group.name,
-          subtitle: AppI18n.formatByLocaleCode(
-            localeCode,
-            'local.group.artist_subtitle',
-            {'songs': '${group.songCount}', 'albums': '${group.albumCount}'},
-          ),
-          icon: Icons.person_rounded,
-          onTap: () => context.push(
-            '${AppRoutes.artistDetail}?platform=local'
-            '&id=${Uri.encodeComponent(group.name)}'
-            '&title=${Uri.encodeComponent(group.name)}',
-          ),
-        );
-      },
+    return ScrollToTopOverlay(
+      controller: scrollController,
+      enabled: enableScrollToTop,
+      child: ListView.separated(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        itemCount: groups.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 4),
+        itemBuilder: (context, index) {
+          final group = groups[index];
+          return _GroupListItem(
+            title: group.name,
+            subtitle: AppI18n.formatByLocaleCode(
+              localeCode,
+              'local.group.artist_subtitle',
+              {'songs': '${group.songCount}', 'albums': '${group.albumCount}'},
+            ),
+            icon: Icons.person_rounded,
+            onTap: () => context.push(
+              '${AppRoutes.artistDetail}?platform=local'
+              '&id=${Uri.encodeComponent(group.name)}'
+              '&title=${Uri.encodeComponent(group.name)}',
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -720,28 +739,33 @@ class _SongList extends StatelessWidget {
         child: Text(AppI18n.tByLocaleCode(localeCode, 'local.empty.album')),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      itemCount: groups.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 4),
-      itemBuilder: (context, index) {
-        final group = groups[index];
-        return _GroupListItem(
-          title: group.name,
-          subtitle: AppI18n.formatByLocaleCode(
-            localeCode,
-            'local.group.album_subtitle',
-            {'songs': '${group.songCount}', 'artists': group.artist},
-          ),
-          icon: Icons.album_rounded,
-          artworkPath: group.artworkPath,
-          onTap: () => context.push(
-            '${AppRoutes.albumDetail}?platform=local'
-            '&id=${Uri.encodeComponent(group.name)}'
-            '&title=${Uri.encodeComponent(group.name)}',
-          ),
-        );
-      },
+    return ScrollToTopOverlay(
+      controller: scrollController,
+      enabled: enableScrollToTop,
+      child: ListView.separated(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        itemCount: groups.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 4),
+        itemBuilder: (context, index) {
+          final group = groups[index];
+          return _GroupListItem(
+            title: group.name,
+            subtitle: AppI18n.formatByLocaleCode(
+              localeCode,
+              'local.group.album_subtitle',
+              {'songs': '${group.songCount}', 'artists': group.artist},
+            ),
+            icon: Icons.album_rounded,
+            artworkPath: group.artworkPath,
+            onTap: () => context.push(
+              '${AppRoutes.albumDetail}?platform=local'
+              '&id=${Uri.encodeComponent(group.name)}'
+              '&title=${Uri.encodeComponent(group.name)}',
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -754,25 +778,30 @@ class _SongList extends StatelessWidget {
         child: Text(AppI18n.tByLocaleCode(localeCode, 'local.empty.genre')),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      itemCount: groups.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 4),
-      itemBuilder: (context, index) {
-        final group = groups[index];
-        return _GroupListItem(
-          title: group.name,
-          subtitle: AppI18n.formatByLocaleCode(
-            localeCode,
-            'local.group.genre_subtitle',
-            {'songs': '${group.songCount}'},
-          ),
-          icon: Icons.category_rounded,
-          onTap: () => context.push(
-            '${AppRoutes.localGenre}?name=${Uri.encodeComponent(group.name)}',
-          ),
-        );
-      },
+    return ScrollToTopOverlay(
+      controller: scrollController,
+      enabled: enableScrollToTop,
+      child: ListView.separated(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        itemCount: groups.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 4),
+        itemBuilder: (context, index) {
+          final group = groups[index];
+          return _GroupListItem(
+            title: group.name,
+            subtitle: AppI18n.formatByLocaleCode(
+              localeCode,
+              'local.group.genre_subtitle',
+              {'songs': '${group.songCount}'},
+            ),
+            icon: Icons.category_rounded,
+            onTap: () => context.push(
+              '${AppRoutes.localGenre}?name=${Uri.encodeComponent(group.name)}',
+            ),
+          );
+        },
+      ),
     );
   }
 }

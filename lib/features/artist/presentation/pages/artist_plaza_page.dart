@@ -9,6 +9,7 @@ import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/widgets/artist_grid_card.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/plaza_widgets.dart';
@@ -97,18 +98,21 @@ class _ArtistPlazaPageState extends ConsumerState<ArtistPlazaPage> {
                       label: AppI18n.t(config, 'artist.plaza.empty'),
                     );
                   }
-                  return _ArtistPlazaBody(
-                    scrollController: _scrollController,
-                    state: state,
-                    onRetry: () => ref
-                        .read(artistPlazaControllerProvider.notifier)
-                        .retry(),
-                    onSelectFilter: (groupId, value) => ref
-                        .read(artistPlazaControllerProvider.notifier)
-                        .selectFilter(groupId: groupId, value: value),
-                    onLoadMoreRetry: () => ref
-                        .read(artistPlazaControllerProvider.notifier)
-                        .loadMore(),
+                  return ScrollToTopOverlay(
+                    controller: _scrollController,
+                    child: _ArtistPlazaBody(
+                      scrollController: _scrollController,
+                      state: state,
+                      onRetry: () => ref
+                          .read(artistPlazaControllerProvider.notifier)
+                          .retry(),
+                      onSelectFilter: (groupId, value) => ref
+                          .read(artistPlazaControllerProvider.notifier)
+                          .selectFilter(groupId: groupId, value: value),
+                      onLoadMoreRetry: () => ref
+                          .read(artistPlazaControllerProvider.notifier)
+                          .loadMore(),
+                    ),
                   );
                 },
                 loading: () => const _ArtistPlazaLoadingView(),

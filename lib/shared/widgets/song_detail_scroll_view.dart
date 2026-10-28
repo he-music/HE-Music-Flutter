@@ -2,13 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
-import '../../app/config/app_config_controller.dart';
-import '../../app/i18n/app_i18n.dart';
-import '../../app/theme/glass/app_glass_scope.dart';
-import '../../app/theme/skin/app_skin_theme.dart';
+import 'scroll_to_top_overlay.dart';
 
 /// Shared nested scrolling for song detail pages. The page shell owns the
 /// scaffold; only the floating control rebuilds when its visibility changes.
@@ -120,84 +115,13 @@ class _SongDetailScrollViewState extends State<SongDetailScrollView> {
           bottom: padding.bottom + 16,
           child: ValueListenableBuilder<bool>(
             valueListenable: _showButton,
-            builder: (context, showButton, _) => _ScrollToTopButton(
+            builder: (context, showButton, _) => ScrollToTopButton(
               visible: showButton && !widget.batchMode,
               onPressed: _scrollToTop,
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ScrollToTopButton extends ConsumerWidget {
-  const _ScrollToTopButton({required this.visible, required this.onPressed});
-
-  final bool visible;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final localeCode = ref.watch(
-      appConfigProvider.select((config) => config.localeCode),
-    );
-    final label = AppI18n.tByLocaleCode(localeCode, 'common.back_to_top');
-    final glass =
-        AppGlassScope.controlsEnabled(context) &&
-        !MediaQuery.highContrastOf(context);
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    const icon = Icon(Icons.vertical_align_top_rounded);
-    final Widget button;
-    if (glass) {
-      button = Tooltip(
-        message: label,
-        child: GlassIconButton(
-          icon: icon,
-          onPressed: onPressed,
-          semanticLabel: label,
-          size: 48,
-          useOwnLayer: true,
-          quality: AppGlassScope.qualityOf(context),
-        ),
-      );
-    } else {
-      final theme = Theme.of(context);
-      final surface =
-          theme.extension<AppSkinTheme>()?.config.colors.fixedControlSurface ??
-          theme.colorScheme.surfaceContainerHigh;
-      button = Material(
-        color: surface.withValues(alpha: 1),
-        elevation: 3,
-        shape: const CircleBorder(),
-        child: IconButton(
-          tooltip: label,
-          onPressed: onPressed,
-          icon: icon,
-          color: theme.colorScheme.onSurface,
-        ),
-      );
-    }
-    return IgnorePointer(
-      ignoring: !visible,
-      child: ExcludeFocus(
-        excluding: !visible,
-        child: ExcludeSemantics(
-          excluding: !visible,
-          child: SizedBox.square(
-            dimension: 48,
-            child: reduceMotion
-                ? (visible ? button : const SizedBox.shrink())
-                : glass
-                ? GlassMaterialize(visible: visible, child: button)
-                : AnimatedOpacity(
-                    opacity: visible ? 1 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    child: button,
-                  ),
-          ),
-        ),
-      ),
     );
   }
 }

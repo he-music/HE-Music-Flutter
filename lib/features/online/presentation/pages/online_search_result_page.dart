@@ -23,6 +23,7 @@ class OnlineSearchResultPage extends StatelessWidget {
     required this.songResults,
     required this.searchKeyword,
     required this.comprehensiveResult,
+    required this.comprehensiveScrollController,
     required this.error,
     required this.initialLoading,
     required this.likedSongKeys,
@@ -53,6 +54,7 @@ class OnlineSearchResultPage extends StatelessWidget {
   final List<SearchSongInfo> songResults;
   final String searchKeyword;
   final OnlineComprehensiveSearchResult? comprehensiveResult;
+  final ScrollController comprehensiveScrollController;
   final String? error;
   final bool initialLoading;
   final Set<String> likedSongKeys;
@@ -143,6 +145,7 @@ class OnlineSearchResultPage extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return OnlineSearchComprehensiveResult(
+      controller: comprehensiveScrollController,
       result: result,
       empty: SearchFeedback(localeCode: localeCode, onEditQuery: onEditQuery),
       likedSongKeys: likedSongKeys,

@@ -8,6 +8,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
+import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
@@ -27,11 +28,19 @@ class RankingListPage extends ConsumerStatefulWidget {
 
 class _RankingListPageState extends ConsumerState<RankingListPage> {
   String? _platformId;
+  late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
     _platformId = widget.initialPlatform;
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -119,6 +128,7 @@ class _RankingListPageState extends ConsumerState<RankingListPage> {
                       }
                       return _RankingGroupsView(
                         groups: groups,
+                        controller: _scrollController,
                         onTapRanking: (ranking) => _openRanking(
                           context,
                           id: ranking.id,
@@ -235,8 +245,13 @@ class _PlatformsErrorView extends StatelessWidget {
 }
 
 class _RankingGroupsView extends StatelessWidget {
-  const _RankingGroupsView({required this.groups, required this.onTapRanking});
+  const _RankingGroupsView({
+    required this.controller,
+    required this.groups,
+    required this.onTapRanking,
+  });
 
+  final ScrollController controller;
   final List<RankingGroup> groups;
   final ValueChanged<RankingInfo> onTapRanking;
 
@@ -253,36 +268,40 @@ class _RankingGroupsView extends StatelessWidget {
         ),
       );
     }
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(
-        12,
-        12,
-        12,
-        18 + MediaQuery.paddingOf(context).bottom,
+    return ScrollToTopOverlay(
+      controller: controller,
+      child: ListView.builder(
+        controller: controller,
+        padding: EdgeInsets.fromLTRB(
+          12,
+          12,
+          12,
+          18 + MediaQuery.paddingOf(context).bottom,
+        ),
+        itemCount: groups.length,
+        itemBuilder: (context, index) {
+          final group = groups[index];
+          if (group.rankings.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  group.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                RankingCards(rankings: group.rankings, onTap: onTapRanking),
+              ],
+            ),
+          );
+        },
       ),
-      itemCount: groups.length,
-      itemBuilder: (context, index) {
-        final group = groups[index];
-        if (group.rankings.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                group.name,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 10),
-              RankingCards(rankings: group.rankings, onTap: onTapRanking),
-            ],
-          ),
-        );
-      },
     );
   }
 }

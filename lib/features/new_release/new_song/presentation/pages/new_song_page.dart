@@ -20,6 +20,7 @@ import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../../shared/widgets/plaza_widgets.dart';
 import '../../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../online/domain/entities/online_platform.dart';
 import '../providers/new_song_page_providers.dart';
 
@@ -35,6 +36,7 @@ class NewSongPage extends ConsumerStatefulWidget {
 
 class _NewSongPageState extends ConsumerState<NewSongPage> {
   late final DetailSongActionHandler _songActions;
+  late final ScrollController _scrollController;
   bool _isBatchMode = false;
   bool _submittingBatch = false;
   Set<String> _selectedSongKeys = <String>{};
@@ -42,6 +44,7 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
     _songActions = DetailSongActionHandler(
       ref: ref,
       platformIdResolver: (song) {
@@ -58,6 +61,12 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
             preferredTabId: widget.initialTabId,
           );
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -130,63 +139,69 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
               ),
             const Divider(height: 1),
             Expanded(
-              child: SongInfoListSection(
-                songs: songs,
-                resolveSongCover: _songActions.resolveCoverUrl,
-                resolvePlatformId: _songActions.resolvePlatformId,
-                artistAlbumTextBuilder: (song) => song.artistAlbumText,
-                subtitleTextBuilder: (song) => song.displaySubtitle,
-                onTapSong: (song, coverUrl, index) =>
-                    _songActions.playAll(context, songs, startIndex: index),
-                onLikeSong: (song) => _songActions.toggleSongFavorite(song),
-                onMoreSong: (song, coverUrl) => _songActions.showSongActions(
-                  context: context,
-                  song: song,
-                  coverUrl: coverUrl,
-                ),
-                initialLoading:
-                    songs.isEmpty && (state.tabsLoading || state.songsLoading),
-                errorMessage: state.songsErrorMessage,
-                onRetry: controller.retry,
-                enablePaging: true,
-                loadingMore: state.loadingMore,
-                hasMore: state.hasMore,
-                onLoadMore: controller.loadMore,
-                empty: Center(
-                  child: Text(
-                    AppI18n.t(ref.read(appConfigProvider), 'new_song.empty'),
+              child: ScrollToTopOverlay(
+                controller: _scrollController,
+                enabled: !_isBatchMode,
+                child: SongInfoListSection(
+                  songs: songs,
+                  scrollController: _scrollController,
+                  resolveSongCover: _songActions.resolveCoverUrl,
+                  resolvePlatformId: _songActions.resolvePlatformId,
+                  artistAlbumTextBuilder: (song) => song.artistAlbumText,
+                  subtitleTextBuilder: (song) => song.displaySubtitle,
+                  onTapSong: (song, coverUrl, index) =>
+                      _songActions.playAll(context, songs, startIndex: index),
+                  onLikeSong: (song) => _songActions.toggleSongFavorite(song),
+                  onMoreSong: (song, coverUrl) => _songActions.showSongActions(
+                    context: context,
+                    song: song,
+                    coverUrl: coverUrl,
                   ),
+                  initialLoading:
+                      songs.isEmpty &&
+                      (state.tabsLoading || state.songsLoading),
+                  errorMessage: state.songsErrorMessage,
+                  onRetry: controller.retry,
+                  enablePaging: true,
+                  loadingMore: state.loadingMore,
+                  hasMore: state.hasMore,
+                  onLoadMore: controller.loadMore,
+                  empty: Center(
+                    child: Text(
+                      AppI18n.t(ref.read(appConfigProvider), 'new_song.empty'),
+                    ),
+                  ),
+                  headerTrailing: SongSortButton(
+                    enabled: canSort && songs.isNotEmpty,
+                    allowDuration: songs.every((song) => song.duration > 0),
+                    allowSize:
+                        songs.isNotEmpty &&
+                        songs.every((song) => song.size != null),
+                  ),
+                  countText: AppI18n.format(
+                    ref.read(appConfigProvider),
+                    'detail.play_all_count',
+                    <String, String>{'count': '${songs.length}'},
+                  ),
+                  onPlayAll: songs.isEmpty
+                      ? null
+                      : () => _songActions.playAll(context, songs),
+                  batchMode: _isBatchMode,
+                  selectedSongKeys: _selectedSongKeys,
+                  selectedCount: _songActions
+                      .collectSelectedSongs(songs, _selectedSongKeys)
+                      .length,
+                  allSelected: areAllLoadedSongsSelected(
+                    songs,
+                    _selectedSongKeys,
+                    songIdOf: (song) => song.id,
+                    platformOf: _songActions.resolvePlatformId,
+                  ),
+                  onEnterBatchMode: () => _setBatchMode(true),
+                  onCancelBatch: () => _setBatchMode(false),
+                  onSelectAllLoaded: () => _selectAllLoadedSongs(songs),
+                  onToggleSongSelection: _toggleSongSelection,
                 ),
-                headerTrailing: SongSortButton(
-                  enabled: canSort && songs.isNotEmpty,
-                  allowDuration: songs.every((song) => song.duration > 0),
-                  allowSize:
-                      songs.isNotEmpty &&
-                      songs.every((song) => song.size != null),
-                ),
-                countText: AppI18n.format(
-                  ref.read(appConfigProvider),
-                  'detail.play_all_count',
-                  <String, String>{'count': '${songs.length}'},
-                ),
-                onPlayAll: songs.isEmpty
-                    ? null
-                    : () => _songActions.playAll(context, songs),
-                batchMode: _isBatchMode,
-                selectedSongKeys: _selectedSongKeys,
-                selectedCount: _songActions
-                    .collectSelectedSongs(songs, _selectedSongKeys)
-                    .length,
-                allSelected: areAllLoadedSongsSelected(
-                  songs,
-                  _selectedSongKeys,
-                  songIdOf: (song) => song.id,
-                  platformOf: _songActions.resolvePlatformId,
-                ),
-                onEnterBatchMode: () => _setBatchMode(true),
-                onCancelBatch: () => _setBatchMode(false),
-                onSelectAllLoaded: () => _selectAllLoadedSongs(songs),
-                onToggleSongSelection: _toggleSongSelection,
               ),
             ),
           ],
