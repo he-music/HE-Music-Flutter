@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull;
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/core/database/local_music_database.dart';
 import 'package:he_music_flutter/features/music_library/data/datasources/local_artwork_scan.dart';
@@ -25,7 +24,7 @@ void main() {
   late LocalMusicDatabase db;
   late LocalMusicDao dao;
   setUp(() {
-    db = LocalMusicDatabase.forTesting(NativeDatabase.memory());
+    db = LocalMusicDatabase.forTesting();
     dao = LocalMusicDao(db);
   });
   tearDown(() => db.close());
@@ -144,7 +143,7 @@ void main() {
       );
       addTearDown(() => dir.delete(recursive: true));
       final file = File('${dir.path}/library.db');
-      var database = LocalMusicDatabase.forTesting(NativeDatabase(file));
+      var database = LocalMusicDatabase.forTesting(file: file);
       await LocalMusicDao(
         database,
       ).upsertSongs([_song('1'), _song('2')], 'macos', 'first');
@@ -159,7 +158,7 @@ void main() {
       );
       await database.customStatement('PRAGMA user_version = 6');
       await database.close();
-      database = LocalMusicDatabase.forTesting(NativeDatabase(file));
+      database = LocalMusicDatabase.forTesting(file: file);
       try {
         final rows = await LocalMusicDao(database).getSongRowsBySource('macos');
         expect(rows['1']!.artworkState, 'present');

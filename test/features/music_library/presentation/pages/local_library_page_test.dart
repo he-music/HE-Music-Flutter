@@ -11,6 +11,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_queue_so
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,8 @@ import 'package:he_music_flutter/features/music_library/domain/entities/local_so
 import 'package:he_music_flutter/features/music_library/presentation/controllers/local_library_controller.dart';
 import 'package:he_music_flutter/features/music_library/presentation/pages/local_library_page.dart';
 import 'package:he_music_flutter/features/music_library/presentation/providers/local_library_providers.dart';
+import 'package:he_music_flutter/shared/utils/song_sort.dart';
+import 'package:he_music_flutter/shared/providers/song_sort_providers.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_item.dart';
 import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -175,32 +178,112 @@ void main() {
     },
   );
 
+  for (final glass in [false, true]) {
+    testWidgets(
+      'local sorting confirms drafts in the shared sheet (glass: $glass)',
+      (tester) async {
+        final controller = _PopulatedLocalLibraryController();
+        await tester.pumpWidget(
+          AppGlassScope(
+            enabled: glass,
+            child: GlassAdaptiveScope(
+              minQuality: GlassQuality.minimal,
+              maxQuality: GlassQuality.minimal,
+              child: _buildTestApp(controllerFactory: () => controller),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(LocalLibraryPage)),
+        );
+        final globalPreference = container.read(songSortPreferenceProvider);
+        await tester.pumpAndSettle();
+        final sortButton = find.byKey(const Key('song-sort-button'));
+        expect(find.byTooltip('歌曲排序: 标题 · 升序'), findsOneWidget);
+        await tester.tap(sortButton);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('song-sort-sheet')), findsOneWidget);
+        expect(
+          find.byType(GlassModalSheetScaffold),
+          glass ? findsOneWidget : findsNothing,
+        );
+        expect(find.text('默认顺序'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('song-sort-sheet')),
+            matching: find.text('歌手'),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('最近添加'));
+        await tester.pumpAndSettle();
+        expect(controller.sortPreference.field, SongSortField.title);
+        await tester.tap(find.byKey(const Key('song-sort-close')));
+        await tester.pumpAndSettle();
+        expect(controller.sortPreference.field, SongSortField.title);
+        await tester.tap(sortButton);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('最近添加'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('song-sort-confirm')));
+        await tester.pumpAndSettle();
+        expect(
+          controller.sortPreference,
+          const SongSortPreference(
+            field: SongSortField.createdAt,
+            ascending: false,
+          ),
+        );
+        expect(find.byTooltip('歌曲排序: 最近添加 · 降序'), findsOneWidget);
+        expect(container.read(songSortPreferenceProvider), globalPreference);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('local_sort_by'), 'created_at');
+        expect(prefs.getBool('local_sort_ascending'), isFalse);
+        expect(
+          prefs.getString(SongSortPreferenceController.storageKey),
+          isNull,
+        );
+        expect(tester.takeException(), isNull);
+        await _disposePage(tester);
+      },
+    );
+  }
+
   testWidgets(
-    'local sort menu uses glass and preserves the selection callback',
+    'local sort label remains visible on a narrow screen with large text',
     (tester) async {
-      final controller = _SortingLocalLibraryController();
+      await tester.binding.setSurfaceSize(const Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final controller = _PopulatedLocalLibraryController();
       await tester.pumpWidget(
-        AppGlassScope(
-          enabled: true,
-          child: GlassAdaptiveScope(
-            minQuality: GlassQuality.minimal,
-            maxQuality: GlassQuality.minimal,
-            child: _buildTestApp(controllerFactory: () => controller),
+        _buildTestApp(
+          controllerFactory: () => controller,
+          pageBuilder: (page) => MediaQuery(
+            data: const MediaQueryData(
+              size: Size(320, 480),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: page,
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
-      await tester.pumpAndSettle();
-      expect(find.byType(GlassMenu), findsOneWidget);
-      await tester.tap(
-        find.descendant(
-          of: find.byType(GlassMenuItem),
-          matching: find.text(SongSortBy.album.label),
+      await controller.setSortPreference(
+        const SongSortPreference(
+          field: SongSortField.createdAt,
+          ascending: false,
         ),
       );
       await tester.pumpAndSettle();
-      expect(controller.sortBy, SongSortBy.album);
+      expect(
+        find.byKey(const Key('song-sort-button')).hitTestable(),
+        findsOneWidget,
+      );
+      final label = tester.renderObject<RenderParagraph>(
+        find.byKey(const Key('song-sort-label')),
+      );
+      expect(label.didExceedMaxLines, isFalse);
       expect(tester.takeException(), isNull);
       await _disposePage(tester);
     },
@@ -468,14 +551,6 @@ Future<void> _disposePage(WidgetTester tester) async {
   // 销毁 widget 树，触发 drift 流取消，再 pump 掉残留 timer。
   await tester.pumpWidget(const SizedBox());
   await tester.pump(const Duration(milliseconds: 200));
-}
-
-class _SortingLocalLibraryController extends _PopulatedLocalLibraryController {
-  @override
-  void changeSortBy(SongSortBy newSortBy) {
-    sortBy = newSortBy;
-    ref.notifyListeners();
-  }
 }
 
 class _EmptyLocalLibraryController extends LocalLibraryController {

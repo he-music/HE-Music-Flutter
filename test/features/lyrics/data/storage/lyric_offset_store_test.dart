@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/core/database/app_database.dart';
 import 'package:he_music_flutter/core/database/local_music_database.dart';
@@ -86,13 +85,13 @@ void main() {
 
   test('corrections persist after closing and reopening SQLite', () async {
     final file = File('${root.path}/offsets_test.db');
-    final first = LocalMusicDatabase.forTesting(NativeDatabase(file));
+    final first = LocalMusicDatabase.forTesting(file: file);
     try {
       await open(connection: first).adjustOffset(song, -200, manual: false);
     } finally {
       await first.close();
     }
-    final second = LocalMusicDatabase.forTesting(NativeDatabase(file));
+    final second = LocalMusicDatabase.forTesting(file: file);
     try {
       expect(
         await open(connection: second).readOffset(song, manual: false),

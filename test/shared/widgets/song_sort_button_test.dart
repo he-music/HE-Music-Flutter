@@ -97,6 +97,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Duration'), findsNothing);
       expect(find.text('Size'), findsNothing);
+      expect(find.text('Recently added'), findsNothing);
       expect(find.text('Title'), findsOneWidget);
     },
   );
@@ -295,6 +296,82 @@ void main() {
       },
     );
   }
+  testWidgets('changing fields uses consistent default directions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        SongSortButton(
+          preference: const SongSortPreference(field: SongSortField.title),
+          fields: const [
+            SongSortField.title,
+            SongSortField.duration,
+            SongSortField.size,
+            SongSortField.createdAt,
+          ],
+          allowSize: true,
+          onChanged: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('song-sort-button')));
+    await tester.pumpAndSettle();
+    for (final label in ['Duration', 'Size', 'Recently added', 'Title']) {
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('song-sort-sheet')),
+          matching: find.text(label),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<SegmentedButton<bool>>(
+              find.byKey(const Key('song-sort-direction')),
+            )
+            .selected,
+        {label == 'Title'},
+      );
+    }
+  });
+
+  testWidgets('controlled sorting only reports confirmation to its owner', (
+    tester,
+  ) async {
+    final changes = <SongSortPreference>[];
+    final button = SongSortButton(
+      preference: const SongSortPreference(field: SongSortField.title),
+      fields: const [SongSortField.title, SongSortField.createdAt],
+      onChanged: changes.add,
+    );
+    await tester.pumpWidget(_wrap(button));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SongSortButton)),
+    );
+    final global = container.read(songSortPreferenceProvider);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('song-sort-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Default order'), findsNothing);
+    expect(find.text('Artist'), findsNothing);
+    await tester.tap(find.text('Recently added'));
+    await tester.pumpAndSettle();
+    expect(changes, isEmpty);
+    await tester.tap(find.byKey(const Key('song-sort-confirm')));
+    await tester.pumpAndSettle();
+    expect(changes, [
+      const SongSortPreference(
+        field: SongSortField.createdAt,
+        ascending: false,
+      ),
+    ]);
+    expect(container.read(songSortPreferenceProvider), global);
+    expect(find.byTooltip('Sort songs: Title · Ascending'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(SongSortPreferenceController.storageKey), isNull);
+  });
 }
 
 Widget _wrap(Widget child, {double textScale = 1, bool glass = false}) =>

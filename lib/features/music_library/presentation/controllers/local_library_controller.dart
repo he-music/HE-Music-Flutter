@@ -5,25 +5,21 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../shared/utils/song_sort.dart';
 import '../../domain/entities/local_song.dart';
 import '../../domain/repositories/local_music_repository.dart';
 import '../providers/local_library_providers.dart';
 
 const permissionDeniedMessage = '未获得本地音频读取权限，请先授权媒体或存储权限。';
 
-/// 歌曲排序维度
-enum SongSortBy {
-  title('title', '标题'),
-  artist('artist', '艺术家'),
-  album('album', '专辑'),
-  duration('duration', '时长'),
-  size('size', '大小'),
-  createdAt('created_at', '最近添加');
-
-  const SongSortBy(this.key, this.label);
-  final String key;
-  final String label;
-}
+const localSongSortFields = <SongSortField>[
+  SongSortField.title,
+  SongSortField.artist,
+  SongSortField.album,
+  SongSortField.duration,
+  SongSortField.size,
+  SongSortField.createdAt,
+];
 
 /// 搜索状态
 class LocalLibrarySearchState {
@@ -97,9 +93,10 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
   /// 当前搜索状态
   LocalLibrarySearchState searchState = const LocalLibrarySearchState();
 
-  /// 当前排序维度
-  SongSortBy sortBy = SongSortBy.title;
-  bool sortAscending = true;
+  SongSortPreference sortPreference = const SongSortPreference(
+    field: SongSortField.title,
+  );
+  Future<void> _sortWrites = Future<void>.value();
 
   /// 歌曲列表分页状态
   bool loadingMore = false;
@@ -131,18 +128,32 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     final prefs = await SharedPreferences.getInstance();
     final sortKey = prefs.getString('local_sort_by') ?? 'title';
     final ascending = prefs.getBool('local_sort_ascending') ?? true;
-    sortBy = SongSortBy.values.firstWhere(
-      (e) => e.key == sortKey,
-      orElse: () => SongSortBy.title,
+    sortPreference = SongSortPreference(
+      field: localSongSortFields.firstWhere(
+        (field) => field.databaseKey == sortKey,
+        orElse: () => SongSortField.title,
+      ),
+      ascending: ascending,
     );
-    sortAscending = ascending;
   }
 
-  /// 保存排序偏好
-  Future<void> _saveSortPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('local_sort_by', sortBy.key);
-    await prefs.setBool('local_sort_ascending', sortAscending);
+  Future<void> _saveSortPreference(SongSortPreference preference) {
+    final write = _sortWrites.then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      final fieldSaved = await prefs.setString(
+        'local_sort_by',
+        preference.field.databaseKey,
+      );
+      final directionSaved = await prefs.setBool(
+        'local_sort_ascending',
+        preference.ascending,
+      );
+      if (!fieldSaved || !directionSaved) {
+        throw StateError('Unable to save local song sorting preference');
+      }
+    });
+    _sortWrites = write.catchError((Object _) {});
+    return write;
   }
 
   Future<void> scanLibrary() => _scanOperation ??= _scanLibrary().whenComplete(
@@ -237,8 +248,8 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     _songSubscription = repository
         .watchSongs(
           searchQuery: query,
-          sortBy: sortBy.key,
-          ascending: sortAscending,
+          sortBy: sortPreference.field.databaseKey,
+          ascending: sortPreference.ascending,
           limit: _visibleSongLimit + 1,
         )
         .listen(
@@ -392,16 +403,14 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     _startWatchingSongs(resetPagination: true);
   }
 
-  /// 切换排序维度
-  void changeSortBy(SongSortBy newSortBy) {
-    if (sortBy == newSortBy) {
-      sortAscending = !sortAscending;
-    } else {
-      sortBy = newSortBy;
-      sortAscending = true;
+  Future<void> setSortPreference(SongSortPreference preference) {
+    if (!localSongSortFields.contains(preference.field) ||
+        preference == sortPreference) {
+      return Future<void>.value();
     }
-    _saveSortPreference();
+    sortPreference = preference;
     startWatchingSongs();
     ref.notifyListeners();
+    return _saveSortPreference(preference);
   }
 }

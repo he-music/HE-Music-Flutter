@@ -106,4 +106,36 @@ void main() {
       same(songs),
     );
   });
+
+  test(
+    'added timestamps use numeric order and missing timestamps preserve source',
+    () {
+      final timestamps = [30, 10, 20];
+      expect(
+        sortSongItems(
+          timestamps,
+          const SongSortPreference(
+            field: SongSortField.createdAt,
+            ascending: false,
+          ),
+          valuesOf: (timestamp) => SongSortValues(
+            title: '',
+            artist: '',
+            album: '',
+            duration: 0,
+            createdAt: timestamp,
+          ),
+        ),
+        [30, 20, 10],
+      );
+      expect(
+        sortSongItems(
+          timestamps,
+          const SongSortPreference(field: SongSortField.createdAt),
+          valuesOf: (_) => title(''),
+        ),
+        same(timestamps),
+      );
+    },
+  );
 }

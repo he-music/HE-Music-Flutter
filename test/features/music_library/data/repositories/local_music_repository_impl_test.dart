@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/core/audio/local_audio_metadata_reader.dart';
 import 'package:he_music_flutter/core/database/local_music_database.dart';
@@ -12,7 +11,7 @@ import 'package:he_music_flutter/features/music_library/domain/entities/local_so
 
 /// 创建内存数据库用于测试
 LocalMusicDatabase _createTestDb() {
-  return LocalMusicDatabase.forTesting(NativeDatabase.memory());
+  return LocalMusicDatabase.forTesting();
 }
 
 void main() {

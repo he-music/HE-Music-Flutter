@@ -10,40 +10,63 @@ import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../providers/song_sort_providers.dart';
 import '../utils/song_sort.dart';
 
+const _defaultSongSortFields = <SongSortField>[
+  SongSortField.original,
+  SongSortField.title,
+  SongSortField.artist,
+  SongSortField.album,
+  SongSortField.duration,
+  SongSortField.size,
+];
+
 class SongSortButton extends ConsumerWidget {
   const SongSortButton({
     this.enabled = true,
     this.allowSize = false,
     this.allowDuration = true,
     this.onChanged,
+    this.preference,
+    this.fields,
     super.key,
-  });
+  }) : assert(fields == null || fields.length > 0),
+       assert(preference == null || onChanged != null);
 
   final bool enabled;
   final bool allowSize;
   final bool allowDuration;
   final FutureOr<void> Function(SongSortPreference preference)? onChanged;
 
+  /// When supplied, the caller owns persistence and applies [onChanged].
+  final SongSortPreference? preference;
+
+  /// Available fields for this list; excludes local-only fields by default.
+  final List<SongSortField>? fields;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final preference = ref.watch(songSortPreferenceProvider);
+    final currentPreference =
+        preference ?? ref.watch<SongSortPreference>(songSortPreferenceProvider);
     final localeCode = ref.watch(
       appConfigProvider.select((config) => config.localeCode),
     );
     String text(String key) => AppI18n.tByLocaleCode(localeCode, key);
+    final fields = this.fields ?? _defaultSongSortFields;
     final supported =
-        (preference.field != SongSortField.duration || allowDuration) &&
-        (preference.field != SongSortField.size || allowSize);
+        fields.contains(currentPreference.field) &&
+        (currentPreference.field != SongSortField.duration || allowDuration) &&
+        (currentPreference.field != SongSortField.size || allowSize);
     final active =
-        enabled && supported && preference.field != SongSortField.original;
+        enabled &&
+        supported &&
+        currentPreference.field != SongSortField.original;
     final fieldLabel = text(
-      'song_sort.field.${active ? preference.field.name : 'original'}',
+      'song_sort.field.${active ? currentPreference.field.name : 'original'}',
     );
     final buttonLabel = active ? fieldLabel : text('song_sort.default_label');
     final summary = !enabled
         ? text('song_sort.load_all_first')
         : active
-        ? '${text('song_sort.title')}: $fieldLabel · ${text(preference.ascending ? 'song_sort.ascending' : 'song_sort.descending')}'
+        ? '${text('song_sort.title')}: $fieldLabel · ${text(currentPreference.ascending ? 'song_sort.ascending' : 'song_sort.descending')}'
         : '${text('song_sort.title')}: $fieldLabel';
 
     return Tooltip(
@@ -66,24 +89,29 @@ class SongSortButton extends ConsumerWidget {
                   fitContent: true,
                   builder: (context) => _SongSortSheet(
                     initial: supported
-                        ? preference
-                        : const SongSortPreference(),
+                        ? currentPreference
+                        : SongSortPreference(field: fields.first),
                     allowSize: allowSize,
                     allowDuration: allowDuration,
+                    fields: fields,
                     localeCode: localeCode,
                   ),
                 );
-                if (next == null || next == preference || !context.mounted) {
+                if (next == null ||
+                    next == currentPreference ||
+                    !context.mounted) {
                   return;
                 }
-                final save = ref
-                    .read(songSortPreferenceProvider.notifier)
-                    .setPreference(next)
-                    .catchError((Object error) {
-                      AppMessageService.showError(
-                        text('song_sort.save_failed'),
-                      );
-                    });
+                final save = preference == null
+                    ? ref
+                          .read(songSortPreferenceProvider.notifier)
+                          .setPreference(next)
+                          .catchError((Object error) {
+                            AppMessageService.showError(
+                              text('song_sort.save_failed'),
+                            );
+                          })
+                    : Future<void>.value();
                 await Future.wait<void>([
                   save,
                   Future<void>.sync(() => onChanged?.call(next)),
@@ -107,7 +135,7 @@ class SongSortButton extends ConsumerWidget {
               const SizedBox(width: 4),
               Icon(
                 active
-                    ? preference.ascending
+                    ? currentPreference.ascending
                           ? Icons.arrow_upward_rounded
                           : Icons.arrow_downward_rounded
                     : Icons.unfold_more_rounded,
@@ -124,6 +152,7 @@ class SongSortButton extends ConsumerWidget {
 class _SongSortSheet extends StatefulWidget {
   const _SongSortSheet({
     required this.initial,
+    required this.fields,
     required this.allowSize,
     required this.allowDuration,
     required this.localeCode,
@@ -133,6 +162,7 @@ class _SongSortSheet extends StatefulWidget {
   final bool allowSize;
   final bool allowDuration;
   final String localeCode;
+  final List<SongSortField> fields;
 
   @override
   State<_SongSortSheet> createState() => _SongSortSheetState();
@@ -148,8 +178,7 @@ class _SongSortSheetState extends State<_SongSortSheet> {
     if (_field == field) return;
     setState(() {
       _field = field;
-      _ascending =
-          field != SongSortField.duration && field != SongSortField.size;
+      _ascending = field.defaultAscending;
     });
   }
 
@@ -157,7 +186,7 @@ class _SongSortSheetState extends State<_SongSortSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fields = [
-      for (final field in SongSortField.values)
+      for (final field in widget.fields)
         if ((field != SongSortField.size || widget.allowSize) &&
             (field != SongSortField.duration || widget.allowDuration))
           field,
@@ -237,6 +266,8 @@ class _SongSortSheetState extends State<_SongSortSheet> {
                                     SongSortField.duration =>
                                       Icons.schedule_rounded,
                                     SongSortField.size => Icons.storage_rounded,
+                                    SongSortField.createdAt =>
+                                      Icons.playlist_add_rounded,
                                   },
                                   selected: _field == field,
                                   onTap: () => _selectField(field),

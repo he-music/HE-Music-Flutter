@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:audiotags/audiotags.dart' as at;
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/core/audio/local_audio_metadata_reader.dart';
 import 'package:he_music_flutter/core/database/local_music_database.dart';
@@ -32,7 +31,7 @@ void main() {
   late _RecordingDao dao;
   late Directory directory;
   setUp(() async {
-    db = LocalMusicDatabase.forTesting(NativeDatabase.memory());
+    db = LocalMusicDatabase.forTesting();
     dao = _RecordingDao(db);
     directory = await Directory.systemTemp.createTemp('local_artwork_');
   });

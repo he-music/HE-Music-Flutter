@@ -83,6 +83,7 @@ class LocalMusicDao {
         expression: _sortColumn(t, sortBy),
         mode: ascending ? OrderingMode.asc : OrderingMode.desc,
       ),
+      (t) => OrderingTerm.asc(t.id),
     ]);
     query.limit(limit, offset: offset);
     return query.watch().map((rows) => rows.map(_toEntity).toList());
@@ -147,7 +148,10 @@ class LocalMusicDao {
       ..where(
         (song) => song.genre.equals(genreName) & song.status.equals('active'),
       )
-      ..orderBy([(song) => OrderingTerm.asc(song.title)]);
+      ..orderBy([
+        (song) => OrderingTerm.asc(song.title.collate(songTextCollation)),
+        (song) => OrderingTerm.asc(song.id),
+      ]);
     return query.watch().map((rows) => rows.map(_toEntity).toList());
   }
 
@@ -806,9 +810,9 @@ class LocalMusicDao {
   Expression<Object> _sortColumn(LocalSongs t, String sortBy) {
     switch (sortBy) {
       case 'artist':
-        return t.artist;
+        return t.artist.collate(songTextCollation);
       case 'album':
-        return t.album;
+        return t.album.collate(songTextCollation);
       case 'duration':
         return t.durationMs;
       case 'size':
@@ -820,7 +824,7 @@ class LocalMusicDao {
       case 'last_played_at':
         return const CustomExpression('COALESCE(play_stats.last_played_at, 0)');
       default:
-        return t.title;
+        return t.title.collate(songTextCollation);
     }
   }
 

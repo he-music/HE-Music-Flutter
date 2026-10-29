@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/core/database/app_database.dart';
 import 'package:he_music_flutter/core/database/local_music_database.dart';
@@ -18,7 +17,7 @@ void main() {
     final dir = await Directory.systemTemp.createTemp('he-storage-upgrade-');
     addTearDown(() => dir.delete(recursive: true));
     final file = File('${dir.path}/local_music.db');
-    final original = LocalMusicDatabase.forTesting(NativeDatabase(file));
+    final original = LocalMusicDatabase.forTesting(file: file);
     await original.customStatement(
       "INSERT INTO scan_folders (platform,path,bookmark) VALUES ('macos','/Music','bookmark')",
     );
@@ -42,7 +41,7 @@ void main() {
     );
     await original.customStatement('PRAGMA user_version = 3');
     await original.close();
-    final upgraded = LocalMusicDatabase.forTesting(NativeDatabase(file));
+    final upgraded = LocalMusicDatabase.forTesting(file: file);
     addTearDown(upgraded.close);
     final folders = await upgraded.select(upgraded.scanFolders).get();
     expect(folders.single.path, '/Music');
@@ -65,7 +64,7 @@ void main() {
       );
       addTearDown(() => directory.delete(recursive: true));
       final file = File('${directory.path}/local_music.db');
-      final original = LocalMusicDatabase.forTesting(NativeDatabase(file));
+      final original = LocalMusicDatabase.forTesting(file: file);
       await original
           .into(original.playbackQueues)
           .insert(
@@ -83,7 +82,7 @@ void main() {
       );
       await original.customStatement('PRAGMA user_version = 5');
       await original.close();
-      final upgraded = LocalMusicDatabase.forTesting(NativeDatabase(file));
+      final upgraded = LocalMusicDatabase.forTesting(file: file);
       addTearDown(upgraded.close);
       expect(
         (await upgraded.select(upgraded.playbackQueues).get()).single.metadata,

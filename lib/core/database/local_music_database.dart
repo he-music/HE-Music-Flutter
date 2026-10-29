@@ -4,11 +4,25 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
+import '../../shared/utils/song_text_comparator.dart';
 import 'lyric_tables.dart';
 import 'playback_tables.dart';
 
 part 'local_music_database.g.dart';
+
+// Bump this name and its index suffix when ICU collation rules change so stored
+// indexes are rebuilt with the new comparator.
+const songTextCollation = Collate('he_music_zh_cn_v1');
+
+void _setupConnection(sqlite.Database database) {
+  final compare = compareSongText;
+  database.createCollation(
+    name: songTextCollation.name,
+    function: (left, right) => compare(left ?? '', right ?? ''),
+  );
+}
 
 /// 本地歌曲表
 @DataClassName('LocalSongRow')
@@ -137,8 +151,13 @@ class SongArtists extends Table {
 class LocalMusicDatabase extends _$LocalMusicDatabase {
   LocalMusicDatabase() : super(_openConnection());
 
-  /// 测试用构造函数，允许传入自定义 QueryExecutor
-  LocalMusicDatabase.forTesting(super.e);
+  /// Tests use the same collation setup; file databases also run in an isolate.
+  LocalMusicDatabase.forTesting({File? file})
+    : super(
+        file == null
+            ? NativeDatabase.memory(setup: _setupConnection)
+            : _openNativeConnection(file),
+      );
 
   @override
   int get schemaVersion => 7;
@@ -197,6 +216,12 @@ class LocalMusicDatabase extends _$LocalMusicDatabase {
       'CREATE INDEX IF NOT EXISTS idx_local_songs_status_title '
       'ON local_songs (status, title)',
     );
+    for (final column in ['title', 'artist', 'album']) {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_local_songs_status_${column}_zh_cn_v1 '
+        'ON local_songs (status, $column COLLATE ${songTextCollation.name}, id)',
+      );
+    }
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_song_artists_song_id '
       'ON song_artists (song_id)',
@@ -212,6 +237,9 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, 'local_music.db'));
-    return NativeDatabase.createInBackground(file);
+    return _openNativeConnection(file);
   });
 }
+
+QueryExecutor _openNativeConnection(File file) =>
+    NativeDatabase.createInBackground(file, setup: _setupConnection);

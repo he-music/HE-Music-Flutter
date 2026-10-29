@@ -3,9 +3,6 @@ import 'dart:io' show File, FileSystemException, Platform;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:file_selector/file_selector.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import '../../../../app/theme/glass/app_glass_scope.dart';
-import '../../../../app/theme/glass/app_glass_material.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +18,8 @@ import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../features/player/domain/entities/player_track.dart';
 import '../../../../features/player/presentation/providers/player_providers.dart';
+import '../../../../shared/utils/song_sort.dart';
+import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_search_field.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
@@ -57,7 +56,15 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     if (!_initialized) {
       _initialized = true;
       // 页面首次加载时开始监听歌曲列表流
-      Future.microtask(() {
+      Future.microtask(() async {
+        if (!mounted) return;
+        try {
+          await ref.read(localLibraryControllerProvider.future);
+        } catch (_) {
+          // Initialization errors are rendered by the provider's error state.
+          return;
+        }
+        if (!mounted) return;
         ref.read(localLibraryControllerProvider.notifier).startWatchingSongs();
       });
     }
@@ -111,8 +118,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                 onScan: controller.scanLibrary,
                 onClear: controller.clearLibrary,
                 localeCode: localeCode,
-                sortBy: controller.sortBy,
-                sortAscending: controller.sortAscending,
+                sortPreference: controller.sortPreference,
                 artistGroups: controller.artistGroups,
                 albumGroups: controller.albumGroups,
                 genreGroups: controller.genreGroups,
@@ -126,7 +132,18 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                     _playLocalSong(context, ref, groupSongs, index),
                 onMoreTap: (song) =>
                     _showMoreActionsSheet(context, song, localeCode, ref),
-                onSortChanged: controller.changeSortBy,
+                onSortChanged: (preference) async {
+                  try {
+                    await controller.setSortPreference(preference);
+                  } catch (_) {
+                    AppMessageService.showError(
+                      AppI18n.tByLocaleCode(
+                        localeCode,
+                        'song_sort.save_failed',
+                      ),
+                    );
+                  }
+                },
                 onLoadMore: controller.loadMore,
                 onLongPress: selectionController.enterMultiSelect,
                 onSelectionToggle: selectionController.toggleSelection,
@@ -459,8 +476,7 @@ class _SongList extends StatelessWidget {
     required this.onScan,
     required this.onClear,
     required this.localeCode,
-    required this.sortBy,
-    required this.sortAscending,
+    required this.sortPreference,
     required this.artistGroups,
     required this.albumGroups,
     required this.genreGroups,
@@ -484,8 +500,7 @@ class _SongList extends StatelessWidget {
   final Future<void> Function() onScan;
   final Future<void> Function() onClear;
   final String localeCode;
-  final SongSortBy sortBy;
-  final bool sortAscending;
+  final SongSortPreference sortPreference;
   final List<ArtistGroup> artistGroups;
   final List<AlbumGroup> albumGroups;
   final List<GenreGroup> genreGroups;
@@ -496,7 +511,7 @@ class _SongList extends StatelessWidget {
   final ValueChanged<int> onPlayTap;
   final void Function(List<LocalSong> songs, int index) onPlayGroupTap;
   final void Function(LocalSong song) onMoreTap;
-  final ValueChanged<SongSortBy> onSortChanged;
+  final Future<void> Function(SongSortPreference) onSortChanged;
   final Future<void> Function() onLoadMore;
   final void Function(String songId) onLongPress;
   final void Function(String songId) onSelectionToggle;
@@ -573,7 +588,12 @@ class _SongList extends StatelessWidget {
                 maintainSize: true,
                 maintainAnimation: true,
                 maintainState: true,
-                child: _buildSortButton(context),
+                child: SongSortButton(
+                  preference: sortPreference,
+                  fields: localSongSortFields,
+                  allowSize: true,
+                  onChanged: onSortChanged,
+                ),
               ),
             ],
           ),
@@ -599,65 +619,6 @@ class _SongList extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-
-  Widget _buildSortButton(BuildContext context) {
-    if (AppGlassScope.controlsEnabled(context)) {
-      return GlassMenu(
-        settings: AppGlassMaterial.sheetFor(context),
-        quality: AppGlassScope.qualityOf(context),
-        triggerBuilder: (context, toggle) => IconButton(
-          tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-          onPressed: toggle,
-          icon: Icon(
-            sortAscending
-                ? Icons.arrow_upward_rounded
-                : Icons.arrow_downward_rounded,
-            size: 20,
-          ),
-        ),
-        items: [
-          for (final sort in SongSortBy.values)
-            GlassMenuItem(
-              title: sort.label,
-              trailing: sortBy == sort
-                  ? const Icon(Icons.check_rounded, size: 18)
-                  : null,
-              onTap: () => onSortChanged(sort),
-            ),
-        ],
-      );
-    }
-    return PopupMenuButton<SongSortBy>(
-      icon: Icon(
-        sortAscending
-            ? Icons.arrow_upward_rounded
-            : Icons.arrow_downward_rounded,
-        size: 20,
-      ),
-      onSelected: onSortChanged,
-      itemBuilder: (context) => SongSortBy.values
-          .map(
-            (sort) => PopupMenuItem(
-              value: sort,
-              child: Row(
-                children: <Widget>[
-                  if (sortBy == sort)
-                    Icon(
-                      Icons.check_rounded,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  else
-                    const SizedBox(width: 18),
-                  const SizedBox(width: 8),
-                  Text(sort.label),
-                ],
-              ),
-            ),
-          )
-          .toList(),
     );
   }
 

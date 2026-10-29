@@ -6,6 +6,7 @@ import 'package:he_music_flutter/features/music_library/domain/entities/local_so
 import 'package:he_music_flutter/features/music_library/domain/repositories/local_music_repository.dart';
 import 'package:he_music_flutter/features/music_library/presentation/controllers/local_library_controller.dart';
 import 'package:he_music_flutter/features/music_library/presentation/providers/local_library_providers.dart';
+import 'package:he_music_flutter/shared/utils/song_sort.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -123,7 +124,9 @@ void main() {
     await _flush(container);
     await controller.loadMore();
 
-    controller.changeSortBy(SongSortBy.artist);
+    await controller.setSortPreference(
+      const SongSortPreference(field: SongSortField.artist),
+    );
     await _flush(container);
 
     final state = container.read(localLibraryControllerProvider);
@@ -159,7 +162,9 @@ void main() {
 
     await controller.loadMore();
     await _flush(container);
-    controller.changeSortBy(SongSortBy.artist);
+    await controller.setSortPreference(
+      const SongSortPreference(field: SongSortField.artist),
+    );
     await _flush(container);
 
     expect(repository.calls.last.searchQuery, '匹配');
@@ -173,6 +178,61 @@ void main() {
     expect(repository.calls.last.searchQuery, isNull);
     expect(repository.calls.last.limit, 51);
     expect(container.read(localLibraryControllerProvider).value, hasLength(50));
+  });
+
+  test('恢复所有旧排序字段和方向，并在数据库查询中使用', () async {
+    for (final field in localSongSortFields) {
+      SharedPreferences.setMockInitialValues({
+        'local_sort_by': field.databaseKey,
+        'local_sort_ascending': false,
+      });
+      final repository = _FakeLocalMusicRepository(_songs(80));
+      final container = _createContainer(repository);
+      try {
+        final controller = await _initializeController(container);
+        expect(
+          controller.sortPreference,
+          SongSortPreference(field: field, ascending: false),
+        );
+        controller.startWatchingSongs();
+        await _flush(container);
+        expect(repository.calls.single.sortBy, field.databaseKey);
+        expect(repository.calls.single.ascending, isFalse);
+        expect(repository.calls.single.limit, 51);
+      } finally {
+        container.dispose();
+      }
+    }
+  });
+
+  test('显式修改方向会重置分页，重复确认不会反转方向或重查', () async {
+    final repository = _FakeLocalMusicRepository(_songs(120));
+    final container = _createContainer(repository);
+    addTearDown(container.dispose);
+    final controller = await _initializeController(container);
+    controller.startWatchingSongs();
+    await _flush(container);
+    await controller.loadMore();
+    await _flush(container);
+    const next = SongSortPreference(
+      field: SongSortField.title,
+      ascending: false,
+    );
+    await controller.setSortPreference(next);
+    await _flush(container);
+    expect(repository.calls.last.ascending, isFalse);
+    expect(repository.calls.last.limit, 51);
+    expect(
+      container.read(localLibraryControllerProvider).value!.first.id,
+      'song-120',
+    );
+    final callCount = repository.calls.length;
+    await controller.setSortPreference(next);
+    expect(repository.calls, hasLength(callCount));
+    expect(controller.sortPreference, next);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('local_sort_by'), 'title');
+    expect(prefs.getBool('local_sort_ascending'), isFalse);
   });
 }
 

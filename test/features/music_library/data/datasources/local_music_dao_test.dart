@@ -1,16 +1,16 @@
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:he_music_flutter/core/database/local_music_database.dart';
 import 'package:he_music_flutter/features/music_library/data/datasources/local_music_dao.dart';
+import 'package:he_music_flutter/shared/utils/song_sort.dart';
 
 void main() {
   late LocalMusicDatabase db;
   late LocalMusicDao dao;
 
   setUp(() async {
-    db = LocalMusicDatabase.forTesting(NativeDatabase.memory());
+    db = LocalMusicDatabase.forTesting();
     dao = LocalMusicDao(db);
     // 等待数据库初始化完成
     await db.customSelect('SELECT 1').getSingle();
@@ -40,6 +40,7 @@ void main() {
     String scanBatchId = 'batch-1',
     String scanSource = 'macos',
     int? modifiedAt,
+    int? createdAt,
   }) {
     final now = DateTime.now().millisecondsSinceEpoch;
     return LocalSongsCompanion(
@@ -60,7 +61,7 @@ void main() {
       status: Value(status),
       scanBatchId: Value(scanBatchId),
       scanSource: Value(scanSource),
-      createdAt: Value(now),
+      createdAt: Value(createdAt ?? now),
       updatedAt: Value(now),
       modifiedAt: Value(modifiedAt),
     );
@@ -177,6 +178,169 @@ void main() {
     );
 
     group('watchSongs', () {
+      test('中文标题、歌手和专辑使用与普通列表一致的拼音顺序', () async {
+        const titles = ['重庆', '北京', '上海', '阿里'];
+        await dao.upsertSongs(
+          [
+            for (var index = 0; index < titles.length; index++)
+              buildSong(
+                id: '$index',
+                title: titles[index],
+                artist: titles[index],
+                album: titles[index],
+                filePath: '/$index.mp3',
+              ),
+          ],
+          'macos',
+          'batch-1',
+        );
+        for (final field in ['title', 'artist', 'album']) {
+          final ascending = await dao.watchSongs(sortBy: field).first;
+          expect(ascending.map((song) => song.title), ['阿里', '北京', '重庆', '上海']);
+          final descending = await dao
+              .watchSongs(sortBy: field, ascending: false)
+              .first;
+          expect(descending.map((song) => song.title), [
+            '上海',
+            '重庆',
+            '北京',
+            '阿里',
+          ]);
+        }
+      });
+
+      test('中英数字混合文本在 SQL 分页前按共享规则排序', () async {
+        const values = [
+          '重庆',
+          '北京',
+          '上海',
+          '阿里',
+          '',
+          'Alpha',
+          'alpha',
+          'Song 2',
+          'Song 10',
+          '音乐2',
+          '音乐10',
+          'Écho',
+          'E\u0301cho',
+          '123',
+          '！',
+        ];
+        final source = [
+          for (var index = 0; index < values.length; index++)
+            buildSong(
+              id: '$index'.padLeft(3, '0'),
+              title: values[index],
+              artist: values[index],
+              album: values[index],
+              filePath: '/$index.mp3',
+            ),
+        ];
+        await dao.upsertSongs(source.reversed.toList(), 'macos', 'batch-1');
+        for (final field in [
+          SongSortField.title,
+          SongSortField.artist,
+          SongSortField.album,
+        ]) {
+          for (final ascending in [true, false]) {
+            final expected = sortSongItems(
+              source,
+              SongSortPreference(field: field, ascending: ascending),
+              valuesOf: (song) => SongSortValues(
+                title: song.title.value,
+                artist: song.artist.value,
+                album: song.album.value,
+                duration: song.durationMs.value,
+              ),
+            ).map((song) => song.id.value).toList();
+            final actual = <String>[];
+            for (var offset = 0; offset < source.length; offset += 4) {
+              final page = await dao
+                  .watchSongs(
+                    sortBy: field.databaseKey,
+                    ascending: ascending,
+                    offset: offset,
+                    limit: 4,
+                  )
+                  .first;
+              actual.addAll(page.map((song) => song.id));
+            }
+            expect(
+              actual,
+              expected,
+              reason: '${field.name} ascending=$ascending',
+            );
+            final expanded = await dao
+                .watchSongs(
+                  sortBy: field.databaseKey,
+                  ascending: ascending,
+                  limit: source.length,
+                )
+                .first;
+            expect(expanded.map((song) => song.id), expected);
+          }
+        }
+      });
+
+      test('排序值相同时各方向都按固定 ID 分页，并排除失效歌曲', () async {
+        await dao.upsertSongs(
+          [
+            for (final id in ['z', 'a', 'm', 'missing'])
+              buildSong(
+                id: id,
+                title: '同名',
+                filePath: '/$id.mp3',
+                createdAt: 100,
+              ),
+          ],
+          'macos',
+          'batch-1',
+        );
+        await dao.markFileMissing('missing');
+        for (final field in [
+          'title',
+          'artist',
+          'album',
+          'duration',
+          'size',
+          'created_at',
+        ]) {
+          for (final ascending in [true, false]) {
+            final ids = <String>[];
+            for (var offset = 0; offset < 3; offset++) {
+              final page = await dao
+                  .watchSongs(
+                    sortBy: field,
+                    ascending: ascending,
+                    searchQuery: '同名',
+                    offset: offset,
+                    limit: 1,
+                  )
+                  .first;
+              ids.add(page.single.id);
+            }
+            expect(ids, ['a', 'm', 'z'], reason: '$field ascending=$ascending');
+          }
+        }
+      });
+
+      test('中文排序查询使用对应索引', () async {
+        for (final field in ['title', 'artist', 'album']) {
+          final plan = await db
+              .customSelect(
+                'EXPLAIN QUERY PLAN SELECT id FROM local_songs '
+                "WHERE status = 'active' ORDER BY $field COLLATE ${songTextCollation.name}, id LIMIT 50",
+              )
+              .get();
+          final details = plan
+              .map((row) => row.read<String>('detail'))
+              .join('\n');
+          expect(details, contains('idx_local_songs_status_${field}_zh_cn_v1'));
+          expect(details, isNot(contains('USE TEMP B-TREE')));
+        }
+      });
+
       test('offset 和 limit 可读取第 51 首后的歌曲', () async {
         await dao.upsertSongs(
           List<LocalSongsCompanion>.generate(60, (index) {

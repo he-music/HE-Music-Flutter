@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/core/audio/audio_track.dart';
@@ -284,7 +283,7 @@ class _Fixture {
 
   void _open() {
     database = LocalMusicDatabase.forTesting(
-      NativeDatabase(File('${directory.path}/music.db')),
+      file: File('${directory.path}/music.db'),
     );
     tasks = DownloadTaskStoreDataSource(database: database);
     repository = DownloadedMusicRepositoryImpl(
