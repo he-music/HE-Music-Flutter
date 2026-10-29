@@ -6,6 +6,12 @@ abstract class LocalMusicRepository {
   /// 扫描本地歌曲并写入数据库（两阶段：先元数据，后后台封面提取）
   Future<List<LocalSong>> scanSongs();
 
+  /// 将下载完成的最终文件增量入库，不清理其他歌曲。
+  Future<void> importSong(String filePath);
+
+  /// 文件实际不存在时按路径标记缺失，保留标签和播放历史。
+  Future<void> markFileMissingByPath(String filePath);
+
   /// 监听歌曲列表（支持搜索、排序、分页）
   Stream<List<LocalSong>> watchSongs({
     String? searchQuery,

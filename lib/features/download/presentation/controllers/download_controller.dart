@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
+import '../../../music_library/data/providers/local_library_providers.dart';
 import '../../data/services/download_metadata_writer.dart';
 import '../../domain/entities/download_state.dart';
 import '../../domain/entities/download_task.dart';
@@ -243,22 +244,34 @@ class DownloadController extends Notifier<DownloadState> {
   Future<void> _removeTask(String taskId, {bool deleteFiles = false}) async {
     final repository = ref.read(downloadRepositoryProvider);
     final target = _findTask(taskId);
-    await repository.deleteTask(taskId);
+    final localLibrary =
+        deleteFiles && target != null && (Platform.isIOS || Platform.isMacOS)
+        ? ref.read(localMusicRepositoryProvider)
+        : null;
     if (target != null) {
       await repository.removeTask(target.id);
       if (deleteFiles) {
-        await repository.deleteDownloadedArtifacts(
-          filePath: target.filePath,
-          lyricPath: target.lyricPath,
-        );
-        if (target.artworkPath != null) {
+        try {
           await repository.deleteDownloadedArtifacts(
-            filePath: target.artworkPath,
+            filePath: target.filePath,
+            lyricPath: target.lyricPath,
           );
+          if (target.artworkPath != null) {
+            await repository.deleteDownloadedArtifacts(
+              filePath: target.artworkPath,
+            );
+          }
+        } finally {
+          final filePath = target.filePath?.trim() ?? '';
+          if (filePath.isNotEmpty) {
+            await localLibrary?.markFileMissingByPath(filePath);
+          }
+          if (!_disposed) ref.invalidate(downloadedSongsProvider);
         }
-        ref.invalidate(downloadedSongsProvider);
       }
     }
+    await repository.deleteTask(taskId);
+    if (_disposed) return;
     final updated = state.tasks
         .where((task) => task.id != taskId)
         .toList(growable: false);
@@ -557,6 +570,7 @@ class DownloadController extends Notifier<DownloadState> {
           clearError: true,
         ),
       );
+      await _importCompletedSong(finalizedPaths.filePath);
     } catch (error, stackTrace) {
       debugPrint(
         'DownloadController._writeMetadata failed '
@@ -572,6 +586,17 @@ class DownloadController extends Notifier<DownloadState> {
           filePath: filePath,
         ),
       );
+    }
+  }
+
+  Future<void> _importCompletedSong(String filePath) async {
+    if (_disposed || (!Platform.isIOS && !Platform.isMacOS)) return;
+    try {
+      await ref.read(localMusicRepositoryProvider).importSong(filePath);
+    } catch (error, stackTrace) {
+      // The completed download stays available even if indexing fails.
+      debugPrint('Local song import failed filePath=$filePath error=$error');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 
@@ -611,6 +636,7 @@ class DownloadController extends Notifier<DownloadState> {
           clearError: true,
         ),
       );
+      await _importCompletedSong(finalizedPaths.filePath);
       return;
     }
     await _updateTask(

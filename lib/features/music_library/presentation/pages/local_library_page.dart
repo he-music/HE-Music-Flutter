@@ -1128,7 +1128,12 @@ class _FolderManagerViewState extends ConsumerState<_FolderManagerView> {
                 ),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
           child: SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(

@@ -268,6 +268,12 @@ class _FakeLocalMusicRepository implements LocalMusicRepository {
   }
 
   @override
+  Future<void> markFileMissingByPath(String filePath) async {}
+
+  @override
+  Future<void> importSong(String filePath) async {}
+
+  @override
   Future<void> clearLibrary() async {}
 
   @override

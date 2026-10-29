@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -15,6 +16,179 @@ LocalMusicDatabase _createTestDb() {
 }
 
 void main() {
+  test(
+    'single-file import preserves other songs, history and edited tags',
+    () async {
+      final db = _createTestDb();
+      addTearDown(db.close);
+      final directory = await Directory.systemTemp.createTemp('song_import_');
+      addTearDown(() => directory.delete(recursive: true));
+      final file = await File(
+        '${directory.path}/download.mp3',
+      ).writeAsBytes([1, 2]);
+      final source = _FakeLocalMusicQueryDataSource(
+        tracks: [_makeTrack(id: 'existing', filePath: '/music/existing.mp3')],
+      );
+      final metadata = _FakeLocalAudioMetadataReader(
+        metadata: const LocalAudioMetadata(
+          title: 'Downloaded song',
+          artist: 'Artist A / Artist B',
+          duration: Duration(minutes: 3),
+        ),
+      );
+      final dao = LocalMusicDao(db);
+      final repo = LocalMusicRepositoryImpl(source, metadata, dao);
+      await repo.scanSongs();
+      await dao.incrementPlayCount('existing');
+      final original = await dao.getSongRow('existing');
+
+      await repo.importSong(file.path);
+      expect(await db.select(db.localSongs).get(), hasLength(2));
+      expect(await dao.getSongRow('existing'), original);
+      expect((await db.select(db.playStats).get()).single.songId, 'existing');
+      expect(await dao.getSongArtists(file.path), ['Artist A', 'Artist B']);
+      expect(metadata.readPaths, ['/music/existing.mp3', file.path]);
+
+      await repo.importSong(file.uri.toString());
+      expect(metadata.readCount, 2);
+      expect(await db.select(db.localSongs).get(), hasLength(2));
+      await db.customStatement(
+        'UPDATE local_songs SET title = ?, artist = ?, metadata_edited = 1 WHERE id = ?',
+        ['Edited title', 'Edited artist', file.path],
+      );
+      await file.writeAsBytes([1, 2, 3]);
+      await repo.importSong(file.path);
+      expect((await dao.getSongRow(file.path))!.title, 'Edited title');
+      expect(await dao.getSongArtists(file.path), ['Edited artist']);
+
+      source.tracks = [
+        source.tracks.single,
+        (await source.queryFile(file.path))!,
+      ];
+      await repo.scanSongs();
+      expect(await db.select(db.localSongs).get(), hasLength(2));
+      expect((await dao.getSongRow(file.path))!.title, 'Edited title');
+    },
+  );
+
+  test(
+    'incomplete iOS scan retains inaccessible media and complete scan removes stale songs',
+    () async {
+      final db = _createTestDb();
+      addTearDown(db.close);
+      final source = _FakeLocalMusicQueryDataSource(
+        platform: 'ios',
+        tracks: [
+          _makeTrack(id: 'media', filePath: 'ipod-library://song.mp3?id=1'),
+        ],
+      );
+      final dao = LocalMusicDao(db);
+      final repo = LocalMusicRepositoryImpl(
+        source,
+        _FakeLocalAudioMetadataReader(),
+        dao,
+      );
+      await repo.scanSongs();
+      source.tracks = [
+        _makeTrack(id: 'download', filePath: '/app/Downloads/song.mp3'),
+      ];
+      source.isComplete = false;
+      await repo.scanSongs();
+      expect(await db.select(db.localSongs).get(), hasLength(2));
+      source.isComplete = true;
+      await repo.scanSongs();
+      expect((await db.select(db.localSongs).get()).single.id, 'download');
+    },
+  );
+
+  test('download import waits for an in-flight full scan to commit', () async {
+    final db = _createTestDb();
+    addTearDown(db.close);
+    final directory = await Directory.systemTemp.createTemp(
+      'scan_import_race_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final file = await File('${directory.path}/new.mp3').writeAsBytes([1]);
+    final source = _FakeLocalMusicQueryDataSource()
+      ..scanGate = Completer<void>();
+    final metadata = _FakeLocalAudioMetadataReader(
+      metadata: const LocalAudioMetadata(duration: Duration(minutes: 3)),
+    );
+    final dao = LocalMusicDao(db);
+    final repo = LocalMusicRepositoryImpl(source, metadata, dao);
+    final scan = repo.scanSongs();
+    final importing = repo.importSong(file.path);
+    await Future<void>.delayed(Duration.zero);
+    expect(source.fileQueries, 0);
+    source.scanGate!.complete();
+    await scan;
+    await importing;
+    expect((await db.select(db.localSongs).get()).single.id, file.path);
+  });
+
+  test('invalid imports leave the existing library untouched', () async {
+    final db = _createTestDb();
+    addTearDown(db.close);
+    final directory = await Directory.systemTemp.createTemp('invalid_import_');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = await File('${directory.path}/short.mp3').writeAsBytes([1]);
+    final source = _FakeLocalMusicQueryDataSource(
+      tracks: [_makeTrack(id: 'existing', filePath: '/music/existing.mp3')],
+    );
+    final metadata = _FakeLocalAudioMetadataReader();
+    final dao = LocalMusicDao(db);
+    final repo = LocalMusicRepositoryImpl(source, metadata, dao);
+    await repo.scanSongs();
+    metadata.metadata = const LocalAudioMetadata(
+      duration: Duration(seconds: 30),
+    );
+    await repo.importSong(file.path);
+    await repo.importSong('${directory.path}/missing.mp3');
+    await repo.importSong('${directory.path}/lyric.lrc');
+    expect((await db.select(db.localSongs).get()).single.id, 'existing');
+  });
+
+  test(
+    'file deletion hides the song but preserves history through scanning and redownload',
+    () async {
+      final db = _createTestDb();
+      addTearDown(db.close);
+      final directory = await Directory.systemTemp.createTemp('missing_song_');
+      addTearDown(() => directory.delete(recursive: true));
+      final file = await File('${directory.path}/song.mp3').writeAsBytes([1]);
+      final dao = LocalMusicDao(db);
+      final repo = LocalMusicRepositoryImpl(
+        _FakeLocalMusicQueryDataSource(),
+        _FakeLocalAudioMetadataReader(
+          metadata: const LocalAudioMetadata(
+            title: 'Song',
+            artist: 'Artist',
+            duration: Duration(minutes: 3),
+          ),
+        ),
+        dao,
+      );
+      await repo.importSong(file.path);
+      await dao.incrementPlayCount(file.path);
+      await repo.markFileMissingByPath(file.path);
+      expect((await dao.getSongRow(file.path))!.status, 'active');
+      await file.delete();
+      await repo.markFileMissingByPath(file.uri.toString());
+      expect((await dao.getSongRow(file.path))!.status, 'missing');
+      expect(await repo.watchSongs().first, isEmpty);
+      expect(await repo.watchArtists().first, isEmpty);
+      await repo.scanSongs();
+      expect((await dao.getSongRow(file.path))!.status, 'missing');
+      expect((await db.select(db.playStats).get()).single.songId, file.path);
+      await file.writeAsBytes([1, 2]);
+      await repo.importSong(file.path);
+      expect((await repo.watchSongs().first).single.filePath, file.path);
+      expect((await dao.getSongRow(file.path))!.status, 'active');
+      expect((await db.select(db.playStats).get()).single.songId, file.path);
+      expect(await db.select(db.localSongs).get(), hasLength(1));
+    },
+  );
+
   test('scanSongs processes tracks and returns LocalSong list', () async {
     final db = _createTestDb();
     addTearDown(db.close);
@@ -383,17 +557,29 @@ LocalMusicQueryTrack _makeTrack({
 }
 
 class _FakeLocalMusicQueryDataSource extends LocalMusicQueryDataSource {
-  _FakeLocalMusicQueryDataSource({this.tracks = const []});
+  _FakeLocalMusicQueryDataSource({this.tracks = const [], super.platform});
 
   List<LocalMusicQueryTrack> tracks;
+  bool isComplete = true;
+  Completer<void>? scanGate;
+  int fileQueries = 0;
+
+  @override
+  Future<LocalMusicQueryTrack?> queryFile(String filePath) {
+    fileQueries++;
+    return super.queryFile(filePath);
+  }
 
   @override
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<List<LocalMusicQueryTrack>> scanSongs({
+  Future<LocalMusicScanResult> scanSongs({
     List<String> scanFolders = const [],
-  }) async => tracks;
+  }) async {
+    await scanGate?.future;
+    return LocalMusicScanResult(tracks, isComplete: isComplete);
+  }
 }
 
 class _FakeLocalAudioMetadataReader extends LocalAudioMetadataReader {

@@ -1,5 +1,9 @@
 import 'dart:io';
 
+import 'package:he_music_flutter/core/database/local_music_database.dart';
+import 'package:he_music_flutter/features/music_library/data/datasources/local_music_dao.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
+import 'package:he_music_flutter/shared/widgets/app_glass_player_scaffold.dart';
 import 'package:he_music_flutter/features/music_library/data/datasources/local_artwork_extractor.dart';
 import 'package:he_music_flutter/features/music_library/domain/repositories/local_music_repository.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
@@ -28,6 +32,85 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
+
+  for (final textScale in [1.0, 2.0]) {
+    testWidgets(
+      'macOS add folder stays above the mini-player at text scale $textScale',
+      (tester) async {
+        const playerKey = ValueKey('folder-test-mini-player');
+        await tester.pumpWidget(
+          AppGlassScope(
+            enabled: true,
+            child: GlassAdaptiveScope(
+              minQuality: GlassQuality.minimal,
+              maxQuality: GlassQuality.minimal,
+              child: _buildTestApp(
+                pageBuilder: (page) => Builder(
+                  builder: (context) => MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: TextScaler.linear(textScale)),
+                    child: AppGlassPlayerScaffold(
+                      body: page,
+                      miniPlayer: Builder(
+                        builder: (context) => SizedBox(
+                          key: playerKey,
+                          height: MiniPlayerBar.heightFor(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('文件夹'));
+        await tester.tap(find.text('文件夹'));
+        await tester.pumpAndSettle();
+        final addButton = find.ancestor(
+          of: find.text('添加文件夹'),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is OutlinedButton,
+          ),
+        );
+        final buttonWithoutPlayer = tester.getRect(addButton);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(LocalLibraryPage)),
+        );
+        final player = container.read(playerControllerProvider.notifier);
+        await player.replaceQueue([
+          PlayerTrack(
+            id: 'folder-test-song',
+            title: '测试歌曲',
+            artist: '测试歌手',
+            album: '',
+            duration: const Duration(minutes: 3),
+            path: '/tmp/folder-test.mp3',
+          ),
+        ]);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('文件夹'));
+        await tester.tap(find.text('文件夹'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(addButton).bottom,
+          lessThanOrEqualTo(tester.getRect(find.byKey(playerKey)).top),
+        );
+        expect(addButton.hitTestable(), findsOneWidget);
+        await player.replaceQueue(const []);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('文件夹'));
+        await tester.tap(find.text('文件夹'));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(addButton), buttonWithoutPlayer);
+        expect(tester.takeException(), isNull);
+        await _disposePage(tester);
+      },
+      skip: !Platform.isMacOS,
+    );
+  }
 
   testWidgets(
     'multi-select plays every selected song and updates only playing rows',
@@ -330,6 +413,14 @@ class _TestArtworkExtractor implements LocalArtworkExtractor {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _TestLocalMusicDao implements LocalMusicDao {
+  @override
+  Future<List<ScanFolder>> getScanFolders(String platform) async => const [];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _TestLocalRepository implements LocalMusicRepository {
   @override
   Future<void> incrementPlayCount(String songId) async {}
@@ -338,9 +429,13 @@ class _TestLocalRepository implements LocalMusicRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Widget _buildTestApp({LocalLibraryController Function()? controllerFactory}) {
+Widget _buildTestApp({
+  LocalLibraryController Function()? controllerFactory,
+  Widget Function(Widget page)? pageBuilder,
+}) {
   return ProviderScope(
     overrides: [
+      localMusicDaoProvider.overrideWithValue(_TestLocalMusicDao()),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
       localArtworkExtractorProvider.overrideWithValue(_TestArtworkExtractor()),
       localMusicRepositoryProvider.overrideWithValue(_TestLocalRepository()),
@@ -350,7 +445,9 @@ Widget _buildTestApp({LocalLibraryController Function()? controllerFactory}) {
     ],
     child: MaterialApp(
       theme: AppTheme.light(citySoundCreatorSkin()),
-      home: const LocalLibraryPage(),
+      home:
+          pageBuilder?.call(const LocalLibraryPage()) ??
+          const LocalLibraryPage(),
     ),
   );
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/audio/local_audio_metadata_reader.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/database/local_music_database.dart';
+import '../../../download/data/providers/download_providers.dart';
 import '../../domain/repositories/local_music_repository.dart';
 import '../datasources/local_artwork_extractor.dart';
 import '../datasources/local_music_dao.dart';
@@ -26,7 +27,9 @@ final localArtworkExtractorProvider = Provider<LocalArtworkExtractor>((ref) {
 final localMusicQueryDataSourceProvider = Provider<LocalMusicQueryDataSource>((
   ref,
 ) {
-  return LocalMusicQueryDataSource();
+  return LocalMusicQueryDataSource(
+    downloadPaths: ref.read(downloadPathDataSourceProvider),
+  );
 });
 
 final localMusicRepositoryProvider = Provider<LocalMusicRepository>((ref) {

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:local_audio_scan/local_audio_scan.dart' as local_audio_scan;
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import '../../../download/data/datasources/download_path_data_source.dart';
 
 import 'ios_media_library_scanner.dart';
 import 'local_music_file_scanner.dart';
@@ -34,51 +34,97 @@ class LocalMusicQueryTrack {
   final List<int>? artwork;
 }
 
+class LocalMusicScanResult {
+  const LocalMusicScanResult(this.tracks, {this.isComplete = true});
+
+  final List<LocalMusicQueryTrack> tracks;
+  // Revoked media-library access must not delete songs we could not inspect.
+  final bool isComplete;
+}
+
 class LocalMusicQueryDataSource {
+  LocalMusicQueryDataSource({
+    DownloadPathDataSource? downloadPaths,
+    IosMediaLibraryScanner? iosScanner,
+    String? platform,
+  }) : platform = platform ?? Platform.operatingSystem,
+       _downloadPaths = downloadPaths ?? DownloadPathDataSource(),
+       _iosScanner = iosScanner ?? IosMediaLibraryScanner();
+
   static const androidChannel = MethodChannel('com.hemusic/local_audio_query');
+  final String platform;
+  final DownloadPathDataSource _downloadPaths;
+  final IosMediaLibraryScanner _iosScanner;
   final local_audio_scan.LocalAudioScanner _scanner =
       local_audio_scan.LocalAudioScanner();
-  final IosMediaLibraryScanner _iosScanner = IosMediaLibraryScanner();
 
   Future<bool> requestPermission() async {
-    if (Platform.isAndroid) return _scanner.requestPermission();
-    if (Platform.isMacOS) return true;
-    if (Platform.isIOS) return _iosScanner.requestPermission();
-    return false;
+    if (platform == 'android') return _scanner.requestPermission();
+    // Application downloads remain readable without system media-library access.
+    return platform == 'macos' || platform == 'ios';
   }
 
-  Future<List<LocalMusicQueryTrack>> scanSongs({
+  Future<LocalMusicScanResult> scanSongs({
     List<String> scanFolders = const [],
   }) async {
-    if (Platform.isAndroid) {
-      // DATE_MODIFIED is returned by MediaStore in milliseconds, avoiding one
-      // synchronous filesystem stat per song on the Dart UI isolate.
+    if (platform == 'android') {
       final tracks = await androidChannel.invokeListMethod<dynamic>(
         'scanSongs',
       );
       if (tracks == null) throw StateError('Audio query returned no result');
-      return tracks
-          .map((track) => _fromMap(Map<String, dynamic>.from(track as Map)))
-          .toList(growable: false);
-    }
-    if (Platform.isMacOS) return _scanFiles(scanFolders);
-    if (Platform.isIOS) return _scanIosTracks();
-    return const [];
-  }
-
-  Future<List<LocalMusicQueryTrack>> _scanIosTracks() async {
-    final results = (await _iosScanner.scanSongs()).map(_fromMap).toList();
-    final docsDir = await getApplicationDocumentsDirectory();
-    final downloadDir = Directory('${docsDir.path}/Downloads');
-    if (await downloadDir.exists()) {
-      final seenPaths = results.map((track) => track.filePath).toSet();
-      results.addAll(
-        (await _scanFiles([
-          downloadDir.path,
-        ])).where((track) => seenPaths.add(track.filePath)),
+      return LocalMusicScanResult(
+        tracks
+            .map((track) => _fromMap(Map<String, dynamic>.from(track as Map)))
+            .toList(growable: false),
       );
     }
-    return results;
+    if (platform == 'macos') {
+      final downloads = await _downloadPaths.existingDownloadDirectories();
+      return LocalMusicScanResult(
+        await _scanFiles([
+          ...scanFolders,
+          ...downloads.map((directory) => directory.path),
+        ]),
+      );
+    }
+    if (platform == 'ios') return _scanIosTracks();
+    return const LocalMusicScanResult([]);
+  }
+
+  Future<LocalMusicScanResult> _scanIosTracks() async {
+    final hasMediaAccess = await _iosScanner.requestPermission();
+    final results = hasMediaAccess
+        ? (await _iosScanner.scanSongs()).map(_fromMap).toList()
+        : <LocalMusicQueryTrack>[];
+    final downloads = await _downloadPaths.existingDownloadDirectories();
+    final seenPaths = results.map((track) => track.filePath).toSet();
+    results.addAll(
+      (await _scanFiles(
+        downloads.map((directory) => directory.path).toList(),
+      )).where((track) => seenPaths.add(track.filePath)),
+    );
+    return LocalMusicScanResult(results, isComplete: hasMediaAccess);
+  }
+
+  /// Read only the final downloaded file; no directory or media-library scan.
+  Future<LocalMusicQueryTrack?> queryFile(String filePath) async {
+    final file = filePath.startsWith('file:')
+        ? File.fromUri(Uri.parse(filePath))
+        : File(filePath);
+    if (!LocalMusicFileScanner.isSupportedAudioFile(file.path)) return null;
+    final stat = await file.stat();
+    if (stat.type != FileSystemEntityType.file) return null;
+    return LocalMusicQueryTrack(
+      id: file.path,
+      title: '',
+      artist: '',
+      album: '',
+      duration: -1,
+      filePath: file.path,
+      mimeType: _guessMimeType(file.path),
+      size: stat.size,
+      modifiedAt: stat.modified.millisecondsSinceEpoch,
+    );
   }
 
   Future<List<LocalMusicQueryTrack>> _scanFiles(List<String> folders) async {

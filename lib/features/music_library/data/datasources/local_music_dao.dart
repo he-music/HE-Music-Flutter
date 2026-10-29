@@ -88,6 +88,10 @@ class LocalMusicDao {
     return query.watch().map((rows) => rows.map(_toEntity).toList());
   }
 
+  Future<LocalSongRow?> getSongRow(String id) => (_db.select(
+    _db.localSongs,
+  )..where((song) => song.id.equals(id))).getSingleOrNull();
+
   /// 读取指定平台已有歌曲行，供扫描流程按文件指纹跳过未变化的标签解析。
   Future<Map<String, LocalSongRow>> getSongRowsBySource(
     String scanSource,
@@ -232,12 +236,17 @@ class LocalMusicDao {
               _db.songArtists,
               _db.songArtists.artistId.equalsExp(_db.artists.id),
             ),
+            innerJoin(
+              _db.localSongs,
+              _db.localSongs.id.equalsExp(_db.songArtists.songId),
+            ),
           ])
           ..addColumns([
             _db.artists.name,
             _db.songArtists.songId.count(distinct: true),
             albumCountSubquery,
           ])
+          ..where(_db.localSongs.status.equals('active'))
           ..groupBy([_db.artists.name])
           ..orderBy([OrderingTerm.asc(_db.artists.name)]);
 
@@ -358,6 +367,7 @@ class LocalMusicDao {
     required String batchId,
     List<String> unchangedSongIds = const [],
     bool replaceOnlyProvidedArtists = false,
+    bool removeStale = true,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     await _db.transaction(() async {
@@ -369,7 +379,7 @@ class LocalMusicDao {
         batchId,
         replaceOnlyProvidedArtists: replaceOnlyProvidedArtists,
       );
-      await _deleteStaleBySource(scanSource, batchId);
+      if (removeStale) await _deleteStaleBySource(scanSource, batchId);
     });
   }
 
@@ -377,6 +387,7 @@ class LocalMusicDao {
   ///
   /// 删除指定平台下非当前批次且未被用户编辑过的记录。
   /// metadata_edited=1 的记录不会被删除。
+  /// 显式标记缺失的记录也保留，供重新下载时恢复标签与播放历史。
   Future<void> deleteStaleBySource(
     String scanSource,
     String currentBatchId,
@@ -391,6 +402,12 @@ class LocalMusicDao {
     await (_db.update(_db.localSongs)..where((t) => t.id.equals(songId))).write(
       const LocalSongsCompanion(status: Value('missing')),
     );
+  }
+
+  Future<void> markFilePathMissing(String filePath) async {
+    await (_db.update(_db.localSongs)
+          ..where((song) => song.filePath.equals(filePath)))
+        .write(const LocalSongsCompanion(status: Value('missing')));
   }
 
   /// 标记元数据已编辑
@@ -744,7 +761,8 @@ class LocalMusicDao {
     String currentBatchId,
   ) async {
     const staleWhere =
-        'scan_source = ? AND scan_batch_id != ? AND metadata_edited = 0';
+        'scan_source = ? AND scan_batch_id != ? AND metadata_edited = 0 '
+        "AND status != 'missing'";
     final variables = <Variable<String>>[
       Variable.withString(scanSource),
       Variable.withString(currentBatchId),

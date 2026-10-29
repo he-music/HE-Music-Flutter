@@ -293,7 +293,9 @@ class DownloadRepositoryImpl implements DownloadRepository {
     if (normalizedPath.isEmpty) {
       return;
     }
-    final file = File(normalizedPath);
+    final file = normalizedPath.startsWith('file:')
+        ? File.fromUri(Uri.parse(normalizedPath))
+        : File(normalizedPath);
     if (!await file.exists()) {
       return;
     }

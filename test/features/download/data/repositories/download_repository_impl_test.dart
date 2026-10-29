@@ -319,7 +319,7 @@ void main() {
   });
 
   test(
-    'repository deletes downloaded audio and lyric files when requested',
+    'repository deletes downloaded audio URI and lyric path when requested',
     () async {
       final runner = _FakeDownloadRunnerDataSource();
       final store = _FakeDownloadTaskStoreDataSource();
@@ -338,7 +338,7 @@ void main() {
       await lyricFile.writeAsString('lyric');
 
       await repository.deleteDownloadedArtifacts(
-        filePath: audioFile.path,
+        filePath: audioFile.uri.toString(),
         lyricPath: lyricFile.path,
       );
 

@@ -2,31 +2,44 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
-String get _downloadDirName => Platform.isIOS ? 'Downloads' : 'HEMusic';
-
 class DownloadPathDataSource {
-  Future<Directory> ensureDownloadDirectory() async {
-    // iOS 不使用 getDownloadsDirectory()，直接用 Documents 目录
-    // 确保文件在 Files app（"On My iPhone"）中可见
-    final baseDir = Platform.isIOS
-        ? await getApplicationDocumentsDirectory()
-        : await getDownloadsDirectory() ??
-              await getApplicationDocumentsDirectory();
-    final targetDir = Directory('${baseDir.path}/$_downloadDirName');
-    try {
-      if (await targetDir.exists()) {
-        return targetDir;
+  DownloadPathDataSource({bool? isIOS}) : _isIOS = isIOS ?? Platform.isIOS;
+
+  final bool _isIOS;
+  String get _directoryName => _isIOS ? 'Downloads' : 'HEMusic';
+
+  Future<List<Directory>> _candidateDirectories() async {
+    final documents = await getApplicationDocumentsDirectory();
+    final downloads = _isIOS ? null : await getDownloadsDirectory();
+    return [
+      if (downloads != null) Directory('${downloads.path}/$_directoryName'),
+      Directory('${documents.path}/$_directoryName'),
+    ];
+  }
+
+  /// Discover both the preferred and fallback locations without creating folders.
+  Future<List<Directory>> existingDownloadDirectories() async {
+    final directories = <Directory>[];
+    for (final directory in await _candidateDirectories()) {
+      if (await directory.exists() &&
+          !directories.any((existing) => existing.path == directory.path)) {
+        directories.add(directory);
       }
-      return await targetDir.create(recursive: true);
-    } on FileSystemException {
-      final fallbackBaseDir = await getApplicationDocumentsDirectory();
-      final fallbackDir = Directory(
-        '${fallbackBaseDir.path}/$_downloadDirName',
-      );
-      if (await fallbackDir.exists()) {
-        return fallbackDir;
-      }
-      return fallbackDir.create(recursive: true);
     }
+    return directories;
+  }
+
+  Future<Directory> ensureDownloadDirectory() async {
+    final candidates = await _candidateDirectories();
+    for (var index = 0; index < candidates.length; index++) {
+      final directory = candidates[index];
+      try {
+        if (await directory.exists()) return directory;
+        return await directory.create(recursive: true);
+      } on FileSystemException {
+        if (index == candidates.length - 1) rethrow;
+      }
+    }
+    throw StateError('No download directory available');
   }
 }

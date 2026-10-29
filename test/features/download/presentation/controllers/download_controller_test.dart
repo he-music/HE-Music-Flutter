@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/features/music_library/data/providers/local_library_providers.dart';
+import 'package:he_music_flutter/features/music_library/domain/repositories/local_music_repository.dart';
 import 'package:he_music_flutter/features/download/data/services/download_lyric_resolver.dart';
 import 'package:he_music_flutter/features/download/data/services/download_metadata_writer.dart';
 import 'package:he_music_flutter/features/download/domain/entities/download_task.dart';
@@ -14,6 +17,150 @@ import 'package:he_music_flutter/features/online/presentation/controllers/online
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 
 void main() {
+  for (final writeTags in [false, true]) {
+    test(
+      'completed download imports its final path after tagging=$writeTags',
+      () async {
+        final repository = _FakeDownloadRepository(
+          isAndroid: true,
+          moveToPublicDownloadsResult: '/final/song.mp3',
+        );
+        final library = _RecordingLocalMusicRepository();
+        final gate = Completer<void>();
+        final writer = _FakeDownloadMetadataWriter()..gate = gate;
+        final container = ProviderContainer(
+          overrides: [
+            downloadRepositoryProvider.overrideWithValue(repository),
+            downloadMetadataWriterProvider.overrideWithValue(writer),
+            localMusicRepositoryProvider.overrideWithValue(library),
+          ],
+        );
+        addTearDown(container.dispose);
+        final controller = container.read(downloadControllerProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+        await controller.enqueue(
+          title: 'Song',
+          url: 'https://example.com/song.mp3',
+          songId: writeTags ? 'song' : null,
+          platform: writeTags ? 'qq' : null,
+          artist: writeTags ? 'Artist' : null,
+          album: writeTags ? 'Album' : null,
+        );
+        repository.emit(
+          DownloadRunnerEvent(
+            pluginTaskId: repository.enqueueTaskRequests.single.pluginTaskId,
+            status: DownloadRunnerStatus.complete,
+            filePath: '/temporary/song.mp3',
+          ),
+        );
+        if (writeTags) {
+          await _waitForCondition(() => writer.requests.isNotEmpty);
+          expect(library.paths, isEmpty);
+          expect(repository.moveToPublicDownloadsCalls, isEmpty);
+          expect(
+            container.read(downloadControllerProvider).tasks.single.status,
+            DownloadTaskStatus.tagging,
+          );
+        }
+        gate.complete();
+        await _waitForCondition(() => library.paths.isNotEmpty);
+        expect(library.paths, ['/final/song.mp3']);
+        expect(repository.savedTasks.single.filePath, '/final/song.mp3');
+        expect(
+          repository.savedTasks.single.status,
+          DownloadTaskStatus.completed,
+        );
+        expect(writer.requests, hasLength(writeTags ? 1 : 0));
+      },
+      skip: !Platform.isMacOS && !Platform.isIOS,
+    );
+  }
+
+  test(
+    'local indexing failure leaves a completed download available',
+    () async {
+      final repository = _FakeDownloadRepository();
+      final library = _RecordingLocalMusicRepository(
+        error: StateError('index failed'),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(library),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(downloadControllerProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      await controller.enqueue(
+        title: 'Song',
+        url: 'https://example.com/song.mp3',
+      );
+      repository.emit(
+        DownloadRunnerEvent(
+          pluginTaskId: repository.enqueueTaskRequests.single.pluginTaskId,
+          status: DownloadRunnerStatus.complete,
+          filePath: '/final/song.mp3',
+        ),
+      );
+      await _waitForCondition(() => library.paths.isNotEmpty);
+      final task = container.read(downloadControllerProvider).tasks.single;
+      expect(task.status, DownloadTaskStatus.completed);
+      expect(task.filePath, '/final/song.mp3');
+      expect(task.errorMessage, isNull);
+    },
+    skip: !Platform.isMacOS && !Platform.isIOS,
+  );
+
+  for (final audioDeleted in [false, true]) {
+    test(
+      'failed file cleanup retains the task and reconciles audioDeleted=$audioDeleted',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'download_delete_',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final audio = await File(
+          '${directory.path}/song.mp3',
+        ).writeAsBytes([1]);
+        final task = DownloadTask.queued(
+          id: 'delete-task',
+          title: 'Song',
+          url: 'https://example.com/song.mp3',
+        ).copyWith(status: DownloadTaskStatus.completed, filePath: audio.path);
+        final repository = _FakeDownloadRepository(initialTasks: [task]);
+        repository.onDeleteArtifacts = () async {
+          expect(repository.savedTasks.single.id, task.id);
+          if (audioDeleted) await audio.delete();
+          throw const FileSystemException('cleanup failed');
+        };
+        final library = _RecordingLocalMusicRepository();
+        final container = ProviderContainer(
+          overrides: [
+            downloadRepositoryProvider.overrideWithValue(repository),
+            localMusicRepositoryProvider.overrideWithValue(library),
+          ],
+        );
+        addTearDown(container.dispose);
+        final controller = container.read(downloadControllerProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+        await expectLater(
+          controller.removeTaskAndFile(task.id),
+          throwsA(isA<FileSystemException>()),
+        );
+        expect(library.missingPaths, [audio.path]);
+        expect(await audio.exists(), !audioDeleted);
+        expect(repository.deletedTaskIds, isEmpty);
+        expect(repository.savedTasks.single.id, task.id);
+        expect(
+          container.read(downloadControllerProvider).tasks.single.id,
+          task.id,
+        );
+      },
+      skip: !Platform.isIOS && !Platform.isMacOS,
+    );
+  }
+
   test(
     'clear completed tasks removes persisted transfers and keeps other tasks',
     () async {
@@ -578,12 +725,14 @@ void main() {
 
   test('metadata tagging failure marks task as failed', () async {
     final repository = _FakeDownloadRepository();
+    final library = _RecordingLocalMusicRepository();
     final metadataWriter = _FakeDownloadMetadataWriter(
       error: StateError('tagging failed'),
     );
     final online = _FakeOnlineController();
     final container = ProviderContainer(
       overrides: [
+        localMusicRepositoryProvider.overrideWithValue(library),
         downloadRepositoryProvider.overrideWithValue(repository),
         downloadMetadataWriterProvider.overrideWithValue(metadataWriter),
         onlineControllerProvider.overrideWith(() => online),
@@ -626,6 +775,7 @@ void main() {
     expect(state.tasks.first.status, DownloadTaskStatus.failed);
     expect(state.tasks.first.tagWriteStatus, DownloadTagWriteStatus.failed);
     expect(state.tasks.first.errorMessage, contains('tagging failed'));
+    expect(library.paths, isEmpty);
   });
 
   test('pause delegates to repository and marks task paused', () async {
@@ -852,8 +1002,12 @@ void main() {
           ),
         ],
       );
+      final library = _RecordingLocalMusicRepository();
       final container = ProviderContainer(
-        overrides: [downloadRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(library),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -866,6 +1020,7 @@ void main() {
       expect(repository.deletedTaskIds, <String>['task-1']);
       expect(repository.removedPluginTaskIds, <String>['task-1']);
       expect(repository.deleteDownloadedArtifactsCalls, isEmpty);
+      expect(library.missingPaths, isEmpty);
       expect(container.read(downloadControllerProvider).tasks, isEmpty);
     },
   );
@@ -894,8 +1049,12 @@ void main() {
           ),
         ],
       );
+      final library = _RecordingLocalMusicRepository();
       final container = ProviderContainer(
-        overrides: [downloadRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(library),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -912,6 +1071,10 @@ void main() {
         filePath: '/tmp/测试下载.mp3',
         lyricPath: '/tmp/测试下载.lrc',
       ));
+      expect(
+        library.missingPaths,
+        (Platform.isIOS || Platform.isMacOS) ? ['/tmp/测试下载.mp3'] : isEmpty,
+      );
       expect(container.read(downloadControllerProvider).tasks, isEmpty);
     },
   );
@@ -927,6 +1090,7 @@ class _FakeDownloadRepository implements DownloadRepository {
          initialTasks ?? const <DownloadTask>[],
        );
 
+  Future<void> Function()? onDeleteArtifacts;
   int resolveSavePathCalls = 0;
   int downloadFileCalls = 0;
   final bool isAndroid;
@@ -1007,6 +1171,7 @@ class _FakeDownloadRepository implements DownloadRepository {
       filePath: filePath,
       lyricPath: lyricPath,
     ));
+    await onDeleteArtifacts?.call();
   }
 
   @override
@@ -1077,6 +1242,7 @@ class _FakeDownloadMetadataWriter extends DownloadMetadataWriter {
          metadataAdapter: _FakeMetadataAdapter(),
        );
 
+  Completer<void>? gate;
   final Object? error;
   final Duration delay;
   final DownloadMetadataWriteResult result;
@@ -1087,6 +1253,7 @@ class _FakeDownloadMetadataWriter extends DownloadMetadataWriter {
     DownloadMetadataRequest request,
   ) async {
     requests.add(request);
+    await gate?.future;
     if (delay > Duration.zero) {
       await Future<void>.delayed(delay);
     }
@@ -1141,6 +1308,27 @@ class _FakeMetadataAdapter implements DownloadMetadataAdapter {
     Uint8List? artworkBytes,
     String? lyrics,
   }) async {}
+}
+
+class _RecordingLocalMusicRepository implements LocalMusicRepository {
+  _RecordingLocalMusicRepository({this.error});
+  final Object? error;
+  final paths = <String>[];
+  final missingPaths = <String>[];
+
+  @override
+  Future<void> markFileMissingByPath(String filePath) async {
+    missingPaths.add(filePath);
+  }
+
+  @override
+  Future<void> importSong(String filePath) async {
+    paths.add(filePath);
+    if (error != null) throw error!;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 Future<void> _waitForCondition(

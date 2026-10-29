@@ -1,4 +1,4 @@
-import 'dart:io' show File, FileSystemException, Platform;
+import 'dart:io' show File, FileSystemException;
 import 'dart:developer' as developer;
 import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
@@ -41,6 +41,16 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
   final LocalAudioMetadataReader _metadataReader;
   final LocalMusicDao _dao;
   Future<List<LocalSong>>? _scanInFlight;
+  Future<void> _mutationTail = Future<void>.value();
+
+  Future<T> _serialize<T>(Future<T> Function() operation) {
+    final result = _mutationTail.then((_) => operation());
+    _mutationTail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
 
   @override
   Future<bool> requestPermission() {
@@ -53,19 +63,56 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
   /// 1. 轻量元数据扫描（不含封面）→ 写入 DB
   /// 2. 后台封面提取（由调用方触发，见 kq6 任务）
   @override
-  Future<List<LocalSong>> scanSongs() =>
-      _scanInFlight ??= _scanSongs().whenComplete(() => _scanInFlight = null);
+  Future<List<LocalSong>> scanSongs() => _scanInFlight ??= _serialize(
+    _scanSongs,
+  ).whenComplete(() => _scanInFlight = null);
+
+  @override
+  Future<void> importSong(String filePath) => _serialize(() async {
+    final track = await _dataSource.queryFile(filePath);
+    if (track == null || !_shouldKeepTrackBeforeMetadata(track)) return;
+    final existing = await _dao.getSongRow(track.id);
+    final existingRows = <String, LocalSongRow>{};
+    if (existing != null) existingRows[existing.id] = existing;
+    final scanSource = _detectScanSource();
+    final batchId = const Uuid().v4();
+    final result = await _scanTrack(
+      track,
+      existingRows,
+      scanSource,
+      batchId,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+    if (result == null) return;
+    await _dao.commitScanBatch(
+      songs: result.unchanged ? [] : [result.song],
+      unchangedSongIds: result.unchanged ? [track.id] : [],
+      artistsBySongId: {
+        if (result.replaceArtistRelations) track.id: result.artistNames,
+      },
+      scanSource: scanSource,
+      batchId: batchId,
+      replaceOnlyProvidedArtists: true,
+      removeStale: false,
+    );
+  });
+
+  @override
+  Future<void> markFileMissingByPath(String filePath) => _serialize(() async {
+    final file = filePath.startsWith('file:')
+        ? File.fromUri(Uri.parse(filePath))
+        : File(filePath);
+    if (!await file.exists()) await _dao.markFilePathMissing(file.path);
+  });
 
   Future<List<LocalSong>> _scanSongs() async {
     final totalWatch = Stopwatch()..start();
     final discoveryWatch = Stopwatch()..start();
-    // macOS：从数据库读取用户配置的扫描目录
-    // 注意：不要自动插入默认目录，macOS App Sandbox 会阻止未授权的访问
-    // 用户需要通过文件夹管理器明确选择要扫描的目录
-    final scanFolders = Platform.isMacOS
+    final scanFolders = _dataSource.platform == 'macos'
         ? await _dao.getEnabledScanFolders('macos')
         : <String>[];
-    final tracks = await _dataSource.scanSongs(scanFolders: scanFolders);
+    final discovery = await _dataSource.scanSongs(scanFolders: scanFolders);
+    final tracks = discovery.tracks;
     discoveryWatch.stop();
     final metadataWatch = Stopwatch()..start();
 
@@ -123,6 +170,7 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
     metadataWatch.stop();
     final databaseWatch = Stopwatch()..start();
     await _dao.commitScanBatch(
+      removeStale: discovery.isComplete,
       songs: changedCompanions,
       artistsBySongId: artistsBySongId,
       unchangedSongIds: unchangedSongIds,
@@ -218,13 +266,7 @@ class LocalMusicRepositoryImpl implements LocalMusicRepository {
 
   // ========== 内部工具 ==========
 
-  String _detectScanSource() {
-    if (Platform.isAndroid) return 'android';
-    // macOS 必须在 iOS 之前检查，否则 macOS 上 Platform.isIOS 也为 true
-    if (Platform.isMacOS) return 'macos';
-    if (Platform.isIOS) return 'ios';
-    return 'macos';
-  }
+  String _detectScanSource() => _dataSource.platform;
 
   Future<_ScannedLocalTrack?> _scanTrack(
     LocalMusicQueryTrack track,
