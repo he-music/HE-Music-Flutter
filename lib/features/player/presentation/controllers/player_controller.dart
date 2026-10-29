@@ -24,6 +24,7 @@ import '../../domain/entities/player_play_mode.dart';
 import '../../domain/entities/player_playback_failure.dart';
 import '../../domain/entities/player_playback_state.dart';
 import '../../domain/entities/player_quality_option.dart';
+import '../../../../shared/models/song_list_pagination.dart';
 import '../../domain/entities/player_queue_source.dart';
 import '../../domain/entities/player_track.dart';
 import '../providers/player_audio_provider.dart';
@@ -1164,6 +1165,11 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         isPlaying: liveState.isPlaying,
         isLoading: liveState.isLoading,
         isPlaybackSessionActive: liveState.isPlaybackSessionActive,
+        queueSource: switch (_audioPlayer) {
+          AudioHandlerPlayerAdapter adapter =>
+            committedState.queueSource?.withPagination(adapter.queuePagination),
+          _ => committedState.queueSource,
+        },
         position: liveState.position,
         duration: liveState.duration,
         bufferedPosition: liveState.bufferedPosition,
@@ -1493,8 +1499,15 @@ class PlayerController extends Notifier<PlayerPlaybackState>
     if (!manualSkipTargetActive) {
       _committedQueueEventVersion += 1;
     }
+    final previousPagination = state.queueSource?.pagination;
+    final queueSource = event.containsKey('songListPagination')
+        ? state.queueSource?.withPagination(
+            SongListPagination.fromMap(event['songListPagination']),
+          )
+        : state.queueSource;
     state = state.copyWith(
       queue: queue,
+      queueSource: queueSource,
       currentIndex: queue.isEmpty ? 0 : currentIndex.clamp(0, queue.length - 1),
       bufferedPosition: changedTrack ? Duration.zero : state.bufferedPosition,
       isPlaybackSessionActive: state.isPlaybackSessionActive,
@@ -1526,6 +1539,9 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       clearError: true,
       clearPlaybackFailure: changedTrack,
     );
+    if (previousPagination != queueSource?.pagination) {
+      unawaited(_queueManager.persistQueueState(this));
+    }
     if (!manualSkipTargetActive && currentTrack != null) {
       _commitPendingTrackDuration(transitionId);
       unawaited(_persistHistoryDuration(state.currentTrack!));
@@ -1697,15 +1713,26 @@ class PlayerController extends Notifier<PlayerPlaybackState>
   }) async {
     final context = playbackContext ?? state;
     _streamManager.suppressNextCurrentIndexEvent(currentIndex);
-    await _audioPlayer.setQueue(
-      queue.map(_toAudioTrack).toList(growable: false),
-      initialIndex: currentIndex,
-      forceReloadCurrent: forceReloadCurrent,
-      isRadioMode: context.isRadioMode,
-      currentRadioId: context.currentRadioId,
-      currentRadioPlatform: context.currentRadioPlatform,
-      currentRadioPageIndex: context.currentRadioPageIndex,
-    );
+    final pagination = context.queueSource?.pagination;
+    if (_audioPlayer case final AudioHandlerPlayerAdapter adapter
+        when !context.isRadioMode && pagination != null) {
+      await adapter.setPagedQueue(
+        queue.map(_toAudioTrack).toList(growable: false),
+        initialIndex: currentIndex,
+        forceReloadCurrent: forceReloadCurrent,
+        pagination: pagination,
+      );
+    } else {
+      await _audioPlayer.setQueue(
+        queue.map(_toAudioTrack).toList(growable: false),
+        initialIndex: currentIndex,
+        forceReloadCurrent: forceReloadCurrent,
+        isRadioMode: context.isRadioMode,
+        currentRadioId: context.currentRadioId,
+        currentRadioPlatform: context.currentRadioPlatform,
+        currentRadioPageIndex: context.currentRadioPageIndex,
+      );
+    }
     await _applyPlayMode(context.playMode);
     if (restoreProgress) {
       final track = _queueManager.resolveTrack(queue, currentIndex);

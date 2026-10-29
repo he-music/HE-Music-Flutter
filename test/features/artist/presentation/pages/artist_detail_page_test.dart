@@ -34,6 +34,79 @@ import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_loading_skeleton.dart';
 
 void main() {
+  for (final (label, kind, storageKey) in [
+    ('歌曲', 'song', ''),
+    ('专辑', 'album', 'artist-detail-albums'),
+    ('视频', 'video', 'artist-detail-videos'),
+  ]) {
+    testWidgets(
+      'artist $kind loads pages on scroll and retries without losing items',
+      (tester) async {
+        final repository = _DemandPagedArtistRepository();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWith(_TestAppConfigController.new),
+              playerControllerProvider.overrideWith(_TestPlayerController.new),
+              artistDetailRepositoryProvider.overrideWithValue(repository),
+              onlinePlatformsProvider.overrideWith(
+                _TestOnlinePlatformsController.new,
+              ),
+            ],
+            child: _buildTestApp(
+              localeCode: 'zh',
+              child: const ArtistDetailPage(
+                id: 'artist-1',
+                platform: 'qq',
+                title: '测试歌手',
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (kind != 'song') {
+          await tester.tap(find.text(label));
+          await tester.pumpAndSettle();
+        }
+        List<int> pages() => repository.requests
+            .where((request) => request.$1 == kind)
+            .map((request) => request.$2)
+            .toList();
+        expect(pages(), [1]);
+        final list = kind == 'song'
+            ? find.descendant(
+                of: find.byType(SongInfoListSection),
+                matching: find.byType(ListView),
+              )
+            : find.byKey(PageStorageKey<String>(storageKey));
+        await tester.drag(list, const Offset(0, -5000));
+        await tester.pumpAndSettle();
+        expect(pages(), [1, 2]);
+        await tester.drag(list, const Offset(0, -500));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('$kind page failed'), findsOneWidget);
+        expect(pages(), [
+          1,
+          2,
+        ], reason: 'failed pages must wait for an explicit retry');
+        await tester.tap(find.text('重试'));
+        await tester.pumpAndSettle();
+        expect(pages(), [1, 2, 2]);
+        expect(find.textContaining('$kind page failed'), findsNothing);
+        await tester.drag(list, const Offset(0, -500));
+        await tester.pumpAndSettle();
+        expect(pages(), [1, 2, 2], reason: 'hasMore=false stops pagination');
+        if (kind == 'song') {
+          expect(
+            tester
+                .widget<SongInfoListSection>(find.byType(SongInfoListSection))
+                .songs,
+            hasLength(21),
+          );
+        }
+      },
+    );
+  }
   for (final brightness in Brightness.values) {
     testWidgets('artist image controls blend and remain usable in $brightness', (
       tester,
@@ -219,6 +292,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
+      await tester.drag(
+        find.byKey(const PageStorageKey<String>('artist-detail-albums')),
+        const Offset(0, -600),
+      );
+      await tester.pump();
       repository.completeSecondAlbumPage();
       await tester.pump();
 
@@ -399,6 +477,14 @@ void main() {
 
     expect(find.text('第一页专辑'), findsOneWidget);
     expect(find.text('第二页专辑'), findsNothing);
+    expect(repository.requestedAlbumPages, [1]);
+    expect(find.byType(SkeletonBox), findsNothing);
+    await tester.drag(
+      find.byKey(const PageStorageKey<String>('artist-detail-albums')),
+      const Offset(0, -600),
+    );
+    await tester.pump();
+    expect(repository.requestedAlbumPages, [1, 2]);
     expect(find.byType(SkeletonBox), findsWidgets);
 
     repository.completeSecondAlbumPage();
@@ -953,6 +1039,7 @@ class _EmptyTabArtistDetailRepository extends _TestArtistDetailRepository {
 }
 
 class _PagedArtistDetailRepository extends _TestArtistDetailRepository {
+  final requestedAlbumPages = <int>[];
   final Completer<ArtistDetailPageChunk<AlbumInfo>> _secondAlbumPageCompleter =
       Completer<ArtistDetailPageChunk<AlbumInfo>>();
 
@@ -994,6 +1081,7 @@ class _PagedArtistDetailRepository extends _TestArtistDetailRepository {
     ArtistDetailRequest request, {
     required int pageIndex,
   }) async {
+    requestedAlbumPages.add(pageIndex);
     if (pageIndex == 1) {
       return ArtistDetailPageChunk<AlbumInfo>(
         items: <AlbumInfo>[_buildAlbum(id: 'album-1', name: '第一页专辑')],
@@ -1037,4 +1125,58 @@ class _PagedArtistDetailRepository extends _TestArtistDetailRepository {
       playCount: '0',
     );
   }
+}
+
+class _DemandPagedArtistRepository extends _TestArtistDetailRepository {
+  final requests = <(String, int)>[];
+  final _failed = <String>{};
+
+  @override
+  Future<ArtistDetailContent> fetchDetail(ArtistDetailRequest request) async {
+    final detail = await super.fetchDetail(request);
+    return ArtistDetailContent(info: detail.info, songs: const []);
+  }
+
+  List<Map<String, dynamic>> _page(String kind, int page) {
+    requests.add((kind, page));
+    if (page == 2 && _failed.add(kind)) throw StateError('$kind page failed');
+    return List.generate(
+      page == 1 ? 20 : 1,
+      (index) => {
+        'id': '$kind-$page-$index',
+        'name': '$kind-$page-$index',
+        'platform': 'qq',
+      },
+    );
+  }
+
+  @override
+  Future<ArtistDetailPageChunk<SongInfo>> fetchSongsPage(
+    ArtistDetailRequest request, {
+    required int pageIndex,
+  }) async => ArtistDetailPageChunk(
+    items: _page('song', pageIndex).map(SongInfo.fromMap).toList(),
+    hasMore: pageIndex == 1,
+    nextPageIndex: pageIndex + 1,
+  );
+
+  @override
+  Future<ArtistDetailPageChunk<AlbumInfo>> fetchAlbumsPage(
+    ArtistDetailRequest request, {
+    required int pageIndex,
+  }) async => ArtistDetailPageChunk(
+    items: _page('album', pageIndex).map(AlbumInfo.fromMap).toList(),
+    hasMore: pageIndex == 1,
+    nextPageIndex: pageIndex + 1,
+  );
+
+  @override
+  Future<ArtistDetailPageChunk<MvInfo>> fetchVideosPage(
+    ArtistDetailRequest request, {
+    required int pageIndex,
+  }) async => ArtistDetailPageChunk(
+    items: _page('video', pageIndex).map(MvInfo.fromMap).toList(),
+    hasMore: pageIndex == 1,
+    nextPageIndex: pageIndex + 1,
+  );
 }

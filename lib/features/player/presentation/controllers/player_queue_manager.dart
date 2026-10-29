@@ -127,7 +127,8 @@ class PlayerQueueManager {
     if (currentQueue.length != nextQueue.length) {
       return false;
     }
-    if (!_isSameQueueSource(state.queueSource, nextSource)) {
+    if (!_isSameQueueSource(state.queueSource, nextSource) ||
+        state.queueSource?.pagination != nextSource?.pagination) {
       return false;
     }
     for (var index = 0; index < currentQueue.length; index++) {

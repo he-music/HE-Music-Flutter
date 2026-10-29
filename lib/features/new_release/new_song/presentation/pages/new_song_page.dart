@@ -22,6 +22,8 @@ import '../../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../../shared/widgets/song_info_list_section.dart';
 import '../../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../online/domain/entities/online_platform.dart';
+import '../../../../../shared/models/song_list_pagination.dart';
+import '../../../../player/domain/entities/player_queue_source.dart';
 import '../providers/new_song_page_providers.dart';
 
 class NewSongPage extends ConsumerStatefulWidget {
@@ -47,6 +49,31 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
     _scrollController = ScrollController();
     _songActions = DetailSongActionHandler(
       ref: ref,
+      queueSourceResolver: () {
+        final state = ref.read(newSongPageControllerProvider);
+        return PlayerQueueSource(
+          routePath: AppRoutes.newSong,
+          queryParameters: {
+            'platform': state.selectedPlatformId ?? '',
+            'tab_id': state.selectedTabId ?? '',
+          },
+          title: AppI18n.t(ref.read(appConfigProvider), 'new_song.title'),
+        );
+      },
+      paginationResolver: () {
+        final state = ref.read(newSongPageControllerProvider);
+        if (state.songsLoading) return null;
+        return SongListPagination(
+          path: '/v1/song/tab/news',
+          parameters: {
+            'platform': state.selectedPlatformId ?? '',
+            'tab_id': state.selectedTabId ?? '',
+          },
+          nextPageIndex: state.pageIndex,
+          pageSize: 30,
+          hasMore: state.hasMore,
+        );
+      },
       platformIdResolver: (song) {
         final platformId = song.platform.trim();
         return platformId.isNotEmpty ? platformId : _selectedPlatformId;

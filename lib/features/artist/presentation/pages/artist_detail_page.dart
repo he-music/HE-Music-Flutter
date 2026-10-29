@@ -21,6 +21,7 @@ import '../../../../shared/helpers/song_batch_helpers.dart';
 import '../../../../shared/providers/song_sort_providers.dart';
 import '../../../../shared/widgets/song_sort_button.dart';
 import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/models/song_list_pagination.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
 import '../../../../shared/utils/publish_date_formatter.dart';
 import '../../../../shared/utils/cover_resolver.dart';
@@ -76,8 +77,20 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   List<ArtistDetailVideo> _videos = const <ArtistDetailVideo>[];
 
   bool _songsLoading = false;
+  bool _songsLoadingMore = false;
+  bool _songsHasMore = false;
+  int _songsNextPageIndex = 1;
+  String? _songsLoadMoreError;
   bool _albumsLoading = false;
+  bool _albumsLoadingMore = false;
+  bool _albumsHasMore = false;
+  int _albumsNextPageIndex = 1;
+  String? _albumsLoadMoreError;
   bool _videosLoading = false;
+  bool _videosLoadingMore = false;
+  bool _videosHasMore = false;
+  int _videosNextPageIndex = 1;
+  String? _videosLoadMoreError;
   // 区分“尚未请求”和“请求成功但为空”，避免切换标签时闪现空状态。
   bool _songsRequested = false;
   bool _albumsRequested = false;
@@ -102,6 +115,15 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
     );
     _songActions = DetailSongActionHandler(
       ref: ref,
+      paginationResolver: () => _songsLoading
+          ? null
+          : SongListPagination(
+              path: '/v1/artist/songs',
+              parameters: {'id': widget.id, 'platform': widget.platform},
+              nextPageIndex: _songsNextPageIndex,
+              pageSize: 500,
+              hasMore: _songsHasMore,
+            ),
       queueSource: PlayerQueueSource(
         routePath: AppRoutes.artistDetail,
         queryParameters: <String, String>{
@@ -125,18 +147,14 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
           .read(artistDetailControllerProvider(_request.cacheKey))
           .content;
       if (content != null && content.songs.isNotEmpty) {
-        if (!mounted) {
+        final expectedCount = int.tryParse(content.songCount.trim()) ?? 0;
+        if (expectedCount > 0 && expectedCount <= content.songs.length) {
+          setState(() {
+            _songs = content.songs;
+            _songsRequested = true;
+          });
           return;
         }
-        setState(() {
-          _songs = content.songs;
-          _songsRequested = true;
-        });
-        final expectedCount = int.tryParse(content.songCount.trim()) ?? 0;
-        if (expectedCount > content.songs.length) {
-          await _loadSongs(startPageIndex: 2, preserveExisting: true);
-        }
-        return;
       }
       await _loadSongs();
     });
@@ -200,7 +218,12 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
       ),
     );
 
-    final canSort = _songsRequested && !_songsLoading && _songsError == null;
+    final canSort =
+        _songsRequested &&
+        !_songsLoading &&
+        !_songsLoadingMore &&
+        !_songsHasMore &&
+        _songsError == null;
     final songs = canSort ? ref.watch(sortedSongInfoProvider(_songs)) : _songs;
     return DetailPageShell(
       onBackRequested: _isSongBatchMode ? () => _setSongBatchMode(false) : null,
@@ -308,6 +331,10 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
               ),
               songs: songs,
               loading: _songsLoading,
+              loadingMore: _songsLoadingMore,
+              hasMore: _songsHasMore,
+              loadMoreError: _songsLoadMoreError,
+              onLoadMore: _loadMoreSongs,
               error: _songsError,
               onRetry: _loadSongs,
               onPlayAll: songs.isEmpty
@@ -339,6 +366,11 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
             _ArtistAlbumsTab(
               albums: _albums,
               loading: !_albumsRequested || _albumsLoading,
+              loadingMore: _albumsLoadingMore,
+              hasMore: _albumsHasMore,
+              loadMoreError: _albumsLoadMoreError,
+              onLoadMore: _loadMoreAlbums,
+              onRetryLoadMore: () => _loadAlbums(loadMore: true),
               error: _albumsError,
               platforms: platforms,
               onRetry: _loadAlbums,
@@ -347,6 +379,11 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
             _ArtistVideosTab(
               videos: _videos,
               loading: !_videosRequested || _videosLoading,
+              loadingMore: _videosLoadingMore,
+              hasMore: _videosHasMore,
+              loadMoreError: _videosLoadMoreError,
+              onLoadMore: _loadMoreVideos,
+              onRetryLoadMore: () => _loadVideos(loadMore: true),
               error: _videosError,
               platforms: platforms,
               onRetry: _loadVideos,
@@ -413,54 +450,70 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
     }
   }
 
-  Future<void> _loadSongs({
-    int startPageIndex = 1,
-    bool preserveExisting = false,
-  }) async {
-    if (_songsLoading) {
-      return;
-    }
+  Future<void> _loadSongs() async {
+    if (_songsLoading || _songsLoadingMore) return;
     setState(() {
       _songsRequested = true;
       _songsLoading = true;
       _songsError = null;
+      _songsLoadMoreError = null;
     });
     try {
-      var pageIndex = startPageIndex <= 0 ? 1 : startPageIndex;
-      while (true) {
-        final chunk = await _repository.fetchSongsPage(
-          _request,
-          pageIndex: pageIndex,
+      final chunk = await _repository.fetchSongsPage(_request, pageIndex: 1);
+      if (!mounted) return;
+      setState(() {
+        _songs = chunk.items;
+        _songsNextPageIndex = chunk.nextPageIndex;
+        _songsHasMore = chunk.hasMore;
+        _songsLoading = false;
+        _selectedSongKeys = sanitizeSelectedSongBatchKeys(
+          _selectedSongKeys,
+          _songs,
+          songIdOf: (song) => song.id,
+          platformOf: (song) => song.platform,
         );
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          if (pageIndex == 1 && !preserveExisting) {
-            _songs = chunk.items;
-          } else {
-            _songs = <ArtistDetailSong>[..._songs, ...chunk.items];
-          }
-          _selectedSongKeys = sanitizeSelectedSongBatchKeys(
-            _selectedSongKeys,
-            _songs,
-            songIdOf: (song) => song.id,
-            platformOf: (song) => song.platform,
-          );
-          _songsLoading = chunk.hasMore;
-        });
-        if (!chunk.hasMore) {
-          break;
-        }
-        pageIndex = chunk.nextPageIndex;
-      }
+      });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _songsLoading = false;
         _songsError = '$error';
+      });
+    }
+  }
+
+  Future<void> _loadMoreSongs() async {
+    if (_songsLoading || _songsLoadingMore || !_songsHasMore) return;
+    setState(() {
+      _songsLoadingMore = true;
+      _songsLoadMoreError = null;
+    });
+    try {
+      final chunk = await _repository.fetchSongsPage(
+        _request,
+        pageIndex: _songsNextPageIndex,
+      );
+      if (!mounted) return;
+      if (chunk.nextPageIndex <= _songsNextPageIndex ||
+          (chunk.hasMore && chunk.items.isEmpty)) {
+        throw StateError('Song pagination did not advance');
+      }
+      final keys = _songs.map((song) => '${song.platform}|${song.id}').toSet();
+      setState(() {
+        _songs = [
+          ..._songs,
+          for (final song in chunk.items)
+            if (keys.add('${song.platform}|${song.id}')) song,
+        ];
+        _songsNextPageIndex = chunk.nextPageIndex;
+        _songsHasMore = chunk.hasMore;
+        _songsLoadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _songsLoadingMore = false;
+        _songsLoadMoreError = '$error';
       });
     }
   }
@@ -494,88 +547,110 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
     }
   }
 
-  Future<void> _loadAlbums() async {
-    if (_albumsLoading) {
+  Future<void> _loadMoreAlbums() async {
+    if (_albumsLoadMoreError == null) await _loadAlbums(loadMore: true);
+  }
+
+  Future<void> _loadAlbums({bool loadMore = false}) async {
+    if (_albumsLoading || _albumsLoadingMore || (loadMore && !_albumsHasMore)) {
       return;
     }
     setState(() {
       _albumsRequested = true;
-      _albumsLoading = true;
+      _albumsLoading = !loadMore;
+      _albumsLoadingMore = loadMore;
       _albumsError = null;
+      _albumsLoadMoreError = null;
     });
     try {
-      var pageIndex = 1;
-      while (true) {
-        final chunk = await _repository.fetchAlbumsPage(
-          _request,
-          pageIndex: pageIndex,
-        );
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          if (pageIndex == 1) {
-            _albums = chunk.items;
-          } else {
-            _albums = <ArtistDetailAlbum>[..._albums, ...chunk.items];
-          }
-          _albumsLoading = chunk.hasMore;
-        });
-        if (!chunk.hasMore) {
-          break;
-        }
-        pageIndex = chunk.nextPageIndex;
+      final page = loadMore ? _albumsNextPageIndex : 1;
+      final chunk = await _repository.fetchAlbumsPage(
+        _request,
+        pageIndex: page,
+      );
+      if (!mounted) return;
+      if (chunk.nextPageIndex <= page ||
+          (chunk.hasMore && chunk.items.isEmpty)) {
+        throw StateError('Album pagination did not advance');
       }
+      final keys = (loadMore ? _albums : const <ArtistDetailAlbum>[])
+          .map((item) => '${item.platform}|${item.id}')
+          .toSet();
+      setState(() {
+        _albums = [
+          if (loadMore) ..._albums,
+          for (final item in chunk.items)
+            if (keys.add('${item.platform}|${item.id}')) item,
+        ];
+        _albumsHasMore = chunk.hasMore;
+        _albumsNextPageIndex = chunk.nextPageIndex;
+        _albumsLoading = false;
+        _albumsLoadingMore = false;
+      });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _albumsLoading = false;
-        _albumsError = '$error';
+        _albumsLoadingMore = false;
+        if (loadMore) {
+          _albumsLoadMoreError = '$error';
+        } else {
+          _albumsError = '$error';
+        }
       });
     }
   }
 
-  Future<void> _loadVideos() async {
-    if (_videosLoading) {
+  Future<void> _loadMoreVideos() async {
+    if (_videosLoadMoreError == null) await _loadVideos(loadMore: true);
+  }
+
+  Future<void> _loadVideos({bool loadMore = false}) async {
+    if (_videosLoading || _videosLoadingMore || (loadMore && !_videosHasMore)) {
       return;
     }
     setState(() {
       _videosRequested = true;
-      _videosLoading = true;
+      _videosLoading = !loadMore;
+      _videosLoadingMore = loadMore;
       _videosError = null;
+      _videosLoadMoreError = null;
     });
     try {
-      var pageIndex = 1;
-      while (true) {
-        final chunk = await _repository.fetchVideosPage(
-          _request,
-          pageIndex: pageIndex,
-        );
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          if (pageIndex == 1) {
-            _videos = chunk.items;
-          } else {
-            _videos = <ArtistDetailVideo>[..._videos, ...chunk.items];
-          }
-          _videosLoading = chunk.hasMore;
-        });
-        if (!chunk.hasMore) {
-          break;
-        }
-        pageIndex = chunk.nextPageIndex;
+      final page = loadMore ? _videosNextPageIndex : 1;
+      final chunk = await _repository.fetchVideosPage(
+        _request,
+        pageIndex: page,
+      );
+      if (!mounted) return;
+      if (chunk.nextPageIndex <= page ||
+          (chunk.hasMore && chunk.items.isEmpty)) {
+        throw StateError('Video pagination did not advance');
       }
+      final keys = (loadMore ? _videos : const <ArtistDetailVideo>[])
+          .map((item) => '${item.platform}|${item.id}')
+          .toSet();
+      setState(() {
+        _videos = [
+          if (loadMore) ..._videos,
+          for (final item in chunk.items)
+            if (keys.add('${item.platform}|${item.id}')) item,
+        ];
+        _videosHasMore = chunk.hasMore;
+        _videosNextPageIndex = chunk.nextPageIndex;
+        _videosLoading = false;
+        _videosLoadingMore = false;
+      });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _videosLoading = false;
-        _videosError = '$error';
+        _videosLoadingMore = false;
+        if (loadMore) {
+          _videosLoadMoreError = '$error';
+        } else {
+          _videosError = '$error';
+        }
       });
     }
   }
@@ -1268,6 +1343,10 @@ class _ArtistSongsTab extends StatelessWidget {
     required this.sortButton,
     required this.songs,
     required this.loading,
+    required this.loadingMore,
+    required this.hasMore,
+    required this.onLoadMore,
+    this.loadMoreError,
     required this.error,
     required this.onRetry,
     required this.onPlayAll,
@@ -1289,6 +1368,10 @@ class _ArtistSongsTab extends StatelessWidget {
   final double collapseExtent;
   final List<ArtistDetailSong> songs;
   final bool loading;
+  final bool loadingMore;
+  final bool hasMore;
+  final Future<void> Function() onLoadMore;
+  final String? loadMoreError;
   final String? error;
   final Future<void> Function() onRetry;
   final VoidCallback? onPlayAll;
@@ -1339,10 +1422,12 @@ class _ArtistSongsTab extends StatelessWidget {
       onCancelBatch: onCancelBatch,
       onSelectAllLoaded: onSelectAllLoaded,
       onToggleSongSelection: onToggleSongSelection,
-      enablePaging: false,
-      hasMore: false,
-      loadingMore: false,
-      onLoadMore: null,
+      enablePaging: true,
+      hasMore: hasMore,
+      loadingMore: loadingMore,
+      onLoadMore: onLoadMore,
+      loadMoreErrorMessage: loadMoreError,
+      onRetryLoadMore: onLoadMore,
     );
   }
 }
@@ -1352,6 +1437,11 @@ class _ArtistAlbumsTab extends StatelessWidget {
     required this.albums,
     required this.loading,
     required this.error,
+    required this.loadingMore,
+    required this.hasMore,
+    required this.onLoadMore,
+    required this.onRetryLoadMore,
+    this.loadMoreError,
     required this.platforms,
     required this.onRetry,
     required this.onTapAlbum,
@@ -1359,6 +1449,11 @@ class _ArtistAlbumsTab extends StatelessWidget {
 
   final List<ArtistDetailAlbum> albums;
   final bool loading;
+  final bool loadingMore;
+  final bool hasMore;
+  final String? loadMoreError;
+  final Future<void> Function() onLoadMore;
+  final Future<void> Function() onRetryLoadMore;
   final String? error;
   final List<OnlinePlatform> platforms;
   final Future<void> Function() onRetry;
@@ -1367,48 +1462,71 @@ class _ArtistAlbumsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localeCode = Localizations.localeOf(context).languageCode;
-    return CustomScrollView(
-      key: const PageStorageKey<String>('artist-detail-albums'),
-      slivers: <Widget>[
-        if (loading && albums.isEmpty)
-          const SliverFillRemaining(
-            hasScrollBody: true,
-            child: ArtistAlbumsLoadingView(),
-          )
-        else if (error != null && albums.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _TabErrorView(message: error!, onRetry: onRetry),
-          )
-        else if (albums.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _TabEmptyView(
-              message: AppI18n.tByLocaleCode(localeCode, 'artist.empty.album'),
-            ),
-          )
-        else
-          SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final album = albums[index];
-              return _ArtistAlbumItem(
-                album: album,
-                coverUrl: resolveTemplateCoverUrl(
-                  platforms: platforms,
-                  platformId: album.platform,
-                  cover: album.cover,
-                  size: 300,
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0 &&
+            notification.metrics.extentAfter < 120 &&
+            hasMore &&
+            !loading &&
+            !loadingMore &&
+            loadMoreError == null) {
+          unawaited(onLoadMore());
+        }
+        return false;
+      },
+      child: CustomScrollView(
+        key: const PageStorageKey<String>('artist-detail-albums'),
+        slivers: <Widget>[
+          if (loading && albums.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: true,
+              child: ArtistAlbumsLoadingView(),
+            )
+          else if (error != null && albums.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _TabErrorView(message: error!, onRetry: onRetry),
+            )
+          else if (albums.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _TabEmptyView(
+                message: AppI18n.tByLocaleCode(
+                  localeCode,
+                  'artist.empty.album',
                 ),
-                onTap: () => onTapAlbum(album),
-              );
-            }, childCount: albums.length),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final album = albums[index];
+                return _ArtistAlbumItem(
+                  album: album,
+                  coverUrl: resolveTemplateCoverUrl(
+                    platforms: platforms,
+                    platformId: album.platform,
+                    cover: album.cover,
+                    size: 300,
+                  ),
+                  onTap: () => onTapAlbum(album),
+                );
+              }, childCount: albums.length),
+            ),
+          if (albums.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _ArtistListFooter(
+                loading: loadingMore,
+                hasMore: hasMore,
+                error: loadMoreError,
+                onRetry: onRetryLoadMore,
+              ),
+            ),
+          SliverToBoxAdapter(
+            child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
           ),
-        if (albums.isNotEmpty)
-          SliverToBoxAdapter(child: _ArtistListFooter(loading: loading)),
-        SliverToBoxAdapter(
-          child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1417,6 +1535,11 @@ class _ArtistVideosTab extends StatelessWidget {
   const _ArtistVideosTab({
     required this.videos,
     required this.loading,
+    required this.loadingMore,
+    required this.hasMore,
+    required this.onLoadMore,
+    required this.onRetryLoadMore,
+    this.loadMoreError,
     required this.error,
     required this.platforms,
     required this.onRetry,
@@ -1425,6 +1548,11 @@ class _ArtistVideosTab extends StatelessWidget {
 
   final List<ArtistDetailVideo> videos;
   final bool loading;
+  final bool loadingMore;
+  final bool hasMore;
+  final String? loadMoreError;
+  final Future<void> Function() onLoadMore;
+  final Future<void> Function() onRetryLoadMore;
   final String? error;
   final List<OnlinePlatform> platforms;
   final Future<void> Function() onRetry;
@@ -1433,56 +1561,87 @@ class _ArtistVideosTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localeCode = Localizations.localeOf(context).languageCode;
-    return CustomScrollView(
-      key: const PageStorageKey<String>('artist-detail-videos'),
-      slivers: <Widget>[
-        if (loading && videos.isEmpty)
-          const SliverFillRemaining(
-            hasScrollBody: true,
-            child: ArtistVideosLoadingView(),
-          )
-        else if (error != null && videos.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _TabErrorView(message: error!, onRetry: onRetry),
-          )
-        else if (videos.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _TabEmptyView(
-              message: AppI18n.tByLocaleCode(localeCode, 'artist.empty.video'),
-            ),
-          )
-        else
-          SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final video = videos[index];
-              return _ArtistVideoItem(
-                video: video,
-                coverUrl: resolveTemplateCoverUrl(
-                  platforms: platforms,
-                  platformId: video.platform,
-                  cover: video.cover,
-                  size: 480,
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0 &&
+            notification.metrics.extentAfter < 120 &&
+            hasMore &&
+            !loading &&
+            !loadingMore &&
+            loadMoreError == null) {
+          unawaited(onLoadMore());
+        }
+        return false;
+      },
+      child: CustomScrollView(
+        key: const PageStorageKey<String>('artist-detail-videos'),
+        slivers: <Widget>[
+          if (loading && videos.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: true,
+              child: ArtistVideosLoadingView(),
+            )
+          else if (error != null && videos.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _TabErrorView(message: error!, onRetry: onRetry),
+            )
+          else if (videos.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _TabEmptyView(
+                message: AppI18n.tByLocaleCode(
+                  localeCode,
+                  'artist.empty.video',
                 ),
-                onTap: () => onTapVideo(video),
-              );
-            }, childCount: videos.length),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final video = videos[index];
+                return _ArtistVideoItem(
+                  video: video,
+                  coverUrl: resolveTemplateCoverUrl(
+                    platforms: platforms,
+                    platformId: video.platform,
+                    cover: video.cover,
+                    size: 480,
+                  ),
+                  onTap: () => onTapVideo(video),
+                );
+              }, childCount: videos.length),
+            ),
+          if (videos.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _ArtistListFooter(
+                loading: loadingMore,
+                hasMore: hasMore,
+                error: loadMoreError,
+                onRetry: onRetryLoadMore,
+              ),
+            ),
+          SliverToBoxAdapter(
+            child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
           ),
-        if (videos.isNotEmpty)
-          SliverToBoxAdapter(child: _ArtistListFooter(loading: loading)),
-        SliverToBoxAdapter(
-          child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _ArtistListFooter extends StatelessWidget {
-  const _ArtistListFooter({required this.loading});
+  const _ArtistListFooter({
+    required this.loading,
+    required this.hasMore,
+    this.error,
+    this.onRetry,
+  });
 
   final bool loading;
+  final bool hasMore;
+  final String? error;
+  final Future<void> Function()? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -1492,6 +1651,10 @@ class _ArtistListFooter extends StatelessWidget {
         child: Center(child: SkeletonBox(width: 92, height: 12, radius: 999)),
       );
     }
+    if (error != null) {
+      return _TabErrorView(message: error!, onRetry: onRetry ?? () async {});
+    }
+    if (hasMore) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Center(

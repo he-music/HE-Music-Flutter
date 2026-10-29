@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/player/data/datasources/player_queue_data_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_play_mode.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_queue_snapshot.dart';
+import 'package:he_music_flutter/shared/models/song_list_pagination.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_queue_source.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,6 +38,36 @@ void main() {
   );
 
   group('PlayerQueueDataSource', () {
+    test('分页游标随当前和上个队列保存并恢复，旧快照保持兼容', () async {
+      const ds = PlayerQueueDataSource();
+      const pagination = SongListPagination(
+        path: '/v1/ranking',
+        parameters: {'id': 'ranking-1', 'platform': 'qq'},
+        nextPageIndex: 3,
+        pageSize: 100,
+        hasMore: true,
+        lastId: 'last-song',
+      );
+      final pagedSource = source.withPagination(pagination);
+      await ds.saveQueue(
+        queue: [track1, track2],
+        currentIndex: 1,
+        playMode: PlayerPlayMode.sequence,
+        isRadioMode: false,
+        source: pagedSource,
+        previousSnapshot: PlayerQueueSnapshot(
+          queue: [track3],
+          currentIndex: 0,
+          playMode: PlayerPlayMode.sequence,
+          isRadioMode: false,
+          source: pagedSource,
+        ),
+      );
+      final restored = await ds.readQueue();
+      expect(restored!.source!.pagination, pagination);
+      expect(restored.previousSnapshot!.source!.pagination, pagination);
+      expect(PlayerQueueSource.fromMap(source.toMap()).pagination, isNull);
+    });
     test('saveQueue + readQueue 往返应保留完整快照', () async {
       const ds = PlayerQueueDataSource();
       await ds.saveQueue(

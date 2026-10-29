@@ -27,6 +27,7 @@ import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
+import '../../../../shared/models/song_list_pagination.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../../playlist/domain/entities/playlist_detail_content.dart';
 import '../../../playlist/domain/entities/playlist_detail_song.dart';
@@ -65,6 +66,19 @@ class _UserPlaylistDetailPageState
     _request = UserPlaylistDetailRequest(id: widget.id, title: widget.title);
     _songActions = DetailSongActionHandler(
       ref: ref,
+      paginationResolver: () {
+        final state = ref.read(
+          userPlaylistDetailControllerProvider(_request.cacheKey),
+        );
+        if (state.songsLoading) return null;
+        return SongListPagination(
+          path: '/v1/user/playlist/songs',
+          parameters: {'id': widget.id},
+          nextPageIndex: state.pageIndex + 1,
+          pageSize: state.pageSize,
+          hasMore: state.hasMore,
+        );
+      },
       queueSource: PlayerQueueSource(
         routePath: AppRoutes.userPlaylistDetail,
         queryParameters: <String, String>{

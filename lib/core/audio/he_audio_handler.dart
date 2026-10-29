@@ -34,6 +34,9 @@ import '../../features/lyrics_overlay/domain/services/overlay_channel_service.da
 import '../../features/online/data/online_api_client.dart';
 import '../../features/online/domain/entities/online_platform.dart';
 import '../../shared/models/he_music_models.dart';
+import '../../shared/models/song_list_pagination.dart';
+import '../../shared/models/song_list_page.dart';
+import 'song_list_page_loader.dart';
 import '../../shared/utils/cover_resolver.dart';
 import '../../shared/utils/audio_quality_selector.dart';
 import '../../shared/utils/link_info_size_parser.dart';
@@ -189,6 +192,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     AudioPlayer? player,
     HeAudioHandlerFetchSongUrl? fetchSongUrlOverride,
     HeAudioHandlerFetchRadioSongs? fetchRadioSongsOverride,
+    Future<SongListPage> Function(SongListPagination)?
+    fetchSongListPageOverride,
     HeAudioHandlerFetchLyrics? fetchLyricsOverride,
     LyricStore? lyricStore,
     HeAudioHandlerSetAudioSource? setAudioSourceOverride,
@@ -215,6 +220,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }) : _player = player ?? createHeAudioPlayer(),
        _fetchSongUrlOverride = fetchSongUrlOverride,
        _fetchRadioSongsOverride = fetchRadioSongsOverride,
+       _fetchSongListPageOverride = fetchSongListPageOverride,
        _fetchLyricsOverride = fetchLyricsOverride,
        _lyricStore = lyricStore ?? LyricStore.shared,
        _setAudioSourceOverride = setAudioSourceOverride,
@@ -302,6 +308,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final AudioPlayer _player;
   final HeAudioHandlerFetchSongUrl? _fetchSongUrlOverride;
   final HeAudioHandlerFetchRadioSongs? _fetchRadioSongsOverride;
+  final Future<SongListPage> Function(SongListPagination)?
+  _fetchSongListPageOverride;
   final HeAudioHandlerFetchLyrics? _fetchLyricsOverride;
   final LyricStore _lyricStore;
   final DownloadedMusicRepository? _downloadedMusicRepository;
@@ -383,6 +391,17 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   bool _isRadioMode = false;
   Future<bool>? _radioNextPageFuture;
   String? _radioNextPageRequestKey;
+  SongListPagination? _songListPagination;
+  SongListPagination? get songListPagination => _songListPagination;
+  int _songListQueueVersion = 0;
+  Future<bool>? _songListNextPageFuture;
+  int? _songListNextPageVersion;
+  DateTime? _songListRetryAfter;
+
+  bool get _songListHasMore => _songListPagination?.hasMore == true;
+  bool get _atTraversalEnd => _shuffleEnabled
+      ? _shuffleCursor >= _shuffleOrder.length - 1
+      : _committedIndex >= _tracks.length - 1;
   bool _configRecovered = false;
   Future<void>? _recoveringConfigFuture;
   String? _currentRadioId;
@@ -536,7 +555,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     String? currentRadioId,
     String? currentRadioPlatform,
     int? currentRadioPageIndex,
+    SongListPagination? pagination,
   }) async {
+    _songListQueueVersion += 1;
     final transitionId = _beginTransition();
     _playIntent = false;
     final previousCurrent = _safeTrack(_committedIndex);
@@ -549,6 +570,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       radioId: _normalizeValue(currentRadioId),
       radioPlatform: _normalizeValue(currentRadioPlatform),
       radioPageIndex: _normalizePageIndex(currentRadioPageIndex),
+      pagination: isRadioMode ? null : pagination,
     );
     if (stagedTracks.isEmpty) {
       final hadSleepTimer = _clearSleepTimerState();
@@ -595,6 +617,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _broadcastQueueState();
       _broadcastMediaItem();
       _broadcastPlaybackState();
+      if (_songListHasMore) {
+        unawaited(_preloadNextTrackUrl(_committedIndex));
+      }
       await _loadLyricsForCurrentTrack(force: false);
       return;
     }
@@ -1082,6 +1107,14 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       return;
     }
     _playIntent = true;
+    if (_songListHasMore && _atTraversalEnd) {
+      _cancelManualIntent(clearDesired: true);
+      final transitionId = _beginTransition(cancelManualIntent: false);
+      _manualSkipTargetActive = true;
+      _broadcastManualSkipTarget(transitionId: transitionId, targetIndex: null);
+      unawaited(_playNextSongListTrack(transitionId));
+      return;
+    }
     if (_isRadioMode && _committedIndex >= _tracks.length - 1) {
       _cancelManualIntent(clearDesired: true);
       final transitionId = _beginTransition(cancelManualIntent: false);
@@ -1286,6 +1319,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<void> disposeHandler() async {
+    _songListQueueVersion += 1;
     _lyricGeneration++;
     await _lyricStoreSubscription?.cancel();
     _lyricStoreSubscription = null;
@@ -1701,6 +1735,9 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _currentRadioId = context.radioId;
     _currentRadioPlatform = context.radioPlatform;
     _currentRadioPageIndex = context.radioPageIndex;
+    _songListQueueVersion += 1;
+    _songListPagination = context.pagination;
+    _songListRetryAfter = null;
   }
 
   void _requestPlay(int transitionId) {
@@ -2489,6 +2526,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }) async {
     AudioTrack? track;
     try {
+      await _ensureSongListNextPageIfNeeded();
       // 电台模式先补足下一页，再解析下一首 URL，避免跨页时错过预加载。
       await _ensureRadioNextPageIfNeeded(targetIndex: sourceIndex + 1);
       if (_tracks.length < 2) {
@@ -2887,6 +2925,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         await _playNextRadioTrack(transitionId);
         return;
       }
+      if (_songListHasMore && _atTraversalEnd) {
+        await _ensureSongListNextPageAppended();
+        _guardTransition(transitionId);
+      }
       await _playNextAvailableFrom(_committedIndex, transitionId);
     } on _StaleTransitionException {
       return;
@@ -3190,6 +3232,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       'currentRadioId': _currentRadioId,
       'currentRadioPlatform': _currentRadioPlatform,
       'currentRadioPageIndex': _currentRadioPageIndex,
+      'songListPagination': _songListPagination?.toMap(),
     });
   }
 
@@ -3266,6 +3309,8 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       return sourceIndex.clamp(0, _tracks.length - 1).toInt();
     }
     if (_shuffleCursor >= _shuffleOrder.length - 1) {
+      // A partial list must not start another shuffle round before its tail loads.
+      if (_songListHasMore) return sourceIndex;
       _rebuildShuffleOrder(sourceIndex);
     }
     final nextCursor = (_shuffleCursor + 1).clamp(0, _shuffleOrder.length - 1);
@@ -3506,6 +3551,137 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       isLoading: _isLyricLoading,
       errorMessage: _currentLyricErrorMessage,
     );
+  }
+
+  Future<void> _playNextSongListTrack(int transitionId) async {
+    try {
+      await _ensureSongListNextPageAppended();
+      _guardTransition(transitionId);
+      await _playNextAvailableFrom(_committedIndex, transitionId);
+    } on _StaleTransitionException {
+      return;
+    } catch (error) {
+      _clearManualSkipTarget(transitionId);
+      _broadcastTransitionError(error, transitionId);
+    }
+  }
+
+  Future<void> _ensureSongListNextPageIfNeeded() async {
+    if (!_songListHasMore || _singleLoopEnabled || _tracks.isEmpty) return;
+    final remaining = _shuffleEnabled
+        ? _shuffleOrder.length - _shuffleCursor - 1
+        : _tracks.length - _committedIndex - 1;
+    if (remaining > 3 ||
+        (_songListRetryAfter != null &&
+            _now().isBefore(_songListRetryAfter!))) {
+      return;
+    }
+    try {
+      await _ensureSongListNextPageAppended();
+    } catch (_) {
+      // Preload failures never interrupt the current song. At the boundary a
+      // manual/automatic next retries and publishes the normal playback error.
+    }
+  }
+
+  Future<bool> _ensureSongListNextPageAppended() async {
+    if (!_songListHasMore) return false;
+    final version = _songListQueueVersion;
+    final pending = _songListNextPageFuture;
+    if (pending != null && _songListNextPageVersion == version) return pending;
+    final future = _loadSongListNextPage(version);
+    _songListNextPageFuture = future;
+    _songListNextPageVersion = version;
+    try {
+      return await future;
+    } finally {
+      if (identical(_songListNextPageFuture, future)) {
+        _songListNextPageFuture = null;
+        _songListNextPageVersion = null;
+      }
+    }
+  }
+
+  Future<bool> _loadSongListNextPage(int version) async {
+    void guard() {
+      if (version != _songListQueueVersion) {
+        throw const _StaleTransitionException();
+      }
+    }
+
+    // Duplicate-only pages may advance their cursor, but never spin forever.
+    for (var skipped = 0; skipped < 3 && _songListHasMore; skipped++) {
+      guard();
+      final cursor = _songListPagination!;
+      SongListPage? page;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        guard();
+        try {
+          if (_networkConnectionType == NetworkConnectionType.offline) {
+            throw const _NetworkUnavailableException();
+          }
+          final override = _fetchSongListPageOverride;
+          if (override != null) {
+            page = await override(cursor);
+          } else {
+            final dio = _createApiDio(
+              connectTimeout: _radioConnectTimeout,
+              receiveTimeout: _radioReceiveTimeout,
+              sendTimeout: _radioSendTimeout,
+            );
+            try {
+              page = await loadSongListPage(dio, cursor);
+            } finally {
+              dio.close(force: true);
+            }
+          }
+          guard();
+          if (page.hasMore && page.songs.isEmpty) {
+            throw StateError(
+              'Song list returned an empty page with has_more=true',
+            );
+          }
+          break;
+        } catch (_) {
+          guard();
+          if (attempt == 2 ||
+              _networkConnectionType == NetworkConnectionType.offline) {
+            _songListRetryAfter = _now().add(const Duration(seconds: 30));
+            rethrow;
+          }
+          await Future<void>.delayed(
+            Duration(milliseconds: 250 * (attempt + 1)),
+          );
+        }
+      }
+      guard();
+      final keys = _tracks.map(_trackCacheKey).toSet();
+      final appended = <AudioTrack>[];
+      for (final song in page!.songs) {
+        final track = _songToAudioTrack(song);
+        if (keys.add(_trackCacheKey(track))) appended.add(track);
+      }
+      _songListPagination = cursor.advance(
+        hasMore: page.hasMore,
+        lastId: page.lastId,
+      );
+      _songListRetryAfter = null;
+      if (appended.isNotEmpty) {
+        final previousLength = _tracks.length;
+        _tracks = List.unmodifiable([..._tracks, ...appended]);
+        if (_shuffleEnabled) {
+          final nextIndices = List.generate(
+            appended.length,
+            (i) => previousLength + i,
+          )..shuffle(_random);
+          _shuffleOrder = List.unmodifiable([..._shuffleOrder, ...nextIndices]);
+        }
+        queue.add(_tracks.map(_toMediaItem).toList(growable: false));
+      }
+      _broadcastQueueState();
+      if (appended.isNotEmpty || !page.hasMore) return appended.isNotEmpty;
+    }
+    throw StateError('Song list pages contained no new songs');
   }
 
   static const int _radioPrefetchThreshold = 3;
@@ -4186,12 +4362,14 @@ class _QueueContext {
     required this.radioId,
     required this.radioPlatform,
     required this.radioPageIndex,
+    this.pagination,
   });
 
   final bool isRadioMode;
   final String? radioId;
   final String? radioPlatform;
   final int? radioPageIndex;
+  final SongListPagination? pagination;
 }
 
 class _StaleTransitionException implements Exception {

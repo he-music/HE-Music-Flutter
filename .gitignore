@@ -66,3 +66,4 @@ app.*.map.json
 !/docs/adr/0009-use-liquid-glass-as-control-surface.md
 !/docs/liquid-glass-acceptance.md
 !/docs/sheet-music.md
+!/docs/song-list-pagination.md

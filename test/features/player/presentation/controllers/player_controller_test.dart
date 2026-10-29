@@ -29,6 +29,8 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/radio/presentation/providers/radio_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/models/song_list_page.dart';
+import 'package:he_music_flutter/shared/models/song_list_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -1884,6 +1886,77 @@ void main() {
     expect(audioPlayer.lastSetQueueRadioId, 'radio-42');
     expect(audioPlayer.lastSetQueueRadioPlatform, 'netease');
     expect(audioPlayer.lastSetQueueRadioPageIndex, 3);
+  });
+
+  test('普通列表预取同步队列、分页游标及持久化，不被切歌提交覆盖', () async {
+    var requests = 0;
+    final handler = HeAudioHandler(
+      fetchSongUrlOverride:
+          ({required songId, required platform, quality, format}) async => {
+            'url': 'https://example.com/$songId.mp3',
+          },
+      fetchSongListPageOverride: (cursor) async {
+        requests++;
+        expect(cursor.nextPageIndex, 2);
+        return const SongListPage(
+          songs: [
+            SongInfo(
+              id: 'page-2',
+              name: '第二页',
+              subtitle: '',
+              duration: 180,
+              mvId: '',
+              album: null,
+              artists: [],
+              links: [],
+              platform: 'qq',
+              cover: '',
+            ),
+          ],
+          hasMore: false,
+        );
+      },
+      setAudioSourceOverride: (source, player) async => null,
+      playOverride: (player) async {},
+      disposeOverride: (player) async {},
+    );
+    addTearDown(handler.disposeHandler);
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_TestAppConfigController.new),
+        audioPlayerPortProvider.overrideWithValue(
+          AudioHandlerPlayerAdapter(handler),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(playerControllerProvider.notifier);
+    await controller.replaceQueue(
+      _buildQueue(),
+      queueSource: const PlayerQueueSource(
+        routePath: '/playlist',
+        queryParameters: {'id': 'a'},
+        title: 'A',
+        pagination: SongListPagination(
+          path: '/v1/playlist/songs',
+          parameters: {'id': 'a', 'platform': 'qq'},
+          nextPageIndex: 2,
+          pageSize: 1000,
+          hasMore: true,
+        ),
+      ),
+    );
+    for (var i = 0; i < 5; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    final state = container.read(playerControllerProvider);
+    expect(requests, 1);
+    expect(state.queue, hasLength(3));
+    expect(state.queueSource!.pagination!.hasMore, isFalse);
+    expect(state.queueSource!.pagination!.nextPageIndex, 3);
+    final saved = await const PlayerQueueDataSource().readQueue();
+    expect(saved!.queue, hasLength(3));
+    expect(saved.source!.pagination!.nextPageIndex, 3);
   });
 
   test('audio handler adapter 模式下电台预取应由 handler 执行一次', () async {

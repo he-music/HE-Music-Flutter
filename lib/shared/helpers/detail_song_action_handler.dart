@@ -25,6 +25,7 @@ import '../../features/player/domain/entities/player_queue_source.dart';
 import '../../features/player/domain/entities/player_track.dart';
 import '../../features/player/presentation/providers/player_providers.dart';
 import '../models/he_music_models.dart';
+import '../models/song_list_pagination.dart';
 import '../utils/cover_resolver.dart';
 import '../utils/favorite_song_key.dart';
 import '../utils/share_link_builder.dart';
@@ -45,12 +46,19 @@ class DetailSongActionHandler {
   DetailSongActionHandler({
     required this.ref,
     this.queueSource,
+    this.queueSourceResolver,
+    this.paginationResolver,
     this.platformIdResolver,
     this.onWatchMv,
   });
 
   final WidgetRef ref;
   final PlayerQueueSource? queueSource;
+  final PlayerQueueSource? Function()? queueSourceResolver;
+  final SongListPagination? Function()? paginationResolver;
+
+  PlayerQueueSource? get _resolvedQueueSource =>
+      queueSourceResolver?.call() ?? queueSource;
   final SongPlatformIdResolver? platformIdResolver;
   final SongMvNavigationHandler? onWatchMv;
 
@@ -88,7 +96,7 @@ class DetailSongActionHandler {
 
   /// Only explicit user sorting calls this; restoring a preference is read-only.
   Future<void> syncQueueOrder(List<SongInfo> songs) async {
-    final source = queueSource;
+    final source = _resolvedQueueSource;
     if (source == null) return;
     try {
       await ref
@@ -113,6 +121,7 @@ class DetailSongActionHandler {
     BuildContext context,
     List<SongInfo> songs, {
     int startIndex = 0,
+    bool continueList = true,
   }) async {
     if (songs.isEmpty || startIndex < 0 || startIndex >= songs.length) {
       return;
@@ -128,7 +137,9 @@ class DetailSongActionHandler {
       await playerController.replaceQueue(
         tracks,
         startIndex: startIndex,
-        queueSource: queueSource,
+        queueSource: _resolvedQueueSource?.withPagination(
+          continueList ? paginationResolver?.call() : null,
+        ),
       );
     } catch (error) {
       _showErrorMessage(
@@ -226,7 +237,7 @@ class DetailSongActionHandler {
     if (selectedSongs.isEmpty || submittingBatch) {
       return false;
     }
-    await playAll(context, selectedSongs);
+    await playAll(context, selectedSongs, continueList: false);
     return true;
   }
 

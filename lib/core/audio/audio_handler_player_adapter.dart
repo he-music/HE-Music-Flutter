@@ -1,3 +1,4 @@
+import '../../shared/models/song_list_pagination.dart';
 import '../../app/config/app_config_state.dart';
 import '../../features/online/domain/entities/online_platform.dart';
 import 'audio_player_port.dart';
@@ -12,6 +13,7 @@ class AudioHandlerPlayerAdapter
   AudioHandlerPlayerAdapter(this._handler);
 
   final HeAudioHandler _handler;
+  SongListPagination? get queuePagination => _handler.songListPagination;
 
   Future<void> syncConfig(AppConfigState config) {
     return _handler.syncConfig(
@@ -108,6 +110,18 @@ class AudioHandlerPlayerAdapter
   Future<void> cancelSleepTimer() async {
     await _handler.customAction(AudioSleepTimerActions.cancel);
   }
+
+  Future<void> setPagedQueue(
+    List<AudioTrack> tracks, {
+    required SongListPagination pagination,
+    int initialIndex = 0,
+    bool forceReloadCurrent = false,
+  }) => _handler.setQueueData(
+    tracks,
+    initialIndex: initialIndex,
+    forceReloadCurrent: forceReloadCurrent,
+    pagination: pagination,
+  );
 
   Future<void> retryCurrentPlayback() => _handler.retryCurrentPlayback();
 

@@ -1,19 +1,34 @@
+import '../../../../shared/models/song_list_pagination.dart';
+
 class PlayerQueueSource {
   const PlayerQueueSource({
     required this.routePath,
     required this.queryParameters,
     required this.title,
+    this.pagination,
   });
 
   final String routePath;
   final Map<String, String> queryParameters;
   final String title;
+  final SongListPagination? pagination;
+
+  PlayerQueueSource withPagination(SongListPagination? value) {
+    if (pagination == value) return this;
+    return PlayerQueueSource(
+      routePath: routePath,
+      queryParameters: queryParameters,
+      title: title,
+      pagination: value,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'route_path': routePath,
       'query_parameters': queryParameters,
       'title': title,
+      if (pagination != null) 'pagination': pagination!.toMap(),
     };
   }
 
@@ -36,6 +51,7 @@ class PlayerQueueSource {
       routePath: routePath,
       queryParameters: queryParameters,
       title: title,
+      pagination: SongListPagination.fromMap(raw['pagination']),
     );
   }
 

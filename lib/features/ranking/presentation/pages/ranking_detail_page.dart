@@ -19,6 +19,7 @@ import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
+import '../../../../shared/models/song_list_pagination.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
 import '../../domain/entities/ranking_detail_request.dart';
 import '../../domain/entities/ranking_song.dart';
@@ -58,6 +59,20 @@ class _RankingDetailPageState extends ConsumerState<RankingDetailPage> {
     );
     _songActions = DetailSongActionHandler(
       ref: ref,
+      paginationResolver: () {
+        final state = ref.read(
+          rankingDetailControllerProvider(_request.cacheKey),
+        );
+        if (state.loading) return null;
+        return SongListPagination(
+          path: '/v1/ranking',
+          parameters: {'id': widget.id, 'platform': widget.platform},
+          nextPageIndex: state.pageIndex + 1,
+          pageSize: 100,
+          hasMore: state.hasMore,
+          lastId: state.detail?.lastId,
+        );
+      },
       queueSource: PlayerQueueSource(
         routePath: AppRoutes.rankingDetail,
         queryParameters: <String, String>{
