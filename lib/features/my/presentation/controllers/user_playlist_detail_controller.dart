@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/utils/song_list_load_all.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/id_platform_key.dart';
 import '../../../playlist/domain/entities/playlist_detail_song.dart';
@@ -14,9 +15,11 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
   String _lastRequestKey = '';
   int _infoRequestVersion = 0;
   int _songsRequestVersion = 0;
+  final _loadAll = SongListLoadAllRunner();
 
   @override
   PlaylistDetailState build() {
+    ref.onDispose(_loadAll.cancel);
     return PlaylistDetailState.initial;
   }
 
@@ -52,6 +55,29 @@ class UserPlaylistDetailController extends Notifier<PlaylistDetailState> {
     final repository = _repository;
     final requestVersion = ++_songsRequestVersion;
     await _loadSongs(repository, request, requestVersion);
+  }
+
+  Future<void> loadAll(UserPlaylistDetailRequest request) {
+    final version = _songsRequestVersion;
+    return _loadAll.loadAll(
+      key: (request.cacheKey, version),
+      isCurrent: () =>
+          ref.mounted &&
+          _lastRequestKey == request.cacheKey &&
+          _songsRequestVersion == version &&
+          !state.songsLoading,
+      readProgress: () => SongListPageProgress(
+        pageIndex: state.pageIndex,
+        loadedCount: state.songs.length,
+        hasMore: state.hasMore,
+        loadingMore: state.loadingMore,
+        error: state.loadMoreErrorMessage,
+      ),
+      loadMore: () => loadMore(request),
+      onNoProgress: () => state = state.copyWith(
+        loadMoreErrorMessage: 'Song pagination did not advance',
+      ),
+    );
   }
 
   Future<void> loadMore(UserPlaylistDetailRequest request) async {

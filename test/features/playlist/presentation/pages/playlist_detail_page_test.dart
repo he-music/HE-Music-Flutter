@@ -26,6 +26,63 @@ import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 
 void main() {
+  testWidgets(
+    'song count loads every remaining page even when the header collapses',
+    (tester) async {
+      final repository = _LoadAllPlaylistRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+            playlistDetailRepositoryProvider.overrideWithValue(repository),
+            favoriteSongStatusProvider.overrideWith(
+              _TestFavoriteSongStatusController.new,
+            ),
+            favoriteCollectionStatusProvider.overrideWith(
+              _LikedPlaylistCollectionStatusController.new,
+            ),
+          ],
+          child: const MaterialApp(
+            home: PlaylistDetailPage(
+              id: 'playlist-1',
+              platform: 'qq',
+              title: '分页歌单',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('playlist-song-count')));
+      await tester.pump();
+      expect(repository.requestedPageIndexes, [1, 2]);
+      await tester.drag(find.byType(ListView), const Offset(0, -2000));
+      await tester.pump();
+      repository.secondPage.complete(
+        PlaylistDetailSongsPageResult(
+          songs: List.generate(20, (i) => _pagingSong(i + 20)),
+          pageIndex: 2,
+          pageSize: 20,
+          totalCount: 45,
+          hasMore: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.requestedPageIndexes, [1, 2, 3]);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(PlaylistDetailPage)),
+      );
+      final state = container.read(
+        playlistDetailControllerProvider('qq|playlist-1'),
+      );
+      expect(state.songs, hasLength(45));
+      expect(state.hasMore, isFalse);
+      expect(state.loadMoreErrorMessage, isNull);
+    },
+  );
   testWidgets('playlist detail favorite icon uses error color when liked', (
     tester,
   ) async {
@@ -461,4 +518,28 @@ SongInfo _pagingSong(int index) {
     platform: 'qq',
     cover: '',
   );
+}
+
+class _LoadAllPlaylistRepository extends _PagingPlaylistDetailRepository {
+  final secondPage = Completer<PlaylistDetailSongsPageResult>();
+
+  @override
+  Future<PlaylistDetailSongsPageResult> fetchSongs(
+    PlaylistDetailRequest request, {
+    int pageIndex = 1,
+    int pageSize = playlistDetailSongsPageSize,
+  }) async {
+    requestedPageIndexes.add(pageIndex);
+    if (pageIndex == 2) return secondPage.future;
+    return PlaylistDetailSongsPageResult(
+      songs: List.generate(
+        pageIndex == 1 ? 20 : 5,
+        (i) => _pagingSong(i + (pageIndex == 1 ? 0 : 40)),
+      ),
+      pageIndex: pageIndex,
+      pageSize: 20,
+      totalCount: 45,
+      hasMore: pageIndex == 1,
+    );
+  }
 }

@@ -242,10 +242,11 @@ class MusicDetailActionButton extends StatelessWidget {
 }
 
 class MusicDetailMetaItem {
-  const MusicDetailMetaItem({required this.label, this.icon});
+  const MusicDetailMetaItem({required this.label, this.icon, this.child});
 
   final String label;
   final IconData? icon;
+  final Widget? child;
 }
 
 class MusicDetailPlayAllHeader extends SliverPersistentHeaderDelegate {
@@ -764,10 +765,12 @@ class _HeroMeta extends StatelessWidget {
                             Icon(item.icon, size: 14, color: itemColor),
                             const SizedBox(width: 5),
                           ],
-                          Text(
-                            item.label.trim(),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: itemColor,
+                          Flexible(
+                            child: DefaultTextStyle.merge(
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: itemColor,
+                              ),
+                              child: item.child ?? Text(item.label.trim()),
                             ),
                           ),
                         ],

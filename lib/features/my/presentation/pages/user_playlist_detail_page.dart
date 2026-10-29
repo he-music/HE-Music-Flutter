@@ -26,6 +26,7 @@ import '../../../../shared/widgets/song_detail_scroll_view.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../shared/widgets/song_list_count.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../shared/models/song_list_pagination.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
@@ -333,21 +334,32 @@ class _UserPlaylistDetailPageState
   ) {
     final locale = Localizations.localeOf(context);
     final items = <MusicDetailMetaItem>[];
-    final effectiveSongCount = content.songCount.trim().isNotEmpty
-        ? content.songCount.trim()
-        : '$fallbackSongCount';
-    if (effectiveSongCount.isNotEmpty) {
-      items.add(
-        MusicDetailMetaItem(
-          icon: Icons.music_note_rounded,
-          label: AppI18n.format(
-            ref.read(appConfigProvider),
-            'detail.track_count',
-            <String, String>{'count': effectiveSongCount},
-          ),
+    final state = ref.read(
+      userPlaylistDetailControllerProvider(_request.cacheKey),
+    );
+    items.add(
+      MusicDetailMetaItem(
+        icon: Icons.music_note_rounded,
+        label: '$fallbackSongCount',
+        child: SongListCount(
+          key: const ValueKey('user-playlist-song-count'),
+          loadedCount: state.songs.length,
+          totalCount: state.totalCount > state.songs.length
+              ? state.totalCount
+              : int.tryParse(content.songCount),
+          hasMore: state.hasMore,
+          loading: state.songsLoading || state.loadingMore,
+          error: state.loadMoreErrorMessage,
+          onLoadAll: () => ref
+              .read(
+                userPlaylistDetailControllerProvider(
+                  _request.cacheKey,
+                ).notifier,
+              )
+              .loadAll(_request),
         ),
-      );
-    }
+      ),
+    );
     final playCount = content.playCount.trim();
     if (playCount.isNotEmpty) {
       items.add(

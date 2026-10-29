@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/utils/song_list_load_all.dart';
 import '../../domain/entities/ranking_detail.dart';
 import '../../domain/entities/ranking_detail_request.dart';
 import '../../domain/entities/ranking_song.dart';
@@ -59,9 +60,12 @@ class RankingDetailState {
 
 class RankingDetailController extends Notifier<RankingDetailState> {
   String _lastKey = '';
+  int _requestVersion = 0;
+  final _loadAll = SongListLoadAllRunner();
 
   @override
   RankingDetailState build() {
+    ref.onDispose(_loadAll.cancel);
     return RankingDetailState.initial;
   }
 
@@ -77,12 +81,40 @@ class RankingDetailController extends Notifier<RankingDetailState> {
     await _loadFirst(request);
   }
 
+  Future<void> loadAll(RankingDetailRequest request) {
+    final version = _requestVersion;
+    return _loadAll.loadAll(
+      key: (request.cacheKey, version),
+      isCurrent: () =>
+          ref.mounted &&
+          _lastKey == request.cacheKey &&
+          _requestVersion == version &&
+          !state.loading,
+      readProgress: () => SongListPageProgress(
+        pageIndex: state.pageIndex,
+        loadedCount: state.songs.length,
+        hasMore: state.hasMore,
+        loadingMore: state.loadingMore,
+        error: state.errorMessage,
+      ),
+      loadMore: () => loadMore(request),
+      onNoProgress: () => state = state.copyWith(
+        errorMessage: 'Song pagination did not advance',
+      ),
+    );
+  }
+
   Future<void> loadMore(RankingDetailRequest request) async {
     if (!ref.mounted) {
       return;
     }
     final detail = state.detail;
-    if (detail == null || !state.hasMore || state.loadingMore) {
+    final version = _requestVersion;
+    if (detail == null ||
+        state.loading ||
+        _lastKey != request.cacheKey ||
+        !state.hasMore ||
+        state.loadingMore) {
       return;
     }
     state = state.copyWith(loadingMore: true, clearError: true);
@@ -94,7 +126,7 @@ class RankingDetailController extends Notifier<RankingDetailState> {
         pageIndex: nextPage,
         lastId: detail.lastId,
       );
-      if (!ref.mounted) {
+      if (!ref.mounted || version != _requestVersion) {
         return;
       }
       state = state.copyWith(
@@ -106,7 +138,7 @@ class RankingDetailController extends Notifier<RankingDetailState> {
         clearError: true,
       );
     } catch (error) {
-      if (!ref.mounted) {
+      if (!ref.mounted || version != _requestVersion) {
         return;
       }
       state = state.copyWith(loadingMore: false, errorMessage: '$error');
@@ -117,10 +149,12 @@ class RankingDetailController extends Notifier<RankingDetailState> {
     if (!ref.mounted) {
       return;
     }
+    final version = ++_requestVersion;
     state = state.copyWith(
       loading: true,
       loadingMore: false,
       songs: const <RankingSong>[],
+      hasMore: false,
       pageIndex: 1,
       clearError: true,
     );
@@ -130,7 +164,7 @@ class RankingDetailController extends Notifier<RankingDetailState> {
         platform: request.platform,
         pageIndex: 1,
       );
-      if (!ref.mounted) {
+      if (!ref.mounted || version != _requestVersion) {
         return;
       }
       state = state.copyWith(
@@ -142,7 +176,7 @@ class RankingDetailController extends Notifier<RankingDetailState> {
         clearError: true,
       );
     } catch (error) {
-      if (!ref.mounted) {
+      if (!ref.mounted || version != _requestVersion) {
         return;
       }
       state = state.copyWith(loading: false, errorMessage: '$error');

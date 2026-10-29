@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../shared/utils/song_list_load_all.dart';
 import '../../../../../shared/models/he_music_models.dart';
 import '../../../../../shared/utils/in_flight_request_cache.dart';
 import '../../../../online/domain/entities/online_platform.dart';
@@ -24,9 +25,13 @@ class NewSongPageController extends Notifier<NewSongPageState> {
         NewReleasePageResult<SongInfo>
       >();
   int _requestVersion = 0;
+  final _loadAll = SongListLoadAllRunner();
+
+  void cancelLoadAll() => _loadAll.cancel();
 
   @override
   NewSongPageState build() {
+    ref.onDispose(_loadAll.cancel);
     return NewSongPageState.initial;
   }
 
@@ -116,6 +121,26 @@ class NewSongPageController extends Notifier<NewSongPageState> {
       platformId: platformId,
       tabId: normalizedTabId,
       requestVersion: requestVersion,
+    );
+  }
+
+  Future<void> loadAll() {
+    final version = _requestVersion;
+    return _loadAll.loadAll(
+      key: version,
+      isCurrent: () =>
+          ref.mounted && _requestVersion == version && !state.songsLoading,
+      readProgress: () => SongListPageProgress(
+        pageIndex: state.pageIndex,
+        loadedCount: state.songs.length,
+        hasMore: state.hasMore,
+        loadingMore: state.loadingMore,
+        error: state.songsErrorMessage,
+      ),
+      loadMore: loadMore,
+      onNoProgress: () => state = state.copyWith(
+        songsErrorMessage: 'Song pagination did not advance',
+      ),
     );
   }
 

@@ -33,6 +33,8 @@ import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/music_control_surface.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../shared/widgets/song_list_count.dart';
+import '../../../../shared/utils/song_list_load_all.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../shared/widgets/song_detail_scroll_view.dart';
 import '../../../my/presentation/providers/favorite_collection_status_providers.dart';
@@ -81,6 +83,8 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   bool _songsHasMore = false;
   int _songsNextPageIndex = 1;
   String? _songsLoadMoreError;
+  int _songsRequestVersion = 0;
+  final _songsLoadAll = SongListLoadAllRunner();
   bool _albumsLoading = false;
   bool _albumsLoadingMore = false;
   bool _albumsHasMore = false;
@@ -162,6 +166,7 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
 
   @override
   void dispose() {
+    _songsLoadAll.cancel();
     _tabController
       ..removeListener(_handleTabChanged)
       ..dispose();
@@ -249,6 +254,15 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
               coverUrl: coverUrl,
               description: content.description,
               songCount: _normalizeCount(content.songCount),
+              songCountWidget: SongListCount(
+                key: const ValueKey('artist-song-count'),
+                loadedCount: _songs.length,
+                totalCount: int.tryParse(content.songCount),
+                hasMore: _songsHasMore,
+                loading: _songsLoading || _songsLoadingMore,
+                error: _songsLoadMoreError,
+                onLoadAll: _loadAllSongs,
+              ),
               albumCount: _normalizeCount(content.albumCount),
               videoCount: _normalizeCount(content.videoCount),
               onBack: _isSongBatchMode
@@ -450,8 +464,29 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
     }
   }
 
+  Future<void> _loadAllSongs() {
+    final version = _songsRequestVersion;
+    return _songsLoadAll.loadAll(
+      key: version,
+      isCurrent: () =>
+          mounted && _songsRequestVersion == version && !_songsLoading,
+      readProgress: () => SongListPageProgress(
+        pageIndex: _songsNextPageIndex,
+        loadedCount: _songs.length,
+        hasMore: _songsHasMore,
+        loadingMore: _songsLoadingMore,
+        error: _songsLoadMoreError,
+      ),
+      loadMore: _loadMoreSongs,
+      onNoProgress: () => setState(() {
+        _songsLoadMoreError = 'Song pagination did not advance';
+      }),
+    );
+  }
+
   Future<void> _loadSongs() async {
     if (_songsLoading || _songsLoadingMore) return;
+    _songsRequestVersion++;
     setState(() {
       _songsRequested = true;
       _songsLoading = true;
@@ -904,6 +939,7 @@ class _ArtistSliverHeader extends StatelessWidget {
     required this.coverUrl,
     required this.description,
     required this.songCount,
+    required this.songCountWidget,
     required this.albumCount,
     required this.videoCount,
     required this.onBack,
@@ -920,6 +956,7 @@ class _ArtistSliverHeader extends StatelessWidget {
   final String coverUrl;
   final String description;
   final String songCount;
+  final Widget songCountWidget;
   final String albumCount;
   final String videoCount;
   final VoidCallback onBack;
@@ -1092,6 +1129,7 @@ class _ArtistSliverHeader extends StatelessWidget {
                                 subtitle: subtitle,
                                 description: description,
                                 songCount: songCount,
+                                songCountWidget: songCountWidget,
                                 albumCount: albumCount,
                                 videoCount: videoCount,
                                 onShowDescription: onShowDescription,
@@ -1169,6 +1207,7 @@ class _ArtistHeaderMeta extends StatelessWidget {
     required this.subtitle,
     required this.description,
     required this.songCount,
+    required this.songCountWidget,
     required this.albumCount,
     required this.videoCount,
     required this.onShowDescription,
@@ -1178,6 +1217,7 @@ class _ArtistHeaderMeta extends StatelessWidget {
   final String subtitle;
   final String description;
   final String songCount;
+  final Widget songCountWidget;
   final String albumCount;
   final String videoCount;
   final VoidCallback onShowDescription;
@@ -1228,6 +1268,7 @@ class _ArtistHeaderMeta extends StatelessWidget {
                   'artist.meta.song_count',
                   <String, String>{'count': songCount.toString()},
                 ),
+                child: songCountWidget,
               ),
               _ArtistMetaIcon(
                 icon: Icons.album_rounded,
@@ -1284,10 +1325,11 @@ class _ArtistHeaderMeta extends StatelessWidget {
 }
 
 class _ArtistMetaIcon extends StatelessWidget {
-  const _ArtistMetaIcon({required this.icon, required this.label});
+  const _ArtistMetaIcon({required this.icon, required this.label, this.child});
 
   final IconData icon;
   final String label;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -1300,13 +1342,13 @@ class _ArtistMetaIcon extends StatelessWidget {
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 5),
         Flexible(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: DefaultTextStyle.merge(
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: color),
+            child:
+                child ??
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ),
       ],

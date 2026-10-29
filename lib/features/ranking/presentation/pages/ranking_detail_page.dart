@@ -18,6 +18,7 @@ import '../../../../shared/widgets/song_detail_scroll_view.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../shared/widgets/song_list_count.dart';
 import '../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../shared/models/song_list_pagination.dart';
 import '../../../player/domain/entities/player_queue_source.dart';
@@ -340,11 +341,17 @@ class _Body extends ConsumerWidget {
       return const Center(child: Text('No detail content.'));
     }
     final coverUrl = detail.info.coverUrl;
-    final subtitle = detail.totalCount > 0
-        ? AppI18n.format(config, 'ranking.track_count', <String, String>{
-            'count': '${detail.totalCount}',
-          })
-        : '';
+    final countWidget = SongListCount(
+      key: const ValueKey('ranking-song-count'),
+      loadedCount: songs.length,
+      totalCount: detail.totalCount,
+      hasMore: state.hasMore,
+      loading: state.loading || state.loadingMore,
+      error: state.errorMessage,
+      onLoadAll: () => ref
+          .read(rankingDetailControllerProvider(request.cacheKey).notifier)
+          .loadAll(request),
+    );
 
     return SongDetailScrollView(
       batchMode: batchMode,
@@ -352,7 +359,14 @@ class _Body extends ConsumerWidget {
         return <Widget>[
           MusicDetailSliverAppBar(
             title: detail.info.name,
-            subtitle: subtitle,
+            subtitle: '',
+            metaItems: [
+              MusicDetailMetaItem(
+                icon: Icons.music_note_rounded,
+                label: '${songs.length}',
+                child: countWidget,
+              ),
+            ],
             coverUrl: coverUrl,
             description: detail.description,
             onPreviewCover: () => onPreviewCover(detail.info.name, coverUrl),

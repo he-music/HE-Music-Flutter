@@ -24,6 +24,7 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/song_list_count.dart';
 import 'package:he_music_flutter/shared/widgets/online_song_list_item.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_loading_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/plaza_widgets.dart';
@@ -38,7 +39,47 @@ import '../../../../../helpers/expect_text_height_fits.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'leaving the new song page stops load-all after the pending page',
+    (tester) async {
+      final api = _LoadAllNewSongApiClient();
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      await tester.pumpWidget(
+        _buildTestApp(
+          apiClient: api,
+          home: ValueListenableBuilder<bool>(
+            valueListenable: visible,
+            builder: (_, show, child) => show
+                ? const NewSongPage(initialPlatform: 'qq')
+                : const Scaffold(body: Text('Other page')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('new-song-count')));
+      await tester.pump();
+      expect(api.requestedPages, [1, 2]);
+      visible.value = false;
+      await tester.pump();
+      api.secondPage.complete();
+      await tester.pumpAndSettle();
+      expect(api.requestedPages, [1, 2]);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
+  testWidgets(
+    'new song count keeps the action bar usable on narrow large-text screens',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_buildTestApp(textScale: 3));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('new-song-count')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('new songs sort after pagination and play the displayed order', (
     tester,
   ) async {
@@ -68,17 +109,26 @@ void main() {
       ['song-2', 'song-1'],
     );
 
-    final loading = container
-        .read(newSongPageControllerProvider.notifier)
-        .loadMore();
+    await tester.tap(find.byKey(const ValueKey('new-song-count')));
     await tester.pump();
+    expect(
+      tester
+          .widget<SongListCount>(find.byKey(const ValueKey('new-song-count')))
+          .loading,
+      isTrue,
+    );
     expect(
       tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
       isFalse,
     );
     api.lastPage.complete();
-    await loading;
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SongListCount>(find.byKey(const ValueKey('new-song-count')))
+          .hasMore,
+      isFalse,
+    );
     expect(
       tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
       isTrue,
@@ -243,6 +293,7 @@ Widget _buildTestApp({
   NewSongApiClient? apiClient,
   String localeCode = 'zh',
   Future<List<OnlinePlatform>>? platformsFuture,
+  Widget? home,
 }) {
   return ProviderScope(
     overrides: [
@@ -273,7 +324,7 @@ Widget _buildTestApp({
         child: child!,
       ),
       theme: ThemeData(platform: TargetPlatform.android),
-      home: const NewSongPage(initialPlatform: 'qq'),
+      home: home ?? const NewSongPage(initialPlatform: 'qq'),
     ),
   );
 }
@@ -348,6 +399,26 @@ class _PaginatedNewSongApiClient extends _FakeNewSongApiClient {
               ),
             ],
       hasMore: pageIndex == 1,
+    );
+  }
+}
+
+class _LoadAllNewSongApiClient extends _FakeNewSongApiClient {
+  final requestedPages = <int>[];
+  final secondPage = Completer<void>();
+
+  @override
+  Future<NewReleasePageResult<SongInfo>> fetchSongs({
+    required String platform,
+    required String tabId,
+    int pageIndex = 1,
+    int pageSize = 30,
+  }) async {
+    requestedPages.add(pageIndex);
+    if (pageIndex == 2) await secondPage.future;
+    return NewReleasePageResult(
+      list: [_buildSong(platform, id: 'song-$pageIndex')],
+      hasMore: pageIndex < 3,
     );
   }
 }

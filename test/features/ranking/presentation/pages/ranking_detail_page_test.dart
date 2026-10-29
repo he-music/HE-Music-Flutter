@@ -112,9 +112,6 @@ void main() {
       platform: 'qq',
       title: '测试榜单',
     );
-    final controller = container.read(
-      rankingDetailControllerProvider(request.cacheKey).notifier,
-    );
     expect(
       tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
       isFalse,
@@ -127,14 +124,19 @@ void main() {
       ['song-1', 'song-2'],
     );
 
-    final loading = controller.loadMore(request);
+    await tester.tap(find.byKey(const ValueKey('ranking-song-count')));
+    expect(
+      container
+          .read(rankingDetailControllerProvider(request.cacheKey))
+          .loadingMore,
+      isTrue,
+    );
     await tester.pump();
     expect(
       tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
       isFalse,
     );
     repository.lastPage.complete();
-    await loading;
     await tester.pumpAndSettle();
     expect(
       tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
@@ -192,7 +194,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('2 tracks'), findsOneWidget);
+    expect(find.text('2 songs'), findsOneWidget);
     expect(find.text('Play All 2'), findsOneWidget);
   });
 

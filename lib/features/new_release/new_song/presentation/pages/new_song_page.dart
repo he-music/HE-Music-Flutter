@@ -20,10 +20,12 @@ import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../../shared/widgets/plaza_widgets.dart';
 import '../../../../../shared/widgets/song_batch_action_bar.dart';
 import '../../../../../shared/widgets/song_info_list_section.dart';
+import '../../../../../shared/widgets/song_list_count.dart';
 import '../../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../online/domain/entities/online_platform.dart';
 import '../../../../../shared/models/song_list_pagination.dart';
 import '../../../../player/domain/entities/player_queue_source.dart';
+import '../controllers/new_song_page_controller.dart';
 import '../providers/new_song_page_providers.dart';
 
 class NewSongPage extends ConsumerStatefulWidget {
@@ -39,6 +41,7 @@ class NewSongPage extends ConsumerStatefulWidget {
 class _NewSongPageState extends ConsumerState<NewSongPage> {
   late final DetailSongActionHandler _songActions;
   late final ScrollController _scrollController;
+  late final NewSongPageController _pageController;
   bool _isBatchMode = false;
   bool _submittingBatch = false;
   Set<String> _selectedSongKeys = <String>{};
@@ -47,6 +50,7 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _pageController = ref.read(newSongPageControllerProvider.notifier);
     _songActions = DetailSongActionHandler(
       ref: ref,
       queueSourceResolver: () {
@@ -92,6 +96,7 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
 
   @override
   void dispose() {
+    _pageController.cancelLoadAll();
     _scrollController.dispose();
     super.dispose();
   }
@@ -134,6 +139,29 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
                 : null,
           ),
           title: Text(AppI18n.t(ref.read(appConfigProvider), 'new_song.title')),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.sizeOf(context).width * 0.4,
+                  ),
+                  child: DefaultTextStyle.merge(
+                    style: Theme.of(context).textTheme.bodySmall,
+                    child: SongListCount(
+                      key: const ValueKey('new-song-count'),
+                      loadedCount: songs.length,
+                      hasMore: state.hasMore,
+                      loading: state.songsLoading || state.loadingMore,
+                      error: state.songsErrorMessage,
+                      onLoadAll: controller.loadAll,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         body: Column(
           children: <Widget>[

@@ -19,6 +19,7 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/playlist/domain/entities/playlist_detail_songs_page_result.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/song_list_count.dart';
 import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/song_info_list_section.dart';
@@ -283,14 +284,13 @@ void main() {
         tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
         isFalse,
       );
-      final loading = section.onLoadMore!();
+      await tester.tap(find.byKey(const ValueKey('user-playlist-song-count')));
       await tester.pump();
       section = tester.widget<SongInfoListSection>(
         find.byType(SongInfoListSection),
       );
       expect(section.loadingMore, isTrue);
       repository.nextPage!.completeError(Exception('next page failed'));
-      await loading;
       await tester.pump();
       await tester.pump();
       section = tester.widget<SongInfoListSection>(
@@ -300,7 +300,7 @@ void main() {
       expect(section.songs, hasLength(2));
       expect(find.text('用户歌单首屏歌曲'), findsOneWidget);
       repository.nextPage = Completer<PlaylistDetailSongsPageResult>();
-      final retrying = section.onRetryLoadMore!();
+      await tester.tap(find.byKey(const ValueKey('user-playlist-song-count')));
       await tester.pump();
       repository.nextPage!.complete(
         PlaylistDetailSongsPageResult(
@@ -317,7 +317,6 @@ void main() {
           hasMore: false,
         ),
       );
-      await retrying;
       await tester.pump();
       await tester.pump();
       section = tester.widget<SongInfoListSection>(
@@ -337,6 +336,14 @@ void main() {
         isFalse,
       );
       expect(repository.requestedPages, [1, 2, 2]);
+      expect(
+        tester
+            .widget<SongListCount>(
+              find.byKey(const ValueKey('user-playlist-song-count')),
+            )
+            .hasMore,
+        isFalse,
+      );
     },
   );
 }

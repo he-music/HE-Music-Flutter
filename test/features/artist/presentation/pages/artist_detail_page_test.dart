@@ -34,6 +34,54 @@ import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_loading_skeleton.dart';
 
 void main() {
+  testWidgets(
+    'artist song count retries load-all and becomes inert after completion',
+    (tester) async {
+      final repository = _DemandPagedArtistRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            artistDetailRepositoryProvider.overrideWithValue(repository),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+          ],
+          child: _buildTestApp(
+            localeCode: 'zh',
+            child: const ArtistDetailPage(
+              id: 'artist-1',
+              platform: 'qq',
+              title: '测试歌手',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final count = find.byKey(const ValueKey('artist-song-count'));
+      await tester.tap(count);
+      await tester.pumpAndSettle();
+      expect(repository.requests, [('song', 1), ('song', 2)]);
+      expect(
+        find.descendant(
+          of: count,
+          matching: find.byIcon(Icons.refresh_rounded),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(count);
+      await tester.pumpAndSettle();
+      expect(repository.requests, [('song', 1), ('song', 2), ('song', 2)]);
+      expect(
+        find.descendant(of: count, matching: find.text('21 首')),
+        findsOneWidget,
+      );
+      await tester.tap(count);
+      await tester.pumpAndSettle();
+      expect(repository.requests, hasLength(3));
+    },
+  );
   for (final (label, kind, storageKey) in [
     ('歌曲', 'song', ''),
     ('专辑', 'album', 'artist-detail-albums'),
