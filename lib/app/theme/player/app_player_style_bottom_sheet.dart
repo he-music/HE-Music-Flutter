@@ -16,6 +16,7 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   bool useSafeArea = true,
   bool isScrollControlled = false,
   bool showDragHandle = true,
+  bool useAppAccent = false,
   double? fixedHeightFactor,
   double? heightFactor,
   double? maxWidth,
@@ -97,6 +98,7 @@ Future<T?> showPlayerStyledBottomSheet<T>({
         builder: builder,
         showDragHandle: showDragHandle,
         opaque: fixedHeightFactor != null,
+        useAppAccent: useAppAccent,
         systemOverlayStyle: systemOverlayStyle,
       );
       return fixedHeightFactor == null
@@ -119,12 +121,14 @@ class _PlayerStyledBottomSheetBody extends StatefulWidget {
     required this.builder,
     required this.showDragHandle,
     required this.opaque,
+    required this.useAppAccent,
     this.systemOverlayStyle,
   });
 
   final WidgetBuilder builder;
   final bool showDragHandle;
   final bool opaque;
+  final bool useAppAccent;
   final SystemUiOverlayStyle? systemOverlayStyle;
 
   @override
@@ -153,8 +157,12 @@ class _PlayerStyledBottomSheetBodyState
       style,
       brightness,
       uiStyle: uiStyle,
-      primaryColor: inheritedTheme.colorScheme.primary,
-      onPrimaryColor: inheritedTheme.colorScheme.onPrimary,
+      primaryColor: uiStyle == AppUiStyle.cupertino || widget.useAppAccent
+          ? inheritedTheme.colorScheme.primary
+          : null,
+      onPrimaryColor: uiStyle == AppUiStyle.cupertino || widget.useAppAccent
+          ? inheritedTheme.colorScheme.onPrimary
+          : null,
     );
     return Theme(
       data: widget.systemOverlayStyle == null

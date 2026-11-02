@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
@@ -651,52 +654,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('song actions sheet uses previous mobile list tile style', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: MediaQuery(
-          data: const MediaQueryData(size: Size(390, 844)),
-          child: Builder(
-            builder: (context) {
-              return Scaffold(
-                body: Center(
-                  child: FilledButton(
-                    onPressed: () {
-                      showSongActionsSheet(
-                        context: context,
-                        coverUrl: null,
-                        title: '在线歌曲',
-                        subtitle: '在线歌手',
-                        hasMv: false,
-                        sourceLabel: 'QQ 音乐',
-                        onPlay: () {},
-                        onPlayNext: () {},
-                        onAddToPlaylist: () {},
-                        onDownload: () {},
-                        onWatchMv: () {},
-                        onCopySongName: () {},
-                        onCopySongId: () {},
-                      );
-                    },
-                    child: const Text('Open regular'),
+  testWidgets(
+    'Material song panel groups action rows without navigation chevrons',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(size: Size(390, 844)),
+            child: Builder(
+              builder: (context) {
+                return Scaffold(
+                  body: Center(
+                    child: FilledButton(
+                      onPressed: () {
+                        showSongActionsSheet(
+                          context: context,
+                          coverUrl: null,
+                          title: '在线歌曲',
+                          subtitle: '在线歌手',
+                          hasMv: false,
+                          sourceLabel: 'QQ 音乐',
+                          onPlay: () {},
+                          onPlayNext: () {},
+                          onAddToPlaylist: () {},
+                          onDownload: () {},
+                          onWatchMv: () {},
+                          onCopySongName: () {},
+                          onCopySongId: () {},
+                        );
+                      },
+                      child: const Text('Open regular'),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    await tester.tap(find.text('Open regular'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Open regular'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(ListTile), findsWidgets);
-    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
-    expect(find.byType(Divider), findsOneWidget);
-  });
+      expect(find.byType(ListTile), findsWidgets);
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(find.byType(Divider), findsWidgets);
+    },
+  );
 
   testWidgets('song actions sheet opens above shell navigator', (tester) async {
     final rootObserver = _CountingNavigatorObserver();
@@ -770,41 +774,51 @@ Widget _durationTestApp(
   Duration? duration, {
   bool cupertino = false,
   double textScale = 1,
-}) => MaterialApp(
-  theme: ThemeData(
-    extensions: [
-      AppUiTheme(style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material),
-    ],
-  ),
-  builder: (context, child) => MediaQuery(
-    data: MediaQuery.of(
-      context,
-    ).copyWith(textScaler: TextScaler.linear(textScale)),
-    child: child!,
-  ),
-  home: Builder(
-    builder: (context) => Scaffold(
-      body: Center(
-        child: TextButton(
-          onPressed: () => showSongActionsSheet(
-            context: context,
-            forceBottomSheet: true,
-            coverUrl: null,
-            title: 'Song',
-            subtitle: 'Artist',
-            duration: duration,
-            hasMv: false,
-            sourceLabel: 'Source',
-            onPlay: () {},
-            onPlayNext: () {},
-            onAddToPlaylist: () {},
-            onWatchMv: () {},
-            onCopySongName: () {},
-            onCopySongId: () {},
+}) => ProviderScope(
+  overrides: [appConfigProvider.overrideWith(_SongConfigController.new)],
+  child: MaterialApp(
+    theme: ThemeData(
+      extensions: [
+        AppUiTheme(
+          style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material,
+        ),
+      ],
+    ),
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      child: child!,
+    ),
+    home: Builder(
+      builder: (context) => Scaffold(
+        body: Center(
+          child: TextButton(
+            onPressed: () => showSongActionsSheet(
+              context: context,
+              forceBottomSheet: true,
+              coverUrl: null,
+              title: 'Song',
+              subtitle: 'Artist',
+              duration: duration,
+              hasMv: false,
+              sourceLabel: 'Source',
+              onPlay: () {},
+              onPlayNext: () {},
+              onAddToPlaylist: () {},
+              onWatchMv: () {},
+              onCopySongName: () {},
+              onCopySongId: () {},
+            ),
+            child: const Text('Open duration sheet'),
           ),
-          child: const Text('Open duration sheet'),
         ),
       ),
     ),
   ),
 );
+
+class _SongConfigController extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial;
+}

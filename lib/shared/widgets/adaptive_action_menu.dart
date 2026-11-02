@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import '../../app/theme/app_ui_theme.dart';
 
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../app/theme/player/app_player_style_bottom_sheet.dart';
+import '../../app/theme/player/app_player_style_theme.dart';
 import 'app_adaptive_controls.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
@@ -276,19 +278,18 @@ Future<T?> _showCupertinoActions<T>(
   Widget? title,
   Widget? message,
   bool useRootNavigator = true,
-}) {
+}) async {
   var dismissed = false;
+  ModalRoute<T>? popupRoute;
   void dismiss(BuildContext popupContext, [T? value]) {
     if (dismissed) return;
     dismissed = true;
     Navigator.of(popupContext).pop(value);
   }
 
-  return showCupertinoModalPopup<T>(
-    context: context,
-    useRootNavigator: useRootNavigator,
-    semanticsDismissible: true,
-    builder: (popupContext) => CupertinoActionSheet(
+  Widget builder(BuildContext popupContext) {
+    popupRoute = ModalRoute.of<T>(popupContext);
+    return CupertinoActionSheet(
       title: title,
       message: message,
       actions: [
@@ -311,8 +312,25 @@ Future<T?> _showCupertinoActions<T>(
         onPressed: () => dismiss(popupContext),
         child: Text(CupertinoLocalizations.of(popupContext).cancelButtonLabel),
       ),
-    ),
-  );
+    );
+  }
+
+  final popup = Theme.of(context).extension<AppPlayerStyleTheme>() != null
+      ? showPlayerCupertinoActionSheet<T>(
+          context: context,
+          useRootNavigator: useRootNavigator,
+          sheetBuilder: builder,
+        )
+      : showCupertinoModalPopup<T>(
+          context: context,
+          useRootNavigator: useRootNavigator,
+          semanticsDismissible: true,
+          builder: builder,
+        );
+  final result = await popup;
+  // A subsequent menu or detail route must not overlap the outgoing popup.
+  await popupRoute?.completed;
+  return result;
 }
 
 class _ActionMenuLabel<T> extends StatelessWidget {

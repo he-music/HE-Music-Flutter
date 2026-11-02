@@ -114,12 +114,16 @@ ThemeData buildAppPlayerSheetTheme(
           outlineVariant: style.dividerColor,
         );
   final scheme = baseScheme.copyWith(
-    primary: uiStyle == AppUiStyle.cupertino
-        ? primaryColor ?? CupertinoColors.activeBlue
-        : baseScheme.primary,
-    onPrimary: uiStyle == AppUiStyle.cupertino
-        ? onPrimaryColor ?? CupertinoColors.white
-        : baseScheme.onPrimary,
+    primary:
+        primaryColor ??
+        (uiStyle == AppUiStyle.cupertino
+            ? CupertinoColors.activeBlue
+            : baseScheme.primary),
+    onPrimary:
+        onPrimaryColor ??
+        (uiStyle == AppUiStyle.cupertino
+            ? CupertinoColors.white
+            : baseScheme.onPrimary),
     onSurfaceVariant: style.secondaryForegroundColor,
     surfaceContainerLowest: style.backgroundColor,
     surfaceContainerLow: style.backgroundColor,

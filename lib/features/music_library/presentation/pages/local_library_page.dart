@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:io' show File, FileSystemException, Platform;
-import 'dart:typed_data' show Uint8List;
 
 import 'package:file_selector/file_selector.dart';
 
 import '../../../../shared/widgets/app_alert_dialog.dart';
-import '../../../../shared/widgets/adaptive_action_menu.dart';
+import '../../../../shared/widgets/song_actions_sheet.dart';
 import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -259,46 +259,38 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     LocalSong song,
     String localeCode,
     WidgetRef ref,
-  ) async {
-    final action = await showAdaptiveActionMenu<String>(
-      context: context,
-      mobileDensity: AdaptiveActionMenuMobileDensity.regular,
-      items: [
-        AdaptiveActionMenuItem(
-          value: 'play',
-          icon: Icons.play_circle_outline_rounded,
-          label: AppI18n.tByLocaleCode(localeCode, 'local.more.play_next'),
-        ),
-        AdaptiveActionMenuItem(
-          value: 'queue',
-          icon: Icons.queue_music_rounded,
-          label: AppI18n.tByLocaleCode(localeCode, 'local.more.add_to_queue'),
-        ),
-        AdaptiveActionMenuItem(
-          value: 'share',
-          icon: Icons.share_rounded,
-          label: AppI18n.tByLocaleCode(localeCode, 'local.more.share'),
-        ),
-        AdaptiveActionMenuItem(
-          value: 'edit',
-          icon: Icons.edit_rounded,
-          label: AppI18n.tByLocaleCode(localeCode, 'local.more.edit_metadata'),
-        ),
-      ],
-    );
-    if (!context.mounted || action == null) return;
-    switch (action) {
-      case 'play':
-        _playLocalSong(context, ref, [song], 0);
-      case 'queue':
-        ref
-            .read(playerControllerProvider.notifier)
-            .appendTrack(_toPlayerTrack(song));
-      case 'share':
-        await _shareLocalSong(context, song, localeCode, ref);
-      case 'edit':
-        context.push(AppRoutes.localMetadataEdit, extra: song);
+  ) {
+    final player = ref.read(playerControllerProvider.notifier);
+    Future<void> copy(String value, String key) async {
+      await Clipboard.setData(ClipboardData(text: value));
+      if (context.mounted) {
+        AppMessageService.showSuccess(AppI18n.tByLocaleCode(localeCode, key));
+      }
     }
+
+    return showSongActionsSheet(
+      context: context,
+      coverUrl: null,
+      coverBytes: song.artworkBytes,
+      title: song.title,
+      subtitle: song.artist,
+      duration: song.duration,
+      sourceLabel: AppI18n.formatByLocaleCode(localeCode, 'song.source', {
+        'platform': 'LOCAL',
+      }),
+      hasMv: false,
+      onPlay: () => _playLocalSong(context, ref, [song], 0),
+      onPlayNext: () => unawaited(player.insertNextTrack(_toPlayerTrack(song))),
+      onAddToPlaylist: () =>
+          unawaited(player.appendTrack(_toPlayerTrack(song))),
+      onShareFile: () =>
+          unawaited(_shareLocalSong(context, song, localeCode, ref)),
+      onEditMetadata: () =>
+          context.push(AppRoutes.localMetadataEdit, extra: song),
+      onCopySongName: () =>
+          unawaited(copy(song.title, 'player.copy.name_done')),
+      onCopySongId: () => unawaited(copy(song.id, 'player.copy.id_done')),
+    );
   }
 
   Future<void> _shareLocalSong(

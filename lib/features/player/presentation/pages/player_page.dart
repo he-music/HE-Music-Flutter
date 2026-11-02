@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -31,6 +32,7 @@ import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/helpers/user_playlist_song_action_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/app_slider.dart';
+import '../../../../shared/widgets/song_actions_sheet.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
@@ -511,7 +513,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 .setPlayerWideView,
             onClose: () =>
                 unawaited(PlayerDismissRegion.close(context, _closePlayer)),
-            onOpenStyle: () => _openPlayerStyleSheet(context),
+            onOpenPlaybackSettings: _openPlaybackSettings,
             onOpenMore: presentation.isTrackTransitioning
                 ? null
                 : _openMoreSheet,
@@ -723,6 +725,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           onOpenArtist: onOpenArtist,
                           onOpenQueue: _openQueueSheet,
                           onOpenMore: _openMoreSheet,
+                          onOpenPlaybackSettings: _openPlaybackSettings,
                           onOpenLyrics: () => _animateToPage(1),
                           onOpenQuality: () =>
                               _openCurrentQualitySheet(context, controller),
@@ -1012,6 +1015,165 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _openMoreSheet() {
+    final track = ref.read(playerControllerProvider).currentTrack;
+    if (track == null) return;
+    final controller = ref.read(playerControllerProvider.notifier);
+    final config = ref.read(appConfigProvider);
+    final platforms =
+        ref.read(onlinePlatformsProvider).value ?? const <OnlinePlatform>[];
+    final platform = (track.platform ?? '').trim();
+    final online = platform.isNotEmpty && platform != 'local';
+    final qualities = online
+        ? _buildSongQualityOptions(ref: ref, track: track, platformId: platform)
+        : const <PlayerQualityOption>[];
+    final canViewDetail =
+        online &&
+        canOpenSongDetail(
+          songId: track.id,
+          platformId: platform,
+          platforms: platforms,
+        );
+    final canViewAlbum =
+        online &&
+        hasValidAlbumId(track.albumId) &&
+        platformSupportsAlbumDetail(platformId: platform, platforms: platforms);
+    final artistLabel =
+        online &&
+            platformSupportsArtistDetail(
+              platformId: platform,
+              platforms: platforms,
+            )
+        ? songArtistActionLabel(track.artists, localeCode: config.localeCode)
+        : null;
+    final searchPlatform = _resolveSearchPlatformId(
+      ref,
+      preferredPlatformId: online ? platform : null,
+    );
+    void navigate(String path, Map<String, String> parameters) =>
+        _goToDetail(Uri(path: path, queryParameters: parameters).toString());
+    Future<void> copy(String text, String messageKey) async {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) AppMessageService.showSuccess(AppI18n.t(config, messageKey));
+    }
+
+    unawaited(
+      showSongActionsSheet(
+        context: context,
+        forceBottomSheet: true,
+        coverUrl: track.artworkUrl,
+        coverBytes: track.artworkBytes,
+        title: track.title,
+        subtitle: track.artist ?? '-',
+        duration: track.duration,
+        sourceLabel: AppI18n.format(config, 'song.source', {
+          'platform': online
+              ? resolvePlatformLabel(platform, platforms: platforms)
+              : 'LOCAL',
+        }),
+        hasMv:
+            online &&
+            (track.mvId?.trim().isNotEmpty ?? false) &&
+            track.mvId!.trim() != '0',
+        onPlayNext: () => unawaited(controller.insertNextTrack(track)),
+        onAddToPlaylist: () => unawaited(controller.appendTrack(track)),
+        onAddToUserPlaylist: online
+            ? () => unawaited(_addCurrentSongToUserPlaylist(track))
+            : null,
+        onDownload: online && qualities.isNotEmpty
+            ? () => unawaited(
+                _downloadCurrentTrack(
+                  track: track,
+                  platformId: platform,
+                  qualities: qualities,
+                  selectedQualityName: ref
+                      .read(playerControllerProvider)
+                      .currentSelectedQualityName,
+                ),
+              )
+            : null,
+        onViewDetail: canViewDetail
+            ? () => navigate(AppRoutes.songDetail, {
+                'id': track.id,
+                'platform': platform,
+                'title': track.title,
+              })
+            : null,
+        onViewComment:
+            online &&
+                platformSupportsSongComment(
+                  platformId: platform,
+                  platforms: platforms,
+                )
+            ? () => navigate(AppRoutes.onlineComments, {
+                'id': track.id,
+                'platform': platform,
+                'resource_type': 'song',
+                'title': track.title,
+              })
+            : null,
+        onViewSheetMusic:
+            online &&
+                canListSongSheetMusic(
+                  songId: track.id,
+                  platformId: platform,
+                  platforms: platforms,
+                )
+            ? () => navigate(AppRoutes.songSheetMusic, {
+                'song_id': track.id,
+                'platform': platform,
+                'title': track.title,
+              })
+            : null,
+        albumActionLabel: canViewAlbum
+            ? AppI18n.t(config, 'player.action.view_album')
+            : null,
+        onViewAlbum: canViewAlbum
+            ? () => navigate(AppRoutes.albumDetail, {
+                'id': track.albumId!.trim(),
+                'platform': platform,
+                'title': track.album ?? '',
+              })
+            : null,
+        artistActionLabel: artistLabel,
+        onViewArtists: artistLabel == null
+            ? null
+            : () => _openArtistSelectionAndGo(
+                platformId: platform,
+                artists: track.artists,
+              ),
+        onWatchMv: !online
+            ? null
+            : () => navigate(AppRoutes.videoDetail, {
+                'id': track.mvId!.trim(),
+                'platform': platform,
+                'title': track.title,
+              }),
+        onCopySongName: () =>
+            unawaited(copy(track.title, 'player.copy.name_done')),
+        onCopySongId: () => unawaited(copy(track.id, 'player.copy.id_done')),
+        onCopySongShareLink: online
+            ? () => unawaited(
+                copy(
+                  buildShareLink(
+                    type: 'song',
+                    platform: platform,
+                    id: track.id,
+                  ),
+                  'player.copy.share_done',
+                ),
+              )
+            : null,
+        onSearchSameName: searchPlatform == null || track.title.trim().isEmpty
+            ? null
+            : () => navigate(AppRoutes.onlineSearch, {
+                'platform': searchPlatform,
+                'keyword': track.title.trim(),
+              }),
+      ),
+    );
+  }
+
+  void _openPlaybackSettings() {
     final rootContext = context;
     unawaited(
       showPlayerStyledBottomSheet<_PlayerMoreAction>(
@@ -1020,134 +1182,67 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         showDragHandle: true,
         builder: (sheetContext) => Consumer(
           builder: (context, ref, child) {
+            final selection = ref.watch(
+              playerControllerProvider.select(
+                (state) => (
+                  track: state.currentTrack,
+                  speed: state.speed,
+                  volume: state.volume,
+                  quality: state.currentSelectedQualityName,
+                  qualities: state.currentAvailableQualities,
+                ),
+              ),
+            );
+            final locale = ref.watch(
+              appConfigProvider.select((config) => config.localeCode),
+            );
+            String label(String key) => AppI18n.tByLocaleCode(locale, key);
             final controller = ref.read(playerControllerProvider.notifier);
-            final track = ref.watch(
-              playerControllerProvider.select((s) => s.currentTrack),
-            );
-            final speed = ref.watch(
-              playerControllerProvider.select((s) => s.speed),
-            );
-            final volume = ref.watch(
-              playerControllerProvider.select((s) => s.volume),
-            );
-            final currentAvailableQualities = ref.watch(
-              playerControllerProvider.select(
-                (s) => s.currentAvailableQualities,
-              ),
-            );
-            final currentSelectedQuality = ref.watch(
-              playerControllerProvider.select(
-                (s) => s.currentSelectedQualityName,
-              ),
-            );
-            final onlinePlatformId = (track?.platform ?? '').trim();
-            final canOnline =
-                onlinePlatformId.isNotEmpty && onlinePlatformId != 'local';
-            final displayQualities = canOnline && track != null
+            final track = selection.track;
+            final platform = (track?.platform ?? '').trim();
+            final online = platform.isNotEmpty && platform != 'local';
+            final platforms = ref.watch(onlinePlatformsProvider).value;
+            final displayQualities = online && track != null
                 ? _buildSongQualityOptions(
-                    track: track,
-                    platformId: onlinePlatformId,
                     ref: ref,
+                    track: track,
+                    platformId: platform,
+                    platforms: platforms,
                   )
-                : currentAvailableQualities;
-            final currentSelectedQualityOption = _findQualityOptionByName(
+                : selection.qualities;
+            final quality = _findQualityOptionByName(
               displayQualities,
-              currentSelectedQuality,
+              selection.quality,
             );
-            final downloadQualities = canOnline && track != null
-                ? _buildSongQualityOptions(
-                    track: track,
-                    platformId: onlinePlatformId,
-                    ref: ref,
-                  )
-                : const <PlayerQualityOption>[];
-            final searchPlatformId = _resolveSearchPlatformId(
-              ref,
-              preferredPlatformId: canOnline ? onlinePlatformId : null,
-            );
-            final canSearchSameName =
-                track != null &&
-                track.title.trim().isNotEmpty &&
-                searchPlatformId != null;
-            final config = ref.read(appConfigProvider);
-            final platforms =
-                ref.watch(onlinePlatformsProvider).value ??
-                const <OnlinePlatform>[];
-            final canViewDetail =
-                track != null &&
-                canOpenSongDetail(
-                  songId: track.id,
-                  platformId: onlinePlatformId,
-                  platforms: platforms,
-                );
-            final canViewAlbum =
-                canOnline &&
-                hasValidAlbumId(track?.albumId) &&
-                platformSupportsAlbumDetail(
-                  platformId: onlinePlatformId,
-                  platforms: platforms,
-                );
-            final artistActionLabel = canOnline && track != null
-                ? (platformSupportsArtistDetail(
-                        platformId: onlinePlatformId,
-                        platforms: platforms,
-                      )
-                      ? songArtistActionLabel(
-                          track.artists,
-                          localeCode: config.localeCode,
-                        )
-                      : null)
-                : null;
-            final canViewArtists =
-                canOnline && track != null && artistActionLabel != null;
-            final canViewComments =
-                canOnline &&
-                platformSupportsSongComment(
-                  platformId: onlinePlatformId,
-                  platforms: platforms,
-                );
-            final canWatchMv =
-                canOnline &&
-                ((track?.mvId?.trim().isNotEmpty ?? false) &&
-                    (track?.mvId?.trim() != '0'));
-            final onlineKeyword = track?.title.trim() ?? '';
-            final onlineId = track?.id ?? '';
-            final onlineTitle = track?.title.trim() ?? '';
-            final sourcePlatformLabel = canOnline
-                ? resolvePlatformLabel(onlinePlatformId, platforms: platforms)
-                : 'LOCAL';
-
             return _buildConstrainedPlayerSheetList(
               context: sheetContext,
               useGroupedPanel: true,
-              listKey: const ValueKey<String>('player-more-sheet-list'),
+              listKey: const ValueKey<String>('player-playback-settings-list'),
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-              children: <Widget>[
+              children: [
                 if (track != null)
                   PlayerSheetHero(
                     coverUrl: track.artworkUrl,
                     title: track.title,
-                    subtitle: (track.artist ?? '-').trim().isEmpty
-                        ? '-'
-                        : (track.artist ?? '-'),
+                    subtitle: track.artist ?? '-',
                   ),
-                PlayerSheetGroup(AppI18n.t(config, 'player.more.playback')),
+                PlayerSheetGroup(label('player.more.playback')),
                 PlayerSheetActionTile(
                   icon: Icons.speed_rounded,
-                  title: AppI18n.t(config, 'player.action.speed'),
-                  subtitle: '${speed.toStringAsFixed(2)}x',
+                  title: label('player.action.speed'),
+                  subtitle: '${selection.speed.toStringAsFixed(2)}x',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _openSpeedSheet(rootContext, controller, speed);
+                    _openSpeedSheet(rootContext, controller, selection.speed);
                   },
                 ),
                 PlayerSheetActionTile(
                   icon: Icons.volume_up_rounded,
-                  title: AppI18n.t(config, 'player.action.volume'),
-                  subtitle: '${(volume * 100).round()}%',
+                  title: label('player.action.volume'),
+                  subtitle: '${(selection.volume * 100).round()}%',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _openVolumeSheet(rootContext, controller, volume);
+                    _openVolumeSheet(rootContext, controller, selection.volume);
                   },
                 ),
                 PlayerSleepTimerActionTile(
@@ -1158,285 +1253,39 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 ),
                 PlayerSheetActionTile(
                   icon: Icons.palette_outlined,
-                  title: AppI18n.t(config, 'player.action.style'),
-                  onTap: () {
-                    Navigator.of(
-                      sheetContext,
-                    ).pop(_PlayerMoreAction.openStyleSelection);
-                  },
+                  title: label('player.action.style'),
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_PlayerMoreAction.openStyleSelection),
                 ),
                 if (_usesMobileOrientationControls)
                   PlayerSheetActionTile(
                     icon: Icons.stay_current_landscape_rounded,
-                    title: AppI18n.t(config, 'player.action.landscape_mode'),
-                    onTap: () {
-                      Navigator.of(
-                        sheetContext,
-                      ).pop(_PlayerMoreAction.enterLandscape);
-                    },
+                    title: label('player.action.landscape_mode'),
+                    onTap: () => Navigator.of(
+                      sheetContext,
+                    ).pop(_PlayerMoreAction.enterLandscape),
                   ),
                 PlayerSheetActionTile(
                   icon: Icons.high_quality_rounded,
-                  title: AppI18n.t(config, 'player.action.quality'),
-                  subtitle: canOnline
-                      ? currentSelectedQualityOption?.name
-                      : track?.audioQualityLabel,
-                  enabled: canOnline && currentAvailableQualities.isNotEmpty,
-                  onTap: canOnline && currentAvailableQualities.isNotEmpty
-                      ? () async {
-                          Navigator.of(sheetContext).pop();
-                          final qualities = track != null
-                              ? await _resolveSongQualityOptions(
-                                  track: track,
-                                  platformId: onlinePlatformId,
-                                  ref: ref,
-                                )
-                              : displayQualities;
-                          if (!rootContext.mounted) {
-                            return;
-                          }
-                          _openQualitySheet(
-                            rootContext,
-                            controller,
-                            qualities,
-                            currentSelectedQuality,
-                          );
-                        }
-                      : null,
-                ),
-                PlayerSheetGroup(AppI18n.t(config, 'player.more.song')),
-                PlayerSheetActionTile(
-                  icon: Icons.search_rounded,
-                  title: AppI18n.t(config, 'player.action.search_same'),
-                  enabled: canSearchSameName,
-                  onTap: canSearchSameName
+                  title: label('player.action.quality'),
+                  subtitle: online ? quality?.name : track?.audioQualityLabel,
+                  enabled: online && selection.qualities.isNotEmpty,
+                  onTap: online && selection.qualities.isNotEmpty
                       ? () {
                           Navigator.of(sheetContext).pop();
-                          _goToDetail(
-                            Uri(
-                              path: AppRoutes.onlineSearch,
-                              queryParameters: <String, String>{
-                                'platform': searchPlatformId,
-                                'keyword': onlineKeyword,
-                              },
-                            ).toString(),
+                          unawaited(
+                            _openCurrentQualitySheet(rootContext, controller),
                           );
                         }
                       : null,
                 ),
-                if (canOnline)
-                  PlayerSheetActionTile(
-                    icon: Icons.download_rounded,
-                    title: AppI18n.t(config, 'player.action.download'),
-                    enabled: downloadQualities.isNotEmpty,
-                    onTap: downloadQualities.isEmpty
-                        ? null
-                        : () {
-                            Navigator.of(sheetContext).pop();
-                            unawaited(
-                              _downloadCurrentTrack(
-                                track: track!,
-                                platformId: onlinePlatformId,
-                                qualities: downloadQualities,
-                                selectedQualityName: currentSelectedQuality,
-                              ),
-                            );
-                          },
-                  ),
-                if (canViewDetail)
-                  PlayerSheetActionTile(
-                    icon: Icons.info_outline_rounded,
-                    title: AppI18n.t(config, 'song.action.view_detail'),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _goToDetail(
-                        Uri(
-                          path: AppRoutes.songDetail,
-                          queryParameters: <String, String>{
-                            'id': track.id,
-                            'platform': onlinePlatformId,
-                            'title': onlineTitle,
-                          },
-                        ).toString(),
-                      );
-                    },
-                  ),
-                if (canViewAlbum)
-                  PlayerSheetActionTile(
-                    icon: Icons.album_outlined,
-                    title: AppI18n.t(config, 'player.action.view_album'),
-                    subtitle: track?.album?.trim() ?? '',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _goToDetail(
-                        Uri(
-                          path: AppRoutes.albumDetail,
-                          queryParameters: <String, String>{
-                            'id': track!.albumId!.trim(),
-                            'platform': onlinePlatformId,
-                            if ((track.album ?? '').trim().isNotEmpty)
-                              'title': track.album!.trim(),
-                          },
-                        ).toString(),
-                      );
-                    },
-                  ),
-                if (canViewArtists)
-                  PlayerSheetActionTile(
-                    icon: Icons.person_outline_rounded,
-                    title: artistActionLabel,
-                    subtitle: track.artist ?? '',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _openArtistSelectionAndGo(
-                        platformId: onlinePlatformId,
-                        artists: track.artists,
-                      );
-                    },
-                  ),
-                if (track != null &&
-                    canListSongSheetMusic(
-                      songId: track.id,
-                      platformId: onlinePlatformId,
-                      platforms: platforms,
-                    ))
-                  PlayerSheetActionTile(
-                    icon: Icons.library_music_outlined,
-                    title: AppI18n.t(config, 'song.action.view_sheet_music'),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _goToDetail(
-                        Uri(
-                          path: AppRoutes.songSheetMusic,
-                          queryParameters: {
-                            'platform': onlinePlatformId,
-                            'song_id': track.id,
-                            'title': track.title,
-                          },
-                        ).toString(),
-                      );
-                    },
-                  ),
-                if (canViewComments)
-                  PlayerSheetActionTile(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    title: AppI18n.t(config, 'player.action.view_comments'),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _goToDetail(
-                        Uri(
-                          path: AppRoutes.onlineComments,
-                          queryParameters: <String, String>{
-                            'id': onlineId,
-                            'platform': onlinePlatformId,
-                            'resource_type': 'song',
-                            if (onlineTitle.isNotEmpty) 'title': onlineTitle,
-                          },
-                        ).toString(),
-                      );
-                    },
-                  ),
-                if (canOnline)
-                  PlayerSheetActionTile(
-                    icon: Icons.library_add_rounded,
-                    title: AppI18n.t(config, 'detail.batch.add_to_playlist'),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(_addCurrentSongToUserPlaylist(track!));
-                    },
-                  ),
-                PlayerSheetGroup(AppI18n.t(config, 'player.more.other')),
-                if (canOnline)
-                  PlayerSheetActionTile(
-                    icon: Icons.share_rounded,
-                    title: AppI18n.t(config, 'player.action.copy_share'),
-                    onTap: () async {
-                      Navigator.of(sheetContext).pop();
-                      await Clipboard.setData(
-                        ClipboardData(
-                          text: buildShareLink(
-                            type: 'song',
-                            platform: onlinePlatformId,
-                            id: track!.id,
-                          ),
-                        ),
-                      );
-                      if (!mounted) return;
-                      AppMessageService.showSuccess(
-                        AppI18n.t(config, 'player.copy.share_done'),
-                      );
-                    },
-                  ),
-                if (canOnline)
-                  PlayerSheetActionTile(
-                    icon: Icons.ondemand_video_rounded,
-                    title: AppI18n.t(config, 'player.action.watch_mv'),
-                    enabled: canWatchMv,
-                    onTap: canWatchMv
-                        ? () {
-                            Navigator.of(sheetContext).pop();
-                            _goToDetail(
-                              Uri(
-                                path: AppRoutes.videoDetail,
-                                queryParameters: <String, String>{
-                                  'id': track!.mvId!.trim(),
-                                  'platform': onlinePlatformId,
-                                  if (onlineTitle.isNotEmpty)
-                                    'title': onlineTitle,
-                                },
-                              ).toString(),
-                            );
-                          }
-                        : null,
-                  ),
-                PlayerSheetActionTile(
-                  icon: Icons.copy_rounded,
-                  title: AppI18n.t(config, 'player.action.copy_name'),
-                  enabled: track != null && track.title.trim().isNotEmpty,
-                  onTap: track == null || track.title.trim().isEmpty
-                      ? null
-                      : () async {
-                          Navigator.of(sheetContext).pop();
-                          await Clipboard.setData(
-                            ClipboardData(text: track.title),
-                          );
-                          if (!mounted) return;
-                          AppMessageService.showSuccess(
-                            AppI18n.t(config, 'player.copy.name_done'),
-                          );
-                        },
-                ),
-                PlayerSheetActionTile(
-                  icon: Icons.copy_rounded,
-                  title: AppI18n.t(config, 'player.action.copy_id'),
-                  enabled: track != null && track.id.trim().isNotEmpty,
-                  onTap: track == null || track.id.trim().isEmpty
-                      ? null
-                      : () async {
-                          Navigator.of(sheetContext).pop();
-                          await Clipboard.setData(
-                            ClipboardData(text: track.id),
-                          );
-                          if (!mounted) return;
-                          AppMessageService.showSuccess(
-                            AppI18n.t(config, 'player.copy.id_done'),
-                          );
-                        },
-                ),
-                PlayerSourceInfoRow(
-                  label: AppI18n.format(config, 'song.source', <String, String>{
-                    'platform': sourcePlatformLabel,
-                  }),
-                ),
-                const SizedBox(height: 4),
               ],
             );
           },
         ),
       ).then((action) {
-        if (action == null || !mounted || !rootContext.mounted) {
-          return;
-        }
+        if (action == null || !mounted || !rootContext.mounted) return;
         switch (action) {
           case _PlayerMoreAction.openStyleSelection:
             _openPlayerStyleSheet(rootContext);
@@ -2169,6 +2018,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
     required this.onOpenArtist,
     required this.onOpenQueue,
     required this.onOpenMore,
+    required this.onOpenPlaybackSettings,
     required this.onOpenLyrics,
     required this.onOpenQuality,
     required this.onOpenSpeed,
@@ -2184,6 +2034,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
   final VoidCallback? onOpenArtist;
   final VoidCallback onOpenQueue;
   final VoidCallback onOpenMore;
+  final VoidCallback onOpenPlaybackSettings;
   final VoidCallback onOpenLyrics;
   final VoidCallback onOpenQuality;
   final VoidCallback onOpenSpeed;
@@ -2203,7 +2054,10 @@ class _PlayerMetaControlPage extends StatelessWidget {
           : PlayerTrackHeaderLayout.standard,
     );
     final cassetteLabel = usesCassetteLabel ? trackHeader : null;
-    final utilityBar = _PlayerUtilityBar(onOpenMore: onOpenMore);
+    final utilityBar = _PlayerUtilityBar(
+      onOpenMore: onOpenMore,
+      onOpenPlaybackSettings: onOpenPlaybackSettings,
+    );
     final controls = <Widget>[
       utilityBar,
       _PlayerProgressSection(onSeek: onSeek),
@@ -2281,19 +2135,26 @@ class _PlayerMetaControlPage extends StatelessWidget {
 }
 
 class _PlayerUtilityBar extends StatelessWidget {
-  const _PlayerUtilityBar({required this.onOpenMore});
+  const _PlayerUtilityBar({
+    required this.onOpenMore,
+    required this.onOpenPlaybackSettings,
+  });
 
   final VoidCallback onOpenMore;
+  final VoidCallback onOpenPlaybackSettings;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 44,
       child: Row(
         children: <Widget>[
           const _PlayerFavoriteButton(),
           const Spacer(),
-          _PlayerUtilityRow(onOpenMore: onOpenMore),
+          _PlayerUtilityRow(
+            onOpenMore: onOpenMore,
+            onOpenPlaybackSettings: onOpenPlaybackSettings,
+          ),
         ],
       ),
     );
@@ -2301,9 +2162,13 @@ class _PlayerUtilityBar extends StatelessWidget {
 }
 
 class _PlayerUtilityRow extends ConsumerWidget {
-  const _PlayerUtilityRow({required this.onOpenMore});
+  const _PlayerUtilityRow({
+    required this.onOpenMore,
+    required this.onOpenPlaybackSettings,
+  });
 
   final VoidCallback onOpenMore;
+  final VoidCallback onOpenPlaybackSettings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2315,6 +2180,24 @@ class _PlayerUtilityRow extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         _PlayerUtilityButton(
+          key: const ValueKey('player-playback-settings-button'),
+          icon: AppUiTheme.usesCupertino(context)
+              ? CupertinoIcons.slider_horizontal_3
+              : Icons.tune_rounded,
+          color:
+              palette?.foreground.withValues(alpha: 0.88) ??
+              Colors.white.withValues(alpha: 0.82),
+          tooltip: AppI18n.tByLocaleCode(
+            Localizations.localeOf(context).languageCode,
+            'player.settings.title',
+          ),
+          onTap: isTrackTransitioning ? null : onOpenPlaybackSettings,
+        ),
+        _PlayerUtilityButton(
+          tooltip: AppI18n.tByLocaleCode(
+            Localizations.localeOf(context).languageCode,
+            'common.more',
+          ),
           icon: Icons.more_horiz_rounded,
           color:
               palette?.foreground.withValues(alpha: 0.88) ??
@@ -2344,7 +2227,7 @@ class _PlayerFavoriteButton extends ConsumerWidget {
     final canOnline = platformId.isNotEmpty && platformId != 'local';
 
     if (!canOnline || track == null) {
-      return const SizedBox(width: 40, height: 40);
+      return const SizedBox(width: 44, height: 44);
     }
 
     final isFavorited = ref.watch(
@@ -2386,24 +2269,34 @@ class _PlayerUtilityButton extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    this.tooltip,
+    super.key,
   });
 
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.38 : 1,
-      child: InkResponse(
-        onTap: onTap,
-        radius: 24,
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(icon, color: color, size: 22),
-        ),
+    final child = SizedBox(
+      width: 44,
+      height: 44,
+      child: Icon(icon, color: color, size: 22),
+    );
+    return Tooltip(
+      message: tooltip ?? '',
+      child: Opacity(
+        opacity: onTap == null ? 0.38 : 1,
+        child: AppUiTheme.usesCupertino(context)
+            ? CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(44, 44),
+                onPressed: onTap,
+                child: child,
+              )
+            : InkResponse(onTap: onTap, radius: 24, child: child),
       ),
     );
   }

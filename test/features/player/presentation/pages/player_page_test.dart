@@ -148,7 +148,9 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+          await tester.tap(
+            find.byKey(const ValueKey('player-playback-settings-button')),
+          );
           await tester.pumpAndSettle();
           await _scrollPlayerMoreSheetTo(tester, action);
           await tester.tap(find.text(action));
@@ -237,7 +239,9 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.tap(
+          find.byKey(const ValueKey('player-playback-settings-button')),
+        );
         await tester.pumpAndSettle();
         await _scrollPlayerMoreSheetTo(tester, 'Sleep Timer');
         await tester.tap(find.text('Sleep Timer'));
@@ -1105,10 +1109,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
 
-    await _scrollPlayerMoreSheetTo(tester, 'Download');
-    expect(find.text('Download'), findsOneWidget);
     await _scrollPlayerMoreSheetTo(tester, 'Add to Playlist');
     expect(find.text('Add to Playlist'), findsOneWidget);
+    await _scrollPlayerMoreSheetTo(tester, 'Download');
+    expect(find.text('Download'), findsOneWidget);
   });
 
   testWidgets('player more sheet uses action sheet height cap', (tester) async {
@@ -1122,11 +1126,13 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
 
     final listFinder = find.byKey(
-      const ValueKey<String>('player-more-sheet-list'),
+      const ValueKey<String>('player-playback-settings-list'),
     );
     final mediaHeight = MediaQuery.sizeOf(tester.element(listFinder)).height;
     expect(
@@ -1181,7 +1187,9 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
     await _scrollPlayerMoreSheetTo(tester, 'Sleep Timer');
     states.add(active);
@@ -1189,7 +1197,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    final listFinder = find.byKey(const ValueKey('player-more-sheet-list'));
+    final listFinder = find.byKey(
+      const ValueKey('player-playback-settings-list'),
+    );
     final initialList = tester.widget<ListView>(listFinder);
     final styleFinder = find.byWidgetPredicate(
       (widget) =>
@@ -1278,7 +1288,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
     await _scrollPlayerMoreSheetTo(tester, 'Sleep Timer');
     await tester.tap(find.text('Sleep Timer'));
@@ -1315,7 +1327,9 @@ void main() {
     await tester.pump();
     final before = playerController.snapshot;
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Speed'), findsOneWidget);
@@ -1399,7 +1413,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
     await _scrollPlayerMoreSheetTo(tester, 'Quality');
 
@@ -1488,7 +1504,8 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.more_horiz_rounded));
       await tester.pumpAndSettle();
-      await _scrollPlayerMoreSheetTo(tester, 'Watch MV');
+      await _scrollPlayerMoreSheetTo(tester, 'Copy Song ID');
+      expect(find.text('Watch MV'), findsNothing);
 
       expect(find.text('View Detail'), findsNothing);
       expect(find.text('View Album'), findsNothing);
@@ -1498,6 +1515,54 @@ void main() {
   );
 
   for (final style in AppUiStyle.values) {
+    testWidgets(
+      'player separates song actions from playback settings for $style',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        late _OnlineTrackPlayerController controller;
+        await tester.pumpWidget(
+          AppUiStyleScope(
+            style: style,
+            child: _buildPlayerTestApp(
+              controllerFactory: () =>
+                  controller = _OnlineTrackPlayerController(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final before = controller.snapshot;
+        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.pumpAndSettle();
+        expect(find.text('Speed'), findsNothing);
+        expect(find.text('Volume'), findsNothing);
+        expect(find.text('Player Style'), findsNothing);
+        expect(find.text('Play'), findsNothing);
+        expect(find.text('Play Next'), findsOneWidget);
+        expect(find.text('More Song Actions'), findsNothing);
+        if (style == AppUiStyle.cupertino) {
+          expect(find.byType(CupertinoActionSheet), findsNothing);
+          expect(find.byType(CupertinoListSection), findsWidgets);
+        }
+        await _scrollPlayerMoreSheetTo(tester, 'View Detail');
+        expect(find.text('View Detail'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('song-actions-close')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('player-playback-settings-button')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Speed'), findsOneWidget);
+        expect(find.text('Volume'), findsOneWidget);
+        expect(find.text('Play Next'), findsNothing);
+        expect(find.text('Download'), findsNothing);
+        expect(controller.snapshot.queue, same(before.queue));
+        expect(controller.snapshot.position, before.position);
+        expect(controller.snapshot.isPlaying, before.isPlaying);
+        expect(tester.takeException(), isNull);
+      },
+    );
     testWidgets(
       'actual player panels share close controls and native choices for $style',
       (tester) async {
@@ -1518,7 +1583,9 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.tap(
+          find.byKey(const ValueKey('player-playback-settings-button')),
+        );
         await tester.pumpAndSettle();
         if (style == AppUiStyle.cupertino) {
           expect(find.byType(CupertinoActionSheet), findsNothing);
@@ -1528,7 +1595,7 @@ void main() {
           final container = ProviderScope.containerOf(panel);
           final scrollable = tester.state<ScrollableState>(
             find.descendant(
-              of: find.byKey(const ValueKey('player-more-sheet-list')),
+              of: find.byKey(const ValueKey('player-playback-settings-list')),
               matching: find.byType(Scrollable),
             ),
           );
@@ -1571,7 +1638,9 @@ void main() {
           find.byKey(const ValueKey('player-quality-sheet-list')),
           findsNothing,
         );
-        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.tap(
+          find.byKey(const ValueKey('player-playback-settings-button')),
+        );
         await tester.pumpAndSettle();
         await _scrollPlayerMoreSheetTo(tester, 'Player Style');
         await tester.tap(find.text('Player Style'));
@@ -1587,7 +1656,9 @@ void main() {
           find.byKey(const ValueKey('player-style-selection-layout')),
           findsNothing,
         );
-        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.tap(
+          find.byKey(const ValueKey('player-playback-settings-button')),
+        );
         await tester.pumpAndSettle();
         await tester.dragFrom(
           tester.getCenter(
@@ -1597,7 +1668,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(
-          find.byKey(const ValueKey('player-more-sheet-list')),
+          find.byKey(const ValueKey('player-playback-settings-list')),
           findsNothing,
         );
         expect(tester.takeException(), isNull);
@@ -1617,7 +1688,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
     await _scrollPlayerMoreSheetTo(tester, 'Quality');
     await tester.tap(find.text('Quality'));
@@ -1697,6 +1770,15 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
+          await _saveInterfacePreview(
+            tester,
+            capture,
+            '${style.name}-${brightness.name}-player',
+          );
+          final navigator = Navigator.of(
+            tester.element(find.byType(PlayerPage)),
+            rootNavigator: true,
+          );
           await tester.tap(find.byIcon(Icons.more_horiz_rounded));
           await tester.pumpAndSettle();
           await _saveInterfacePreview(
@@ -1704,10 +1786,25 @@ void main() {
             capture,
             '${style.name}-${brightness.name}-more',
           );
-          final navigator = Navigator.of(
-            tester.element(find.byType(PlayerPage)),
-            rootNavigator: true,
+          await _scrollPlayerMoreSheetTo(tester, 'Copy Song ID');
+          await _saveInterfacePreview(
+            tester,
+            capture,
+            '${style.name}-${brightness.name}-more-scrolled',
           );
+          navigator.pop();
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('player-playback-settings-button')),
+          );
+          await tester.pumpAndSettle();
+          await _saveInterfacePreview(
+            tester,
+            capture,
+            '${style.name}-${brightness.name}-settings',
+          );
+          navigator.pop();
+          await tester.pumpAndSettle();
           for (final (action, name) in [
             ('Speed', 'speed'),
             ('Sleep Timer', 'sleep'),
@@ -1715,6 +1812,14 @@ void main() {
             ('Quality', 'quality'),
             ('Download', 'download'),
           ]) {
+            await tester.tap(
+              action == 'Download'
+                  ? find.byIcon(Icons.more_horiz_rounded)
+                  : find.byKey(
+                      const ValueKey('player-playback-settings-button'),
+                    ),
+            );
+            await tester.pumpAndSettle();
             await _scrollPlayerMoreSheetTo(tester, action);
             await tester.tap(find.text(action));
             await tester.pumpAndSettle();
@@ -1725,11 +1830,7 @@ void main() {
             );
             navigator.pop();
             await tester.pumpAndSettle();
-            await tester.tap(find.byIcon(Icons.more_horiz_rounded));
-            await tester.pumpAndSettle();
           }
-          navigator.pop();
-          await tester.pumpAndSettle();
           await tester.tap(find.byIcon(Icons.queue_music_rounded));
           await tester.pumpAndSettle();
           await _saveInterfacePreview(
@@ -3562,7 +3663,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Landscape Mode'), findsOneWidget);
     await _scrollPlayerMoreSheetTo(tester, 'Landscape Mode');
@@ -3597,7 +3700,9 @@ void main() {
       'SystemUiOverlay.bottom',
     ]);
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
     await _scrollPlayerMoreSheetTo(tester, 'Landscape Mode');
     await tester.tap(find.text('Landscape Mode'));
@@ -3711,7 +3816,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(
+      find.byKey(const ValueKey('player-playback-settings-button')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Landscape Mode'), findsNothing);
@@ -4223,14 +4330,14 @@ Widget _buildPlayerTestApp({
 }
 
 Future<void> _scrollPlayerMoreSheetTo(WidgetTester tester, String label) async {
+  final settings = find.byKey(const ValueKey('player-playback-settings-list'));
+  final songActions = find.byKey(const ValueKey('song-actions-sheet-list'));
+  final parent = settings.evaluate().isNotEmpty ? settings : songActions;
   await tester.scrollUntilVisible(
     find.text(label),
     120,
     scrollable: find
-        .descendant(
-          of: find.byKey(const ValueKey<String>('player-more-sheet-list')),
-          matching: find.byType(Scrollable),
-        )
+        .descendant(of: parent, matching: find.byType(Scrollable))
         .last,
   );
   await tester.pumpAndSettle();

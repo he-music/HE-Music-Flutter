@@ -431,6 +431,11 @@ void main() {
 class _TestPlayerController extends PlayerController {
   List<PlayerTrack> played = [];
   final appended = <PlayerTrack>[];
+  final nextTracks = <PlayerTrack>[];
+
+  @override
+  Future<void> insertNextTrack(PlayerTrack track) async =>
+      nextTracks.add(track);
   bool _appending = false;
 
   @override
@@ -493,6 +498,49 @@ class _TestLocalRepository implements LocalMusicRepository {
 }
 
 void _cupertinoMenuTests() {
+  for (final style in AppUiStyle.values) {
+    testWidgets(
+      'local song actions enqueue next without starting playback for $style',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildTestApp(
+            uiStyle: style,
+            controllerFactory: _PopulatedLocalLibraryController.new,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(LocalLibraryPage)),
+        );
+        final player =
+            container.read(playerControllerProvider.notifier)
+                as _TestPlayerController;
+        tester
+            .widget<SongListItem>(find.byType(SongListItem).first)
+            .onMoreTap!();
+        await tester.pumpAndSettle();
+        expect(find.text('Play Next'), findsOneWidget);
+        await tester.tap(find.text('Play Next'));
+        await tester.pumpAndSettle();
+        expect(player.nextTracks.single.path, _songs.first.filePath);
+        expect(player.played, isEmpty);
+        expect(container.read(playerControllerProvider).currentTrack, isNull);
+        tester
+            .widget<SongListItem>(find.byType(SongListItem).first)
+            .onMoreTap!();
+        await tester.pumpAndSettle();
+        expect(find.text('More Song Actions'), findsNothing);
+        expect(find.text('Edit Metadata'), findsOneWidget);
+        expect(find.text('Watch MV'), findsNothing);
+        Navigator.of(
+          tester.element(find.byType(LocalLibraryPage)),
+          rootNavigator: true,
+        ).pop();
+        await tester.pumpAndSettle();
+        await _disposePage(tester);
+      },
+    );
+  }
   testWidgets('local mobile Cupertino more menu opens and cancels', (
     tester,
   ) async {
@@ -506,10 +554,11 @@ void _cupertinoMenuTests() {
     final item = tester.widget<SongListItem>(find.byType(SongListItem).first);
     item.onMoreTap!();
     await tester.pumpAndSettle();
-    expect(find.byType(CupertinoActionSheet), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoListSection), findsWidgets);
     expect(find.byType(CupertinoActionSheet), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('song-actions-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('song-actions-sheet-list')), findsNothing);
     await _disposePage(tester);
   });
 }

@@ -7,7 +7,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_sheet_header.dart';
 import 'player_sheet_section.dart';
 
-/// A scrolling, grouped panel for the player's many contextual actions.
+/// A scrolling, grouped panel for the player's playback settings.
 class PlayerMorePanel extends StatelessWidget {
   const PlayerMorePanel({required this.children, this.listKey, super.key});
 
@@ -36,7 +36,7 @@ class PlayerMorePanel extends StatelessWidget {
           AppSheetHeader(
             title: AppI18n.tByLocaleCode(
               Localizations.localeOf(context).languageCode,
-              'common.more',
+              'player.settings.title',
             ),
           ),
           Flexible(

@@ -21,15 +21,20 @@ void main() {
       '$mode player sheet uses an opaque surface and preserves result',
       (tester) async {
         int? result;
+        final appTheme = ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
+          extensions: [AppUiTheme(style: mode)],
+        );
         await tester.pumpWidget(
           MaterialApp(
-            theme: ThemeData(extensions: [AppUiTheme(style: mode)]),
+            theme: appTheme,
             home: Builder(
               builder: (context) => Scaffold(
                 body: TextButton(
                   onPressed: () async {
                     result = await showPlayerStyledBottomSheet<int>(
                       context: context,
+                      useAppAccent: true,
                       builder: (context) => TextButton(
                         onPressed: () => Navigator.pop(context, 7),
                         child: const Text('Select solid'),
@@ -45,6 +50,12 @@ void main() {
         await tester.tap(find.text('Open solid'));
         await tester.pumpAndSettle();
         expect(find.byType(BackdropFilter), findsNothing);
+        final sheetTheme = Theme.of(tester.element(find.text('Select solid')));
+        expect(sheetTheme.colorScheme.primary, appTheme.colorScheme.primary);
+        expect(
+          sheetTheme.colorScheme.onPrimary,
+          appTheme.colorScheme.onPrimary,
+        );
         final surface = tester.widget<ColoredBox>(
           find.descendant(
             of: find.byType(PlayerSheetSurface),

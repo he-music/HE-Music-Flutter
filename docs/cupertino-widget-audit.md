@@ -6,16 +6,16 @@
 
 | 实际入口 | Cupertino 实现与保留行为 |
 | --- | --- |
-| [歌曲更多](../lib/shared/widgets/song_actions_sheet.dart) | 手机接入 `CupertinoActionSheet`，保留歌曲说明、禁用项、取消及 `SongActionsSheetController` 的关闭跟踪。 |
-| [本地歌曲更多](../lib/features/music_library/presentation/pages/local_library_page.dart) | 播放、队列、分享和元数据编辑共用自适应菜单。 |
+| [歌曲更多](../lib/shared/widgets/song_actions_sheet.dart) | 手机使用单层、可滚动的歌曲操作面板，Cupertino 按播放／内容导航／分享复制／移除分组；歌曲摘要和关闭入口固定，不再嵌套“更多操作”。无 MV 时隐藏对应入口，保留危险操作红色、背景开关及 `SongActionsSheetController` 的关闭跟踪。Material 共用操作数据，播放类图标使用应用主题色。 |
+| [本地歌曲更多](../lib/features/music_library/presentation/pages/local_library_page.dart) | 接入共享歌曲面板，立即播放与下一首播放语义独立，保留加入队列、文件分享和元数据编辑。 |
 | [下载任务更多](../lib/features/download/presentation/pages/download_page.dart) | 原生操作菜单保留暂停、重试、分享、禁用态和删除文件的二次确认。 |
 | [已下载歌曲操作](../lib/features/download/presentation/widgets/downloaded_music_content.dart) | 加入队列、重新下载和移除接入统一入口。 |
 | [用户歌单更多](../lib/features/my/presentation/pages/user_playlist_detail_page.dart) | 编辑／删除接入原生菜单，保留默认歌单的删除限制及删除确认。 |
-| [播放器更多](../lib/features/player/presentation/pages/player_page.dart) | 操作数量较多，使用播放器专属主题的 Cupertino 分组列表，按“播放设置／歌曲相关／分享与其他”组织。保留图标、实时摘要、可用状态、类型化返回值、播放器亮暗色板和系统栏保护；低频 Consumer 与局部睡眠摘要监听沿用原边界。 |
+| [播放器歌曲操作与播放设置](../lib/features/player/presentation/pages/player_page.dart) | 歌曲“更多”复用共享歌曲面板，省去重复的立即播放；倍速、音量、睡眠、音质和样式使用独立“播放设置”入口。保留播放器主题、系统栏保护、返回值及局部睡眠摘要监听。歌曲面板的 Material 强调色单独启用，不改变其他播放器面板的配色。 |
 | [多歌手选择](../lib/shared/helpers/song_artist_navigation_helper.dart) | 使用统一选择入口，保留歌手标签与选择返回值。 |
 | [视频菜单](../lib/features/video/presentation/widgets/video_fullscreen_controls.dart) | 倍速、画面适配、音质及窄屏更多菜单接入共享入口，保留自动隐藏暂停／恢复、全屏和画中画流程。 |
 
-桌面定位菜单继续保留鼠标位置和已有桌面交互。操作菜单使用 ActionSheet；复杂编辑、浏览和滚动面板继续使用适配后的底部面板。
+桌面定位菜单继续保留鼠标位置和已有桌面交互。短操作菜单使用 ActionSheet；复杂编辑、浏览和滚动面板继续使用适配后的底部面板。
 
 ## 输入、等待、刷新和播放控制
 
@@ -40,7 +40,7 @@
 - 播放和下载音质共用 `PlayerQualitySelectionSheet`，标题区固定显示“播放音质”或“下载音质”和关闭按钮。点击选项立即生效并关闭，直接关闭不修改选择。Cupertino 使用分组列表、内缩分隔线和强调色勾选，不重复展示每行的均衡器图标；格式、描述与文件大小使用次级文字。
 - 样式预览保留三轴分类、实时预览和独立滚动位置。Cupertino 选项使用原生按钮按压反馈、强调色描边及实心勾选徽标；大字号减少列数并允许名称换行。选择即时应用，“完成”仅关闭面板。
 - 多操作的“更多”使用分组功能面板；短小即时操作继续使用 `CupertinoActionSheet`，不把长设置列表塞入 ActionSheet。
-- 播放器“更多”和歌词选项共用 `PlayerSheetSection`。分组项底色局部监听“显示内容背景”：关闭时透明，保留内缩分隔线和按压反馈；面板外壳始终不透明。切换该设置不重新挂载面板、不重置滚动位置。
+- 播放器“播放设置”和歌词选项共用 `PlayerSheetSection`。分组项底色局部监听“显示内容背景”：关闭时透明，保留内缩分隔线和按压反馈；面板外壳始终不透明。切换该设置不重新挂载面板、不重置滚动位置。
 - 歌词选项在 Cupertino 下分为“歌词来源／显示与同步”，固定显示标题和“完成”，使用原生列表、开关及图标；歌词底部入口和播放控制使用 Cupertino 按钮反馈。保留搜索／偏移跳转等待旧面板退出的顺序，以及嵌套字号、颜色、样式选择。逐字歌词开关有独立的必要配置监听，修改后立即更新显示。
 - 音质、样式和“更多”继续通过 `showPlayerStyledBottomSheet`／`showAppThemedBottomSheet` 呈现，保留真实下拉关闭、`PopupRoute` 和安全区底色。取消先前仅绘制拖动条却没有拖动手势的 `showCupertinoModalPopup` 包装；原生操作表仍通过 Cupertino popup 呈现。
 - 实际播放器入口回归验证音质关闭、样式完成、分组列表和拖动关闭；下载入口验证普通页面／播放器上下文、浅深色、取消及选择结果。
