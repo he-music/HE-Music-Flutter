@@ -68,6 +68,7 @@ import '../widgets/player_control_bar.dart';
 import '../widgets/lyric_photo_dimmer.dart';
 import '../widgets/player_lyric_page.dart';
 import '../widgets/player_more_sheet_widgets.dart';
+import '../widgets/player_quality_selection_sheet.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/player_queue_sheet.dart';
 import '../widgets/player_sleep_timer_sheet.dart';
@@ -1015,7 +1016,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     unawaited(
       showPlayerStyledBottomSheet<_PlayerMoreAction>(
         context: context,
-        useCupertinoActionSheet: true,
         isScrollControlled: true,
         showDragHandle: true,
         builder: (sheetContext) => Consumer(
@@ -1119,7 +1119,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
             return _buildConstrainedPlayerSheetList(
               context: sheetContext,
-              useCupertinoActionSheet: true,
+              useGroupedPanel: true,
               listKey: const ValueKey<String>('player-more-sheet-list'),
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
               children: <Widget>[
@@ -1131,6 +1131,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                         ? '-'
                         : (track.artist ?? '-'),
                   ),
+                PlayerSheetGroup(AppI18n.t(config, 'player.more.playback')),
                 PlayerSheetActionTile(
                   icon: Icons.speed_rounded,
                   title: AppI18n.t(config, 'player.action.speed'),
@@ -1175,25 +1176,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                     },
                   ),
                 PlayerSheetActionTile(
-                  icon: Icons.search_rounded,
-                  title: AppI18n.t(config, 'player.action.search_same'),
-                  enabled: canSearchSameName,
-                  onTap: canSearchSameName
-                      ? () {
-                          Navigator.of(sheetContext).pop();
-                          _goToDetail(
-                            Uri(
-                              path: AppRoutes.onlineSearch,
-                              queryParameters: <String, String>{
-                                'platform': searchPlatformId,
-                                'keyword': onlineKeyword,
-                              },
-                            ).toString(),
-                          );
-                        }
-                      : null,
-                ),
-                PlayerSheetActionTile(
                   icon: Icons.high_quality_rounded,
                   title: AppI18n.t(config, 'player.action.quality'),
                   subtitle: canOnline
@@ -1218,6 +1200,26 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                             controller,
                             qualities,
                             currentSelectedQuality,
+                          );
+                        }
+                      : null,
+                ),
+                PlayerSheetGroup(AppI18n.t(config, 'player.more.song')),
+                PlayerSheetActionTile(
+                  icon: Icons.search_rounded,
+                  title: AppI18n.t(config, 'player.action.search_same'),
+                  enabled: canSearchSameName,
+                  onTap: canSearchSameName
+                      ? () {
+                          Navigator.of(sheetContext).pop();
+                          _goToDetail(
+                            Uri(
+                              path: AppRoutes.onlineSearch,
+                              queryParameters: <String, String>{
+                                'platform': searchPlatformId,
+                                'keyword': onlineKeyword,
+                              },
+                            ).toString(),
                           );
                         }
                       : null,
@@ -1343,6 +1345,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                       unawaited(_addCurrentSongToUserPlaylist(track!));
                     },
                   ),
+                PlayerSheetGroup(AppI18n.t(config, 'player.more.other')),
                 if (canOnline)
                   PlayerSheetActionTile(
                     icon: Icons.share_rounded,
@@ -1450,7 +1453,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       isScrollControlled: true,
       fixedHeightFactor: PlayerStyleSelectionSheet.heightFactorOf(context),
       maxWidth: 640,
-      useCupertinoModalPopup: true,
       showDragHandle: true,
       builder: (context) => PlayerStyleSelectionSheet(
         track: ref.read(playerControllerProvider).currentTrack,
@@ -1717,28 +1719,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       fitContent: true,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheetContext) {
-        return _buildConstrainedPlayerSheetList(
-          context: sheetContext,
-          listKey: const ValueKey<String>('player-quality-sheet-list'),
-          children: <Widget>[
-            for (final quality in availableQualities)
-              AppListTile(
-                leading: const Icon(Icons.graphic_eq_rounded),
-                title: Text(quality.name),
-                subtitle: _buildQualitySubtitle(quality),
-                trailing: current == quality.name
-                    ? const Icon(Icons.check_rounded)
-                    : null,
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  controller.switchCurrentQualityByName(quality.name);
-                },
-              ),
-            const SizedBox(height: 6),
-          ],
-        );
-      },
+      builder: (sheetContext) => PlayerQualitySelectionSheet(
+        title: AppI18n.tByLocaleCode(
+          Localizations.localeOf(sheetContext).languageCode,
+          'player.quality.title',
+        ),
+        listKey: const ValueKey<String>('player-quality-sheet-list'),
+        qualities: availableQualities,
+        selectedQualityName: current,
+        onSelected: (quality) {
+          Navigator.of(sheetContext).pop();
+          controller.switchCurrentQualityByName(quality.name);
+        },
+      ),
     );
   }
 
@@ -1895,18 +1888,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
     return null;
   }
-
-  Widget? _buildQualitySubtitle(PlayerQualityOption quality) {
-    final parts = <String>[
-      if ((quality.description ?? '').trim().isNotEmpty)
-        quality.description!.trim(),
-      if (quality.sizeLabel.isNotEmpty) quality.sizeLabel,
-    ];
-    if (parts.isEmpty) {
-      return null;
-    }
-    return Text(parts.join(' · '));
-  }
 }
 
 Widget _buildConstrainedPlayerSheetList({
@@ -1914,17 +1895,17 @@ Widget _buildConstrainedPlayerSheetList({
   required List<Widget> children,
   Key? listKey,
   EdgeInsetsGeometry? padding,
-  bool useCupertinoActionSheet = false,
+  bool useGroupedPanel = false,
 }) {
-  if (useCupertinoActionSheet && AppUiTheme.usesCupertino(context)) {
-    return PlayerMoreActionSheet(listKey: listKey, children: children);
+  if (useGroupedPanel && AppUiTheme.usesCupertino(context)) {
+    return PlayerMorePanel(listKey: listKey, children: children);
   }
   return SafeArea(
     child: ListView(
       key: listKey,
       shrinkWrap: true,
       padding: padding,
-      children: children,
+      children: children.where((child) => child is! PlayerSheetGroup).toList(),
     ),
   );
 }

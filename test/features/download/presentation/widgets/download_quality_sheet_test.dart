@@ -1,3 +1,7 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +13,80 @@ import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
+  for (final playerContext in [false, true]) {
+    for (final brightness in Brightness.values) {
+      testWidgets(
+        'Cupertino download choices select and close with player=$playerContext brightness=$brightness',
+        (tester) async {
+          PlayerQualityOption? selected;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(
+                brightness: brightness,
+                extensions: [
+                  const AppUiTheme(style: AppUiStyle.cupertino),
+                  if (playerContext)
+                    AppPlayerStyleTheme(
+                      systemOverlayStyle: SystemUiOverlayStyle.light,
+                      sheetBrightness: brightness,
+                    ),
+                ],
+              ),
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    child: const Text('Open'),
+                    onPressed: () async {
+                      selected = await showDownloadQualitySheet(
+                        context: context,
+                        selectedQualityName: 'HQ',
+                        qualities: const [
+                          PlayerQualityOption(
+                            name: 'HQ',
+                            quality: 320,
+                            format: 'mp3',
+                            url: '',
+                            description: 'High quality',
+                          ),
+                          PlayerQualityOption(
+                            name: 'FLAC',
+                            quality: 999,
+                            format: 'flac',
+                            url: '',
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          expect(find.byType(CupertinoListSection), findsOneWidget);
+          expect(find.byIcon(CupertinoIcons.check_mark), findsOneWidget);
+          expect(find.byIcon(Icons.graphic_eq_rounded), findsNothing);
+          expect(
+            Theme.of(
+              tester.element(find.byType(CupertinoListSection)),
+            ).brightness,
+            brightness,
+          );
+          await tester.tap(find.text('Close'));
+          await tester.pumpAndSettle();
+          expect(selected, isNull);
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('FLAC'));
+          await tester.pumpAndSettle();
+          expect(selected?.name, 'FLAC');
+          expect(find.byType(CupertinoListSection), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
   test(
     'build download quality options reverses quality choices and deduplicates',
     () {
@@ -104,7 +182,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Choose Quality'), findsOneWidget);
+      expect(find.text('Download Quality'), findsOneWidget);
       expect(find.text('FLAC · 无损音质'), findsOneWidget);
       expect(find.text('320MP3'), findsOneWidget);
       expect(find.text('flac · 118 MB'), findsOneWidget);
@@ -262,7 +340,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        _renderedTextColor(tester, 'Choose Quality'),
+        _renderedTextColor(tester, 'Download Quality'),
         testCase.sheet.foregroundColor,
       );
       expect(

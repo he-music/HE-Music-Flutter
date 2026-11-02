@@ -9,7 +9,7 @@ import '../../../player/domain/entities/player_quality_option.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/link_info_size_parser.dart';
 
-import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../player/presentation/widgets/player_quality_selection_sheet.dart';
 
 List<PlayerQualityOption> buildDownloadQualityOptions({
   required List<LinkInfo> links,
@@ -42,41 +42,16 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
   required List<PlayerQualityOption> qualities,
   String? selectedQualityName,
 }) {
-  Widget buildSheet(BuildContext sheetContext) {
-    final localeCode = Localizations.localeOf(sheetContext).languageCode;
-    final maxHeight =
-        MediaQuery.of(sheetContext).size.height *
-        LayoutTokens.actionSheetMaxHeightFactor;
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: ListView(
-          key: const ValueKey<String>('download-quality-sheet-list'),
-          shrinkWrap: true,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-              child: Text(
-                AppI18n.tByLocaleCode(localeCode, 'download.quality.title'),
-                style: Theme.of(sheetContext).textTheme.titleMedium,
-              ),
-            ),
-            for (final quality in qualities)
-              AppListTile(
-                leading: const Icon(Icons.graphic_eq_rounded),
-                title: Text(_qualityTitle(quality)),
-                subtitle: _QualitySubtitle(quality: quality),
-                trailing: selectedQualityName == quality.name
-                    ? const Icon(Icons.check_rounded)
-                    : null,
-                onTap: () => Navigator.of(sheetContext).pop(quality),
-              ),
-            const SizedBox(height: 6),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget buildSheet(BuildContext sheetContext) => PlayerQualitySelectionSheet(
+    title: AppI18n.tByLocaleCode(
+      Localizations.localeOf(sheetContext).languageCode,
+      'download.quality.title',
+    ),
+    listKey: const ValueKey<String>('download-quality-sheet-list'),
+    qualities: qualities,
+    selectedQualityName: selectedQualityName,
+    onSelected: (quality) => Navigator.of(sheetContext).pop(quality),
+  );
 
   // 该面板也用于首页，仅播放器上下文使用播放器专属主题。
   if (Theme.of(context).extension<AppPlayerStyleTheme>() != null) {
@@ -85,7 +60,6 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
       isScrollControlled: true,
       fitContent: true,
       heightFactor: LayoutTokens.actionSheetMaxHeightFactor,
-      useCupertinoModalPopup: true,
       builder: buildSheet,
     );
   }
@@ -94,38 +68,6 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
     heightFactor: LayoutTokens.actionSheetMaxHeightFactor,
     fitContent: true,
     isScrollControlled: true,
-    useCupertinoModalPopup: true,
     builder: buildSheet,
   );
-}
-
-String _qualityTitle(PlayerQualityOption quality) {
-  return quality.name;
-}
-
-class _QualitySubtitle extends StatelessWidget {
-  const _QualitySubtitle({required this.quality});
-
-  final PlayerQualityOption quality;
-
-  @override
-  Widget build(BuildContext context) {
-    final description = (quality.description ?? '').trim();
-    final parts = <String>[
-      if (quality.format.trim().isNotEmpty) quality.format.trim(),
-      if (quality.sizeLabel.isNotEmpty) quality.sizeLabel,
-    ];
-    final detail = parts.join(' · ');
-    if (description.isEmpty) {
-      return Text(detail);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Text('${quality.name} · $description'),
-        if (detail.isNotEmpty) Text(detail),
-      ],
-    );
-  }
 }

@@ -84,17 +84,24 @@ void main() {
       });
     }
   }
-  testWidgets('style names and category tabs accommodate large text', (
-    tester,
-  ) async {
-    await _pumpSheet(
-      tester,
-      _FakeSpectrumPermission(current: RealtimeSpectrumPermissionState.granted),
-      textScale: 3,
+  for (final cupertino in [false, true]) {
+    testWidgets(
+      'style names and category tabs accommodate large text cupertino=$cupertino',
+      (tester) async {
+        await _pumpSheet(
+          tester,
+          _FakeSpectrumPermission(
+            current: RealtimeSpectrumPermissionState.granted,
+          ),
+          textScale: 3,
+          cupertino: cupertino,
+        );
+        expectTextHeightFits(tester, find.byType(PlayerStyleSelectionSheet));
+        expect(find.text('Done').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
     );
-    expectTextHeightFits(tester, find.byType(PlayerStyleSelectionSheet));
-    expect(tester.takeException(), isNull);
-  });
+  }
 
   testWidgets('Android 已授权时直接保存环形样式且不重复申请', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;

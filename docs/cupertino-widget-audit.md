@@ -1,6 +1,6 @@
 # Cupertino 控件覆盖核查
 
-对照 [Flutter 官方 Cupertino 组件目录](https://docs.flutter.dev/ui/widgets/cupertino)，本轮已把共享适配接入实际业务入口。界面由用户选择的 `AppUiStyle` 决定；继续使用 Flutter SDK Material / Cupertino，不引入第三方界面依赖，也不修改 `ThemeData.platform` 模拟平台。
+对照 [Flutter 官方 Cupertino 组件目录](https://docs.flutter.dev/ui/widgets/cupertino)，本轮已把共享适配接入实际业务入口。界面风格来源为“跟随系统平台／Material／Cupertino”：Apple 平台默认 Cupertino，其余平台默认 Material，用户手动选择优先，最终解析为 `AppUiStyle`；继续使用 Flutter SDK Material / Cupertino，不引入第三方界面依赖，也不修改 `ThemeData.platform` 模拟平台。
 
 ## 操作菜单
 
@@ -11,7 +11,7 @@
 | [下载任务更多](../lib/features/download/presentation/pages/download_page.dart) | 原生操作菜单保留暂停、重试、分享、禁用态和删除文件的二次确认。 |
 | [已下载歌曲操作](../lib/features/download/presentation/widgets/downloaded_music_content.dart) | 加入队列、重新下载和移除接入统一入口。 |
 | [用户歌单更多](../lib/features/my/presentation/pages/user_playlist_detail_page.dart) | 编辑／删除接入原生菜单，保留默认歌单的删除限制及删除确认。 |
-| [播放器更多](../lib/features/player/presentation/pages/player_page.dart) | 使用播放器专属主题的 `CupertinoActionSheet`。复用原有 Consumer、操作行和类型化返回值，保留实时倍速、音量、睡眠摘要、可用状态、播放器亮暗色板和系统栏保护；强调色取所选 Navigator 的应用主题，避免画布浅色影响亮色菜单对比。 |
+| [播放器更多](../lib/features/player/presentation/pages/player_page.dart) | 操作数量较多，使用播放器专属主题的 Cupertino 分组列表，按“播放设置／歌曲相关／分享与其他”组织。保留图标、实时摘要、可用状态、类型化返回值、播放器亮暗色板和系统栏保护；低频 Consumer 与局部睡眠摘要监听沿用原边界。 |
 | [多歌手选择](../lib/shared/helpers/song_artist_navigation_helper.dart) | 使用统一选择入口，保留歌手标签与选择返回值。 |
 | [视频菜单](../lib/features/video/presentation/widgets/video_fullscreen_controls.dart) | 倍速、画面适配、音质及窄屏更多菜单接入共享入口，保留自动隐藏暂停／恢复、全屏和画中画流程。 |
 
@@ -35,6 +35,14 @@
 
 真实下载百分比、缓冲和 seek 进度继续表达可测量进度。系统 `MediaQuery.disableAnimations` 与应用内皮肤动画开关独立，皮肤开关不改变页面收到的系统减少动画设置。
 
+## 音质选择与样式预览
+
+- 播放和下载音质共用 `PlayerQualitySelectionSheet`，标题区固定显示“播放音质”或“下载音质”和关闭按钮。点击选项立即生效并关闭，直接关闭不修改选择。Cupertino 使用分组列表、内缩分隔线和强调色勾选，不重复展示每行的均衡器图标；格式、描述与文件大小使用次级文字。
+- 样式预览保留三轴分类、实时预览和独立滚动位置。Cupertino 选项使用原生按钮按压反馈、强调色描边及实心勾选徽标；大字号减少列数并允许名称换行。选择即时应用，“完成”仅关闭面板。
+- 多操作的“更多”使用分组功能面板；短小即时操作继续使用 `CupertinoActionSheet`，不把长设置列表塞入 ActionSheet。
+- 音质、样式和“更多”继续通过 `showPlayerStyledBottomSheet`／`showAppThemedBottomSheet` 呈现，保留真实下拉关闭、`PopupRoute` 和安全区底色。取消先前仅绘制拖动条却没有拖动手势的 `showCupertinoModalPopup` 包装；原生操作表仍通过 Cupertino popup 呈现。
+- 实际播放器入口回归验证音质关闭、样式完成、分组列表和拖动关闭；下载入口验证普通页面／播放器上下文、浅深色、取消及选择结果。
+
 ## 保留的结构和可选优化
 
 - 保留 `MaterialApp.router`、GoRouter、分支 Navigator、Riverpod 和路由观察器。
@@ -47,6 +55,6 @@
 
 ## 验证范围
 
-组件与业务测试覆盖两种风格、输入与重置、原生菜单返回及取消、刷新竞态与失败重试、视频菜单、播放器缓冲与 seek、滚动及重建范围。本轮最终 `make analyze` 无问题，完整 `make test` 为 **3,070 通过、23 跳过**；格式检查及 `git diff --check` 通过。独立只读复核覆盖共享输入、菜单、刷新和播放器增量，未报告未解决的 P1/P2。`make player-interface-previews` 已导出双风格浅深色共 20 张真实组件截图；首页基线比较和 Cupertino 皮肤预览随完整测试通过。
+本轮 `flutter analyze` 无问题，完整 `flutter test --machine` 统计用户可见测试为 **3,077 通过、23 跳过**（不计测试运行器隐藏的加载项）。新增真实播放器入口与下载入口回归覆盖音质选中及关闭、Cupertino 分组、样式完成、大字号和真实拖动关闭。`git diff --check` 通过。双风格浅深色预览导出共 28 张，新增播放音质与下载音质截图，并核对 Cupertino 浅深色的列表分组、强调色选中、标题对齐、样式卡片和底部安全区。
 
 自动化验证不代替真机的 IME、读屏、全屏／画中画和 profile 帧率验收；对应操作清单保留在 [界面风格验收](interface-style-acceptance.md)。

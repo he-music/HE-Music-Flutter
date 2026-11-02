@@ -4,76 +4,92 @@ import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../app/i18n/app_i18n.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
 
-/// The more menu keeps its existing consumers and actions inside the SDK sheet.
-class PlayerMoreActionSheet extends StatelessWidget {
-  const PlayerMoreActionSheet({
-    required this.children,
-    this.listKey,
-    super.key,
-  });
+/// A scrolling, grouped panel for the player's many contextual actions.
+class PlayerMorePanel extends StatelessWidget {
+  const PlayerMorePanel({required this.children, this.listKey, super.key});
 
   final List<Widget> children;
   final Key? listKey;
 
   @override
   Widget build(BuildContext context) {
-    final heroes = children.whereType<PlayerSheetHero>().toList();
-    final sources = children.whereType<PlayerSourceInfoRow>().toList();
-    final typography = Theme.of(context).textTheme;
-    final scaler = MediaQuery.textScalerOf(context);
-    final titleHeight =
-        scaler.scale(typography.titleMedium?.fontSize ?? 16) *
-        (typography.titleMedium?.height ?? 1.2);
-    final subtitleHeight =
-        scaler.scale(typography.bodySmall?.fontSize ?? 12) *
-        (typography.bodySmall?.height ?? 1.2);
-    final textHeight = titleHeight + subtitleHeight + 3;
-    // The SDK sheet measures intrinsic height; the cover image uses LayoutBuilder.
-    final heroHeight = (textHeight < 48 ? 48.0 : textHeight) + 14;
-    return _PlayerActionSheetScope(
-      child: CupertinoActionSheet(
-        key: listKey,
-        title: heroes.isEmpty
-            ? null
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final hero in heroes)
-                    SizedBox(height: heroHeight, child: hero),
-                ],
-              ),
-        message: sources.isEmpty
-            ? null
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [for (final source in sources) Text(source.label)],
-              ),
-        actions: [
-          for (final child in children)
-            if (child is! PlayerSheetHero &&
-                child is! PlayerSourceInfoRow &&
-                child is! SizedBox)
-              child,
+    final groups = <(String, List<Widget>)>[];
+    for (final child in children) {
+      if (child is PlayerSheetGroup) {
+        groups.add((child.title, <Widget>[]));
+      } else if (groups.isNotEmpty &&
+          child is! PlayerSheetHero &&
+          child is! PlayerSourceInfoRow &&
+          child is! SizedBox) {
+        groups.last.$2.add(child);
+      }
+    }
+    final theme = Theme.of(context);
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppSheetHeader(
+            title: AppI18n.tByLocaleCode(
+              Localizations.localeOf(context).languageCode,
+              'common.more',
+            ),
+          ),
+          Flexible(
+            child: ListView(
+              key: listKey,
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                ...children.whereType<PlayerSheetHero>(),
+                for (final (title, rows) in groups)
+                  if (rows.isNotEmpty)
+                    CupertinoListSection.insetGrouped(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      backgroundColor: Colors.transparent,
+                      header: Semantics(
+                        header: true,
+                        child: Text(
+                          title,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      decoration: BoxDecoration(
+                        color: Color.alphaBlend(
+                          theme.colorScheme.onSurface.withValues(alpha: 0.04),
+                          theme.colorScheme.surface,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      children: rows,
+                    ),
+                ...children.whereType<PlayerSourceInfoRow>(),
+              ],
+            ),
+          ),
         ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(CupertinoLocalizations.of(context).cancelButtonLabel),
-        ),
       ),
     );
   }
 }
 
-class _PlayerActionSheetScope extends InheritedWidget {
-  const _PlayerActionSheetScope({required super.child});
+/// A structural group marker, omitted from the Material action list.
+class PlayerSheetGroup extends StatelessWidget {
+  const PlayerSheetGroup(this.title, {super.key});
 
-  static bool contains(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_PlayerActionSheetScope>() !=
-      null;
+  final String title;
 
   @override
-  bool updateShouldNotify(_PlayerActionSheetScope oldWidget) => false;
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 /// 更多操作表单的头部，显示封面、标题和副标题
@@ -171,26 +187,6 @@ class PlayerSheetActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (_PlayerActionSheetScope.contains(context)) {
-      final actionable = enabled && onTap != null;
-      final color = actionable
-          ? CupertinoColors.label.resolveFrom(context)
-          : CupertinoColors.inactiveGray.resolveFrom(context);
-      final label = Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(title, style: TextStyle(color: color)),
-          if ((subtitle ?? '').trim().isNotEmpty)
-            Text(
-              subtitle!.trim(),
-              style: TextStyle(color: color.withValues(alpha: 0.72)),
-            ),
-        ],
-      );
-      return actionable
-          ? CupertinoActionSheetAction(onPressed: onTap!, child: label)
-          : CupertinoButton(onPressed: null, child: label);
-    }
     return AppListTile(
       enabled: enabled,
       leading: Icon(icon, size: 22),

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/cupertino.dart';
 import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../shared/widgets/app_scrollbar.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../../../app/app_message_service.dart';
@@ -130,7 +131,19 @@ class _PlayerStyleSelectionSheetState
         );
         final grid = _StyleOptionGrid(
           key: ValueKey(_activeAxis),
-          columns: wide && !compact ? 5 : 3,
+          columns: math.max(
+            1,
+            math.min(
+              wide && !compact ? 5 : 3,
+              ((constraints.maxWidth - 32) /
+                      (96 *
+                          math.max(
+                            1,
+                            MediaQuery.textScalerOf(context).scale(14) / 14,
+                          )))
+                  .floor(),
+            ),
+          ),
           controller: _optionScrollControllers[_activeAxis]!,
           options: options,
           selectedId: selectedId,
@@ -149,9 +162,9 @@ class _PlayerStyleSelectionSheetState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    label('player.action.style'),
-                    style: Theme.of(context).textTheme.titleLarge,
+                  AppSheetHeader(
+                    title: label('player.action.style'),
+                    padding: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 12),
                   if (!compact) ...[preview, const SizedBox(height: 16)],
@@ -518,119 +531,126 @@ class _StyleOptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: spec.label,
-      child: SizedBox(
-        width: double.infinity,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            key: ValueKey<String>('player-style-option-${spec.id}'),
-            onTap: enabled ? onTap : null,
-            borderRadius: BorderRadius.circular(8),
-            child: AnimatedOpacity(
-              opacity: enabled || pending ? 1 : 0.48,
-              duration: const Duration(milliseconds: 150),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 82,
-                      height: 126,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(
-                          color: selected
-                              ? colorScheme.onSurface
-                              : colorScheme.outlineVariant,
-                          width: selected ? 2 : 1,
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            Image.asset(
-                              spec.previewAsset,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  Icons.image_not_supported_outlined,
-                                  color: colorScheme.onSurfaceVariant,
-                                );
-                              },
-                            ),
-                            if (selected && !pending)
-                              Align(
-                                alignment: Alignment.topRight,
-                                child: Container(
-                                  width: 22,
-                                  height: 22,
-                                  margin: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.surface,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.check_rounded,
-                                    size: 16,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                            if (pending)
-                              ColoredBox(
-                                color: colorScheme.scrim.withValues(
-                                  alpha: 0.42,
-                                ),
-                                child: Center(
-                                  child: SizedBox.square(
-                                    dimension: 22,
-                                    child: AppActivityIndicator(
-                                      size: 22,
-                                      strokeWidth: 2,
-                                      color: colorScheme.onPrimary,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+    final colors = theme.colorScheme;
+    final cupertino = AppUiTheme.usesCupertino(context);
+    final selectionColor = cupertino ? colors.primary : colors.onSurface;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 150);
+    final content = AnimatedOpacity(
+      opacity: enabled || pending ? 1 : 0.48,
+      duration: duration,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: duration,
+              width: 82,
+              height: 126,
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(cupertino ? 10 : 7),
+                border: Border.all(
+                  color: selected ? selectionColor : colors.outlineVariant,
+                  width: selected ? 2 : 1,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(cupertino ? 8 : 6),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      spec.previewAsset,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                      errorBuilder: (_, _, _) => Icon(
+                        cupertino
+                            ? CupertinoIcons.photo
+                            : Icons.image_not_supported_outlined,
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 32),
-                      child: Text(
-                        spec.label,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: selected
-                              ? colorScheme.onSurface
-                              : colorScheme.onSurface.withValues(alpha: 0.8),
-                          fontWeight: selected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
+                    if (selected && !pending)
+                      Align(
+                        alignment: AlignmentDirectional.topEnd,
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          margin: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: cupertino ? colors.primary : colors.surface,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            cupertino
+                                ? CupertinoIcons.check_mark
+                                : Icons.check_rounded,
+                            size: 16,
+                            color: cupertino
+                                ? colors.onPrimary
+                                : colors.onSurface,
+                          ),
                         ),
                       ),
-                    ),
+                    if (pending)
+                      ColoredBox(
+                        color: colors.scrim.withValues(alpha: 0.42),
+                        child: Center(
+                          child: AppActivityIndicator(
+                            size: 22,
+                            strokeWidth: 2,
+                            color: colors.onPrimary,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
-          ),
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 32),
+              child: Text(
+                spec.label,
+                maxLines: cupertino ? null : 2,
+                overflow: cupertino ? null : TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: selected ? selectionColor : colors.onSurfaceVariant,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+    final key = ValueKey<String>('player-style-option-${spec.id}');
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      child: SizedBox(
+        width: double.infinity,
+        child: cupertino
+            ? CupertinoButton(
+                key: key,
+                padding: EdgeInsets.zero,
+                onPressed: enabled ? onTap : null,
+                child: content,
+              )
+            : Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: key,
+                  onTap: enabled ? onTap : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: content,
+                ),
+              ),
       ),
     );
   }

@@ -1384,7 +1384,7 @@ void main() {
     await tester.tap(find.text('Download'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Choose Quality'), findsOneWidget);
+    expect(find.text('Download Quality'), findsOneWidget);
     expect(find.text('SQ'), findsWidgets);
     expect(find.text('HQ'), findsWidgets);
   });
@@ -1408,7 +1408,7 @@ void main() {
 
     await tester.tap(find.text('Quality'));
     await tester.pumpAndSettle();
-    expect(find.text('Choose Quality'), findsNothing);
+    expect(find.text('Download Quality'), findsNothing);
   });
 
   testWidgets('player more sheet shows detail entry for online track', (
@@ -1496,6 +1496,84 @@ void main() {
       expect(find.text('View Comments'), findsNothing);
     },
   );
+
+  for (final style in AppUiStyle.values) {
+    testWidgets(
+      'actual player panels share close controls and native choices for $style',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.padding = const FakeViewPadding(bottom: 34);
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          AppUiStyleScope(
+            style: style,
+            child: _buildPlayerTestApp(
+              controllerFactory: _OnlineTrackPlayerController.new,
+              config: AppConfigState.initial.copyWith(
+                localeCode: 'en',
+                uiStyle: style,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.pumpAndSettle();
+        if (style == AppUiStyle.cupertino) {
+          expect(find.byType(CupertinoActionSheet), findsNothing);
+          expect(find.byType(CupertinoListSection), findsWidgets);
+          expect(find.text('Playback'), findsOneWidget);
+        }
+        await _scrollPlayerMoreSheetTo(tester, 'Quality');
+        await tester.tap(find.text('Quality'));
+        await tester.pumpAndSettle();
+        expect(find.text('Playback Quality'), findsOneWidget);
+        expect(find.text('Close'), findsOneWidget);
+        if (style == AppUiStyle.cupertino) {
+          expect(find.byIcon(CupertinoIcons.check_mark), findsOneWidget);
+          expect(find.byIcon(Icons.graphic_eq_rounded), findsNothing);
+          expect(find.byType(CupertinoListTile), findsNWidgets(2));
+        }
+        await tester.tap(find.text('Close'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('player-quality-sheet-list')),
+          findsNothing,
+        );
+        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.pumpAndSettle();
+        await _scrollPlayerMoreSheetTo(tester, 'Player Style');
+        await tester.tap(find.text('Player Style'));
+        await tester.pumpAndSettle();
+        final card = find.byKey(const ValueKey('player-style-option-classic'));
+        if (style == AppUiStyle.cupertino) {
+          expect(tester.widget(card), isA<CupertinoButton>());
+        }
+        expect(find.text('Done'), findsOneWidget);
+        await tester.tap(find.text('Done'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('player-style-selection-layout')),
+          findsNothing,
+        );
+        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.pumpAndSettle();
+        await tester.dragFrom(
+          tester.getCenter(
+            find.byKey(const ValueKey('player-sheet-drag-handle')),
+          ),
+          const Offset(0, 600),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('player-more-sheet-list')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('player switch quality sheet shows quality description', (
     tester,
@@ -1604,6 +1682,8 @@ void main() {
             ('Speed', 'speed'),
             ('Sleep Timer', 'sleep'),
             ('Player Style', 'style'),
+            ('Quality', 'quality'),
+            ('Download', 'download'),
           ]) {
             await _scrollPlayerMoreSheetTo(tester, action);
             await tester.tap(find.text(action));
