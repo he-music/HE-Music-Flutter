@@ -1,7 +1,17 @@
 import '../models/he_music_models.dart';
+import 'chapter_sort.dart';
 import 'song_text_comparator.dart';
 
-enum SongSortField { original, title, artist, album, duration, size, createdAt }
+enum SongSortField {
+  original,
+  title,
+  chapter,
+  artist,
+  album,
+  duration,
+  size,
+  createdAt,
+}
 
 extension SongSortFieldX on SongSortField {
   String get databaseKey =>
@@ -67,6 +77,13 @@ List<T> sortSongItems<T>(
   if (preference.field == SongSortField.original || source.length < 2) {
     return source;
   }
+  if (preference.field == SongSortField.chapter) {
+    return sortChapterItems(
+      source,
+      titleOf: (item) => valuesOf(item).title,
+      ascending: preference.ascending,
+    );
+  }
   final entries = [
     for (var index = 0; index < source.length; index++)
       (item: source[index], index: index, values: valuesOf(source[index])),
@@ -89,6 +106,7 @@ List<T> sortSongItems<T>(
     final comparison = switch (preference.field) {
       SongSortField.original => 0,
       SongSortField.title => compareSongText(left.title, right.title),
+      SongSortField.chapter => 0, // Handled before preparing ordinary fields.
       SongSortField.artist => compareSongText(left.artist, right.artist),
       SongSortField.album => compareSongText(left.album, right.album),
       SongSortField.duration => (left.duration ?? 0).compareTo(

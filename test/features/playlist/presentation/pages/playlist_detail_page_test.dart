@@ -24,8 +24,108 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
 import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
+import 'package:he_music_flutter/features/player/domain/entities/player_queue_source.dart';
+import 'package:he_music_flutter/shared/widgets/song_info_list_section.dart';
+import 'package:he_music_flutter/shared/widgets/song_sort_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'chapter order is shared by playlist display, playback and queue sync',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'song_list_sort': '{"field":"chapter","ascending":true}',
+      });
+      final repository = _ControlledPlaylistDetailRepository();
+      final player = _RecordingPlaylistPlayerController();
+      const request = PlaylistDetailRequest(
+        id: 'playlist-1',
+        platform: 'qq',
+        title: '章节歌单',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(() => player),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+            playlistDetailRepositoryProvider.overrideWithValue(repository),
+            favoriteSongStatusProvider.overrideWith(
+              _TestFavoriteSongStatusController.new,
+            ),
+            favoriteCollectionStatusProvider.overrideWith(
+              _LikedPlaylistCollectionStatusController.new,
+            ),
+          ],
+          child: const MaterialApp(
+            home: PlaylistDetailPage(
+              id: 'playlist-1',
+              platform: 'qq',
+              title: '章节歌单',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      repository.completeInfo(request);
+      await tester.pump();
+      expect(
+        tester.widget<SongSortButton>(find.byType(SongSortButton)).enabled,
+        isFalse,
+      );
+      repository.completeSongs(
+        request,
+        songs: [
+          for (final entry in {
+            'ten': '故事 第十章',
+            'two': '故事 第二章',
+            'one': '故事 第一章',
+            'unknown': '普通歌曲',
+          }.entries)
+            SongInfo.fromMap({
+              'id': entry.key,
+              'name': entry.value,
+              'platform': 'qq',
+            }),
+        ],
+      );
+      await tester.pumpAndSettle();
+      final section = tester.widget<SongInfoListSection>(
+        find.byType(SongInfoListSection),
+      );
+      expect(section.songs.map((song) => song.id), [
+        'one',
+        'two',
+        'ten',
+        'unknown',
+      ]);
+      expect(player.syncedQueues, isEmpty);
+      await tester.tap(find.text('故事 第二章'));
+      await tester.pump();
+      expect(player.queue.map((track) => track.id), [
+        'one',
+        'two',
+        'ten',
+        'unknown',
+      ]);
+      expect(player.startIndex, 1);
+      await tester.tap(find.byKey(const Key('song-sort-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('降序'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('song-sort-confirm')));
+      await tester.pumpAndSettle();
+      expect(player.syncedQueues, [
+        ['ten', 'two', 'one', 'unknown'],
+      ]);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets(
     'song count loads every remaining page even when the header collapses',
     (tester) async {
@@ -320,6 +420,36 @@ class _TestPlayerController extends PlayerController {
   }
 }
 
+class _RecordingPlaylistPlayerController extends _TestPlayerController {
+  List<PlayerTrack> queue = [];
+  int? startIndex;
+  final syncedQueues = <List<String>>[];
+
+  @override
+  Future<void> replaceQueue(
+    List<PlayerTrack> queue, {
+    int startIndex = 0,
+    bool autoplay = true,
+    PlayerQueueSource? queueSource,
+    bool isRadioMode = false,
+    String? currentRadioId,
+    String? currentRadioPlatform,
+    int? currentRadioPageIndex,
+  }) async {
+    this.queue = queue;
+    this.startIndex = startIndex;
+  }
+
+  @override
+  Future<bool> reorderQueueForSource(
+    List<IdPlatformInfo> orderedSongs, {
+    required PlayerQueueSource source,
+  }) async {
+    syncedQueues.add(orderedSongs.map((song) => song.id).toList());
+    return true;
+  }
+}
+
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
   @override
   Future<List<OnlinePlatform>> build() async {
@@ -432,13 +562,16 @@ class _ControlledPlaylistDetailRepository implements PlaylistDetailRepository {
     );
   }
 
-  void completeSongs(PlaylistDetailRequest request) {
+  void completeSongs(
+    PlaylistDetailRequest request, {
+    List<SongInfo> songs = const [],
+  }) {
     _songCompleters[request.cacheKey]!.complete(
-      const PlaylistDetailSongsPageResult(
-        songs: <SongInfo>[],
+      PlaylistDetailSongsPageResult(
+        songs: songs,
         pageIndex: 1,
         pageSize: playlistDetailSongsPageSize,
-        totalCount: 0,
+        totalCount: songs.length,
         hasMore: false,
       ),
     );

@@ -69,3 +69,4 @@ app.*.map.json
 !/docs/cupertino-widget-audit.md
 !/docs/sheet-music.md
 !/docs/song-list-pagination.md
+!/docs/chapter-sort.md

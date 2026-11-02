@@ -17,6 +17,7 @@ import 'app_button.dart';
 const _defaultSongSortFields = <SongSortField>[
   SongSortField.original,
   SongSortField.title,
+  SongSortField.chapter,
   SongSortField.artist,
   SongSortField.album,
   SongSortField.duration,
@@ -264,6 +265,8 @@ class _SongSortSheetState extends State<_SongSortSheet> {
                                     SongSortField.original =>
                                       Icons.format_list_numbered_rounded,
                                     SongSortField.title => Icons.title_rounded,
+                                    SongSortField.chapter =>
+                                      Icons.format_list_numbered_rounded,
                                     SongSortField.artist =>
                                       Icons.person_outline_rounded,
                                     SongSortField.album => Icons.album_outlined,

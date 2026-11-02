@@ -53,6 +53,38 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+  for (final cupertino in [false, true]) {
+    testWidgets('章节 is selectable and persists with cupertino=$cupertino', (
+      tester,
+    ) async {
+      final changes = <SongSortPreference>[];
+      await tester.pumpWidget(
+        _wrap(
+          SongSortButton(onChanged: changes.add),
+          cupertino: cupertino,
+          localeCode: 'zh',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('song-sort-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('章节'), findsOneWidget);
+      expect(find.text('章节顺序'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('song-sort-field-chapter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('song-sort-confirm')));
+      await tester.pumpAndSettle();
+      expect(changes, [const SongSortPreference(field: SongSortField.chapter)]);
+      expect(find.byTooltip('歌曲排序: 章节 · 升序'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        jsonDecode(prefs.getString(SongSortPreferenceController.storageKey)!),
+        {'field': 'chapter', 'ascending': true},
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   testWidgets('confirming a new order persists it and notifies exactly once', (
     tester,
@@ -373,29 +405,38 @@ void main() {
   });
 }
 
-Widget _wrap(Widget child, {double textScale = 1, bool cupertino = false}) =>
-    ProviderScope(
-      overrides: [appConfigProvider.overrideWith(_TestAppConfig.new)],
-      child: MaterialApp(
-        theme: ThemeData(
-          fontFamily: 'ToolbarTest',
-          extensions: [
-            AppUiTheme(
-              style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material,
-            ),
-          ],
+Widget _wrap(
+  Widget child, {
+  double textScale = 1,
+  bool cupertino = false,
+  String localeCode = 'en',
+}) => ProviderScope(
+  overrides: [appConfigProvider.overrideWith(() => _TestAppConfig(localeCode))],
+  child: MaterialApp(
+    theme: ThemeData(
+      fontFamily: 'ToolbarTest',
+      extensions: [
+        AppUiTheme(
+          style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material,
         ),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
-        ),
-        home: Scaffold(body: Center(child: child)),
-      ),
-    );
+      ],
+    ),
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      child: child!,
+    ),
+    home: Scaffold(body: Center(child: child)),
+  ),
+);
 
 class _TestAppConfig extends AppConfigController {
+  _TestAppConfig(this.localeCode);
+
+  final String localeCode;
+
   @override
-  AppConfigState build() => AppConfigState.initial.copyWith(localeCode: 'en');
+  AppConfigState build() =>
+      AppConfigState.initial.copyWith(localeCode: localeCode);
 }

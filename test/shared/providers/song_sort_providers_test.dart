@@ -28,6 +28,35 @@ void main() {
     expect(second.read(songSortPreferenceProvider), preference);
   });
 
+  test('chapter preference restores and sorts the shared song list', () async {
+    final first = ProviderContainer();
+    final controller = first.read(songSortPreferenceProvider.notifier);
+    await controller.waitUntilHydrated();
+    await controller.setPreference(
+      const SongSortPreference(field: SongSortField.chapter, ascending: false),
+    );
+    first.dispose();
+    final restored = ProviderContainer();
+    addTearDown(restored.dispose);
+    await restored
+        .read(songSortPreferenceProvider.notifier)
+        .waitUntilHydrated();
+    final songs = [
+      _song('one', '故事 第一章'),
+      _song('unknown', '普通歌曲'),
+      _song('ten', '故事 第十章'),
+      _song('two', '故事 第二章'),
+    ];
+    expect(
+      restored.read(sortedSongInfoProvider(songs)).map((song) => song.id),
+      ['ten', 'two', 'one', 'unknown'],
+    );
+    expect(
+      restored.read(songSortPreferenceProvider),
+      const SongSortPreference(field: SongSortField.chapter, ascending: false),
+    );
+  });
+
   test(
     'an edit before hydration wins over the previously saved preference',
     () async {
