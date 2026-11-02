@@ -1524,6 +1524,36 @@ void main() {
           expect(find.byType(CupertinoActionSheet), findsNothing);
           expect(find.byType(CupertinoListSection), findsWidgets);
           expect(find.text('Playback'), findsOneWidget);
+          final panel = tester.element(find.byType(PlayerMorePanel));
+          final container = ProviderScope.containerOf(panel);
+          final scrollable = tester.state<ScrollableState>(
+            find.descendant(
+              of: find.byKey(const ValueKey('player-more-sheet-list')),
+              matching: find.byType(Scrollable),
+            ),
+          );
+          for (final enabled in [false, true, false]) {
+            container
+                .read(appConfigProvider.notifier)
+                .setShowContentBackground(enabled);
+            await tester.pumpAndSettle();
+            expect(tester.element(find.byType(PlayerMorePanel)), same(panel));
+            expect(scrollable.position.pixels, 0);
+            for (final section in tester.widgetList<CupertinoListSection>(
+              find.byType(CupertinoListSection),
+            )) {
+              expect(section.decoration!.color!.a, enabled ? 1 : 0);
+            }
+            final surface = tester.widget<ColoredBox>(
+              find
+                  .descendant(
+                    of: find.byKey(const ValueKey('player-sheet-surface')),
+                    matching: find.byType(ColoredBox),
+                  )
+                  .first,
+            );
+            expect(surface.color.a, 1);
+          }
         }
         await _scrollPlayerMoreSheetTo(tester, 'Quality');
         await tester.tap(find.text('Quality'));
@@ -4238,6 +4268,11 @@ class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() {
     return config;
+  }
+
+  @override
+  void setShowContentBackground(bool value) {
+    state = state.copyWith(showContentBackground: value);
   }
 
   @override

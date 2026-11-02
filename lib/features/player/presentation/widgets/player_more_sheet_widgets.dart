@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../shared/widgets/app_list_tile.dart';
@@ -6,6 +5,7 @@ import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_sheet_header.dart';
+import 'player_sheet_section.dart';
 
 /// A scrolling, grouped panel for the player's many contextual actions.
 class PlayerMorePanel extends StatelessWidget {
@@ -27,7 +27,6 @@ class PlayerMorePanel extends StatelessWidget {
         groups.last.$2.add(child);
       }
     }
-    final theme = Theme.of(context);
     return SafeArea(
       top: false,
       child: Column(
@@ -49,29 +48,7 @@ class PlayerMorePanel extends StatelessWidget {
                 ...children.whereType<PlayerSheetHero>(),
                 for (final (title, rows) in groups)
                   if (rows.isNotEmpty)
-                    CupertinoListSection.insetGrouped(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      backgroundColor: Colors.transparent,
-                      header: Semantics(
-                        header: true,
-                        child: Text(
-                          title,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      decoration: BoxDecoration(
-                        color: Color.alphaBlend(
-                          theme.colorScheme.onSurface.withValues(alpha: 0.04),
-                          theme.colorScheme.surface,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      children: rows,
-                    ),
+                    PlayerSheetSection(title: title, children: rows),
                 ...children.whereType<PlayerSourceInfoRow>(),
               ],
             ),

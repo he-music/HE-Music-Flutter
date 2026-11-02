@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,9 @@ import '../../../../app/config/app_lyric_highlight_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/player/app_player_style_registry.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
+import '../../../player/presentation/widgets/player_sheet_section.dart';
 import '../../../player/domain/entities/player_track.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../../settings/presentation/pages/settings_item_presentation_registry.dart';
@@ -156,6 +160,36 @@ class _LyricPlayButton extends ConsumerWidget {
     final playing = ref.watch(
       playerControllerProvider.select((state) => state.isPlaying),
     );
+    void onPressed() =>
+        ref.read(playerControllerProvider.notifier).togglePlayPause();
+    final label = AppI18n.tByLocaleCode(
+      locale,
+      playing ? 'player.pause' : 'player.play',
+    );
+    if (AppUiTheme.usesCupertino(context)) {
+      return SizedBox.square(
+        key: const ValueKey('lyric-play-control'),
+        dimension: 52,
+        child: Tooltip(
+          message: label,
+          child: Semantics(
+            label: label,
+            button: true,
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(26),
+              onPressed: onPressed,
+              child: Icon(
+                playing ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+                size: 30,
+                color: const Color(0xff182532),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return SizedBox.square(
       key: const ValueKey('lyric-play-control'),
       dimension: 52,
@@ -194,35 +228,39 @@ class _OutlinedLyricButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = muted || onPressed == null ? Colors.white54 : Colors.white;
+    final content = Center(
+      child: Container(
+        key: ValueKey('lyric-$controlId-outline'),
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color, width: 1.2),
+        ),
+        child: Text(
+          glyph,
+          textScaler: TextScaler.noScaling,
+          style: TextStyle(fontSize: 14, color: color, height: 1),
+        ),
+      ),
+    );
     return Tooltip(
       message: tooltip,
       child: Semantics(
         button: true,
         enabled: onPressed != null,
+        label: tooltip,
         child: SizedBox.square(
           key: ValueKey('lyric-$controlId-control'),
           dimension: 48,
-          child: InkResponse(
-            onTap: onPressed,
-            radius: 24,
-            child: Center(
-              child: Container(
-                key: ValueKey('lyric-$controlId-outline'),
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: color, width: 1.2),
-                ),
-                child: Text(
-                  glyph,
-                  textScaler: TextScaler.noScaling,
-                  style: TextStyle(fontSize: 14, color: color, height: 1),
-                ),
-              ),
-            ),
-          ),
+          child: AppUiTheme.usesCupertino(context)
+              ? CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: onPressed,
+                  child: content,
+                )
+              : InkResponse(onTap: onPressed, radius: 24, child: content),
         ),
       ),
     );
@@ -257,6 +295,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
           config.lyricHighlightMode,
           config.lyricHighlightPreset,
           config.lyricHighlightCustomColor,
+          config.enableWordByWordLyric,
         ),
       ),
     );
@@ -265,210 +304,304 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
     final currentRequest = ref.watch(currentLyricRequestProvider);
     final document = ref.watch(currentLyricDocumentProvider);
     final source = currentRequest == _request ? document.value?.source : null;
+    final cupertino = AppUiTheme.usesCupertino(context);
+    Widget section(String title, List<Widget> children) => cupertino
+        ? PlayerSheetSection(title: title, children: children)
+        : Column(children: children);
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.sizeOf(context).height * .8,
         ),
-        child: ListView(
-          shrinkWrap: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            AppListTile(
-              title: Text(
-                widget.target.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            if (cupertino)
+              AppSheetHeader(
+                title: AppI18n.t(config, 'player.lyric.options'),
+                actionLabel: AppI18n.t(config, 'common.done'),
               ),
-              subtitle: Text(
-                source == null
-                    ? AppI18n.t(config, 'player.lyrics')
-                    : AppI18n.t(config, 'player.lyric.source.${source.name}'),
-              ),
-            ),
-            FutureBuilder<bool>(
-              future: _hasManual,
-              builder: (context, snapshot) => Column(
+            Flexible(
+              child: ListView(
+                key: const ValueKey('lyric-options-list'),
+                padding: cupertino
+                    ? const EdgeInsets.symmetric(horizontal: 16)
+                    : EdgeInsets.zero,
+                shrinkWrap: true,
                 children: [
                   AppListTile(
-                    leading: const Icon(Icons.search),
                     title: Text(
-                      AppI18n.t(
-                        config,
-                        snapshot.data == true
-                            ? 'player.lyric.replace'
-                            : 'player.lyric.search',
-                      ),
+                      widget.target.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    onTap: _restoring
-                        ? null
-                        : () => Navigator.pop(
-                            context,
-                            _LyricOptionsAction.search,
+                    subtitle: Text(
+                      source == null
+                          ? AppI18n.t(config, 'player.lyrics')
+                          : AppI18n.t(
+                              config,
+                              'player.lyric.source.${source.name}',
+                            ),
+                    ),
+                  ),
+                  FutureBuilder<bool>(
+                    future: _hasManual,
+                    builder: (context, snapshot) => section(
+                      AppI18n.t(config, 'player.lyric.source_group'),
+                      [
+                        AppListTile(
+                          leading: Icon(
+                            cupertino ? CupertinoIcons.search : Icons.search,
                           ),
+                          title: Text(
+                            AppI18n.t(
+                              config,
+                              snapshot.data == true
+                                  ? 'player.lyric.replace'
+                                  : 'player.lyric.search',
+                            ),
+                          ),
+                          onTap: _restoring
+                              ? null
+                              : () => Navigator.pop(
+                                  context,
+                                  _LyricOptionsAction.search,
+                                ),
+                        ),
+                        if (snapshot.data == false &&
+                            (source == LyricSource.cache ||
+                                source == LyricSource.online))
+                          AppListTile(
+                            leading: Icon(
+                              cupertino
+                                  ? CupertinoIcons.refresh
+                                  : Icons.refresh,
+                            ),
+                            title: Text(
+                              AppI18n.t(config, 'player.lyric.refresh'),
+                            ),
+                            subtitle: Text(
+                              AppI18n.t(config, 'player.lyric.cache_hint'),
+                            ),
+                            trailing: _restoring
+                                ? const SizedBox.square(
+                                    dimension: 24,
+                                    child: AppActivityIndicator(strokeWidth: 2),
+                                  )
+                                : null,
+                            onTap: _restoring
+                                ? null
+                                : () async {
+                                    setState(() => _restoring = true);
+                                    try {
+                                      await ref
+                                          .read(lyricStoreProvider)
+                                          .refreshAutomatic(_request);
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                    } catch (_) {
+                                      AppMessageService.showError(
+                                        AppI18n.t(
+                                          config,
+                                          'player.lyric.refresh_failed',
+                                        ),
+                                      );
+                                      if (mounted) {
+                                        setState(() => _restoring = false);
+                                      }
+                                    }
+                                  },
+                          ),
+                        if (snapshot.data == true)
+                          AppListTile(
+                            leading: Icon(
+                              cupertino
+                                  ? CupertinoIcons.arrow_counterclockwise
+                                  : Icons.restore,
+                            ),
+                            title: Text(
+                              AppI18n.t(config, 'player.lyric.restore'),
+                            ),
+                            trailing: _restoring
+                                ? const SizedBox.square(
+                                    dimension: 24,
+                                    child: AppActivityIndicator(strokeWidth: 2),
+                                  )
+                                : null,
+                            onTap: _restoring
+                                ? null
+                                : () async {
+                                    setState(() => _restoring = true);
+                                    try {
+                                      await ref
+                                          .read(lyricStoreProvider)
+                                          .restoreDefault(_request);
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                    } catch (_) {
+                                      AppMessageService.showError(
+                                        AppI18n.t(
+                                          config,
+                                          'player.lyric.restore_failed',
+                                        ),
+                                      );
+                                      if (mounted) {
+                                        setState(() => _restoring = false);
+                                      }
+                                    }
+                                  },
+                          ),
+                      ],
+                    ),
                   ),
-                  if (snapshot.data == false &&
-                      (source == LyricSource.cache ||
-                          source == LyricSource.online))
-                    AppListTile(
-                      leading: const Icon(Icons.refresh),
-                      title: Text(AppI18n.t(config, 'player.lyric.refresh')),
-                      subtitle: Text(
-                        AppI18n.t(config, 'player.lyric.cache_hint'),
+                  if (!cupertino) const Divider(),
+                  section(AppI18n.t(config, 'player.lyric.display_group'), [
+                    if (currentRequest == _request &&
+                        document.value?.isEmpty == false)
+                      LyricOffsetTile(
+                        request: _request,
+                        manual: source == LyricSource.manual,
+                        onTap: () =>
+                            Navigator.pop(context, _LyricOptionsAction.offset),
                       ),
-                      trailing: _restoring
-                          ? const SizedBox.square(
-                              dimension: 24,
-                              child: AppActivityIndicator(strokeWidth: 2),
-                            )
-                          : null,
-                      onTap: _restoring
-                          ? null
-                          : () async {
-                              setState(() => _restoring = true);
-                              try {
-                                await ref
-                                    .read(lyricStoreProvider)
-                                    .refreshAutomatic(_request);
-                                if (context.mounted) Navigator.pop(context);
-                              } catch (_) {
-                                AppMessageService.showError(
-                                  AppI18n.t(
-                                    config,
-                                    'player.lyric.refresh_failed',
-                                  ),
-                                );
-                                if (mounted) setState(() => _restoring = false);
-                              }
-                            },
-                    ),
-                  if (snapshot.data == true)
                     AppListTile(
-                      leading: const Icon(Icons.restore),
-                      title: Text(AppI18n.t(config, 'player.lyric.restore')),
-                      trailing: _restoring
-                          ? const SizedBox.square(
-                              dimension: 24,
-                              child: AppActivityIndicator(strokeWidth: 2),
-                            )
-                          : null,
-                      onTap: _restoring
-                          ? null
-                          : () async {
-                              setState(() => _restoring = true);
-                              try {
-                                await ref
-                                    .read(lyricStoreProvider)
-                                    .restoreDefault(_request);
-                                if (context.mounted) Navigator.pop(context);
-                              } catch (_) {
-                                AppMessageService.showError(
-                                  AppI18n.t(
+                      showChevron: cupertino,
+                      leading: Icon(
+                        cupertino
+                            ? CupertinoIcons.textformat
+                            : Icons.style_outlined,
+                      ),
+                      title: Text(AppI18n.t(config, 'player.lyric.style')),
+                      onTap: () => showSettingsSingleChoiceSheet<String>(
+                        context: context,
+                        playerStyled: true,
+                        title: AppI18n.t(config, 'player.lyric.style'),
+                        currentValue: config.playerLyricsId,
+                        options: [
+                          for (final option
+                              in AppPlayerLyricsRegistry.instance.options)
+                            SettingsChoiceOption(
+                              value: option.metadata.id,
+                              title: AppI18n.t(
+                                config,
+                                option.metadata.labelKey,
+                              ),
+                            ),
+                        ],
+                        onSelected: controller.setPlayerLyricsId,
+                      ),
+                    ),
+                    if (AppPlayerBackdropRegistry.instance
+                        .resolve(config.playerBackdropId)
+                        .backdropKind
+                        .supportsLyricBrightness)
+                      const LyricPhotoBrightnessTile(),
+                    AppListTile(
+                      showChevron: cupertino,
+                      leading: Icon(
+                        cupertino
+                            ? CupertinoIcons.textformat_size
+                            : Icons.text_fields,
+                      ),
+                      title: Text(
+                        AppI18n.t(config, 'settings.lyric_font_preset'),
+                      ),
+                      subtitle: Text(
+                        settingsLyricFontPresetLabel(
+                          config.lyricFontPreset,
+                          config,
+                        ),
+                      ),
+                      onTap: () =>
+                          showSettingsSingleChoiceSheet<AppLyricFontPreset>(
+                            context: context,
+                            playerStyled: true,
+                            title: AppI18n.t(
+                              config,
+                              'settings.lyric_font_preset',
+                            ),
+                            currentValue: config.lyricFontPreset,
+                            options: [
+                              for (final preset in AppLyricFontPreset.values)
+                                SettingsChoiceOption(
+                                  value: preset,
+                                  title: settingsLyricFontPresetLabel(
+                                    preset,
                                     config,
-                                    'player.lyric.restore_failed',
                                   ),
-                                );
-                                if (mounted) setState(() => _restoring = false);
-                              }
-                            },
+                                ),
+                            ],
+                            onSelected: controller.setLyricFontPreset,
+                          ),
                     ),
+                    AppListTile(
+                      showChevron: cupertino,
+                      leading: Icon(
+                        cupertino
+                            ? CupertinoIcons.color_filter
+                            : Icons.palette_outlined,
+                      ),
+                      title: Text(
+                        AppI18n.t(config, 'settings.lyric_highlight_color'),
+                      ),
+                      onTap: () => showSettingsSingleChoiceSheet<String>(
+                        context: context,
+                        playerStyled: true,
+                        title: AppI18n.t(
+                          config,
+                          'settings.lyric_highlight_color',
+                        ),
+                        currentValue:
+                            config.lyricHighlightMode ==
+                                AppLyricHighlightMode.auto
+                            ? 'auto'
+                            : config.lyricHighlightPreset.value,
+                        options: [
+                          SettingsChoiceOption(
+                            value: 'auto',
+                            title: AppI18n.t(config, 'settings.choice.auto'),
+                            leading: const Icon(Icons.auto_awesome_rounded),
+                          ),
+                          for (final color in AppLyricHighlightColor.values)
+                            SettingsChoiceOption(
+                              value: color.value,
+                              title: settingsLyricHighlightColorLabel(
+                                color,
+                                config,
+                              ),
+                              leading: Icon(Icons.circle, color: color.color),
+                            ),
+                        ],
+                        onSelected: (value) {
+                          if (value == 'auto') {
+                            controller.setLyricHighlightMode(
+                              AppLyricHighlightMode.auto,
+                            );
+                          } else {
+                            controller.setLyricHighlightPreset(
+                              AppLyricHighlightColor.fromValue(value),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    AppSwitchListTile(
+                      secondary: Icon(
+                        cupertino
+                            ? CupertinoIcons.music_note_list
+                            : Icons.lyrics_outlined,
+                      ),
+                      title: Text(
+                        AppI18n.t(config, 'settings.enable_word_by_word_lyric'),
+                      ),
+                      value: config.enableWordByWordLyric,
+                      onChanged: controller.setEnableWordByWordLyric,
+                    ),
+                  ]),
                 ],
               ),
-            ),
-            const Divider(),
-            if (currentRequest == _request && document.value?.isEmpty == false)
-              LyricOffsetTile(
-                request: _request,
-                manual: source == LyricSource.manual,
-                onTap: () => Navigator.pop(context, _LyricOptionsAction.offset),
-              ),
-            AppListTile(
-              leading: const Icon(Icons.style_outlined),
-              title: Text(AppI18n.t(config, 'player.lyric.style')),
-              onTap: () => showSettingsSingleChoiceSheet<String>(
-                context: context,
-                playerStyled: true,
-                title: AppI18n.t(config, 'player.lyric.style'),
-                currentValue: config.playerLyricsId,
-                options: [
-                  for (final option in AppPlayerLyricsRegistry.instance.options)
-                    SettingsChoiceOption(
-                      value: option.metadata.id,
-                      title: AppI18n.t(config, option.metadata.labelKey),
-                    ),
-                ],
-                onSelected: controller.setPlayerLyricsId,
-              ),
-            ),
-            if (AppPlayerBackdropRegistry.instance
-                .resolve(config.playerBackdropId)
-                .backdropKind
-                .supportsLyricBrightness)
-              const LyricPhotoBrightnessTile(),
-            AppListTile(
-              leading: const Icon(Icons.text_fields),
-              title: Text(AppI18n.t(config, 'settings.lyric_font_preset')),
-              subtitle: Text(
-                settingsLyricFontPresetLabel(config.lyricFontPreset, config),
-              ),
-              onTap: () => showSettingsSingleChoiceSheet<AppLyricFontPreset>(
-                context: context,
-                playerStyled: true,
-                title: AppI18n.t(config, 'settings.lyric_font_preset'),
-                currentValue: config.lyricFontPreset,
-                options: [
-                  for (final preset in AppLyricFontPreset.values)
-                    SettingsChoiceOption(
-                      value: preset,
-                      title: settingsLyricFontPresetLabel(preset, config),
-                    ),
-                ],
-                onSelected: controller.setLyricFontPreset,
-              ),
-            ),
-            AppListTile(
-              leading: const Icon(Icons.palette_outlined),
-              title: Text(AppI18n.t(config, 'settings.lyric_highlight_color')),
-              onTap: () => showSettingsSingleChoiceSheet<String>(
-                context: context,
-                playerStyled: true,
-                title: AppI18n.t(config, 'settings.lyric_highlight_color'),
-                currentValue:
-                    config.lyricHighlightMode == AppLyricHighlightMode.auto
-                    ? 'auto'
-                    : config.lyricHighlightPreset.value,
-                options: [
-                  SettingsChoiceOption(
-                    value: 'auto',
-                    title: AppI18n.t(config, 'settings.choice.auto'),
-                    leading: const Icon(Icons.auto_awesome_rounded),
-                  ),
-                  for (final color in AppLyricHighlightColor.values)
-                    SettingsChoiceOption(
-                      value: color.value,
-                      title: settingsLyricHighlightColorLabel(color, config),
-                      leading: Icon(Icons.circle, color: color.color),
-                    ),
-                ],
-                onSelected: (value) {
-                  if (value == 'auto') {
-                    controller.setLyricHighlightMode(
-                      AppLyricHighlightMode.auto,
-                    );
-                  } else {
-                    controller.setLyricHighlightPreset(
-                      AppLyricHighlightColor.fromValue(value),
-                    );
-                  }
-                },
-              ),
-            ),
-            AppSwitchListTile(
-              secondary: const Icon(Icons.lyrics_outlined),
-              title: Text(
-                AppI18n.t(config, 'settings.enable_word_by_word_lyric'),
-              ),
-              value: config.enableWordByWordLyric,
-              onChanged: controller.setEnableWordByWordLyric,
             ),
           ],
         ),

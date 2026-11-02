@@ -10,7 +10,10 @@ import 'package:he_music_flutter/features/lyrics/data/storage/lyric_store.dart';
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,6 +69,169 @@ class _Document extends Notifier<LyricDocument> {
 }
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'Cupertino lyric options use native groups, live background preferences and nested choices in $brightness',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        if (const bool.fromEnvironment('GENERATE_LYRIC_INTERFACE_PREVIEWS')) {
+          await _loadFonts(tester);
+          await tester.runAsync(() async {
+            for (final family in [
+              'CupertinoSystemText',
+              'CupertinoSystemDisplay',
+            ]) {
+              await (FontLoader(family)..addFont(
+                    File(
+                      'test/assets/fonts/Roboto-Regular.ttf',
+                    ).readAsBytes().then(ByteData.sublistView),
+                  ))
+                  .load();
+            }
+            await (FontLoader('packages/cupertino_icons/CupertinoIcons')
+                  ..addFont(
+                    rootBundle.load(
+                      'packages/cupertino_icons/assets/CupertinoIcons.ttf',
+                    ),
+                  ))
+                .load();
+          });
+        }
+        await tester.pumpWidget(
+          AppUiStyleScope(
+            style: AppUiStyle.cupertino,
+            child: _app(
+              playerBoundary: true,
+              brightness: brightness,
+              store: _Store(),
+              request: const LyricRequest(trackId: 'song'),
+              document: _document.withSource(LyricSource.cache),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (const bool.fromEnvironment('GENERATE_LYRIC_INTERFACE_PREVIEWS')) {
+          final player =
+              ProviderScope.containerOf(
+                    tester.element(find.byType(FullLyricControls)),
+                  ).read(playerControllerProvider.notifier)
+                  as _Player;
+          player.updatePlayback(
+            const PlayerTrack(id: 'song', title: 'City Echoes'),
+            Duration.zero,
+          );
+          await tester.pumpAndSettle();
+        }
+        final optionsButton = find.byKey(
+          const ValueKey('lyric-options-control'),
+        );
+        expect(
+          find.descendant(
+            of: optionsButton,
+            matching: find.byType(CupertinoButton),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(optionsButton);
+        await tester.pumpAndSettle();
+        expect(find.text('歌词选项'), findsOneWidget);
+        expect(find.text('歌词来源'), findsOneWidget);
+        expect(find.byType(CupertinoListTile), findsWidgets);
+        final list = find.byKey(const ValueKey('lyric-options-list'));
+        final route = ModalRoute.of(tester.element(list));
+        final container = ProviderScope.containerOf(tester.element(list));
+        final config = container.read(appConfigProvider.notifier);
+        await tester.ensureVisible(find.text('歌词大小'));
+        await tester.pumpAndSettle();
+        final position = tester
+            .state<ScrollableState>(
+              find.descendant(of: list, matching: find.byType(Scrollable)),
+            )
+            .position;
+        final offset = position.pixels;
+        for (final enabled in [false, true, false]) {
+          config.setShowContentBackground(enabled);
+          await tester.pumpAndSettle();
+          expect(ModalRoute.of(tester.element(list)), same(route));
+          expect(position.pixels, offset);
+          for (final section in tester.widgetList<CupertinoListSection>(
+            find.byType(CupertinoListSection),
+          )) {
+            expect(section.decoration!.color!.a, enabled ? 1 : 0);
+          }
+        }
+        await tester.tap(find.text('歌词大小'));
+        await tester.pumpAndSettle();
+        expect(find.byType(PlayerSheetSurface), findsNWidgets(2));
+        await tester.tap(find.text('大'));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(appConfigProvider).lyricFontPreset,
+          AppLyricFontPreset.large,
+        );
+        expect(find.text('歌词选项'), findsOneWidget);
+        final toggle = find.byType(CupertinoSwitch);
+        await tester.ensureVisible(toggle);
+        await tester.pumpAndSettle();
+        final oldValue = tester.widget<CupertinoSwitch>(toggle).value;
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(tester.widget<CupertinoSwitch>(toggle).value, !oldValue);
+        expect(
+          container.read(appConfigProvider).enableWordByWordLyric,
+          !oldValue,
+        );
+        final surface = find.byType(PlayerSheetSurface).last;
+        expect(Theme.of(tester.element(list)).brightness, brightness);
+        expect(
+          tester
+              .widget<ColoredBox>(
+                find
+                    .descendant(of: surface, matching: find.byType(ColoredBox))
+                    .first,
+              )
+              .color
+              .a,
+          1,
+        );
+        if (const bool.fromEnvironment('GENERATE_LYRIC_INTERFACE_PREVIEWS')) {
+          config.setLocaleCode('en');
+          position.jumpTo(0);
+          for (final enabled in [false, true]) {
+            config.setShowContentBackground(enabled);
+            await tester.pumpAndSettle();
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(const ValueKey('route-golden')),
+            );
+            await tester.runAsync(() async {
+              final image = await boundary.toImage();
+              try {
+                final bytes = await image.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                final file = File(
+                  '/tmp/he-lyric-interface-previews/cupertino-${brightness.name}-background-$enabled.png',
+                );
+                await file.parent.create(recursive: true);
+                await file.writeAsBytes(bytes!.buffer.asUint8List());
+                expect(await file.length(), greaterThan(1024));
+              } finally {
+                image.dispose();
+              }
+            });
+          }
+          config.setLocaleCode('zh');
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text('完成'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('lyric-options-list')), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final scenario in ['audio', 'metadata', 'switched']) {
     testWidgets('search navigation passes target duration: $scenario', (
       tester,
@@ -728,6 +894,16 @@ Widget _app({
 );
 
 class _Config extends AppConfigController {
+  @override
+  void setShowContentBackground(bool value) {
+    state = state.copyWith(showContentBackground: value);
+  }
+
+  @override
+  void setEnableWordByWordLyric(bool value) {
+    state = state.copyWith(enableWordByWordLyric: value);
+  }
+
   @override
   void setLyricPhotoBrightness(double brightness, {bool persist = true}) {
     state = state.copyWith(lyricPhotoBrightness: brightness);
