@@ -20,8 +20,10 @@ class SettingsItemPresentation {
 final Map<String, SettingsItemPresentation> settingsItemPresentations =
     <String, SettingsItemPresentation>{
       SettingsItemIds.uiStyle: SettingsItemPresentation(
-        subtitleBuilder: (config) =>
-            AppI18n.t(config, 'settings.ui_style.${config.uiStyle.name}.desc'),
+        subtitleBuilder: (config) => AppI18n.t(
+          config,
+          'settings.ui_style.${config.uiStylePreference.name}.desc',
+        ),
       ),
       SettingsItemIds.themeMode: SettingsItemPresentation(
         subtitleBuilder: (config) => _themeModeLabel(config.themeMode, config),

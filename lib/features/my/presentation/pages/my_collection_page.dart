@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/config/app_config_controller.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
@@ -14,6 +15,7 @@ import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_panel.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/widgets/app_network_image.dart';
@@ -332,24 +334,25 @@ class _ErrorPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            message,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 8),
+          AppButton.filled(onPressed: onRetry, child: Text(retryLabel)),
+        ],
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                message,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              const SizedBox(height: 8),
-              AppButton.filled(onPressed: onRetry, child: Text(retryLabel)),
-            ],
-          ),
-        ),
-      ),
+      child: AppUiTheme.usesCupertino(context)
+          ? AppPanel(child: content)
+          : Card(child: content),
     );
   }
 }

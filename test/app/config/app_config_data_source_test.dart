@@ -44,6 +44,7 @@ void main() {
       }
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('app_config.ui_style', 'future-style');
+      await prefs.remove('app_config.ui_style_preference');
       expect((await source.load()).uiStyle, AppUiStyle.material);
     },
   );

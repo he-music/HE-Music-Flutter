@@ -261,7 +261,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: AppI18n.t(
           config,
-          'settings.ui_style.${config.uiStyle.name}',
+          'settings.ui_style.${config.uiStylePreference.name}',
         ),
         onTap: _openUiStyleSheet,
         highlighted: _highlightedItemId == item.id,
@@ -676,20 +676,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _openUiStyleSheet() {
     final config = ref.read(appConfigProvider);
-    return showSettingsSingleChoiceSheet<AppUiStyle>(
+    return showSettingsSingleChoiceSheet<AppUiStylePreference>(
       context: context,
       title: AppI18n.t(config, 'settings.ui_style'),
-      currentValue: config.uiStyle,
+      currentValue: config.uiStylePreference,
       options: [
-        for (final style in AppUiStyle.values)
+        for (final preference in AppUiStylePreference.values)
           SettingsChoiceOption(
-            value: style,
-            title: AppI18n.t(config, 'settings.ui_style.${style.name}'),
-            subtitle: AppI18n.t(config, 'settings.ui_style.${style.name}.desc'),
+            value: preference,
+            title: AppI18n.t(config, 'settings.ui_style.${preference.name}'),
+            subtitle: AppI18n.t(
+              config,
+              'settings.ui_style.${preference.name}.desc',
+            ),
           ),
       ],
-      onSelected: (style) =>
-          ref.read(appConfigProvider.notifier).setUiStyle(style),
+      onSelected: (preference) =>
+          ref.read(appConfigProvider.notifier).setUiStylePreference(preference),
     );
   }
 

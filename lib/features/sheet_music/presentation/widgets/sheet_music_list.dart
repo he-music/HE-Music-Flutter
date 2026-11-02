@@ -7,6 +7,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/entities/sheet_music_info.dart';
 import 'sheet_music_metadata.dart';
@@ -47,7 +48,7 @@ class SheetMusicListSliver extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Material(
             type: MaterialType.transparency,
-            child: ListTile(
+            child: AppListTile(
               contentPadding: EdgeInsets.zero,
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -69,9 +70,7 @@ class SheetMusicListSliver extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: SheetMusicMetadata(sheet: sheet, locale: locale),
-              trailing: enabled
-                  ? const Icon(Icons.chevron_right_rounded)
-                  : null,
+              showChevron: enabled,
               onTap: enabled
                   ? () => context.push(
                       Uri(

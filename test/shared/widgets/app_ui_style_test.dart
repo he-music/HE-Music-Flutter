@@ -137,5 +137,10 @@ class _Config extends AppConfigController {
   AppConfigState build() => AppConfigState.initial;
 
   @override
-  void setUiStyle(AppUiStyle style) => state = state.copyWith(uiStyle: style);
+  void setUiStyle(AppUiStyle style) => state = state.copyWith(
+    uiStyle: style,
+    uiStylePreference: style == AppUiStyle.cupertino
+        ? AppUiStylePreference.cupertino
+        : AppUiStylePreference.material,
+  );
 }

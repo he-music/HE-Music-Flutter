@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -12,6 +13,8 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/widgets/app_panel.dart';
 import '../../domain/entities/online_platform.dart';
 import '../providers/online_providers.dart';
 
@@ -211,14 +214,15 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
           platformId: result.platform,
           platforms: platforms,
         );
-    return Card(
-      child: ListTile(
-        title: Text('$platformName  ·  ${_typeName(result.type, localeCode)}'),
-        subtitle: Text('ID: ${result.id}'),
-        trailing: canOpen ? const Icon(Icons.chevron_right_rounded) : null,
-        onTap: canOpen ? _navigateToDetail : null,
-      ),
+    final tile = AppListTile(
+      title: Text('$platformName  ·  ${_typeName(result.type, localeCode)}'),
+      subtitle: Text('ID: ${result.id}'),
+      showChevron: canOpen,
+      onTap: canOpen ? _navigateToDetail : null,
     );
+    return AppUiTheme.usesCupertino(context)
+        ? AppPanel(child: tile)
+        : Card(child: tile);
   }
 
   String _platformDisplayName(

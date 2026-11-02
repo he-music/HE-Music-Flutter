@@ -18,6 +18,7 @@ import '../theme/player/app_player_style_registry.dart';
 import '../theme/skin/app_skin_registry.dart';
 
 const _uiStyleKey = 'app_config.ui_style';
+const _uiStylePreferenceKey = 'app_config.ui_style_preference';
 const _themeModeKey = 'app_config.theme_mode';
 const _themeAccentKey = 'app_config.theme_accent';
 const _skinIdKey = 'app_config.skin_id';
@@ -117,6 +118,13 @@ class AppConfigDataSource {
         prefs.getString(_skinIdKey) != skinId) {
       await prefs.setString(_skinIdKey, skinId);
     }
+    final storedUiStyle = prefs.getString(_uiStyleKey);
+    final uiStylePreference = prefs.containsKey(_uiStylePreferenceKey)
+        ? AppUiStylePreference.parse(prefs.getString(_uiStylePreferenceKey))
+        : storedUiStyle == null
+        ? AppUiStylePreference.platform
+        : AppUiStylePreference.parse(storedUiStyle);
+    final uiStyle = uiStylePreference.resolve(defaultTargetPlatform);
     return AppConfigState.initial.copyWith(
       enablePlaybackAudioCache: switch (prefs.get(_playbackAudioCacheKey)) {
         bool value => value,
@@ -129,7 +137,8 @@ class AppConfigDataSource {
       audioCacheLimitBytes: _readAudioCacheLimit(
         prefs.get(_audioCacheLimitKey),
       ),
-      uiStyle: AppUiStyle.parse(prefs.getString(_uiStyleKey)),
+      uiStylePreference: uiStylePreference,
+      uiStyle: uiStyle,
       themeMode: _readThemeMode(prefs.getString(_themeModeKey)),
       themeAccent: AppThemeAccent.fromValue(prefs.getString(_themeAccentKey)),
       skinId: skinId,
@@ -211,6 +220,7 @@ class AppConfigDataSource {
       _readAudioCacheLimit(state.audioCacheLimitBytes),
     );
     await prefs.setString(_uiStyleKey, state.uiStyle.name);
+    await prefs.setString(_uiStylePreferenceKey, state.uiStylePreference.name);
     await prefs.remove('app_config.glass_mode');
     await prefs.setString(_themeModeKey, state.themeMode.name);
     await prefs.setString(_themeAccentKey, state.themeAccent.value);

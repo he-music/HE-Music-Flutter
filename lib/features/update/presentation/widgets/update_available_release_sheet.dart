@@ -5,6 +5,8 @@ import '../../../../shared/constants/layout_tokens.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -88,14 +90,14 @@ Future<void> showUpdateAvailableReleaseSheet({
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ListTile(
+                  AppListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.new_releases_outlined),
                     title: Text(release.version.normalized),
                     subtitle: Text(_formatPublishedAt(release.publishedAt)),
                     trailing: downloadTarget == null
                         ? null
-                        : IconButton(
+                        : AppIconButton(
                             key: const ValueKey<String>(
                               'open-official-github-release',
                             ),

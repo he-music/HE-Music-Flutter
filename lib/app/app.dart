@@ -42,7 +42,7 @@ class HeMusicApp extends ConsumerWidget {
       appConfigProvider.select(
         (state) => (
           themeMode: state.themeMode,
-          uiStyle: state.uiStyle,
+          uiStyle: state.effectiveUiStyle,
           themeAccent: state.themeAccent,
           skinId: state.skinId,
           customSkinConfig: state.customSkinConfig,

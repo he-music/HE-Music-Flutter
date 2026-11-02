@@ -413,6 +413,9 @@ abstract final class AppI18n {
       'settings.audio_quality.auto_last_selected':
           '优先使用上次手动选择的 {selected}，否则按 {fallback}',
       'settings.ui_style': '界面风格',
+      'settings.ui_style.platform': '跟随系统平台',
+      'settings.ui_style.platform.desc':
+          'Apple 使用 Cupertino，Android 使用 Material',
       'settings.ui_style.material': 'Material',
       'settings.ui_style.material.desc': '使用 Material 导航、控件和弹窗，保留当前皮肤',
       'settings.ui_style.cupertino': 'Cupertino',
@@ -1475,6 +1478,9 @@ abstract final class AppI18n {
       'settings.audio_quality.auto_last_selected':
           'Prefer the last manual selection, {selected}; otherwise use {fallback}',
       'settings.ui_style': 'Interface style',
+      'settings.ui_style.platform': 'Follow system platform',
+      'settings.ui_style.platform.desc':
+          'Use Cupertino on Apple platforms and Material on Android',
       'settings.ui_style.material': 'Material',
       'settings.ui_style.material.desc':
           'Material navigation, controls and dialogs with your current skin',

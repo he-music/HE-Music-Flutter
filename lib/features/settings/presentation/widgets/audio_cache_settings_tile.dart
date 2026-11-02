@@ -67,7 +67,7 @@ class AudioCacheSettingsTile extends ConsumerWidget {
         value: cellular,
         onChanged: enabled ? controller.setEnableCellularAudioCache : null,
       ),
-      SettingsItemIds.audioCacheLimit => ListTile(
+      SettingsItemIds.audioCacheLimit => AppListTile(
         leading: icon,
         title: title,
         subtitle: Text(AppI18n.t(config, 'settings.audio_cache.limit_desc')),

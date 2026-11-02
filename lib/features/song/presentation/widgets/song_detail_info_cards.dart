@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 
 import '../../domain/entities/song_detail_field.dart';
+
+import '../../../../shared/widgets/app_panel.dart';
 
 class SongDetailInfoCards extends StatelessWidget {
   const SongDetailInfoCards({
@@ -105,45 +108,49 @@ class _InfoCard extends StatelessWidget {
   final String value;
 
   @override
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final content = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
     return Semantics(
       container: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 76),
-        child: Card(
-          margin: EdgeInsets.zero,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
+        child: AppUiTheme.usesCupertino(context)
+            ? AppPanel(borderRadius: BorderRadius.circular(14), child: content)
+            : Card(
+                margin: EdgeInsets.zero,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  value,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+                child: content,
+              ),
       ),
     );
   }

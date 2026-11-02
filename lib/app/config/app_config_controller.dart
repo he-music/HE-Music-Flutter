@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 
 import 'app_ui_style.dart';
 import 'app_lyric_auxiliary_mode.dart';
@@ -43,7 +44,23 @@ class AppConfigController extends Notifier<AppConfigState> {
   }
 
   void setUiStyle(AppUiStyle style) {
-    _update(state.copyWith(uiStyle: style));
+    _update(
+      state.copyWith(
+        uiStyle: style,
+        uiStylePreference: style == AppUiStyle.cupertino
+            ? AppUiStylePreference.cupertino
+            : AppUiStylePreference.material,
+      ),
+    );
+  }
+
+  void setUiStylePreference(AppUiStylePreference preference) {
+    _update(
+      state.copyWith(
+        uiStylePreference: preference,
+        uiStyle: preference.resolve(defaultTargetPlatform),
+      ),
+    );
   }
 
   void setThemeMode(AppThemeMode mode) {
@@ -342,6 +359,7 @@ class AppConfigController extends Notifier<AppConfigState> {
     final accessToken = globalTokenHolder.accessToken ?? loaded.authToken;
     final refreshToken = globalTokenHolder.refreshToken ?? loaded.refreshToken;
     state = state.copyWith(
+      uiStylePreference: loaded.uiStylePreference,
       uiStyle: loaded.uiStyle,
       themeMode: loaded.themeMode,
       themeAccent: loaded.themeAccent,
