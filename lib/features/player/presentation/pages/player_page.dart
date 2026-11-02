@@ -31,6 +31,7 @@ import '../../../../shared/helpers/song_artist_navigation_helper.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/helpers/user_playlist_song_action_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/widgets/adaptive_action_menu.dart';
 import '../../../../shared/widgets/app_slider.dart';
 import '../../../../shared/widgets/song_actions_sheet.dart';
 import '../../../../shared/widgets/app_button.dart';
@@ -1628,10 +1629,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   /// 弹出歌手选择面板，选择后在播放器上方打开歌手详情。
-  void _openArtistSelectionAndGo({
+  Future<void> _openArtistSelectionAndGo({
     required String platformId,
     required List<SongInfoArtistInfo> artists,
-  }) {
+  }) async {
     final available = artists
         .where((a) => a.id.trim().isNotEmpty && a.name.trim().isNotEmpty)
         .toList();
@@ -1649,6 +1650,34 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             'id': available.first.id.trim(),
             'platform': platformId,
             'title': available.first.name.trim(),
+          },
+        ).toString(),
+      );
+      return;
+    }
+    if (AppUiTheme.usesCupertino(context) && available.length <= 6) {
+      final localeCode = Localizations.localeOf(context).languageCode;
+      final artist = await showAdaptiveActionMenu<SongInfoArtistInfo>(
+        context: context,
+        title: Text(AppI18n.tByLocaleCode(localeCode, 'song.artist.select')),
+        message: Text(
+          AppI18n.formatByLocaleCode(localeCode, 'song.artist.count', {
+            'count': '${available.length}',
+          }),
+        ),
+        items: [
+          for (final artist in available)
+            AdaptiveActionMenuItem(value: artist, label: artist.name),
+        ],
+      );
+      if (artist == null || !mounted) return;
+      _goToDetail(
+        Uri(
+          path: AppRoutes.artistDetail,
+          queryParameters: <String, String>{
+            'id': artist.id.trim(),
+            'platform': platformId,
+            'title': artist.name.trim(),
           },
         ).toString(),
       );

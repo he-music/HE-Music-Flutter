@@ -1464,6 +1464,102 @@ void main() {
     );
   });
 
+  for (final style in AppUiStyle.values) {
+    for (final count in [1, 2, 6, 7]) {
+      testWidgets(
+        'player artist choice uses $style presentation for $count artists and returns to player',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(390, 844);
+          addTearDown(tester.view.reset);
+          final router = GoRouter(
+            initialLocation: AppRoutes.player,
+            routes: [
+              GoRoute(
+                path: AppRoutes.player,
+                builder: (_, _) =>
+                    const AppPlayerStyleBoundary(child: PlayerPage()),
+              ),
+              GoRoute(
+                path: AppRoutes.artistDetail,
+                builder: (_, state) => Scaffold(
+                  body: Text('Detail ${state.uri.queryParameters['id']}'),
+                ),
+              ),
+            ],
+          );
+          addTearDown(router.dispose);
+          await tester.pumpWidget(
+            AppUiStyleScope(
+              style: style,
+              child: _buildPlayerTestApp(
+                controllerFactory: () => _MultiArtistPlayerController(count),
+                router: router,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final entry = find.byKey(
+            const ValueKey<String>('player-artist-action'),
+          );
+          await tester.tap(entry);
+          await tester.pumpAndSettle();
+          if (count > 1) {
+            final actionSheet = style == AppUiStyle.cupertino && count <= 6;
+            expect(
+              find.byType(CupertinoActionSheet),
+              actionSheet ? findsOneWidget : findsNothing,
+            );
+            expect(
+              find.byType(BottomSheet),
+              actionSheet ? findsNothing : findsOneWidget,
+            );
+            if (actionSheet) {
+              await tester.tap(find.text('Cancel'));
+            } else {
+              await tester.binding.handlePopRoute();
+            }
+            await tester.pumpAndSettle();
+            expect(
+              router.routeInformationProvider.value.uri.path,
+              AppRoutes.player,
+            );
+            await tester.tap(entry);
+            await tester.pumpAndSettle();
+            final lastArtist = find.text('Artist ${count - 1}');
+            await tester.scrollUntilVisible(
+              lastArtist,
+              100,
+              scrollable: find
+                  .descendant(
+                    of: actionSheet
+                        ? find.byType(CupertinoActionSheet)
+                        : find.byKey(
+                            const ValueKey<String>(
+                              'player-artist-selection-sheet-list',
+                            ),
+                          ),
+                    matching: find.byType(Scrollable),
+                  )
+                  .last,
+            );
+            await tester.tap(lastArtist);
+            await tester.pumpAndSettle();
+          }
+          expect(find.text('Detail artist-${count - 1}'), findsOneWidget);
+          expect(find.byType(CupertinoActionSheet), findsNothing);
+          expect(find.byType(BottomSheet), findsNothing);
+          router.pop();
+          await tester.pumpAndSettle();
+          expect(entry.hitTestable(), findsOneWidget);
+          final route = ModalRoute.of(tester.element(find.byType(PlayerPage)))!;
+          expect(route.isActive && route.isCurrent, isTrue);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets('local player artist opens as an available action', (
     tester,
   ) async {
@@ -4473,6 +4569,27 @@ class _OnlineTrackPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _MultiArtistPlayerController extends _OnlineTrackPlayerController {
+  _MultiArtistPlayerController(this.count);
+
+  final int count;
+
+  @override
+  PlayerPlaybackState build() {
+    final initial = super.build();
+    return initial.copyWith(
+      queue: [
+        initial.queue.first.copyWith(
+          artists: [
+            for (var i = 0; i < count; i++)
+              SongInfoArtistInfo(id: 'artist-$i', name: 'Artist $i'),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _WidePreviewPlayerController extends _OnlineTrackPlayerController {

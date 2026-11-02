@@ -53,6 +53,7 @@ class AdaptiveActionMenuItem<T> {
     this.iconRole,
     this.enabled = true,
     this.destructive = false,
+    this.selected,
     this.startsNewSection = false,
   });
 
@@ -63,6 +64,9 @@ class AdaptiveActionMenuItem<T> {
   final AppSkinIconRole? iconRole;
   final bool enabled;
   final bool destructive;
+
+  /// Null for commands; a boolean exposes the state of a choice.
+  final bool? selected;
   final bool startsNewSection;
 }
 
@@ -299,7 +303,21 @@ Future<T?> _showCupertinoActions<T>(
               key: item.key,
               isDestructiveAction: item.destructive,
               onPressed: () => dismiss(popupContext, item.value),
-              child: Text(item.label),
+              child: Semantics(
+                selected: item.selected,
+                child: item.selected == true
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const ExcludeSemantics(
+                            child: Icon(CupertinoIcons.check_mark, size: 20),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(child: Text(item.label)),
+                        ],
+                      )
+                    : Text(item.label),
+              ),
             )
           else
             CupertinoButton(

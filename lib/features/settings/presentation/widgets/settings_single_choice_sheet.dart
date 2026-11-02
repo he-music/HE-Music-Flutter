@@ -6,6 +6,8 @@ import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/utils/platform_utils.dart';
+import '../../../../shared/widgets/adaptive_action_menu.dart';
 
 class SettingsChoiceOption<T> {
   const SettingsChoiceOption({
@@ -30,7 +32,27 @@ Future<void> showSettingsSingleChoiceSheet<T>({
   required List<SettingsChoiceOption<T>> options,
   required ValueChanged<T> onSelected,
   bool playerStyled = false,
-}) {
+  bool useCupertinoActionSheet = false,
+}) async {
+  if (useCupertinoActionSheet &&
+      AppUiTheme.usesCupertino(context) &&
+      !shouldUseDesktopMenu(context)) {
+    final selected = await showAdaptiveActionMenu<T>(
+      context: context,
+      title: Text(title),
+      items: [
+        for (final option in options)
+          AdaptiveActionMenuItem(
+            value: option.value,
+            label: option.title,
+            selected: option.value == currentValue,
+          ),
+      ],
+    );
+    if (selected != null && context.mounted) onSelected(selected);
+    return;
+  }
+
   Widget builder(BuildContext sheetContext) {
     final cupertino = AppUiTheme.usesCupertino(sheetContext);
     final theme = Theme.of(sheetContext);

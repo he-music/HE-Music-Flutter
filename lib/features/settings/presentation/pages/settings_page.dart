@@ -702,6 +702,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       title: AppI18n.t(config, 'settings.theme'),
       currentValue: config.themeMode,
+      useCupertinoActionSheet: true,
       options: AppThemeMode.values
           .map(
             (item) => SettingsChoiceOption<AppThemeMode>(
@@ -743,6 +744,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       title: AppI18n.t(config, 'settings.language'),
       currentValue: config.localeCode,
+      useCupertinoActionSheet: true,
       options: <SettingsChoiceOption<String>>[
         SettingsChoiceOption<String>(
           value: 'system',

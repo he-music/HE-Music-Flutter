@@ -1,4 +1,6 @@
 import 'package:he_music_flutter/shared/widgets/app_adaptive_controls.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/config/app_theme_mode.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
@@ -685,6 +688,84 @@ void main() {
     expect(find.text('播放器背景样式'), findsNothing);
     expect(find.text('播放器样式'), findsNothing);
   });
+
+  for (final style in AppUiStyle.values) {
+    for (final themeChoice in [true, false]) {
+      testWidgets(
+        '$style ${themeChoice ? 'theme' : 'language'} choice preserves selection and cancel',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(390, 844);
+          addTearDown(tester.view.reset);
+          final container = _createContainer(authToken: null);
+          addTearDown(container.dispose);
+          final before = container.read(appConfigProvider);
+          await tester.pumpWidget(
+            _buildSettingsApp(
+              container: container,
+              theme: ThemeData(
+                platform: TargetPlatform.android,
+                extensions: [AppUiTheme(style: style)],
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(themeChoice ? '外观' : '通用'));
+          await tester.pumpAndSettle();
+          final entry = themeChoice ? '主题' : '语言';
+          await tester.tap(find.text(entry));
+          await tester.pumpAndSettle();
+          if (style == AppUiStyle.cupertino) {
+            final sheet = find.byType(CupertinoActionSheet);
+            expect(sheet, findsOneWidget);
+            expect(find.byType(BottomSheet), findsNothing);
+            expect(
+              find.descendant(
+                of: sheet,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is Semantics && widget.properties.selected == true,
+                ),
+              ),
+              findsOneWidget,
+            );
+            expect(
+              find.descendant(
+                of: sheet,
+                matching: find.byIcon(CupertinoIcons.check_mark),
+              ),
+              findsOneWidget,
+            );
+            await tester.tap(find.text('Cancel'));
+          } else {
+            expect(find.byType(BottomSheet), findsOneWidget);
+            await tester.binding.handlePopRoute();
+          }
+          await tester.pumpAndSettle();
+          expect(container.read(appConfigProvider).themeMode, before.themeMode);
+          expect(
+            container.read(appConfigProvider).localeCode,
+            before.localeCode,
+          );
+          await tester.tap(find.text(entry));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(themeChoice ? '深色' : 'English'));
+          await tester.pumpAndSettle();
+          if (themeChoice) {
+            expect(
+              container.read(appConfigProvider).themeMode,
+              AppThemeMode.dark,
+            );
+          } else {
+            expect(container.read(appConfigProvider).localeCode, 'en');
+          }
+          expect(find.byType(CupertinoActionSheet), findsNothing);
+          expect(find.byType(BottomSheet), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
 
   testWidgets('language sheet can select system locale', (tester) async {
     final container = ProviderContainer();
