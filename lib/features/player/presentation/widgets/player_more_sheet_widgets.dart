@@ -174,31 +174,17 @@ class PlayerSheetActionTile extends StatelessWidget {
     if (_PlayerActionSheetScope.contains(context)) {
       final actionable = enabled && onTap != null;
       final color = actionable
-          ? Theme.of(context).colorScheme.primary
+          ? CupertinoColors.label.resolveFrom(context)
           : CupertinoColors.inactiveGray.resolveFrom(context);
-      final label = Row(
+      final label = Column(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 22, color: color),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(title),
-                if ((subtitle ?? '').trim().isNotEmpty)
-                  Text(
-                    subtitle!.trim(),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: actionable
-                          ? Theme.of(context).colorScheme.onSurfaceVariant
-                          : color,
-                    ),
-                  ),
-              ],
+          Text(title, style: TextStyle(color: color)),
+          if ((subtitle ?? '').trim().isNotEmpty)
+            Text(
+              subtitle!.trim(),
+              style: TextStyle(color: color.withValues(alpha: 0.72)),
             ),
-          ),
         ],
       );
       return actionable
