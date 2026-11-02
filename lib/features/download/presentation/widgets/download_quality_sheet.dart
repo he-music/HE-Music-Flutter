@@ -85,6 +85,7 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
       isScrollControlled: true,
       fitContent: true,
       heightFactor: LayoutTokens.actionSheetMaxHeightFactor,
+      useCupertinoModalPopup: true,
       builder: buildSheet,
     );
   }
@@ -93,6 +94,7 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
     heightFactor: LayoutTokens.actionSheetMaxHeightFactor,
     fitContent: true,
     isScrollControlled: true,
+    useCupertinoModalPopup: true,
     builder: buildSheet,
   );
 }

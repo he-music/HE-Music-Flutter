@@ -1450,6 +1450,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       isScrollControlled: true,
       fixedHeightFactor: PlayerStyleSelectionSheet.heightFactorOf(context),
       maxWidth: 640,
+      useCupertinoModalPopup: true,
       showDragHandle: true,
       builder: (context) => PlayerStyleSelectionSheet(
         track: ref.read(playerControllerProvider).currentTrack,

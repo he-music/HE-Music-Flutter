@@ -21,12 +21,25 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   double? maxWidth,
   bool fitContent = false,
   bool useCupertinoActionSheet = false,
+  bool useCupertinoModalPopup = false,
 }) {
   if (useCupertinoActionSheet && AppUiTheme.usesCupertino(context)) {
     return showPlayerCupertinoActionSheet<T>(
       context: context,
       sheetBuilder: builder,
       useRootNavigator: useRootNavigator,
+    );
+  }
+  if (useCupertinoModalPopup && AppUiTheme.usesCupertino(context)) {
+    return _showPlayerCupertinoPanel<T>(
+      context: context,
+      builder: builder,
+      useRootNavigator: useRootNavigator,
+      useSafeArea: useSafeArea,
+      fixedHeightFactor: fixedHeightFactor,
+      heightFactor: heightFactor,
+      maxWidth: maxWidth,
+      showDragHandle: showDragHandle,
     );
   }
   final inheritedTheme = Theme.of(context);
@@ -112,6 +125,56 @@ Future<T?> showPlayerStyledBottomSheet<T>({
       ..remove()
       ..dispose();
   });
+}
+
+Future<T?> _showPlayerCupertinoPanel<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  required bool useRootNavigator,
+  required bool useSafeArea,
+  required bool showDragHandle,
+  double? fixedHeightFactor,
+  double? heightFactor,
+  double? maxWidth,
+}) {
+  return showPlayerCupertinoActionSheet<T>(
+    context: context,
+    useRootNavigator: useRootNavigator,
+    sheetBuilder: (sheetContext) {
+      final media = MediaQuery.sizeOf(sheetContext);
+      final brightness = Theme.of(sheetContext).brightness;
+      final style = AppPlayerSheetStyle.forBrightness(
+        brightness,
+        uiStyle: AppUiStyle.cupertino,
+      );
+      Widget panel = PlayerSheetSurface(
+        style: style,
+        showDragHandle: showDragHandle,
+        opaque: fixedHeightFactor != null,
+        child: Builder(builder: builder),
+      );
+      if (fixedHeightFactor != null) {
+        panel = SizedBox(
+          height: media.height * fixedHeightFactor,
+          child: panel,
+        );
+      } else {
+        panel = ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: media.height * (heightFactor ?? 0.84),
+          ),
+          child: panel,
+        );
+      }
+      if (maxWidth != null) {
+        panel = ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: panel,
+        );
+      }
+      return useSafeArea ? SafeArea(top: false, child: panel) : panel;
+    },
+  );
 }
 
 class _PlayerStyledBottomSheetBody extends StatefulWidget {
