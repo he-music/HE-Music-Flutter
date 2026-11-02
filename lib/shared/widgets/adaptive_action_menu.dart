@@ -380,7 +380,7 @@ class _ActionMenuLabel<T> extends StatelessWidget {
           item: item,
           size: 18,
           color: item.enabled
-              ? foregroundColor
+              ? (item.destructive ? colorScheme.error : colorScheme.primary)
               : colorScheme.onSurface.withValues(alpha: 0.38),
         ),
         SizedBox(width: compact ? 12 : 10),
@@ -486,7 +486,7 @@ class _AdaptiveActionMenuBottomSheetBody<T> extends StatelessWidget {
                 color: item.enabled
                     ? (item.destructive
                           ? colorScheme.error
-                          : colorScheme.onSurfaceVariant)
+                          : colorScheme.primary)
                     : colorScheme.onSurface.withValues(alpha: 0.38),
               ),
               SizedBox(width: isCompact ? 12 : 14),

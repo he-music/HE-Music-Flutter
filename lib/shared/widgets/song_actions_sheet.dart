@@ -399,11 +399,6 @@ class _SongActionsSheetBodyState extends State<_SongActionsSheetBody> {
   }
 }
 
-bool _isPlaybackAction(AdaptiveActionMenuItem<VoidCallback> action) =>
-    action.iconRole == AppSkinIconRole.songPlay ||
-    action.iconRole == AppSkinIconRole.songPlayNext ||
-    action.iconRole == AppSkinIconRole.songAddToQueue;
-
 Widget _songActionIcon(
   AdaptiveActionMenuItem<VoidCallback> action,
   Color color,
@@ -485,11 +480,7 @@ class _MaterialSongActions extends StatelessWidget {
               enabled: action.enabled,
               leading: _songActionIcon(
                 action,
-                action.destructive
-                    ? colors.error
-                    : _isPlaybackAction(action)
-                    ? colors.primary
-                    : colors.onSurfaceVariant,
+                action.destructive ? colors.error : colors.primary,
               ),
               textColor: action.destructive ? colors.error : colors.onSurface,
               title: Text(action.label),

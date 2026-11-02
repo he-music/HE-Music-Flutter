@@ -6,7 +6,7 @@
 
 | 实际入口 | Cupertino 实现与保留行为 |
 | --- | --- |
-| [歌曲更多](../lib/shared/widgets/song_actions_sheet.dart) | 手机使用单层、可滚动的歌曲操作面板，Cupertino 按播放／内容导航／分享复制／移除分组；歌曲摘要和关闭入口固定，不再嵌套“更多操作”。无 MV 时隐藏对应入口，保留危险操作红色、背景开关及 `SongActionsSheetController` 的关闭跟踪。Material 共用操作数据，播放类图标使用应用主题色。 |
+| [歌曲更多](../lib/shared/widgets/song_actions_sheet.dart) | 手机使用单层、可滚动的歌曲操作面板，Cupertino 按播放／内容导航／分享复制／移除分组；歌曲摘要和关闭入口固定，不再嵌套“更多操作”。无 MV 时隐藏对应入口，保留危险操作红色、背景开关及 `SongActionsSheetController` 的关闭跟踪。Material 共用操作数据，全部普通操作图标使用应用主题色，危险操作保留警示色。 |
 | [本地歌曲更多](../lib/features/music_library/presentation/pages/local_library_page.dart) | 接入共享歌曲面板，立即播放与下一首播放语义独立，保留加入队列、文件分享和元数据编辑。 |
 | [下载任务更多](../lib/features/download/presentation/pages/download_page.dart) | 原生操作菜单保留暂停、重试、分享、禁用态和删除文件的二次确认。 |
 | [已下载歌曲操作](../lib/features/download/presentation/widgets/downloaded_music_content.dart) | 加入队列、重新下载和移除接入统一入口。 |
@@ -15,7 +15,7 @@
 | [多歌手选择](../lib/shared/helpers/song_artist_navigation_helper.dart) | 使用统一选择入口，保留歌手标签与选择返回值。 |
 | [视频菜单](../lib/features/video/presentation/widgets/video_fullscreen_controls.dart) | 倍速、画面适配、音质及窄屏更多菜单接入共享入口，保留自动隐藏暂停／恢复、全屏和画中画流程。 |
 
-桌面定位菜单继续保留鼠标位置和已有桌面交互。短操作菜单使用 ActionSheet；复杂编辑、浏览和滚动面板继续使用适配后的底部面板。
+桌面定位菜单继续保留鼠标位置和已有桌面交互。通用操作菜单的普通图标统一使用当前主题色，危险操作保留警示色，禁用图标保持灰色，文字颜色保持原有语义。短操作菜单使用 ActionSheet；复杂编辑、浏览和滚动面板继续使用适配后的底部面板。
 
 ## 输入、等待、刷新和播放控制
 

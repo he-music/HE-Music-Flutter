@@ -5,6 +5,109 @@ import 'package:he_music_flutter/shared/widgets/adaptive_action_menu.dart';
 enum TestAction { edit, delete, share }
 
 void main() {
+  for (final brightness in Brightness.values) {
+    for (final menu in [
+      (
+        name: 'desktop',
+        desktop: true,
+        density: AdaptiveActionMenuMobileDensity.compact,
+      ),
+      (
+        name: 'compact',
+        desktop: false,
+        density: AdaptiveActionMenuMobileDensity.compact,
+      ),
+      (
+        name: 'regular',
+        desktop: false,
+        density: AdaptiveActionMenuMobileDensity.regular,
+      ),
+    ]) {
+      testWidgets('${menu.name} menu icons follow $brightness theme colors', (
+        tester,
+      ) async {
+        final colors = ColorScheme.fromSeed(
+          seedColor: Colors.deepOrange,
+          brightness: brightness,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(
+              platform: menu.desktop
+                  ? TargetPlatform.macOS
+                  : TargetPlatform.android,
+              colorScheme: colors,
+            ),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showAdaptiveActionMenu<int>(
+                    context: context,
+                    anchorPosition: const Offset(100, 100),
+                    mobileDensity: menu.density,
+                    items: const [
+                      AdaptiveActionMenuItem(
+                        value: 1,
+                        label: 'Share',
+                        icon: Icons.share,
+                      ),
+                      AdaptiveActionMenuItem(
+                        value: 2,
+                        label: 'Remove',
+                        icon: Icons.delete,
+                        destructive: true,
+                      ),
+                      AdaptiveActionMenuItem(
+                        value: 3,
+                        label: 'Unavailable',
+                        icon: Icons.download,
+                        enabled: false,
+                      ),
+                    ],
+                  ),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        for (final action in [
+          (
+            icon: Icons.share,
+            label: 'Share',
+            iconColor: colors.primary,
+            textColor: colors.onSurface,
+          ),
+          (
+            icon: Icons.delete,
+            label: 'Remove',
+            iconColor: colors.error,
+            textColor: colors.error,
+          ),
+          (
+            icon: Icons.download,
+            label: 'Unavailable',
+            iconColor: colors.onSurface.withValues(alpha: 0.38),
+            textColor: colors.onSurface.withValues(alpha: 0.38),
+          ),
+        ]) {
+          final icons = tester.widgetList<Icon>(find.byIcon(action.icon));
+          expect(icons, isNotEmpty);
+          for (final icon in icons) {
+            expect(icon.color, action.iconColor);
+          }
+          expect(
+            tester.widget<Text>(find.text(action.label)).style!.color,
+            action.textColor,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   group('AdaptiveActionMenuItem', () {
     test('应正确存储属性', () {
       const item = AdaptiveActionMenuItem<TestAction>(

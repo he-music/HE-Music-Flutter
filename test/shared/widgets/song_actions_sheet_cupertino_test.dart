@@ -155,14 +155,19 @@ void main() {
   );
 
   testWidgets(
-    'Material playback icons use the selected accent while other actions stay neutral',
+    'Material song action icons use the selected accent and preserve destructive colors',
     (tester) async {
       await tester.pumpWidget(
         _app(
           style: AppUiStyle.material,
           child: Builder(
             builder: (context) => TextButton(
-              onPressed: () => _open(context),
+              onPressed: () => _open(
+                context,
+                longMenu: true,
+                onViewDetail: () {},
+                onRemove: () {},
+              ),
               child: const Text('Open'),
             ),
           ),
@@ -170,27 +175,38 @@ void main() {
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-      for (final label in ['Play', 'Play Next', 'Add to Queue']) {
+      for (final label in [
+        'Play',
+        'Play Next',
+        'Add to Queue',
+        'Add to Playlist',
+        'Download',
+        'View Artist',
+        'View Album',
+        'View Comments',
+        'View Sheet Music',
+        'View Detail',
+        'Edit Metadata',
+        'Copy Song Name',
+        'Copy Song ID',
+        'Remove from Playlist',
+      ]) {
+        await _scrollTo(tester, label);
         final finder = find.ancestor(
           of: find.text(label),
           matching: find.byType(ListTile),
         );
         final tile = tester.widget<ListTile>(finder);
-        expect(
-          (tile.leading as AppSkinIcon).color,
-          Theme.of(tester.element(finder)).colorScheme.primary,
-        );
+        final colors = Theme.of(tester.element(finder)).colorScheme;
+        final destructive = label == 'Remove from Playlist';
+        final leading = tile.leading!;
+        final iconColor = leading is AppSkinIcon
+            ? leading.color
+            : (leading as Icon).color;
+        expect(iconColor, destructive ? colors.error : colors.primary);
+        expect(tile.textColor, destructive ? colors.error : colors.onSurface);
       }
-      await _scrollTo(tester, 'Copy Song Name');
-      final finder = find.ancestor(
-        of: find.text('Copy Song Name'),
-        matching: find.byType(ListTile),
-      );
-      final tile = tester.widget<ListTile>(finder);
-      expect(
-        (tile.leading as AppSkinIcon).color,
-        Theme.of(tester.element(finder)).colorScheme.onSurfaceVariant,
-      );
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -316,6 +332,8 @@ Future<void> _open(
   albumActionLabel: longMenu ? 'View Album' : null,
   onViewAlbum: longMenu ? () {} : null,
   onViewComment: longMenu ? () {} : null,
+  onViewSheetMusic: longMenu ? () {} : null,
+  onEditMetadata: longMenu ? () {} : null,
   onViewDetail: onViewDetail,
   onRemoveFromPlaylist: onRemove,
   onCopySongName: () {},
