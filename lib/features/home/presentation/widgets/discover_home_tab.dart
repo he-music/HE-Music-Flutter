@@ -391,6 +391,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                     AppMessageService.showError(error);
                   }
                 },
+                cupertinoRefreshIndicatorTopPadding: _searchHeight,
                 controller: _scrollControllers[page],
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),

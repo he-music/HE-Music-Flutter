@@ -60,6 +60,45 @@ void main() {
     }
   }
 
+  testWidgets('Cupertino refresh indicator stays below top padding', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppUiStyleScope(
+          style: AppUiStyle.cupertino,
+          child: Scaffold(
+            body: AppRefreshableScrollView(
+              onRefresh: () => pending.future,
+              cupertinoRefreshIndicatorTopPadding: 56,
+              slivers: const <Widget>[
+                SliverToBoxAdapter(child: SizedBox(height: 1600)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.timedDrag(
+      find.byType(CustomScrollView),
+      const Offset(0, 500),
+      const Duration(seconds: 1),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    final indicator = find.byType(
+      CupertinoActivityIndicator,
+      skipOffstage: false,
+    );
+    expect(indicator, findsOneWidget);
+    expect(tester.getCenter(indicator).dy, greaterThan(56));
+
+    pending.complete();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('style changes retain scroll position and local input state', (
     tester,
   ) async {

@@ -15,8 +15,9 @@ class AppRefreshableScrollView extends StatelessWidget {
     this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.manual,
     this.cacheExtent,
     this.scrollViewKey,
+    this.cupertinoRefreshIndicatorTopPadding = 0,
     super.key,
-  });
+  }) : assert(cupertinoRefreshIndicatorTopPadding >= 0);
 
   final RefreshCallback onRefresh;
   final List<Widget> slivers;
@@ -27,6 +28,9 @@ class AppRefreshableScrollView extends StatelessWidget {
   final ScrollViewKeyboardDismissBehavior keyboardDismissBehavior;
   final double? cacheExtent;
   final Key? scrollViewKey;
+
+  /// Keeps the Cupertino refresh icon below an overlaid top control.
+  final double cupertinoRefreshIndicatorTopPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +55,10 @@ class AppRefreshableScrollView extends StatelessWidget {
         keyboardDismissBehavior: keyboardDismissBehavior,
         cacheExtent: cacheExtent,
         slivers: [
-          _AppRefreshSliver(onRefresh: onRefresh),
+          _AppRefreshSliver(
+            onRefresh: onRefresh,
+            topPadding: cupertinoRefreshIndicatorTopPadding,
+          ),
           ...slivers,
         ],
       ),
@@ -60,11 +67,36 @@ class AppRefreshableScrollView extends StatelessWidget {
 }
 
 class _AppRefreshSliver extends StatelessWidget {
-  const _AppRefreshSliver({required this.onRefresh});
+  const _AppRefreshSliver({required this.onRefresh, required this.topPadding});
+
   final RefreshCallback onRefresh;
+  final double topPadding;
 
   @override
-  Widget build(BuildContext context) => AppUiTheme.usesCupertino(context)
-      ? CupertinoSliverRefreshControl(onRefresh: onRefresh)
-      : const SliverToBoxAdapter(child: SizedBox.shrink());
+  Widget build(BuildContext context) {
+    if (!AppUiTheme.usesCupertino(context)) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    return CupertinoSliverRefreshControl(
+      onRefresh: onRefresh,
+      builder: topPadding == 0
+          ? null
+          : (
+              context,
+              refreshState,
+              pulledExtent,
+              refreshTriggerPullDistance,
+              refreshIndicatorExtent,
+            ) => Padding(
+              padding: EdgeInsets.only(top: topPadding),
+              child: CupertinoSliverRefreshControl.buildRefreshIndicator(
+                context,
+                refreshState,
+                pulledExtent,
+                refreshTriggerPullDistance,
+                refreshIndicatorExtent,
+              ),
+            ),
+    );
+  }
 }
