@@ -13,6 +13,8 @@ import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/widgets/app_panel.dart';
 import '../../../update/domain/entities/update_release.dart';
 import '../../../update/domain/entities/update_state.dart';
 import '../../../update/presentation/providers/update_providers.dart';
@@ -191,10 +193,10 @@ class AboutContent extends ConsumerWidget {
           versionTitle: AppI18n.t(config, 'settings.about.current_version'),
         ),
         const SizedBox(height: 18),
-        Card(
+        AppPanel(
           child: Column(
             children: <Widget>[
-              ListTile(
+              AppListTile(
                 leading: const Icon(Icons.history_rounded),
                 title: Text(AppI18n.t(config, 'update.history.title')),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -203,7 +205,7 @@ class AboutContent extends ConsumerWidget {
                     ? () => context.push(AppRoutes.releaseHistory)
                     : null,
               ),
-              ListTile(
+              AppListTile(
                 leading: const Icon(Icons.open_in_new_rounded),
                 title: Text(AppI18n.t(config, 'settings.about.github_release')),
                 subtitle: Text(releaseDescriptionBuilder(config)),
@@ -255,7 +257,7 @@ class _AboutHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
+    return AppPanel(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
         child: Column(

@@ -13,6 +13,7 @@ import '../utils/playlist_song_count_text.dart';
 import '../../features/online/presentation/widgets/search_playlist_list_item.dart';
 
 import 'app_button.dart';
+import 'app_list_tile.dart';
 
 class SelectedUserPlaylist {
   const SelectedUserPlaylist({required this.id, required this.isDefault});
@@ -133,7 +134,7 @@ class _PlaylistListView extends StatelessWidget {
             separatorBuilder: (context, index) => const SizedBox(height: 6),
             itemBuilder: (context, index) {
               if (onCreatePlaylist != null && index == 0) {
-                return ListTile(
+                return AppListTile(
                   leading: const Icon(Icons.add_rounded),
                   title: Text(
                     AppI18n.tByLocaleCode(

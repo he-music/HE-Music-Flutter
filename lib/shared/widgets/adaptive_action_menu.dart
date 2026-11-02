@@ -3,10 +3,10 @@ import 'package:flutter/cupertino.dart';
 import '../../app/theme/app_ui_theme.dart';
 
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
+import 'app_adaptive_controls.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
 import '../utils/platform_utils.dart';
-import '../constants/layout_tokens.dart';
 
 enum AdaptiveActionMenuMobileDensity { regular, compact }
 
@@ -97,17 +97,11 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
       onSecondaryTapDown: (details) {
         _lastGlobalPosition = details.globalPosition;
       },
-      child: IconButton(
+      child: AppIconButton(
         key: widget.menuKey,
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.standard,
-        constraints: const BoxConstraints.tightFor(
-          width: LayoutTokens.controlMinExtent,
-          height: LayoutTokens.controlMinExtent,
-        ),
+        onPressed: widget.items.isEmpty ? null : _openMenu,
         tooltip: widget.tooltip,
         icon: widget.icon,
-        onPressed: widget.items.isEmpty ? null : _openMenu,
       ),
     );
   }

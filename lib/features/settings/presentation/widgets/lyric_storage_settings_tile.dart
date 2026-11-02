@@ -1,6 +1,7 @@
 import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
@@ -97,7 +98,7 @@ class _LyricStorageSettingsTileState
       future: _stats,
       builder: (context, snapshot) {
         final stats = snapshot.data;
-        return ListTile(
+        return AppListTile(
           leading: Icon(widget.manual ? Icons.lyrics_outlined : Icons.cached),
           title: Text(
             t(
@@ -211,7 +212,7 @@ class _ResetLyricOffsetsSettingsTileState
       appConfigProvider.select((state) => state.localeCode),
     );
     String t(String key) => AppI18n.tByLocaleCode(locale, key);
-    return ListTile(
+    return AppListTile(
       key: const ValueKey('reset-all-lyric-offsets'),
       leading: const Icon(Icons.restore_rounded),
       title: Text(t('settings.lyric_offset.title')),

@@ -10,6 +10,7 @@ import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_request.d
 import 'package:he_music_flutter/features/lyrics/domain/entities/raw_lyric_bundle.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/settings/presentation/widgets/lyric_storage_settings_tile.dart';
+import 'package:he_music_flutter/shared/widgets/app_list_tile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -159,7 +160,7 @@ void main() {
         expect(find.text('重置所有歌词偏移？'), findsOneWidget);
         expect(
           tester
-              .widget<ListTile>(
+              .widget<AppListTile>(
                 find.byKey(const ValueKey('reset-all-lyric-offsets')),
               )
               .onTap,

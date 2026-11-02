@@ -36,29 +36,25 @@ class _GitHubDownloadAccelerationPageState
     final content = ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: <Widget>[
-        Card(
-          margin: EdgeInsets.zero,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: <Widget>[
-              AppSwitchListTile(
-                key: const ValueKey<String>(
-                  'github-download-proxy-auto-update-switch',
-                ),
-                value: config.githubDownloadProxyAutoUpdateEnabled,
-                onChanged: ref
-                    .read(appConfigProvider.notifier)
-                    .setGitHubDownloadProxyAutoUpdateEnabled,
-                secondary: const Icon(Icons.sync_rounded),
-                title: Text(
-                  AppI18n.t(
-                    config,
-                    'settings.github_download_acceleration.auto_update',
-                  ),
+        AppListSection(
+          children: <Widget>[
+            AppSwitchListTile(
+              key: const ValueKey<String>(
+                'github-download-proxy-auto-update-switch',
+              ),
+              value: config.githubDownloadProxyAutoUpdateEnabled,
+              onChanged: ref
+                  .read(appConfigProvider.notifier)
+                  .setGitHubDownloadProxyAutoUpdateEnabled,
+              secondary: const Icon(Icons.sync_rounded),
+              title: Text(
+                AppI18n.t(
+                  config,
+                  'settings.github_download_acceleration.auto_update',
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         const SizedBox(height: 20),
         Row(
@@ -161,53 +157,48 @@ class _GitHubDownloadAccelerationPageState
                   .read(appConfigProvider.notifier)
                   .setGitHubDownloadProxyId(value);
             },
-            child: Card(
-              margin: EdgeInsets.zero,
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: <Widget>[
-                  for (var index = 0; index < proxies.length; index++) ...[
-                    if (AppUiTheme.usesCupertino(context))
-                      Semantics(
-                        selected: selectedProxy?.id == proxies[index].id,
-                        child: AppListTile(
-                          key: ValueKey<String>(
-                            'github-download-proxy-${proxies[index].id}',
-                          ),
-                          title: Text(proxies[index].name),
-                          subtitle: Text(
-                            proxies[index].urlPrefix,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: selectedProxy?.id == proxies[index].id
-                              ? Icon(
-                                  CupertinoIcons.check_mark,
-                                  color: Theme.of(context).colorScheme.primary,
-                                )
-                              : null,
-                          onTap: () => ref
-                              .read(appConfigProvider.notifier)
-                              .setGitHubDownloadProxyId(proxies[index].id),
-                        ),
-                      )
-                    else
-                      RadioListTile<String>(
+            child: AppListSection(
+              children: <Widget>[
+                for (var index = 0; index < proxies.length; index++) ...[
+                  if (AppUiTheme.usesCupertino(context))
+                    Semantics(
+                      selected: selectedProxy?.id == proxies[index].id,
+                      child: AppListTile(
                         key: ValueKey<String>(
                           'github-download-proxy-${proxies[index].id}',
                         ),
-                        value: proxies[index].id,
                         title: Text(proxies[index].name),
                         subtitle: Text(
                           proxies[index].urlPrefix,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        trailing: selectedProxy?.id == proxies[index].id
+                            ? Icon(
+                                CupertinoIcons.check_mark,
+                                color: Theme.of(context).colorScheme.primary,
+                              )
+                            : null,
+                        onTap: () => ref
+                            .read(appConfigProvider.notifier)
+                            .setGitHubDownloadProxyId(proxies[index].id),
                       ),
-                    if (index < proxies.length - 1) const Divider(height: 1),
-                  ],
+                    )
+                  else
+                    RadioListTile<String>(
+                      key: ValueKey<String>(
+                        'github-download-proxy-${proxies[index].id}',
+                      ),
+                      value: proxies[index].id,
+                      title: Text(proxies[index].name),
+                      subtitle: Text(
+                        proxies[index].urlPrefix,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                 ],
-              ),
+              ],
             ),
           ),
       ],

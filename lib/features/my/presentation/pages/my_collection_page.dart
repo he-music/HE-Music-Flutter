@@ -14,6 +14,7 @@ import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
@@ -256,7 +257,7 @@ class _CollectionListState extends ConsumerState<_CollectionList> {
               },
             );
           }
-          return ListTile(
+          return AppListTile(
             onTap: switch (selectedType) {
               MyFavoriteType.artists => () {
                 context.push(
@@ -287,7 +288,7 @@ class _CollectionListState extends ConsumerState<_CollectionList> {
             leading: _CoverAvatar(coverUrl: item.coverUrl),
             title: Text(item.title),
             subtitle: Text(item.subtitle),
-            trailing: IconButton(
+            trailing: AppIconButton(
               onPressed: () => onRemove(item),
               icon: const AppSkinIcon(role: AppSkinIconRole.myCollectionRemove),
               color: Theme.of(context).colorScheme.error,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
@@ -33,29 +35,41 @@ class MyThemeCard extends StatelessWidget {
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 10),
-          SegmentedButton<AppThemeMode>(
-            segments: <ButtonSegment<AppThemeMode>>[
-              ButtonSegment<AppThemeMode>(
-                value: AppThemeMode.system,
-                label: Text(AppI18n.t(config, 'my.theme.system')),
-              ),
-              ButtonSegment<AppThemeMode>(
-                value: AppThemeMode.light,
-                label: Text(AppI18n.t(config, 'my.theme.light')),
-              ),
-              ButtonSegment<AppThemeMode>(
-                value: AppThemeMode.dark,
-                label: Text(AppI18n.t(config, 'my.theme.dark')),
-              ),
-            ],
-            selected: <AppThemeMode>{config.themeMode},
-            onSelectionChanged: (selection) {
-              if (selection.isEmpty) {
-                return;
-              }
-              controller.setThemeMode(selection.first);
-            },
-          ),
+          if (AppUiTheme.usesCupertino(context))
+            CupertinoSlidingSegmentedControl<AppThemeMode>(
+              groupValue: config.themeMode,
+              children: <AppThemeMode, Widget>{
+                AppThemeMode.system: Text(AppI18n.t(config, 'my.theme.system')),
+                AppThemeMode.light: Text(AppI18n.t(config, 'my.theme.light')),
+                AppThemeMode.dark: Text(AppI18n.t(config, 'my.theme.dark')),
+              },
+              onValueChanged: (value) {
+                if (value != null) controller.setThemeMode(value);
+              },
+            )
+          else
+            SegmentedButton<AppThemeMode>(
+              segments: <ButtonSegment<AppThemeMode>>[
+                ButtonSegment<AppThemeMode>(
+                  value: AppThemeMode.system,
+                  label: Text(AppI18n.t(config, 'my.theme.system')),
+                ),
+                ButtonSegment<AppThemeMode>(
+                  value: AppThemeMode.light,
+                  label: Text(AppI18n.t(config, 'my.theme.light')),
+                ),
+                ButtonSegment<AppThemeMode>(
+                  value: AppThemeMode.dark,
+                  label: Text(AppI18n.t(config, 'my.theme.dark')),
+                ),
+              ],
+              selected: <AppThemeMode>{config.themeMode},
+              onSelectionChanged: (selection) {
+                if (selection.isNotEmpty) {
+                  controller.setThemeMode(selection.first);
+                }
+              },
+            ),
           const SizedBox(height: 8),
           AppSwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -95,26 +109,39 @@ class MyLanguageCard extends StatelessWidget {
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            children: <Widget>[
-              ChoiceChip(
-                label: Text(AppI18n.t(config, 'my.language.system')),
-                selected: config.localeCode == 'system',
-                onSelected: (_) => controller.setLocaleCode('system'),
-              ),
-              ChoiceChip(
-                label: Text(AppI18n.t(config, 'my.language.zh')),
-                selected: config.localeCode == 'zh',
-                onSelected: (_) => controller.setLocaleCode('zh'),
-              ),
-              ChoiceChip(
-                label: Text(AppI18n.t(config, 'my.language.en')),
-                selected: config.localeCode == 'en',
-                onSelected: (_) => controller.setLocaleCode('en'),
-              ),
-            ],
-          ),
+          if (AppUiTheme.usesCupertino(context))
+            CupertinoSlidingSegmentedControl<String>(
+              groupValue: config.localeCode,
+              children: <String, Widget>{
+                'system': Text(AppI18n.t(config, 'my.language.system')),
+                'zh': Text(AppI18n.t(config, 'my.language.zh')),
+                'en': Text(AppI18n.t(config, 'my.language.en')),
+              },
+              onValueChanged: (value) {
+                if (value != null) controller.setLocaleCode(value);
+              },
+            )
+          else
+            Wrap(
+              spacing: 8,
+              children: <Widget>[
+                ChoiceChip(
+                  label: Text(AppI18n.t(config, 'my.language.system')),
+                  selected: config.localeCode == 'system',
+                  onSelected: (_) => controller.setLocaleCode('system'),
+                ),
+                ChoiceChip(
+                  label: Text(AppI18n.t(config, 'my.language.zh')),
+                  selected: config.localeCode == 'zh',
+                  onSelected: (_) => controller.setLocaleCode('zh'),
+                ),
+                ChoiceChip(
+                  label: Text(AppI18n.t(config, 'my.language.en')),
+                  selected: config.localeCode == 'en',
+                  onSelected: (_) => controller.setLocaleCode('en'),
+                ),
+              ],
+            ),
         ],
       ),
     );

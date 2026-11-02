@@ -2,6 +2,7 @@ import '../../../../shared/widgets/app_alert_dialog.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
@@ -115,7 +116,7 @@ class _ClearAudioCacheTileState extends ConsumerState<_ClearAudioCacheTile> {
     final snapshot =
         ref.watch(audioCacheSnapshotProvider).value ?? runtime.snapshot;
     final config = ref.read(appConfigProvider);
-    return ListTile(
+    return AppListTile(
       leading: Icon(widget.item.icon),
       title: Text(AppI18n.t(config, widget.item.titleKey)),
       subtitle: Text(

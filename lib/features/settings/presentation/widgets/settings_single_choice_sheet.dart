@@ -1,11 +1,11 @@
-import '../../../../shared/constants/layout_tokens.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'package:flutter/cupertino.dart';
 import '../../../../app/theme/app_ui_theme.dart';
-import '../../../../shared/widgets/app_list_tile.dart';
-import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../shared/constants/layout_tokens.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 
 class SettingsChoiceOption<T> {
   const SettingsChoiceOption({
@@ -32,50 +32,98 @@ Future<void> showSettingsSingleChoiceSheet<T>({
   bool playerStyled = false,
 }) {
   Widget builder(BuildContext sheetContext) {
+    final cupertino = AppUiTheme.usesCupertino(sheetContext);
+    final theme = Theme.of(sheetContext);
+    Widget buildOption(SettingsChoiceOption<T> option) {
+      final selected = option.value == currentValue;
+      return Semantics(
+        selected: selected,
+        child: AppListTile(
+          leading: option.leading,
+          title: Text(option.title),
+          subtitle: option.subtitle == null ? null : Text(option.subtitle!),
+          trailing: selected
+              ? ExcludeSemantics(
+                  child: Icon(
+                    cupertino ? CupertinoIcons.check_mark : Icons.check_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                )
+              : null,
+          onTap: () {
+            onSelected(option.value);
+            Navigator.of(sheetContext).pop();
+          },
+        ),
+      );
+    }
+
+    final groups = <(String?, List<SettingsChoiceOption<T>>)>[];
+    if (cupertino) {
+      for (final option in options) {
+        if (groups.isEmpty || groups.last.$1 != option.section) {
+          groups.add((option.section, <SettingsChoiceOption<T>>[]));
+        }
+        groups.last.$2.add(option);
+      }
+    }
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-            child: Text(
-              title,
-              style: Theme.of(sheetContext).textTheme.titleMedium,
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: cupertino
+                    ? CupertinoTheme.of(
+                        sheetContext,
+                      ).textTheme.navTitleTextStyle
+                    : theme.textTheme.titleMedium,
+              ),
             ),
           ),
           Flexible(
             child: ListView(
               shrinkWrap: true,
+              padding: cupertino
+                  ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                  : EdgeInsets.zero,
               children: <Widget>[
-                for (final option in options) ...[
-                  if (option.section != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-                      child: Text(
-                        option.section!,
-                        style: Theme.of(sheetContext).textTheme.labelLarge,
+                if (cupertino)
+                  for (final (heading, groupOptions) in groups)
+                    CupertinoListSection.insetGrouped(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      backgroundColor: Colors.transparent,
+                      // A modal is a control surface, independent of the
+                      // content-card background preference.
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHigh
+                            .withValues(alpha: 1),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ),
-                  AppListTile(
-                    leading: option.leading,
-                    title: Text(option.title),
-                    subtitle: option.subtitle == null
-                        ? null
-                        : Text(option.subtitle!),
-                    trailing: option.value == currentValue
-                        ? Icon(
-                            AppUiTheme.usesCupertino(sheetContext)
-                                ? CupertinoIcons.check_mark
-                                : Icons.check_rounded,
-                            color: Theme.of(sheetContext).colorScheme.primary,
-                          )
-                        : null,
-                    onTap: () {
-                      onSelected(option.value);
-                      Navigator.of(sheetContext).pop();
-                    },
-                  ),
-                ],
+                      hasLeading: groupOptions.any(
+                        (option) => option.leading != null,
+                      ),
+                      header: heading == null
+                          ? null
+                          : Semantics(header: true, child: Text(heading)),
+                      children: groupOptions.map(buildOption).toList(),
+                    )
+                else
+                  for (final option in options) ...[
+                    if (option.section != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                        child: Text(
+                          option.section!,
+                          style: theme.textTheme.labelLarge,
+                        ),
+                      ),
+                    buildOption(option),
+                  ],
                 const SizedBox(height: 6),
               ],
             ),
