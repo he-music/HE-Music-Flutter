@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 
 class SettingsSectionTile extends StatelessWidget {
@@ -153,9 +154,10 @@ class SettingsActionTile extends StatelessWidget {
     required this.iconRole,
     required this.title,
     required this.subtitle,
-    required this.onTap,
+    this.onTap,
     this.destructive = false,
     this.highlighted = false,
+    this.busy = false,
     super.key,
   });
 
@@ -163,21 +165,24 @@ class SettingsActionTile extends StatelessWidget {
   final AppSkinIconRole iconRole;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool destructive;
   final bool highlighted;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
-    final foreground = destructive
-        ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.onSurface;
+    final foreground = destructive ? Theme.of(context).colorScheme.error : null;
     return _SettingsTileShell(
       highlighted: highlighted,
       child: AppListTile(
         leading: AppSkinIcon(role: iconRole, color: foreground),
-        title: Text(title, style: TextStyle(color: foreground)),
+        title: Text(
+          title,
+          style: foreground == null ? null : TextStyle(color: foreground),
+        ),
         subtitle: Text(subtitle),
+        trailing: busy ? const AppActivityIndicator(size: 18) : null,
         onTap: onTap,
       ),
     );

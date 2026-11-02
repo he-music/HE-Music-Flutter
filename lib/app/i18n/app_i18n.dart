@@ -569,6 +569,16 @@ abstract final class AppI18n {
       'settings.logout.done': '已退出当前登录',
       'settings.logout.confirm.title': '退出帐号？',
       'settings.logout.confirm.message': '退出后将清除本机登录状态，稍后可以重新登录。',
+      'settings.recommendation_identity.reset': '重置推荐标识',
+      'settings.recommendation_identity.reset.desc':
+          '更换用于音乐平台匿名推荐的设备标识，可能影响推荐内容。此操作会应用到该账号的所有设备，无需重新登录。',
+      'settings.recommendation_identity.confirm.title': '重置推荐标识？',
+      'settings.recommendation_identity.confirm.message':
+          '重置后将使用新的平台设备标识，推荐内容可能发生变化。你的账号、歌单和收藏不受影响。',
+      'settings.recommendation_identity.confirm': '确认重置',
+      'settings.recommendation_identity.success': '推荐标识已重置',
+      'settings.recommendation_identity.uncertain': '未能确认重置结果，请稍后刷新。',
+      'settings.recommendation_identity.failed': '重置推荐标识失败，请重试',
       'settings.lang.zh_cn': '简体中文',
       'settings.lang.en': 'English',
       'settings.lang.system': '跟随系统',
@@ -1676,6 +1686,21 @@ abstract final class AppI18n {
       'settings.logout.confirm.title': 'Sign out?',
       'settings.logout.confirm.message':
           'This clears the sign-in state on this device. You can sign in again later.',
+      'settings.recommendation_identity.reset':
+          'Reset Recommendation Identifier',
+      'settings.recommendation_identity.reset.desc':
+          'Change the device identifier used for anonymous music recommendations. Recommendations may change. This applies to all devices on this account and does not require signing in again.',
+      'settings.recommendation_identity.confirm.title':
+          'Reset recommendation identifier?',
+      'settings.recommendation_identity.confirm.message':
+          'A new platform device identifier will be used after resetting, so recommendations may change. Your account, playlists, and favorites will not be affected.',
+      'settings.recommendation_identity.confirm': 'Confirm Reset',
+      'settings.recommendation_identity.success':
+          'Recommendation identifier reset',
+      'settings.recommendation_identity.uncertain':
+          'Unable to confirm the reset result. Please refresh later.',
+      'settings.recommendation_identity.failed':
+          'Failed to reset recommendation identifier. Please try again.',
       'settings.lang.zh_cn': '简体中文',
       'settings.lang.en': 'English',
       'settings.lang.system': 'System',

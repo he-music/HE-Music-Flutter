@@ -550,6 +550,7 @@ void main() {
     expect(find.text('修改密码'), findsNothing);
     expect(find.text('设备管理'), findsNothing);
     expect(find.text('退出帐号'), findsNothing);
+    expect(find.text('重置推荐标识'), findsNothing);
   });
 
   testWidgets('signed in account section shows all management entries', (
@@ -569,6 +570,7 @@ void main() {
     expect(find.text('修改密码'), findsOneWidget);
     expect(find.text('设备管理'), findsOneWidget);
     expect(find.text('退出帐号'), findsOneWidget);
+    expect(find.text('重置推荐标识'), findsOneWidget);
     expect(find.text('登录帐号'), findsNothing);
 
     final logoutText = tester.widget<Text>(find.text('退出帐号'));

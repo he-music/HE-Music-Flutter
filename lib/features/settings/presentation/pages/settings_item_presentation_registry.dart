@@ -135,6 +135,10 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
         subtitleBuilder: (config) =>
             AppI18n.t(config, 'settings.account.password.desc'),
       ),
+      SettingsItemIds.resetRecommendationIdentity: SettingsItemPresentation(
+        subtitleBuilder: (config) =>
+            AppI18n.t(config, 'settings.recommendation_identity.reset.desc'),
+      ),
       SettingsItemIds.accountLogin: SettingsItemPresentation(
         subtitleBuilder: (config) =>
             AppI18n.t(config, 'settings.account.login.desc'),
@@ -193,6 +197,8 @@ AppSkinIconRole settingsItemIconRole(String itemId) {
     SettingsItemIds.accountProfile => AppSkinIconRole.settingsAccountProfile,
     SettingsItemIds.accountLogin => AppSkinIconRole.settingsLogin,
     SettingsItemIds.accountPassword => AppSkinIconRole.settingsPassword,
+    SettingsItemIds.resetRecommendationIdentity =>
+      AppSkinIconRole.settingsGeneral,
     SettingsItemIds.deviceManagement => AppSkinIconRole.settingsDevices,
     SettingsItemIds.accountLogout => AppSkinIconRole.settingsLogout,
     _ => AppSkinIconRole.settingsGeneral,

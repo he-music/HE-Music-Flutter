@@ -202,6 +202,21 @@ class HomePageController extends Notifier<HomePageState> {
     }
   }
 
+  Future<String?> refreshRecommendations() async {
+    const page = HomePageKind.recommend;
+    final platformId = state.contentFor(page).selectedPlatformId;
+    _platformContents[page]!.clear();
+    _nextRequestVersion(page);
+    if (state.selectedPage != page ||
+        platformId == null ||
+        platformId.isEmpty) {
+      return null;
+    }
+    await _loadFirstPage(page, platformId, clearContent: true);
+    final content = state.contentFor(page);
+    return content.errorMessage;
+  }
+
   Future<void> loadMore() async {
     const page = HomePageKind.recommend;
     final content = state.contentFor(page);

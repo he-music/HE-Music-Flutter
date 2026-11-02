@@ -1,5 +1,6 @@
 import '../widgets/lyric_storage_settings_tile.dart';
 import 'dart:async';
+import 'package:dio/dio.dart';
 
 import 'package:flutter/foundation.dart';
 import '../../../../shared/widgets/app_alert_dialog.dart';
@@ -32,6 +33,9 @@ import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_search_field.dart';
 import '../../../online/presentation/providers/online_providers.dart';
 import '../../domain/settings_catalog.dart';
+import '../../../../core/network/network_error_message.dart';
+import '../../../home/presentation/providers/home_page_providers.dart';
+import '../../data/providers/account_settings_providers.dart';
 import '../../domain/settings_models.dart';
 import 'settings_item_presentation_registry.dart';
 import 'settings_navigation_registry.dart';
@@ -57,6 +61,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Timer? _highlightResetTimer;
   String? _highlightedItemId;
 
+  bool _resettingRecommendationIdentity = false;
   @override
   void initState() {
     super.initState();
@@ -454,6 +459,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         onTap: _openLogin,
         highlighted: _highlightedItemId == item.id,
       ),
+      SettingsItemIds.resetRecommendationIdentity => SettingsActionTile(
+        icon: item.icon,
+        iconRole: settingsItemIconRole(item.id),
+        title: AppI18n.t(config, item.titleKey),
+        subtitle: settingsItemSubtitle(item.id, config),
+        onTap: _resettingRecommendationIdentity
+            ? null
+            : _confirmResetRecommendationIdentity,
+        busy: _resettingRecommendationIdentity,
+        highlighted: _highlightedItemId == item.id,
+      ),
       SettingsItemIds.accountLogout => SettingsActionTile(
         icon: item.icon,
         iconRole: settingsItemIconRole(item.id),
@@ -551,6 +567,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (itemId == SettingsItemIds.accountProfile ||
         itemId == SettingsItemIds.accountPassword ||
         itemId == SettingsItemIds.deviceManagement ||
+        itemId == SettingsItemIds.resetRecommendationIdentity ||
         itemId == SettingsItemIds.accountLogout) {
       return loggedIn;
     }
@@ -639,6 +656,75 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         queryParameters: const <String, String>{'redirect': AppRoutes.settings},
       ).toString(),
     );
+  }
+
+  Future<void> _confirmResetRecommendationIdentity() async {
+    if (_resettingRecommendationIdentity) {
+      return;
+    }
+    final config = ref.read(appConfigProvider);
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AppAlertDialog(
+        title: Text(
+          AppI18n.t(config, 'settings.recommendation_identity.confirm.title'),
+        ),
+        content: Text(
+          AppI18n.t(config, 'settings.recommendation_identity.confirm.message'),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppI18n.t(config, 'common.cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              AppI18n.t(config, 'settings.recommendation_identity.confirm'),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() => _resettingRecommendationIdentity = true);
+    try {
+      await ref
+          .read(accountSettingsApiClientProvider)
+          .resetRecommendationIdentity();
+      await ref
+          .read(homePageControllerProvider.notifier)
+          .refreshRecommendations();
+      if (!mounted) {
+        return;
+      }
+      AppMessageService.showSuccess(
+        AppI18n.t(config, 'settings.recommendation_identity.success'),
+      );
+    } on DioException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = error.response == null
+          ? AppI18n.t(config, 'settings.recommendation_identity.uncertain')
+          : NetworkErrorMessage.resolve(error, localeCode: config.localeCode) ??
+                AppI18n.t(config, 'settings.recommendation_identity.failed');
+      AppMessageService.showError(message);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      AppMessageService.showError(
+        NetworkErrorMessage.resolve(error, localeCode: config.localeCode) ??
+            AppI18n.t(config, 'settings.recommendation_identity.failed'),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _resettingRecommendationIdentity = false);
+      }
+    }
   }
 
   Future<void> _confirmLogout() async {

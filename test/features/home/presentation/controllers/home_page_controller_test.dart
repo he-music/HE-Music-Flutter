@@ -311,6 +311,21 @@ void main() {
       expect(api.calls.last, 'discover|new|1');
     },
   );
+  test('重置后清理推荐缓存并重新加载当前推荐页', () async {
+    final api = _ImmediateHomePageApiClient();
+    final container = _container(
+      api: api,
+      platforms: <OnlinePlatform>[_platform('qq', recommend: true)],
+    );
+    addTearDown(container.dispose);
+    await container.read(onlinePlatformsProvider.future);
+    final controller = container.read(homePageControllerProvider.notifier);
+
+    await controller.initialize();
+    await controller.refreshRecommendations();
+
+    expect(api.calls, <String>['recommend|qq|1', 'recommend|qq|1']);
+  });
 }
 
 ProviderContainer _container({

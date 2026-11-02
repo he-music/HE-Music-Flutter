@@ -61,6 +61,7 @@ abstract final class SettingsItemIds {
   static const about = 'about';
   static const accountProfile = 'account-profile';
   static const accountPassword = 'account-password';
+  static const resetRecommendationIdentity = 'reset-recommendation-identity';
   static const accountLogin = 'account-login';
   static const deviceManagement = 'device-management';
   static const accountLogout = 'account-logout';
@@ -427,6 +428,23 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     kind: SettingsItemKind.navigation,
     icon: Icons.password_rounded,
     keywords: <String>['密码', '安全', 'password'],
+  ),
+  SettingsItemNode(
+    id: SettingsItemIds.resetRecommendationIdentity,
+    sectionId: SettingsSectionIds.account,
+    groupId: SettingsGroupIds.accountSecurity,
+    titleKey: 'settings.recommendation_identity.reset',
+    kind: SettingsItemKind.navigation,
+    icon: Icons.refresh_rounded,
+    keywords: <String>[
+      '推荐',
+      '标识',
+      '设备',
+      '重置',
+      'recommendation',
+      'identity',
+      'reset',
+    ],
   ),
   SettingsItemNode(
     id: SettingsItemIds.deviceManagement,

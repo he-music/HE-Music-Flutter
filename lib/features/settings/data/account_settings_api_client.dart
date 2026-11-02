@@ -27,4 +27,15 @@ class AccountSettingsApiClient {
       },
     );
   }
+
+  Future<void> resetRecommendationIdentity() async {
+    await _dio.post(
+      '/v1/user/provider-identity/reset',
+      data: <String, dynamic>{},
+      options: Options(
+        contentType: Headers.jsonContentType,
+        extra: <String, dynamic>{'silentErrorMessage': true},
+      ),
+    );
+  }
 }

@@ -48,6 +48,17 @@ void main() {
         'new_password': 'new-pass',
       });
     });
+    test('resetRecommendationIdentity posts an empty JSON body', () async {
+      final capture = _DioCapture();
+      final client = AccountSettingsApiClient(capture.dio);
+
+      await client.resetRecommendationIdentity();
+
+      expect(capture.method, 'POST');
+      expect(capture.path, '/v1/user/provider-identity/reset');
+      expect(capture.data, <String, dynamic>{});
+      expect(capture.contentType, Headers.jsonContentType);
+    });
   });
 }
 
@@ -60,11 +71,13 @@ class _DioCapture {
   String? method;
   String? path;
   dynamic data;
+  String? contentType;
 
   void _capture(RequestOptions options) {
     method = options.method;
     path = options.path;
     data = options.data;
+    contentType = options.contentType;
   }
 }
 
