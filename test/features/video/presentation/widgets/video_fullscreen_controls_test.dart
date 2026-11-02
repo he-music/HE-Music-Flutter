@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/video/domain/entities/video_detail_content.dart';
@@ -53,6 +56,7 @@ void main() {
     WidgetTester tester, {
     Size size = const Size(960, 540),
     bool reduceMotion = false,
+    bool cupertino = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -60,7 +64,13 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData.dark(),
+        theme: ThemeData.dark().copyWith(
+          extensions: [
+            AppUiTheme(
+              style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material,
+            ),
+          ],
+        ),
         home: Scaffold(
           body: MediaQuery(
             data: MediaQueryData(size: size, disableAnimations: reduceMotion),
@@ -106,6 +116,127 @@ void main() {
   }
 
   Finder action(String name) => find.byKey(ValueKey('video-fullscreen-$name'));
+
+  testWidgets('Cupertino rate selection and cancel restore the hide timer', (
+    tester,
+  ) async {
+    await mount(tester, cupertino: true);
+    await tester.tap(action('speed'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoActionSheet), findsOneWidget);
+    expect(find.text('✓ 1.0×'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.tap(find.text('1.5×'));
+    await tester.pumpAndSettle();
+    expect(factory.surface.state.rate, 1.5);
+    expect(action('speed').hitTestable(), findsOneWidget);
+    await tester.tap(action('speed'));
+    await tester.pumpAndSettle();
+    expect(find.text('✓ 1.5×'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(factory.surface.state.rate, 1.5);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(action('speed').hitTestable(), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'Cupertino quality and narrow more preserve selection fit and PiP',
+    (tester) async {
+      await mount(tester, cupertino: true, size: const Size(360, 640));
+      await tester.tap(action('quality'));
+      await tester.pumpAndSettle();
+      expect(find.text('✓ 1080P'), findsOneWidget);
+      await tester.tap(find.text('720P'));
+      await tester.pumpAndSettle();
+      expect(factory.creates, 1);
+      expect(factory.surface.sourceChanges.single.path, '/720.mp4');
+      await tester.tap(action('more'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoActionSheet), findsOneWidget);
+      await tester.tap(find.text('Picture fit'));
+      await tester.pumpAndSettle();
+      expect(find.text('✓ Fit to screen'), findsOneWidget);
+      await tester.tap(
+        find.text('Fill screen\nFill the screen; edges may be cropped'),
+      );
+      await tester.pumpAndSettle();
+      expect(factory.surface.fit, BoxFit.cover);
+      await tester.tap(action('more'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(action('more').hitTestable(), findsOneWidget);
+      await tester.tap(action('more'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Picture in picture'));
+      await tester.pumpAndSettle();
+      expect(pip.active, isTrue);
+      await _nativeCall(channel, const MethodCall('modeChanged', false));
+      await tester.pumpAndSettle();
+      expect(action('more').hitTestable(), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'Cupertino switching disables quality and rate and respects reduced motion',
+    (tester) async {
+      await mount(tester, cupertino: true);
+      factory.surface.sourceGate = Completer<void>();
+      final switching = playback.switchQuality(
+        _content.links.last,
+        preserveSurface: true,
+      );
+      await tester.pump();
+      for (final name in ['quality', 'speed', 'play-pause']) {
+        final button = tester.widget<CupertinoButton>(
+          find.descendant(
+            of: action(name),
+            matching: find.byType(CupertinoButton),
+          ),
+        );
+        expect(button.onPressed, isNull);
+      }
+      expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+      await tester.tap(action('quality'));
+      await tester.pump();
+      expect(find.byType(CupertinoActionSheet), findsNothing);
+      await mount(tester, cupertino: true, reduceMotion: true);
+      expect(find.byType(CupertinoActivityIndicator), findsNothing);
+      expect(find.byIcon(Icons.hourglass_empty_rounded), findsOneWidget);
+      factory.surface.sourceGate!.complete();
+      await switching;
+      await tester.pumpAndSettle();
+      expect(action('speed').hitTestable(), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('Cupertino rate failure and barrier dismissal restore controls', (
+    tester,
+  ) async {
+    await mount(tester, cupertino: true);
+    factory.surface.failRate = true;
+    await tester.tap(action('speed'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1.5×'));
+    await tester.pumpAndSettle();
+    expect(factory.surface.state.rate, 1);
+    expect(action('speed').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(action('speed'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoActionSheet), findsNothing);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(action('speed').hitTestable(), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets('wide fullscreen exposes quality speed fit lock and PiP', (
     tester,
@@ -411,6 +542,8 @@ class _Surface extends ChangeNotifier implements VideoPlaybackSurface {
     isPlaying: true,
     duration: const Duration(minutes: 2),
   );
+  Completer<void>? sourceGate;
+  bool failRate = false;
   final List<Uri> sourceChanges = [];
   final List<Duration> seeks = [];
   BoxFit fit = BoxFit.contain;
@@ -434,7 +567,11 @@ class _Surface extends ChangeNotifier implements VideoPlaybackSurface {
   }
 
   @override
-  Future<void> setRate(double rate) async => change(state.copyWith(rate: rate));
+  Future<void> setRate(double rate) async {
+    if (failRate) throw StateError('rate rejected');
+    change(state.copyWith(rate: rate));
+  }
+
   @override
   Future<void> setVolume(double volume) async =>
       change(state.copyWith(volume: volume));
@@ -446,6 +583,7 @@ class _Surface extends ChangeNotifier implements VideoPlaybackSurface {
   @override
   Future<void> replaceSource(Uri uri) async {
     sourceChanges.add(uri);
+    await sourceGate?.future;
   }
 
   @override

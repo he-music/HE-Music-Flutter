@@ -37,13 +37,25 @@ class DeviceManagementState {
 }
 
 class DeviceManagementController extends Notifier<DeviceManagementState> {
+  Future<void>? _loadRequest;
+
   @override
   DeviceManagementState build() {
     Future.microtask(loadDevices);
     return const DeviceManagementState();
   }
 
-  Future<void> loadDevices() async {
+  Future<void> loadDevices() {
+    final pending = _loadRequest;
+    if (pending != null) {
+      return pending;
+    }
+    final request = _loadDevices().whenComplete(() => _loadRequest = null);
+    _loadRequest = request;
+    return request;
+  }
+
+  Future<void> _loadDevices() async {
     final token = ref.read(appConfigProvider).authToken;
     if (token == null || token.isEmpty) {
       state = const DeviceManagementState();
@@ -63,12 +75,18 @@ class DeviceManagementController extends Notifier<DeviceManagementState> {
     }
   }
 
+  Future<void> _reloadAfterDelete() async {
+    // An earlier list request may contain the deleted devices.
+    await _loadRequest;
+    await loadDevices();
+  }
+
   Future<void> deleteDevice(String deviceId) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final client = ref.read(deviceApiClientProvider);
       await client.deleteDevice(deviceId);
-      await loadDevices();
+      await _reloadAfterDelete();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -79,7 +97,7 @@ class DeviceManagementController extends Notifier<DeviceManagementState> {
     try {
       final client = ref.read(deviceApiClientProvider);
       final result = await client.batchDeleteDevices();
-      await loadDevices();
+      await _reloadAfterDelete();
       return result.deletedCount;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

@@ -7,12 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/features/sheet_music/domain/entities/sheet_music_info.dart';
 import 'package:he_music_flutter/features/sheet_music/presentation/widgets/sheet_music_list.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
-import 'package:he_music_flutter/shared/widgets/app_glass_player_scaffold.dart';
+import 'package:he_music_flutter/shared/widgets/app_player_scaffold.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_component.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
@@ -86,37 +86,36 @@ void main() {
                   ),
                 ),
                 playerController: playerController,
-                child: AppGlassScope(
-                  enabled: true,
-                  mode: AppGlassMode.standard,
-                  child: Builder(
-                    builder: (context) => MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
-                        padding: EdgeInsets.only(bottom: safeBottom),
-                        viewPadding: EdgeInsets.only(bottom: safeBottom),
-                        textScaler: TextScaler.linear(textScale),
+                child: Builder(
+                  builder: (context) => MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      padding: EdgeInsets.only(bottom: safeBottom),
+                      viewPadding: EdgeInsets.only(bottom: safeBottom),
+                      textScaler: TextScaler.linear(textScale),
+                    ),
+                    child: AppPlayerScaffold(
+                      miniPlayer: MiniPlayerBar(
+                        bottomSafeArea: true,
+                        onOpenFullPlayer: () {},
                       ),
-                      child: AppGlassPlayerScaffold(
-                        miniPlayer: MiniPlayerBar(onOpenFullPlayer: () {}),
-                        body: ValueListenableBuilder<bool>(
-                          valueListenable: showReference,
-                          builder: (_, reference, _) => reference
-                              ? DetailPageShell(
-                                  child: SongListComponent(
-                                    enablePaging: false,
-                                    itemCount: 14,
-                                    itemBuilder: (_, index) => SizedBox(
-                                      height: 72,
-                                      child: Text('参考歌曲 $index'),
-                                    ),
+                      body: ValueListenableBuilder<bool>(
+                        valueListenable: showReference,
+                        builder: (_, reference, _) => reference
+                            ? DetailPageShell(
+                                child: SongListComponent(
+                                  enablePaging: false,
+                                  itemCount: 14,
+                                  itemBuilder: (_, index) => SizedBox(
+                                    height: 72,
+                                    child: Text('参考歌曲 $index'),
                                   ),
-                                )
-                              : const SongDetailPage(
-                                  id: 'song-1',
-                                  platform: 'qq',
-                                  title: '测试歌曲',
                                 ),
-                        ),
+                              )
+                            : const SongDetailPage(
+                                id: 'song-1',
+                                platform: 'qq',
+                                title: '测试歌曲',
+                              ),
                       ),
                     ),
                   ),
@@ -151,12 +150,15 @@ void main() {
             showReference.value = false;
             await tester.pumpAndSettle();
             final detailView = find.byType(CustomScrollView);
-            final scroll = await scrollToEnd(detailView);
+            await scrollToEnd(detailView);
             final viewport = tester.getRect(detailView);
             final lastItem = find.widgetWithText(ListTile, '曲谱 13');
             final lastRect = tester.getRect(lastItem);
             expect(viewport, referenceViewport);
-            expect(viewport.bottom, 800);
+            expect(
+              viewport.bottom,
+              hasTrack ? tester.getTopLeft(find.byType(MiniPlayerBar)).dy : 800,
+            );
             // Keep the existing 18px section spacing, then the same safe area
             // used by the album/playlist song list. No extra page spacer.
             expect(
@@ -166,12 +168,7 @@ void main() {
             if (hasTrack) {
               final player = tester.getRect(find.byType(MiniPlayerBar));
               expect(lastRect.bottom, lessThanOrEqualTo(player.top));
-              final delta = player.center.dy - lastRect.center.dy;
-              scroll.position.jumpTo(scroll.position.pixels - delta);
-              await tester.pumpAndSettle();
-              final behindPlayer = tester.getRect(lastItem);
-              expect(behindPlayer.overlaps(player), true);
-              expect(viewport.contains(behindPlayer.center), true);
+              expect(lastItem.hitTestable(), findsOneWidget);
             }
             expect(tester.takeException(), isNull);
           },
@@ -880,15 +877,15 @@ void main() {
   );
 
   for (final scenario in [
-    (width: 240.0, scale: 1.0, glass: false),
-    (width: 390.0, scale: 1.0, glass: false),
-    (width: 320.0, scale: 2.0, glass: false),
-    (width: 240.0, scale: 1.0, glass: true),
-    (width: 390.0, scale: 1.0, glass: true),
-    (width: 320.0, scale: 2.0, glass: true),
+    (width: 240.0, scale: 1.0, cupertino: false),
+    (width: 390.0, scale: 1.0, cupertino: false),
+    (width: 320.0, scale: 2.0, cupertino: false),
+    (width: 240.0, scale: 1.0, cupertino: true),
+    (width: 390.0, scale: 1.0, cupertino: true),
+    (width: 320.0, scale: 2.0, cupertino: true),
   ]) {
     testWidgets(
-      'header places text beside cover and actions below at ${scenario.width}/${scenario.scale} glass=${scenario.glass}',
+      'header places text beside cover and actions below at ${scenario.width}/${scenario.scale} cupertino=${scenario.cupertino}',
       (tester) async {
         await tester.binding.setSurfaceSize(Size(scenario.width, 1000));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -912,9 +909,10 @@ void main() {
               data: MediaQueryData(
                 textScaler: TextScaler.linear(scenario.scale),
               ),
-              child: AppGlassScope(
-                enabled: scenario.glass,
-                mode: AppGlassMode.standard,
+              child: AppUiStyleScope(
+                style: scenario.cupertino
+                    ? AppUiStyle.cupertino
+                    : AppUiStyle.material,
                 child: const SongDetailPage(
                   id: 'song-1',
                   platform: 'qq',

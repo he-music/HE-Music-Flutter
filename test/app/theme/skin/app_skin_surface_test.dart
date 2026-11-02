@@ -27,7 +27,7 @@ void main() {
     expect(find.byType(BackdropFilter), findsNothing);
   });
 
-  testWidgets('immersive fixed surface applies configured blur', (
+  testWidgets('immersive fixed controls stay opaque without background blur', (
     tester,
   ) async {
     final skin = AppSkinRegistry.builtIn(
@@ -44,7 +44,9 @@ void main() {
       ),
     );
 
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsNothing);
+    final surface = tester.widget<DecoratedBox>(find.byType(DecoratedBox));
+    expect((surface.decoration as BoxDecoration).color!.a, 1);
   });
 
   testWidgets('scrolling surface never creates a BackdropFilter', (

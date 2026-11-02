@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -7,6 +8,7 @@ import '../helpers/local_song_playback_helper.dart';
 import '../widgets/local_song_list_item.dart';
 import '../widgets/local_songs_stream_view.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/song_list_component.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
@@ -30,7 +32,10 @@ class LocalArtistDetailPage extends ConsumerWidget {
     final repository = ref.watch(localMusicRepositoryProvider);
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(leading: const AppBackButton(), title: Text(artistName)),
+        appBar: AppNavigationBar(
+          leading: const AppBackButton(),
+          title: Text(artistName),
+        ),
         body: LocalSongsStreamView(
           sourceKey: (repository, artistName),
           watchSongs: () => repository.watchSongsByArtist(artistName),
@@ -86,7 +91,7 @@ class LocalArtistDetailPage extends ConsumerWidget {
                         {'count': '${songs.length}'},
                       ),
                       onPlayAll: () => _playAll(ref, songs),
-                      trailing: TextButton.icon(
+                      trailing: AppButton.textIcon(
                         onPressed: () => _shufflePlay(ref, songs),
                         icon: const Icon(Icons.shuffle_rounded),
                         label: Text(AppI18n.t(config, 'local.shuffle')),

@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_slider.dart';
+
 const _defaultSliderMax = 1.0;
 
 class PlayerProgressBar extends StatefulWidget {
@@ -62,7 +65,34 @@ class _PlayerProgressBarState extends State<PlayerProgressBar> {
           : previewPosition,
       maxMillis,
     );
-    final theme = Theme.of(context);
+    if (AppUiTheme.usesCupertino(context)) {
+      return Column(
+        children: <Widget>[
+          AppSlider(
+            key: const ValueKey<String>('player-progress-slider'),
+            value: currentMillis.toDouble(),
+            min: 0,
+            max: maxMillis.toDouble(),
+            secondaryTrackValue: bufferedMillis.toDouble(),
+            activeColor: Colors.white,
+            thumbColor: Colors.white,
+            onChangeStart: widget.enabled
+                ? (value) {
+                    _seekRevision++;
+                    setState(() => _dragMillis = value);
+                  }
+                : null,
+            onChanged: widget.enabled
+                ? (value) => setState(() => _dragMillis = value)
+                : null,
+            onChangeEnd: widget.enabled ? _commitSeek : null,
+            semanticFormatterCallback: (value) =>
+                _formatDuration(Duration(milliseconds: value.round())),
+          ),
+          _buildTimeLabels(context, previewPosition),
+        ],
+      );
+    }
 
     return Column(
       children: <Widget>[
@@ -96,22 +126,27 @@ class _PlayerProgressBarState extends State<PlayerProgressBar> {
                 _formatDuration(Duration(milliseconds: value.round())),
           ),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            Text(
-              _formatDuration(previewPosition),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.74),
-              ),
-            ),
-            Text(
-              _formatDuration(widget.duration),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.74),
-              ),
-            ),
-          ],
+        _buildTimeLabels(context, previewPosition),
+      ],
+    );
+  }
+
+  Widget _buildTimeLabels(BuildContext context, Duration previewPosition) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: <Widget>[
+        Text(
+          _formatDuration(previewPosition),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: Colors.white.withValues(alpha: 0.74),
+          ),
+        ),
+        Text(
+          _formatDuration(widget.duration),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: Colors.white.withValues(alpha: 0.74),
+          ),
         ),
       ],
     );

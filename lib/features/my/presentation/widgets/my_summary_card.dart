@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../shared/widgets/glass_panel.dart';
+import '../../../../shared/widgets/app_panel.dart';
 import '../../domain/entities/my_summary.dart';
 
 class MySummaryCard extends StatelessWidget {
@@ -13,9 +13,8 @@ class MySummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
+    return AppPanel(
       borderRadius: BorderRadius.circular(30),
-      blurSigma: 0,
       tintColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.42),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(

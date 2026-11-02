@@ -4,6 +4,8 @@ import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../domain/entities/player_track.dart';
 
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+
 class PlayerQueueList extends StatefulWidget {
   const PlayerQueueList({
     required this.config,
@@ -203,18 +205,11 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
                   ),
                 ),
                 if (widget.editable && widget.onRemoveAt != null)
-                  IconButton(
+                  AppIconButton(
                     onPressed: () => widget.onRemoveAt!(index),
                     tooltip: AppI18n.t(widget.config, 'player.queue.remove'),
-                    iconSize: 18,
-                    splashRadius: 18,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 28,
-                      height: 28,
-                    ),
                     color: theme.colorScheme.onSurfaceVariant,
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(Icons.close_rounded, size: 18),
                   ),
                 if (widget.editable)
                   ReorderableDragStartListener(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 enum AppThemeAccent {
+  appleBlue('apple_blue', Color(0xFF007AFF), Color(0xFF0A84FF)),
   forest('forest', Color(0xFF166534), Color(0xFF34D399)),
   ocean('ocean', Color(0xFF0F766E), Color(0xFF2DD4BF)),
   cobalt('cobalt', Color(0xFF1D4ED8), Color(0xFF60A5FA)),

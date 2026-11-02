@@ -7,6 +7,7 @@ import '../helpers/local_song_playback_helper.dart';
 import '../widgets/local_song_list_item.dart';
 import '../widgets/local_songs_stream_view.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/song_list_component.dart';
 import '../../../../shared/widgets/song_list_item.dart';
 import '../../domain/entities/local_song.dart';
@@ -26,7 +27,10 @@ class GenrePage extends ConsumerWidget {
     final config = ref.watch(appConfigProvider);
     final repository = ref.watch(localMusicRepositoryProvider);
     return Scaffold(
-      appBar: AppBar(leading: const AppBackButton(), title: Text(genreName)),
+      appBar: AppNavigationBar(
+        leading: const AppBackButton(),
+        title: Text(genreName),
+      ),
       body: LocalSongsStreamView(
         sourceKey: (repository, genreName),
         watchSongs: () => repository.watchSongsByGenre(genreName),

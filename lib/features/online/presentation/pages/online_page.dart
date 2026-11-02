@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +8,7 @@ import '../../../../app/app_message_service.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../providers/online_providers.dart';
 import '../widgets/online_cards.dart';
 
@@ -35,7 +37,7 @@ class _OnlinePageState extends ConsumerState<OnlinePage> {
     final config = ref.watch(appConfigProvider);
     final state = ref.watch(onlineControllerProvider);
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(AppI18n.t(config, 'online.center.title')),
       ),
@@ -47,7 +49,7 @@ class _OnlinePageState extends ConsumerState<OnlinePage> {
             OnlineHeroCard(
               title: AppI18n.t(config, 'online.hero.title'),
               subtitle: AppI18n.t(config, 'online.hero.subtitle'),
-              trailing: FilledButton.icon(
+              trailing: AppButton.filledIcon(
                 onPressed: _fetchProfile,
                 icon: const Icon(Icons.sync_rounded),
                 label: Text(AppI18n.t(config, 'online.action.sync')),

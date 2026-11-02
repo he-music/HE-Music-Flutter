@@ -1,5 +1,4 @@
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/shared/widgets/app_adaptive_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,14 +12,14 @@ import 'package:he_music_flutter/features/update/presentation/pages/release_hist
 import 'package:he_music_flutter/features/update/presentation/providers/update_providers.dart';
 
 void main() {
-  testWidgets('glass navigation stays above the expandable version list', (
+  testWidgets('navigation stays above the expandable version list', (
     tester,
   ) async {
-    await _pump(tester, _History(), glass: true);
-    expect(find.byType(GlassScaffold), findsOneWidget);
+    await _pump(tester, _History());
+    expect(find.byType(Scaffold), findsWidgets);
     expect(
       tester.getTopLeft(find.text('v1.5.0')).dy,
-      greaterThan(tester.getBottomLeft(find.byType(GlassAppBar)).dy),
+      greaterThan(tester.getBottomLeft(find.byType(AppNavigationBar)).dy),
     );
     await tester.tap(find.text('v1.4.0'));
     await tester.pumpAndSettle();
@@ -129,7 +128,6 @@ Future<void> _pump(
   _History repository, {
   String? latest,
   double scale = 1,
-  bool glass = false,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -148,15 +146,7 @@ Future<void> _pump(
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.linear(scale)),
-          child: AppGlassScope(
-            enabled: glass,
-            child: GlassAdaptiveScope(
-              minQuality: GlassQuality.minimal,
-              maxQuality: GlassQuality.minimal,
-              initialQuality: GlassQuality.minimal,
-              child: child!,
-            ),
-          ),
+          child: child!,
         ),
         home: ReleaseHistoryPage(latestVersion: latest),
       ),

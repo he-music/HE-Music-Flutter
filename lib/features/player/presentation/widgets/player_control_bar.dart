@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 
 import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -193,7 +194,7 @@ class _PrimaryControlButton extends StatelessWidget {
                       'player-control-preparing-indicator',
                     ),
                     dimension: 24,
-                    child: CircularProgressIndicator(
+                    child: AppActivityIndicator(
                       strokeWidth: 2.4,
                       color: foreground,
                     ),

@@ -3,10 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/shared/widgets/song_detail_scroll_view.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 void main() {
   testWidgets('long list reveals control and returns both list and cover', (
@@ -59,7 +58,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('appearance follows glass modes without losing scroll position', (
+  testWidgets('interface style changes preserve scroll position', (
     tester,
   ) async {
     final key = GlobalKey<_HarnessState>();
@@ -70,37 +69,23 @@ void main() {
       find.byType(NestedScrollView),
     );
     final offset = scroll.innerController.offset;
-    for (final mode in AppGlassMode.values) {
+    for (final mode in AppUiStyle.values) {
       key.currentState!.update(mode: mode);
       await tester.pumpAndSettle();
       expect(_button.hitTestable(), findsOneWidget);
       expect(scroll.innerController.offset, offset);
-      if (mode.usesGlass) {
-        final button = tester.widget<GlassIconButton>(
-          find.byType(GlassIconButton),
-        );
-        expect(
-          button.quality,
-          mode == AppGlassMode.low
-              ? GlassQuality.minimal
-              : GlassQuality.standard,
-        );
-        expect(button.useOwnLayer, isTrue);
-      } else {
-        expect(find.byType(GlassIconButton), findsNothing);
-        expect(find.byTooltip('回到顶部').hitTestable(), findsOneWidget);
-      }
+      expect(find.byTooltip('回到顶部').hitTestable(), findsOneWidget);
     }
-    key.currentState!.update(mode: AppGlassMode.standard);
+    key.currentState!.update(mode: AppUiStyle.cupertino);
     await tester.pumpAndSettle();
     await tester.tap(_button);
     await tester.pumpAndSettle();
     expect(scroll.innerController.offset, 0);
     expect(scroll.outerController.offset, 0);
     await _scrollDown(tester);
-    key.currentState!.update(mode: AppGlassMode.standard, highContrast: true);
+    key.currentState!.update(mode: AppUiStyle.cupertino, highContrast: true);
     await tester.pumpAndSettle();
-    expect(find.byType(GlassIconButton), findsNothing);
+    expect(find.byType(BackdropFilter), findsNothing);
     await tester.tap(_button);
     await tester.pumpAndSettle();
     expect(scroll.innerController.offset, 0);
@@ -165,7 +150,7 @@ void main() {
     await tester.pumpAndSettle();
     await _scrollDown(tester);
     final initialBottom = tester.getBottomRight(_button).dy;
-    key.currentState!.update(mode: AppGlassMode.standard, bottomInset: 104);
+    key.currentState!.update(mode: AppUiStyle.cupertino, bottomInset: 104);
     await tester.pumpAndSettle();
     expect(tester.getSize(_button), const Size(48, 48));
     expect(tester.getBottomRight(_button).dy, initialBottom - 104);
@@ -194,11 +179,7 @@ void main() {
   });
 }
 
-Finder get _button => find.byWidgetPredicate(
-  (widget) =>
-      widget is GlassIconButton ||
-      widget is IconButton && widget.tooltip == '回到顶部',
-);
+Finder get _button => find.byTooltip('回到顶部');
 
 Future<void> _scrollDown(WidgetTester tester) async {
   for (var i = 0; i < 3; i++) {
@@ -242,14 +223,14 @@ class _Harness extends StatefulWidget {
 }
 
 class _HarnessState extends State<_Harness> {
-  AppGlassMode mode = AppGlassMode.off;
+  AppUiStyle mode = AppUiStyle.material;
   bool batchMode = false;
   bool reduceMotion = false;
   bool highContrast = false;
   double bottomInset = 0;
 
   void update({
-    AppGlassMode? mode,
+    AppUiStyle? mode,
     bool? batchMode,
     bool? reduceMotion,
     bool? highContrast,
@@ -265,9 +246,8 @@ class _HarnessState extends State<_Harness> {
   }
 
   @override
-  Widget build(BuildContext context) => AppGlassScope(
-    enabled: mode != AppGlassMode.off,
-    mode: mode,
+  Widget build(BuildContext context) => AppUiStyleScope(
+    style: mode,
     child: MediaQuery(
       data: MediaQuery.of(context).copyWith(
         padding: EdgeInsets.only(bottom: bottomInset),
@@ -275,8 +255,7 @@ class _HarnessState extends State<_Harness> {
         highContrast: highContrast,
       ),
       // Keep the shell mounted while exercising the control's live preferences.
-      child: GlassScaffold(
-        edgeToEdge: true,
+      child: Scaffold(
         body: SongDetailScrollView(
           batchMode: batchMode,
           headerSliverBuilder: (context, innerBoxIsScrolled) => [

@@ -110,8 +110,7 @@ class _SongDetailScrollViewState extends State<SongDetailScrollView> {
         ),
         Positioned(
           right: padding.right + 16,
-          // Glass player chrome overlays the body and supplies its clearance
-          // through MediaQuery. Skin player chrome is already outside the body.
+          // The page shell keeps playback chrome outside the content viewport.
           bottom: padding.bottom + 16,
           child: ValueListenableBuilder<bool>(
             valueListenable: _showButton,

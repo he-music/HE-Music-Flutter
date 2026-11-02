@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../app/i18n/app_i18n.dart';
 
 class SearchFeedback extends StatelessWidget {
@@ -47,7 +48,7 @@ class SearchFeedback extends StatelessWidget {
             spacing: 8,
             children: [
               if (error != null && onRetry != null)
-                FilledButton.icon(
+                AppButton.filledIcon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh),
                   label: Text(
@@ -55,7 +56,7 @@ class SearchFeedback extends StatelessWidget {
                   ),
                 ),
               if (onEditQuery != null)
-                TextButton(
+                AppButton.text(
                   onPressed: onEditQuery,
                   child: Text(
                     AppI18n.tByLocaleCode(localeCode, 'search.edit_query'),

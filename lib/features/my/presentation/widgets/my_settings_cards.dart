@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/config/app_theme_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../shared/widgets/glass_panel.dart';
+import '../../../../shared/widgets/app_panel.dart';
 
 class MyThemeCard extends StatelessWidget {
   const MyThemeCard({
@@ -18,9 +19,8 @@ class MyThemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
+    return AppPanel(
       borderRadius: BorderRadius.circular(28),
-      blurSigma: 0,
       tintColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.42),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -57,7 +57,7 @@ class MyThemeCard extends StatelessWidget {
             },
           ),
           const SizedBox(height: 8),
-          SwitchListTile.adaptive(
+          AppSwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(AppI18n.t(config, 'my.monochrome')),
             value: config.isMonochrome,
@@ -81,9 +81,8 @@ class MyLanguageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
+    return AppPanel(
       borderRadius: BorderRadius.circular(28),
-      blurSigma: 0,
       tintColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.42),
       padding: const EdgeInsets.all(14),
       child: Column(

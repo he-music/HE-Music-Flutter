@@ -2,8 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import '../glass/app_glass_scope.dart';
 import 'app_skin_theme.dart';
+
+import '../app_ui_theme.dart';
 
 enum AppSkinSurfaceRole {
   search,
@@ -18,12 +19,16 @@ class AppSkinSurface extends StatelessWidget {
     required this.role,
     required this.child,
     this.borderRadius,
+    this.showDecoration = true,
     super.key,
   });
 
   final AppSkinSurfaceRole role;
   final Widget child;
   final BorderRadius? borderRadius;
+
+  /// Flat navigation/playback regions retain their fill without a skin frame.
+  final bool showDecoration;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +45,17 @@ class AppSkinSurface extends StatelessWidget {
       AppSkinSurfaceRole.scrollingContent => geometry.cardRadius,
       AppSkinSurfaceRole.bottomSheet => geometry.bottomSheetRadius,
     };
-    final radius = borderRadius ?? BorderRadius.circular(configuredRadius);
+    final usesCupertino = AppUiTheme.usesCupertino(context);
+    final cupertinoRadius = switch (role) {
+      AppSkinSurfaceRole.search || AppSkinSurfaceRole.scrollingContent => 10.0,
+      AppSkinSurfaceRole.miniPlayer || AppSkinSurfaceRole.bottomSheet => 16.0,
+      AppSkinSurfaceRole.navigation => 0.0,
+    };
+    final radius =
+        borderRadius ??
+        BorderRadius.circular(
+          usesCupertino ? cupertinoRadius : configuredRadius,
+        );
     final baseColor = switch (role) {
       AppSkinSurfaceRole.search ||
       AppSkinSurfaceRole.miniPlayer ||
@@ -49,10 +64,7 @@ class AppSkinSurface extends StatelessWidget {
         config.colors.scrollingContentSurface,
       AppSkinSurfaceRole.bottomSheet => config.colors.bottomSheetBackground,
     };
-    final forceOpaque =
-        (MediaQuery.highContrastOf(context) ||
-            AppGlassScope.preferOpaqueSurfaces(context)) &&
-        role != AppSkinSurfaceRole.scrollingContent;
+    final forceOpaque = role != AppSkinSurfaceRole.scrollingContent;
     final opacity = switch (role) {
       AppSkinSurfaceRole.search => config.surfaces.searchOpacity,
       AppSkinSurfaceRole.miniPlayer => config.surfaces.miniPlayerOpacity,
@@ -72,17 +84,21 @@ class AppSkinSurface extends StatelessWidget {
     };
     final content = DecoratedBox(
       decoration: BoxDecoration(
-        color: baseColor.withValues(
-          alpha: forceOpaque ? 1 : baseColor.a * opacity,
-        ),
+        color: role == AppSkinSurfaceRole.scrollingContent
+            ? skinTheme.contentBackgroundColor
+            : baseColor.withValues(alpha: 1),
         borderRadius: radius,
-        border: geometry.borderWidth == 0
+        border: !showDecoration || usesCupertino || geometry.borderWidth == 0
             ? null
             : Border.all(
                 color: config.colors.border,
                 width: geometry.borderWidth,
               ),
-        boxShadow: geometry.shadowOpacity == 0 || opacity == 0
+        boxShadow:
+            !showDecoration ||
+                usesCupertino ||
+                geometry.shadowOpacity == 0 ||
+                opacity == 0
             ? const <BoxShadow>[]
             : <BoxShadow>[
                 BoxShadow(
@@ -120,7 +136,8 @@ class AppSkinContentSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final skinTheme = Theme.of(context).extension<AppSkinTheme>();
     if (skinTheme == null ||
-        (!skinTheme.showContentBackground &&
+        (!AppUiTheme.usesCupertino(context) &&
+            !skinTheme.showContentBackground &&
             skinTheme.config.colors.scaffoldBackground.a != 0)) {
       return child;
     }

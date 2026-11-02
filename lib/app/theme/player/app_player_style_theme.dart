@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:flutter/cupertino.dart';
+import '../../config/app_ui_style.dart';
+import '../app_ui_theme.dart';
 import 'app_player_style_models.dart';
 
 @immutable
@@ -43,8 +46,12 @@ ThemeData buildAppPlayerStyleTheme(
   AppPlayerStyleForegroundColors colors,
   SystemUiOverlayStyle systemOverlayStyle, {
   Brightness sheetBrightness = Brightness.dark,
+  AppUiStyle uiStyle = AppUiStyle.material,
 }) {
-  final sheetStyle = AppPlayerSheetStyle.forBrightness(sheetBrightness);
+  final sheetStyle = AppPlayerSheetStyle.forBrightness(
+    sheetBrightness,
+    uiStyle: uiStyle,
+  );
   final scheme = ColorScheme.dark(
     primary: colors.accent,
     onPrimary: appPlayerSurfaceColor,
@@ -69,6 +76,7 @@ ThemeData buildAppPlayerStyleTheme(
     ),
     bottomSheetTheme: buildAppPlayerBottomSheetTheme(sheetStyle),
     extensions: <ThemeExtension<dynamic>>[
+      AppUiTheme(style: uiStyle),
       AppPlayerStyleTheme(
         systemOverlayStyle: systemOverlayStyle,
         sheetBrightness: sheetBrightness,
@@ -79,8 +87,11 @@ ThemeData buildAppPlayerStyleTheme(
 
 ThemeData buildAppPlayerSheetTheme(
   AppPlayerSheetStyle style,
-  Brightness brightness,
-) {
+  Brightness brightness, {
+  AppUiStyle uiStyle = AppUiStyle.material,
+  Color? primaryColor,
+  Color? onPrimaryColor,
+}) {
   final baseScheme = brightness == Brightness.dark
       ? ColorScheme.dark(
           primary: style.foregroundColor,
@@ -103,6 +114,12 @@ ThemeData buildAppPlayerSheetTheme(
           outlineVariant: style.dividerColor,
         );
   final scheme = baseScheme.copyWith(
+    primary: uiStyle == AppUiStyle.cupertino
+        ? primaryColor ?? CupertinoColors.activeBlue
+        : baseScheme.primary,
+    onPrimary: uiStyle == AppUiStyle.cupertino
+        ? onPrimaryColor ?? CupertinoColors.white
+        : baseScheme.onPrimary,
     onSurfaceVariant: style.secondaryForegroundColor,
     surfaceContainerLowest: style.backgroundColor,
     surfaceContainerLow: style.backgroundColor,
@@ -112,7 +129,54 @@ ThemeData buildAppPlayerSheetTheme(
     surfaceTint: Colors.transparent,
   );
   final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+  final cupertino = CupertinoTextThemeData(primaryColor: scheme.primary);
+  final textTheme = uiStyle == AppUiStyle.cupertino
+      ? base.textTheme.merge(
+          TextTheme(
+            titleLarge: cupertino.navTitleTextStyle.copyWith(
+              inherit: true,
+              color: style.foregroundColor,
+            ),
+            titleMedium: cupertino.navTitleTextStyle.copyWith(
+              inherit: true,
+              color: style.foregroundColor,
+            ),
+            titleSmall: cupertino.navTitleTextStyle.copyWith(
+              inherit: true,
+              color: style.foregroundColor,
+            ),
+            bodyLarge: cupertino.textStyle.copyWith(
+              inherit: true,
+              color: style.foregroundColor,
+            ),
+            bodyMedium: cupertino.textStyle.copyWith(
+              inherit: true,
+              color: style.foregroundColor,
+            ),
+            bodySmall: cupertino.textStyle.copyWith(
+              inherit: true,
+              fontSize: 13,
+              color: style.secondaryForegroundColor,
+            ),
+            labelLarge: cupertino.actionTextStyle.copyWith(inherit: true),
+          ),
+        )
+      : base.textTheme;
   return base.copyWith(
+    textTheme: textTheme,
+    extensions: <ThemeExtension<dynamic>>[AppUiTheme(style: uiStyle)],
+    cupertinoOverrideTheme: CupertinoThemeData(
+      brightness: brightness,
+      primaryColor: scheme.primary,
+      primaryContrastingColor: scheme.onPrimary,
+      scaffoldBackgroundColor: style.backgroundColor,
+      barBackgroundColor: style.backgroundColor,
+      textTheme: CupertinoTextThemeData(
+        primaryColor: scheme.primary,
+        textStyle: textTheme.bodyMedium!.copyWith(color: style.foregroundColor),
+        actionTextStyle: textTheme.labelLarge!.copyWith(color: scheme.primary),
+      ),
+    ),
     scaffoldBackgroundColor: style.backgroundColor,
     canvasColor: style.backgroundColor,
     dividerColor: style.dividerColor,

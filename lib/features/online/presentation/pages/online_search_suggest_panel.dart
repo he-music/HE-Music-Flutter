@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
@@ -24,7 +25,7 @@ class OnlineSearchSuggestPanel extends StatelessWidget {
           child: SizedBox(
             width: 18,
             height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: AppActivityIndicator(size: 18, strokeWidth: 2),
           ),
         ),
       );

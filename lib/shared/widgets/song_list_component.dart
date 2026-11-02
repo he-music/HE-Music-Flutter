@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config/app_config_controller.dart';
@@ -142,7 +143,7 @@ class _SongListComponentState extends ConsumerState<SongListComponent> {
                 color: Theme.of(context).colorScheme.error,
               ),
             ),
-            TextButton.icon(
+            AppButton.textIcon(
               onPressed: widget.onRetryLoadMore == null
                   ? null
                   : () => unawaited(widget.onRetryLoadMore!()),

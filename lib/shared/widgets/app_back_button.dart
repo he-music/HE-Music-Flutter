@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'app_adaptive_controls.dart';
+import '../../app/theme/app_ui_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -59,6 +61,20 @@ class AppBackButton extends StatelessWidget {
         style?.merge(_styleForColors(foregroundColor)) ??
         _styleForColors(foregroundColor);
 
+    if (AppUiTheme.usesCupertino(context)) {
+      return AppIconButton(
+        onPressed: onPressed ?? () => context.appPopOrGo(fallbackLocation),
+        tooltip: tooltip ?? _resolveBackTooltip(context),
+        color: foregroundColor,
+        icon: icon == null
+            ? AppSkinIcon(
+                role: iconRole,
+                size: iconSize,
+                color: foregroundColor,
+              )
+            : Icon(icon, size: iconSize),
+      );
+    }
     return IconButton(
       onPressed: onPressed ?? () => context.appPopOrGo(fallbackLocation),
       tooltip: tooltip ?? _resolveBackTooltip(context),

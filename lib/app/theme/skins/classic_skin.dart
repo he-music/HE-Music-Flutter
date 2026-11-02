@@ -7,10 +7,12 @@ AppSkinPackage classicSkinForAccent(AppThemeAccent accent) {
   final lightScheme = _classicColorScheme(
     brightness: Brightness.light,
     seedColor: accent.lightSeed,
+    primary: accent == AppThemeAccent.appleBlue ? accent.lightSeed : null,
   );
   final darkScheme = _classicColorScheme(
     brightness: Brightness.dark,
     seedColor: accent.darkSeed,
+    primary: accent == AppThemeAccent.appleBlue ? accent.darkSeed : null,
   );
   return AppSkinPackage(
     metadata: const AppSkinMetadata(
@@ -46,6 +48,7 @@ AppSkinPackage classicSkinForAccent(AppThemeAccent accent) {
 ColorScheme _classicColorScheme({
   required Brightness brightness,
   required Color seedColor,
+  Color? primary,
 }) {
   final baseScheme = ColorScheme.fromSeed(
     seedColor: seedColor,
@@ -53,6 +56,8 @@ ColorScheme _classicColorScheme({
   );
   final isDark = brightness == Brightness.dark;
   return baseScheme.copyWith(
+    primary: primary,
+    onPrimary: primary == null ? null : (isDark ? Colors.black : Colors.white),
     surface: _tint(baseScheme.surface, seedColor, isDark ? 0.06 : 0.025),
     surfaceContainer: _tint(
       baseScheme.surfaceContainer,

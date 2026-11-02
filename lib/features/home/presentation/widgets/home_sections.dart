@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
@@ -444,7 +445,7 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
         if (action != null)
-          TextButton.icon(
+          AppButton.textIcon(
             onPressed: action!.onTap,
             iconAlignment: IconAlignment.end,
             icon: const Icon(Icons.chevron_right_rounded, size: 18),
@@ -533,7 +534,7 @@ class _ErrorBlock extends StatelessWidget {
         children: <Widget>[
           Expanded(child: Text(message)),
           const SizedBox(width: 12),
-          OutlinedButton(onPressed: onRetry, child: Text(retryText)),
+          AppButton.outlined(onPressed: onRetry, child: Text(retryText)),
         ],
       ),
     );

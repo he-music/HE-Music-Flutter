@@ -5,6 +5,8 @@ import 'app_skin_models.dart';
 import 'app_skin_rive_animation.dart';
 import 'app_skin_theme.dart';
 
+import '../app_ui_theme.dart';
+
 /// 保留 classic 的页面装饰；透明页面由根背景层统一承载视觉。
 class AppSkinLegacyPageBackground extends StatelessWidget {
   const AppSkinLegacyPageBackground({required this.child, super.key});
@@ -64,6 +66,18 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
     final config = widget.skin.configFor(Theme.of(context).brightness);
     final descriptor = config.background.wallpaper.descriptor;
     final animation = config.background.animation;
+    final hasVisualBackground =
+        descriptor != null || animation is AppSkinRiveAnimationDescriptor;
+    final minimumOverlay = Theme.of(context).brightness == Brightness.dark
+        ? 0.36
+        : 0.30;
+    final existingOverlay = config.background.overlayColor.a;
+    final veilOpacity =
+        AppUiTheme.usesCupertino(context) &&
+            hasVisualBackground &&
+            existingOverlay < minimumOverlay
+        ? (minimumOverlay - existingOverlay) / (1 - existingOverlay)
+        : 0.0;
     _synchronizeWallpaper(descriptor);
     return ExcludeSemantics(
       child: IgnorePointer(
@@ -104,6 +118,13 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
                   descriptor: animation,
                   assetResolver: _assetResolver,
                   enabled: widget.enableAnimation,
+                ),
+              if (veilOpacity > 0)
+                ColoredBox(
+                  key: const ValueKey<String>('app-skin-reading-veil'),
+                  color: config.colorScheme.surface.withValues(
+                    alpha: veilOpacity,
+                  ),
                 ),
             ],
           ),

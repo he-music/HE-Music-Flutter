@@ -1,5 +1,7 @@
 import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../lyrics/presentation/providers/lyrics_providers.dart';
 
@@ -27,7 +29,7 @@ class _LyricStorageSettingsTileState
   Future<void> _clear() async {
     final config = ref.read(appConfigProvider);
     if (widget.manual) {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await showAppDialog<bool>(
         context: context,
         builder: (context) => AppAlertDialog(
           title: Text(AppI18n.t(config, 'settings.lyric_cache.confirm_title')),
@@ -124,7 +126,7 @@ class _LyricStorageSettingsTileState
           trailing: _busy
               ? const SizedBox.square(
                   dimension: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: AppActivityIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.delete_outline),
           onTap: _busy
@@ -161,7 +163,7 @@ class _ResetLyricOffsetsSettingsTileState
     final config = ref.read(appConfigProvider);
     setState(() => _busy = true);
     try {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await showAppDialog<bool>(
         context: context,
         builder: (context) => AppAlertDialog(
           title: Text(AppI18n.t(config, 'settings.lyric_offset.confirm_title')),
@@ -217,7 +219,7 @@ class _ResetLyricOffsetsSettingsTileState
       trailing: _resetting
           ? const SizedBox.square(
               dimension: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: AppActivityIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.chevron_right_rounded),
       onTap: _busy ? null : _reset,

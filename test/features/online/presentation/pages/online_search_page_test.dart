@@ -6,8 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:he_music_flutter/app/theme/skins/starlit_melody_skin.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
@@ -449,11 +447,7 @@ void main() {
             : AppTheme.dark(skin);
         final client = _SearchPageOnlineApiClient();
         await tester.pumpWidget(
-          AppGlassScope(
-            enabled: false,
-            mode: AppGlassMode.off,
-            child: _buildOnlineSearchApp(theme: theme, client: client),
-          ),
+          _buildOnlineSearchApp(theme: theme, client: client),
         );
         await tester.pumpAndSettle();
         final icon = find.byWidgetPredicate(

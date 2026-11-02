@@ -10,6 +10,7 @@ import 'package:he_music_flutter/features/lyrics/data/storage/lyric_store.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_request.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/widgets/lyric_offset_control.dart';
+import 'package:he_music_flutter/shared/widgets/app_button.dart';
 
 void main() {
   const song = LyricRequest(trackId: 'song', platform: 'qq');
@@ -59,9 +60,7 @@ void main() {
       expect(find.text('未调整 · 0.0 秒'), findsOneWidget);
       expect(
         tester
-            .widget<TextButton>(
-              find.byKey(const ValueKey('lyric-offset-reset')),
-            )
+            .widget<AppButton>(find.byKey(const ValueKey('lyric-offset-reset')))
             .onPressed,
         isNull,
       );

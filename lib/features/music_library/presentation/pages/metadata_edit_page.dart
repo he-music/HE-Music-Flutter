@@ -8,6 +8,10 @@ import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../domain/entities/local_song.dart';
 import '../providers/local_library_providers.dart';
 
@@ -68,12 +72,12 @@ class _MetadataEditPageState extends ConsumerState<MetadataEditPage> {
     final showIOSNotice =
         Platform.isIOS && widget.song.filePath.startsWith('ipod-library://');
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(AppI18n.t(config, 'local.edit.title')),
         actions: <Widget>[
           if (_hasChanges && !_saving)
-            TextButton(
+            AppButton.text(
               onPressed: _save,
               child: Text(AppI18n.t(config, 'common.confirm')),
             ),
@@ -174,7 +178,7 @@ class _MetadataEditPageState extends ConsumerState<MetadataEditPage> {
             // 保存中状态
             if (_saving) ...[
               const SizedBox(height: 24),
-              const Center(child: CircularProgressIndicator()),
+              const Center(child: AppActivityIndicator()),
               const SizedBox(height: 8),
               Center(
                 child: Text(
@@ -195,7 +199,7 @@ class _MetadataEditPageState extends ConsumerState<MetadataEditPage> {
     TextInputType? keyboardType,
     ValueChanged<String>? onChanged,
   }) {
-    return TextField(
+    return AppTextField(
       controller: controller,
       keyboardType: keyboardType,
       onChanged: onChanged,

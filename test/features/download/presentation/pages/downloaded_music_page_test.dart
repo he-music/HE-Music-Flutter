@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +12,7 @@ import 'package:he_music_flutter/features/online/domain/entities/online_platform
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/router/app_router.dart';
 import 'package:he_music_flutter/features/download/domain/entities/download_state.dart';
 import 'package:he_music_flutter/features/download/presentation/controllers/download_controller.dart';
@@ -29,6 +31,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:he_music_flutter/shared/widgets/song_sort_button.dart';
 
 void main() {
+  testWidgets('downloaded mobile Cupertino actions cancel and redownload', (
+    tester,
+  ) async {
+    final tasks = _Tasks();
+    await tester.pumpWidget(
+      _app(_Player(), tasks: tasks, uiStyle: AppUiStyle.cupertino),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoActionSheet), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tasks.redownloaded, isNull);
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('重新下载'));
+    await tester.pumpAndSettle();
+    expect(tasks.redownloaded?.id, 'missing');
+    expect(find.text('暂无下载任务。'), findsOneWidget);
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets(
@@ -269,6 +292,7 @@ Widget _app(
   _Tasks? tasks,
   GoRouter? router,
   bool sheetMusic = false,
+  AppUiStyle uiStyle = AppUiStyle.material,
 }) => ProviderScope(
   overrides: [
     appConfigProvider.overrideWith(() => _Config(locale)),
@@ -287,6 +311,7 @@ Widget _app(
           routerConfig: router,
         )
       : MaterialApp(
+          theme: ThemeData(extensions: [AppUiTheme(style: uiStyle)]),
           locale: Locale(locale),
           supportedLocales: const [Locale('zh'), Locale('en')],
           localizationsDelegates: const [
@@ -339,7 +364,7 @@ class _Config extends AppConfigController {
   @override
   AppConfigState build() => AppConfigState.initial.copyWith(
     localeCode: locale,
-    glassMode: AppGlassMode.off,
+    uiStyle: AppUiStyle.material,
   );
 }
 

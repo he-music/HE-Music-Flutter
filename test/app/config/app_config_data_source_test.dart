@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
 import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
@@ -19,20 +19,45 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  test('Apple blue persists independently of interface style', () async {
+    const source = AppConfigDataSource();
+    await source.save(
+      AppConfigState.initial.copyWith(
+        uiStyle: AppUiStyle.cupertino,
+        themeAccent: AppThemeAccent.appleBlue,
+      ),
+    );
+    final loaded = await source.load();
+    expect(loaded.themeAccent, AppThemeAccent.appleBlue);
+    await source.save(loaded.copyWith(uiStyle: AppUiStyle.material));
+    expect((await source.load()).themeAccent, AppThemeAccent.appleBlue);
+    expect(AppThemeAccent.fromValue('unknown'), AppThemeAccent.forest);
+  });
   test(
-    'glass preference round trips and unknown values fall back to automatic',
+    'UI style round trips and unknown values fall back to Material',
     () async {
       const source = AppConfigDataSource();
-      expect((await source.load()).glassMode, AppGlassMode.automatic);
-      for (final mode in AppGlassMode.values) {
-        await source.save(AppConfigState.initial.copyWith(glassMode: mode));
-        expect((await source.load()).glassMode, mode);
+      expect((await source.load()).uiStyle, AppUiStyle.material);
+      for (final style in AppUiStyle.values) {
+        await source.save(AppConfigState.initial.copyWith(uiStyle: style));
+        expect((await source.load()).uiStyle, style);
       }
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('app_config.glass_mode', 'future-mode');
-      expect((await source.load()).glassMode, AppGlassMode.automatic);
+      await prefs.setString('app_config.ui_style', 'future-style');
+      expect((await source.load()).uiStyle, AppUiStyle.material);
     },
   );
+
+  test('retired glass preferences do not select a UI style', () async {
+    SharedPreferences.setMockInitialValues({'app_config.glass_mode': 'high'});
+    const source = AppConfigDataSource();
+    final loaded = await source.load();
+    expect(loaded.uiStyle, AppUiStyle.material);
+    await source.save(loaded.copyWith(uiStyle: AppUiStyle.cupertino));
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey('app_config.glass_mode'), isFalse);
+    expect((await source.load()).uiStyle, AppUiStyle.cupertino);
+  });
 
   test(
     'wide player view round trips independently of stage and lyrics',

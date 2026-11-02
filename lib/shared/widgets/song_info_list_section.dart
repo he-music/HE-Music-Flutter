@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config/app_config_controller.dart';
@@ -254,7 +255,7 @@ class _RetryBody extends ConsumerWidget {
         children: <Widget>[
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          FilledButton(
+          AppButton.filled(
             onPressed: onRetry == null ? null : () => onRetry!(),
             child: Text(AppI18n.t(config, 'common.retry')),
           ),

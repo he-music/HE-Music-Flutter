@@ -2,9 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter/cupertino.dart';
 
-import '../../app/theme/glass/app_glass_scope.dart';
+import '../../app/theme/app_ui_theme.dart';
+import 'app_adaptive_controls.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
 import '../../app/theme/skin/app_skin_theme.dart';
@@ -42,10 +43,12 @@ class AppSearchField extends StatefulWidget {
   }
 
   static double radiusFor(BuildContext context) =>
-      Theme.of(
-        context,
-      ).extension<AppSkinTheme>()?.config.geometry.controlRadius ??
-      LayoutTokens.defaultControlRadius;
+      AppUiTheme.usesCupertino(context)
+      ? 10
+      : Theme.of(
+              context,
+            ).extension<AppSkinTheme>()?.config.geometry.controlRadius ??
+            LayoutTokens.defaultControlRadius;
 
   static Color materialFillColorFor(BuildContext context) {
     final theme = Theme.of(context);
@@ -53,34 +56,25 @@ class AppSearchField extends StatefulWidget {
         theme.inputDecorationTheme.fillColor ??
         theme.colorScheme.surfaceContainerHigh;
     final isDark = theme.brightness == Brightness.dark;
+    // Cupertino fill colors are translucent overlays. Resolve them against the
+    // control surface before making the search background opaque.
+    final controlSurface =
+        theme.extension<AppSkinTheme>()?.config.colors.fixedControlSurface ??
+        theme.colorScheme.surface;
+    final opaqueBase = AppUiTheme.usesCupertino(context)
+        ? Color.alphaBlend(
+            baseColor,
+            Color.alphaBlend(
+              controlSurface,
+              theme.colorScheme.surface.withValues(alpha: 1),
+            ),
+          )
+        : baseColor.withValues(alpha: 1);
     final color = Color.alphaBlend(
       theme.colorScheme.onSurface.withValues(alpha: isDark ? 0.08 : 0.04),
-      baseColor.withValues(alpha: 1),
+      opaqueBase,
     );
-    return MediaQuery.highContrastOf(context) ||
-            AppGlassScope.preferOpaqueSurfaces(context)
-        ? color
-        : color.withValues(alpha: math.max(baseColor.a, 0.92));
-  }
-
-  static LiquidGlassSettings glassSettingsFor(BuildContext context) {
-    final baseSettings =
-        InheritedLiquidGlass.of(context) ??
-        LiquidGlassWidgets.globalSettings ??
-        GlassThemeData.of(
-          context,
-        ).settingsFor(context)?.applyTo(const LiquidGlassSettings()) ??
-        const LiquidGlassSettings();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Adaptive tint preserves backdrop luminance, making the search surface
-    // disappear against bright wallpapers. Clear keeps optical glass effects
-    // while blending the skin's fill directly over the backdrop.
-    return baseSettings.copyWith(
-      bodyMode: GlassBodyMode.clear,
-      glassColor: materialFillColorFor(
-        context,
-      ).withValues(alpha: isDark ? 0.38 : 0.42),
-    );
+    return color;
   }
 
   static Widget placeholder(
@@ -219,14 +213,8 @@ class _AppSearchFieldState extends State<AppSearchField> {
       );
       final suffix = value.text.isEmpty
           ? null
-          : IconButton(
+          : AppIconButton(
               tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
-              constraints: const BoxConstraints.tightFor(
-                width: LayoutTokens.controlMinExtent,
-                height: LayoutTokens.controlMinExtent,
-              ),
-              visualDensity: VisualDensity.standard,
-              padding: EdgeInsets.zero,
               icon: AppSkinIcon(
                 role: AppSkinIconRole.close,
                 size: 18,
@@ -242,32 +230,33 @@ class _AppSearchFieldState extends State<AppSearchField> {
         color: Colors.transparent,
       );
       final Widget input;
-      if (AppGlassScope.controlsEnabled(context) &&
-          !MediaQuery.highContrastOf(context)) {
-        input = GlassTextField(
-          controller: widget.controller,
-          focusNode: _focus,
-          showFocusRing: _showFocusRing,
-          autofocus: widget.autofocus,
-          placeholder: hint,
-          placeholderStyle: transparentHintStyle,
-          textStyle: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface,
-          ),
-          textInputAction: TextInputAction.search,
+      if (AppUiTheme.usesCupertino(context)) {
+        input = SizedBox(
           height: height,
-          padding: const EdgeInsets.symmetric(
-            horizontal: LayoutTokens.controlHorizontalPadding,
+          child: CupertinoTextField(
+            controller: widget.controller,
+            focusNode: _focus,
+            autofocus: widget.autofocus,
+            placeholder: hint,
+            placeholderStyle: transparentHintStyle,
+            style: theme.textTheme.bodyMedium,
+            textInputAction: TextInputAction.search,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            prefix: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: prefix,
+            ),
+            suffix: suffix,
+            decoration: BoxDecoration(
+              color: AppSearchField.materialFillColorFor(context),
+              borderRadius: BorderRadius.circular(radius),
+              border: _showFocusRing || MediaQuery.highContrastOf(context)
+                  ? Border.all(color: theme.colorScheme.primary, width: 1.2)
+                  : null,
+            ),
+            onChanged: _handleChanged,
+            onSubmitted: widget.onSubmitted,
           ),
-          iconSpacing: 8,
-          prefixIcon: SizedBox(width: 24, child: prefix),
-          suffixIcon: suffix,
-          shape: LiquidRoundedRectangle(borderRadius: radius),
-          useOwnLayer: true,
-          quality: AppGlassScope.qualityOf(context),
-          settings: AppSearchField.glassSettingsFor(context),
-          onChanged: _handleChanged,
-          onSubmitted: widget.onSubmitted,
         );
       } else {
         input = SizedBox(

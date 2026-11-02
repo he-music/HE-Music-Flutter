@@ -12,8 +12,8 @@ import 'package:he_music_flutter/shared/utils/song_sort.dart';
 import 'package:he_music_flutter/shared/widgets/music_detail_slivers.dart';
 import 'package:flutter/rendering.dart';
 import 'package:he_music_flutter/shared/widgets/song_sort_button.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -85,10 +85,9 @@ void main() {
     (tester) async {
       await tester.pumpWidget(_wrap(const SongSortButton(enabled: false)));
       await tester.pumpAndSettle();
-      final button = tester.widget<TextButton>(
-        find.byKey(const Key('song-sort-button')),
-      );
-      expect(button.onPressed, isNull);
+      await tester.tap(find.byKey(const Key('song-sort-button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('song-sort-confirm')), findsNothing);
       await tester.pumpWidget(
         _wrap(const SongSortButton(allowDuration: false)),
       );
@@ -172,9 +171,9 @@ void main() {
     },
   );
 
-  for (final glass in [false, true]) {
+  for (final cupertino in [false, true]) {
     testWidgets(
-      'small screen and large text keep confirm visible with glass=$glass',
+      'small screen and large text keep confirm visible with cupertino=$cupertino',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(320, 480));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -182,7 +181,7 @@ void main() {
           _wrap(
             const SongSortButton(allowSize: true),
             textScale: 2,
-            glass: glass,
+            cupertino: cupertino,
           ),
         );
         await tester.pumpAndSettle();
@@ -374,23 +373,23 @@ void main() {
   });
 }
 
-Widget _wrap(Widget child, {double textScale = 1, bool glass = false}) =>
+Widget _wrap(Widget child, {double textScale = 1, bool cupertino = false}) =>
     ProviderScope(
       overrides: [appConfigProvider.overrideWith(_TestAppConfig.new)],
       child: MaterialApp(
-        theme: ThemeData(fontFamily: 'ToolbarTest'),
+        theme: ThemeData(
+          fontFamily: 'ToolbarTest',
+          extensions: [
+            AppUiTheme(
+              style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material,
+            ),
+          ],
+        ),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: AppGlassScope(
-            enabled: glass,
-            child: GlassAdaptiveScope(
-              minQuality: GlassQuality.minimal,
-              maxQuality: GlassQuality.minimal,
-              child: child!,
-            ),
-          ),
+          child: child!,
         ),
         home: Scaffold(body: Center(child: child)),
       ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../glass/app_glass_sheet.dart';
-import '../glass/app_glass_scope.dart';
+import '../app_ui_theme.dart';
 import 'app_skin_theme.dart';
 
 Future<T?> showAppThemedBottomSheet<T>({
@@ -17,17 +16,6 @@ Future<T?> showAppThemedBottomSheet<T>({
 }) {
   final theme = Theme.of(context);
   final config = theme.extension<AppSkinTheme>()?.config;
-  if (AppGlassScope.controlsEnabled(context)) {
-    return showLiveGlassSheet<T>(
-      context: context,
-      useRootNavigator: useRootNavigator,
-      useSafeArea: useSafeArea,
-      showDragHandle: showDragHandle,
-      heightFactor: fixedHeightFactor ?? heightFactor,
-      fitContent: fitContent,
-      builder: builder,
-    );
-  }
   return showModalBottomSheet<T>(
     context: context,
     useRootNavigator: useRootNavigator,
@@ -41,15 +29,17 @@ Future<T?> showAppThemedBottomSheet<T>({
         : null,
     showDragHandle: showDragHandle,
     backgroundColor:
-        fixedHeightFactor != null || AppGlassScope.preferOpaqueSurfaces(context)
-        ? (config?.colors.bottomSheetBackground ?? theme.colorScheme.surface)
-              .withValues(alpha: 1)
-        : config?.colors.bottomSheetBackground,
+        (config?.colors.bottomSheetBackground ?? theme.colorScheme.surface)
+            .withValues(alpha: 1),
     shape: config == null
         ? null
         : RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(
-              top: Radius.circular(config.geometry.bottomSheetRadius),
+              top: Radius.circular(
+                AppUiTheme.usesCupertino(context)
+                    ? 16
+                    : config.geometry.bottomSheetRadius,
+              ),
             ),
           ),
     builder: (sheetContext) => fixedHeightFactor == null

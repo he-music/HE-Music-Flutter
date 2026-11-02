@@ -3,17 +3,18 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import '../../../../shared/widgets/app_alert_dialog.dart';
+import '../../../../shared/widgets/app_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import '../../../../app/theme/glass/app_glass_scope.dart';
-import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/widgets/app_content_width.dart';
 
 import '../../../../app/config/app_config_controller.dart';
-import '../../../../app/config/app_glass_mode.dart';
+import '../../../../app/config/app_ui_style.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/config/app_lyric_font_preset.dart';
 import '../../../../app/config/app_lyric_highlight_color.dart';
@@ -25,6 +26,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
+import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_registry.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_search_field.dart';
@@ -88,35 +90,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             child: _buildSectionPanel(config: config, sectionId: sectionId),
           )
         : _buildHome(config);
-    if (AppGlassScope.isEnabled(context)) {
-      return AppContentWidth(
-        child: Material(
-          type: MaterialType.transparency,
-          child: GlassScaffold(
-            key: key,
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            extendBody: false,
-            appBar: GlassAppBar(
-              toolbarHeight: kToolbarHeight,
-              centerTitle: false,
-              title: Text(title),
-              leading: GlassIconButton(
-                icon: const AppSkinIcon(role: AppSkinIconRole.back),
-                onPressed: () => context.appPopOrGo(),
-                semanticLabel: AppI18n.t(config, 'common.back'),
-                size: LayoutTokens.controlMinExtent,
-                quality: AppGlassScope.qualityOf(context, persistent: true),
-              ),
-            ),
-            body: body,
-          ),
-        ),
-      );
-    }
     return AppContentWidth(
       child: Scaffold(
         key: key,
-        appBar: AppBar(leading: const AppBackButton(), title: Text(title)),
+        appBar: AppNavigationBar(
+          leading: const AppBackButton(),
+          title: Text(title),
+        ),
         body: body,
       ),
     );
@@ -145,6 +125,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               final query = value.text.trim();
               if (query.isNotEmpty) {
                 return _buildSearchResults(config, query: query);
+              }
+              if (AppUiTheme.usesCupertino(context)) {
+                return AppListSection(
+                  children: [
+                    for (final section in settingsSections)
+                      AppListTile(
+                        leading: AppSkinIcon(
+                          role: settingsSectionIconRole(section.id),
+                        ),
+                        title: Text(_sectionTitle(config, section.id)),
+                        showChevron: true,
+                        onTap: () => _openSection(section.id),
+                      ),
+                  ],
+                );
               }
               return Wrap(
                 spacing: 12,
@@ -201,7 +196,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _buildSectionPanel({
     required AppConfigState config,
     required String sectionId,
-    bool showSectionHeader = true,
   }) {
     final groups = _visibleGroupsForSection(sectionId, config);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -215,13 +209,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         24 + MediaQuery.paddingOf(context).bottom,
       ),
       children: <Widget>[
-        if (showSectionHeader) ...<Widget>[
-          Text(
-            _sectionTitle(config, sectionId),
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 16),
-        ],
         for (var index = 0; index < groups.length; index++) ...<Widget>[
           _buildSettingsGroupCard(config, groups[index]),
           if (index < groups.length - 1) const SizedBox(height: 16),
@@ -235,29 +222,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     SettingsGroupNode group,
   ) {
     final items = _visibleItemsForGroup(group.id, config);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          AppI18n.t(config, group.titleKey),
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Card(
-          margin: EdgeInsets.zero,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: <Widget>[
-              for (var index = 0; index < items.length; index++) ...<Widget>[
-                _buildItemTile(config, items[index]),
-                if (index < items.length - 1) const Divider(height: 1),
-              ],
-            ],
-          ),
-        ),
-      ],
+    return AppListSection(
+      header: Text(AppI18n.t(config, group.titleKey)),
+      children: [for (final item in items) _buildItemTile(config, item)],
     );
   }
 
@@ -287,23 +254,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         item: item,
         highlighted: _highlightedItemId == item.id,
       ),
-      SettingsItemIds.glassMode => SettingsSelectTile(
+      SettingsItemIds.uiStyle => SettingsSelectTile(
         icon: item.icon,
         iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: AppI18n.t(
           config,
-          'settings.glass.${config.glassMode.name}',
+          'settings.ui_style.${config.uiStyle.name}',
         ),
-        onTap: _openGlassModeSheet,
+        onTap: _openUiStyleSheet,
         highlighted: _highlightedItemId == item.id,
       ),
       SettingsItemIds.themeMode => SettingsSelectTile(
         icon: item.icon,
         iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
-        subtitle: settingsItemSubtitle(item.id, config),
         trailingText: _themeModeLabel(config.themeMode, config),
         onTap: _openThemeModeSheet,
         highlighted: _highlightedItemId == item.id,
@@ -312,7 +278,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         icon: item.icon,
         iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
-        subtitle: settingsItemSubtitle(item.id, config),
         trailingText: currentSkin.metadata.allowsManualAccent
             ? settingsThemeAccentLabel(config.themeAccent, config)
             : AppI18n.t(config, 'settings.theme_accent.follows_skin'),
@@ -467,7 +432,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         icon: item.icon,
         iconRole: settingsItemIconRole(item.id),
         title: AppI18n.t(config, item.titleKey),
-        subtitle: settingsItemSubtitle(item.id, config),
         trailingText: _languageLabel(config.localeCode, config),
         onTap: _openLanguageSheet,
         highlighted: _highlightedItemId == item.id,
@@ -679,7 +643,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _confirmLogout() async {
     final config = ref.read(appConfigProvider);
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) => AppAlertDialog(
         title: Text(AppI18n.t(config, 'settings.logout.confirm.title')),
@@ -710,33 +674,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     context.go(AppRoutes.home);
   }
 
-  Future<void> _openGlassModeSheet() {
+  Future<void> _openUiStyleSheet() {
     final config = ref.read(appConfigProvider);
-    return showSettingsSingleChoiceSheet<AppGlassMode>(
+    return showSettingsSingleChoiceSheet<AppUiStyle>(
       context: context,
-      title: AppI18n.t(config, 'settings.glass'),
-      currentValue: config.glassMode,
+      title: AppI18n.t(config, 'settings.ui_style'),
+      currentValue: config.uiStyle,
       options: [
-        for (final mode in AppGlassMode.values)
+        for (final style in AppUiStyle.values)
           SettingsChoiceOption(
-            value: mode,
-            section: switch (mode) {
-              AppGlassMode.automatic => AppI18n.t(
-                config,
-                'settings.glass.quality',
-              ),
-              AppGlassMode.powerSaving => AppI18n.t(
-                config,
-                'settings.glass.optimization',
-              ),
-              _ => null,
-            },
-            title: AppI18n.t(config, 'settings.glass.${mode.name}'),
-            subtitle: AppI18n.t(config, 'settings.glass.${mode.name}.desc'),
+            value: style,
+            title: AppI18n.t(config, 'settings.ui_style.${style.name}'),
+            subtitle: AppI18n.t(config, 'settings.ui_style.${style.name}.desc'),
           ),
       ],
-      onSelected: (mode) =>
-          ref.read(appConfigProvider.notifier).setGlassMode(mode),
+      onSelected: (style) =>
+          ref.read(appConfigProvider.notifier).setUiStyle(style),
     );
   }
 

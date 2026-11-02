@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'app_activity_indicator.dart';
 
 import 'music_control_surface.dart';
 import '../../app/theme/skin/app_skin_theme.dart';
@@ -56,7 +57,7 @@ class SongBatchActionBar extends StatelessWidget {
                     ? const Center(
                         child: SizedBox.square(
                           dimension: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: AppActivityIndicator(size: 22, strokeWidth: 2),
                         ),
                       )
                     : Row(

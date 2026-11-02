@@ -4,7 +4,13 @@ import 'package:flutter/foundation.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../shared/widgets/app_form_dialog.dart';
 import '../../../../shared/widgets/app_alert_dialog.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/adaptive_action_menu.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_dialog.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
@@ -564,7 +570,7 @@ class _UserPlaylistDetailPageState
 
   /// 确认移除歌曲的对话框
   Future<bool?> _confirmRemove(BuildContext context, int count) {
-    return showDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AppAlertDialog(
@@ -606,65 +612,40 @@ class _UserPlaylistDetailPageState
     BuildContext context,
     PlaylistDetailContent content,
   ) async {
-    final isDefaultPlaylist = content.isDefault;
-    await showAppThemedBottomSheet<void>(
+    final config = ref.read(appConfigProvider);
+    final action = await showAdaptiveActionMenu<String>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: Text(
-                  AppI18n.t(ref.read(appConfigProvider), 'user_playlist.edit'),
-                ),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  unawaited(_openEditSheet(context, content));
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  Icons.delete_outline_rounded,
-                  color: isDefaultPlaylist
-                      ? Theme.of(context).disabledColor
-                      : Theme.of(context).colorScheme.error,
-                ),
-                title: Text(
-                  AppI18n.t(
-                    ref.read(appConfigProvider),
-                    'user_playlist.delete',
-                  ),
-                  style: TextStyle(
-                    color: isDefaultPlaylist
-                        ? Theme.of(context).disabledColor
-                        : Theme.of(context).colorScheme.error,
-                  ),
-                ),
-                subtitle: isDefaultPlaylist
-                    ? Text(
-                        AppI18n.t(
-                          ref.read(appConfigProvider),
-                          'user_playlist.delete_disabled',
-                        ),
-                      )
-                    : null,
-                enabled: !isDefaultPlaylist,
-                onTap: isDefaultPlaylist
-                    ? null
-                    : () {
-                        Navigator.of(sheetContext).pop();
-                        unawaited(_confirmDelete(context));
-                      },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
+      message: content.isDefault
+          ? Text(AppI18n.t(config, 'user_playlist.delete_disabled'))
+          : null,
+      mobileDensity: AdaptiveActionMenuMobileDensity.regular,
+      items: [
+        AdaptiveActionMenuItem(
+          value: 'edit',
+          icon: Icons.edit_outlined,
+          label: AppI18n.t(config, 'user_playlist.edit'),
+        ),
+        AdaptiveActionMenuItem(
+          value: 'delete',
+          icon: Icons.delete_outline_rounded,
+          label: AppI18n.t(config, 'user_playlist.delete'),
+          enabled: !content.isDefault,
+          destructive: true,
+        ),
+      ],
+      mobileHeader: content.isDefault && !AppUiTheme.usesCupertino(context)
+          ? AppListTile(
+              title: Text(AppI18n.t(config, 'user_playlist.delete_disabled')),
+            )
+          : null,
     );
+    if (!context.mounted || action == null) return;
+    switch (action) {
+      case 'edit':
+        await _openEditSheet(context, content);
+      case 'delete':
+        await _confirmDelete(context);
+    }
   }
 
   Future<void> _openEditSheet(
@@ -715,7 +696,7 @@ class _UserPlaylistDetailPageState
         platform == TargetPlatform.windows ||
         platform == TargetPlatform.linux;
     if (useDialog) {
-      return showDialog<_EditPlaylistPayload>(
+      return showAppDialog<_EditPlaylistPayload>(
         context: context,
         builder: (dialogContext) {
           return AppFormDialog(
@@ -754,7 +735,7 @@ class _UserPlaylistDetailPageState
 
   Future<void> _confirmDelete(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AppAlertDialog(
@@ -891,7 +872,7 @@ class _UserPlaylistEditSheetState extends State<_UserPlaylistEditSheet> {
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 16),
-            TextField(
+            AppTextField(
               controller: _nameController,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
@@ -903,7 +884,7 @@ class _UserPlaylistEditSheetState extends State<_UserPlaylistEditSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
+            AppTextField(
               controller: _coverController,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
@@ -915,7 +896,7 @@ class _UserPlaylistEditSheetState extends State<_UserPlaylistEditSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
+            AppTextField(
               controller: _descriptionController,
               minLines: 4,
               maxLines: 6,
@@ -930,7 +911,7 @@ class _UserPlaylistEditSheetState extends State<_UserPlaylistEditSheet> {
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              child: FilledButton(
+              child: AppButton.filled(
                 onPressed: _submit,
                 child: Text(
                   AppI18n.tByLocaleCode(

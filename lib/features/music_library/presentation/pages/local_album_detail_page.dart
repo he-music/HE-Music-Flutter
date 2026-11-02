@@ -7,6 +7,7 @@ import '../helpers/local_song_playback_helper.dart';
 import '../widgets/local_song_list_item.dart';
 import '../widgets/local_songs_stream_view.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/song_list_component.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/music_detail_slivers.dart';
@@ -30,7 +31,10 @@ class LocalAlbumDetailPage extends ConsumerWidget {
     final repository = ref.watch(localMusicRepositoryProvider);
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(leading: const AppBackButton(), title: Text(albumName)),
+        appBar: AppNavigationBar(
+          leading: const AppBackButton(),
+          title: Text(albumName),
+        ),
         body: LocalSongsStreamView(
           sourceKey: (repository, albumName),
           watchSongs: () => repository.watchSongsByAlbum(albumName),

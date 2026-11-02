@@ -1,4 +1,8 @@
 import '../../../../shared/widgets/app_alert_dialog.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_dialog.dart';
+import '../../../../shared/widgets/app_refreshable_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +11,7 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../data/device_api_client.dart';
 import '../controllers/device_management_controller.dart';
 
@@ -32,7 +37,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
       return content;
     }
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(AppI18n.t(config, 'settings.device_management.title')),
       ),
@@ -44,88 +49,120 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     BuildContext context,
     AppConfigState config,
     DeviceManagementState state,
+  ) => AppRefreshableScrollView(
+    onRefresh: () =>
+        ref.read(deviceManagementControllerProvider.notifier).loadDevices(),
+    slivers: _buildSlivers(context, config, state),
+  );
+
+  List<Widget> _buildSlivers(
+    BuildContext context,
+    AppConfigState config,
+    DeviceManagementState state,
   ) {
     if (state.isLoading && state.devices.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: AppActivityIndicator()),
+        ),
+      ];
     }
-
     if (state.error != null && state.devices.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(state.error!, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => ref
-                  .read(deviceManagementControllerProvider.notifier)
-                  .loadDevices(),
-              child: Text(AppI18n.t(config, 'common.retry')),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  state.error!,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                AppButton.filled(
+                  onPressed: () => ref
+                      .read(deviceManagementControllerProvider.notifier)
+                      .loadDevices(),
+                  child: Text(AppI18n.t(config, 'common.retry')),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      );
+      ];
     }
-
     if (state.devices.isEmpty) {
-      return Center(
-        child: Text(
-          AppI18n.t(config, 'settings.device_management.empty'),
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      elevation: 0,
-      onRefresh: () =>
-          ref.read(deviceManagementControllerProvider.notifier).loadDevices(),
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          // 设备数量标题
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
             child: Text(
-              AppI18n.format(config, 'settings.device_management.count', {
-                'count': '${state.deviceCount}',
-              }),
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              AppI18n.t(config, 'settings.device_management.empty'),
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
           ),
-          // 设备列表
-          ...state.devices.map(
-            (device) => _DeviceCard(
-              device: device,
-              config: config,
-              onDelete: () => _confirmDelete(context, config, device),
-            ),
-          ),
-          // 批量删除按钮
-          if (state.canBatchDelete) ...[
-            const SizedBox(height: 16),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        sliver: SliverList.list(
+          children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: OutlinedButton.icon(
-                onPressed: state.isLoading
-                    ? null
-                    : () => _confirmBatchDelete(context, config),
-                icon: const Icon(Icons.delete_sweep_outlined),
-                label: Text(
-                  AppI18n.t(config, 'settings.device_management.batch_delete'),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.error,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                AppI18n.format(config, 'settings.device_management.count', {
+                  'count': '${state.deviceCount}',
+                }),
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
+            ...state.devices.map(
+              (device) => _DeviceCard(
+                device: device,
+                config: config,
+                onDelete: () => _confirmDelete(context, config, device),
+              ),
+            ),
+            if (state.canBatchDelete) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: AppButton.outlined(
+                  onPressed: state.isLoading
+                      ? null
+                      : () => _confirmBatchDelete(context, config),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.delete_sweep_outlined),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          AppI18n.t(
+                            config,
+                            'settings.device_management.batch_delete',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 32),
           ],
-          const SizedBox(height: 32),
-        ],
+        ),
       ),
-    );
+    ];
   }
 
   Future<void> _confirmDelete(
@@ -133,7 +170,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     AppConfigState config,
     DeviceData device,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AppAlertDialog(
         title: Text(AppI18n.t(config, 'settings.device_management.delete')),
@@ -166,7 +203,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     BuildContext context,
     AppConfigState config,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AppAlertDialog(
         title: Text(
@@ -329,7 +366,7 @@ class _DeviceCard extends StatelessWidget {
                 ),
               )
             else
-              IconButton(
+              AppIconButton(
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline),
                 color: colorScheme.error,

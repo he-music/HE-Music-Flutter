@@ -6,6 +6,11 @@ import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter/cupertino.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_scrollbar.dart';
+import '../../../../shared/widgets/app_dialog.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -202,7 +207,7 @@ class _PlayerStyleSelectionSheetState
         _applyStage(stageId);
         return;
       }
-      final shouldContinue = await showDialog<bool>(
+      final shouldContinue = await showAppDialog<bool>(
         context: context,
         builder: (dialogContext) => AppAlertDialog(
           title: Text(
@@ -276,7 +281,7 @@ class _PlayerStyleSelectionSheetState
     RealtimeSpectrumPermissionPort permission,
   ) async {
     final config = ref.read(appConfigProvider);
-    final shouldOpen = await showDialog<bool>(
+    final shouldOpen = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) => AppAlertDialog(
         title: Text(
@@ -332,6 +337,36 @@ class _AxisTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    if (AppUiTheme.usesCupertino(context)) {
+      final control = CupertinoSlidingSegmentedControl<_PlayerStyleAxis>(
+        proportionalWidth: true,
+        groupValue: selected,
+        children: {
+          for (final axis in _PlayerStyleAxis.values)
+            axis: Padding(
+              key: ValueKey<String>('player-style-axis-${axis.name}'),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Text(
+                labels[axis]!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        },
+        onValueChanged: (axis) {
+          if (axis != null) {
+            onSelected(axis);
+          }
+        },
+      );
+      if (MediaQuery.textScalerOf(context).scale(17) > 25.5) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: control,
+        );
+      }
+      return SizedBox(width: double.infinity, child: control);
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
@@ -435,7 +470,7 @@ class _StyleOptionGrid extends StatelessWidget {
         const spacing = 12.0;
         final itemWidth =
             (constraints.maxWidth - (columns - 1) * spacing) / columns;
-        return Scrollbar(
+        return AppScrollbar(
           controller: controller,
           child: SingleChildScrollView(
             key: const ValueKey('player-style-option-grid'),
@@ -560,7 +595,8 @@ class _StyleOptionCard extends StatelessWidget {
                                 child: Center(
                                   child: SizedBox.square(
                                     dimension: 22,
-                                    child: CircularProgressIndicator(
+                                    child: AppActivityIndicator(
+                                      size: 22,
                                       strokeWidth: 2,
                                       color: colorScheme.onPrimary,
                                     ),

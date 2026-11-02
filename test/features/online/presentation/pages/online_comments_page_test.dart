@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
@@ -20,6 +22,327 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 
 void main() {
+  for (final style in AppUiStyle.values) {
+    for (final replies in [false, true]) {
+      testWidgets(
+        '$style ${replies ? "replies" : "comments"} footer retries failed reset by replacing rows',
+        (tester) async {
+          final original = _comment('保留内容');
+          final client = _ControllableOnlineApiClient(
+            Future.value(
+              _commentResult(
+                replies ? [_comment('父评论', replyCount: 30)] : [original],
+              ),
+            ),
+          );
+          await tester.pumpWidget(
+            AppUiStyleScope(style: style, child: _buildCommentsApp(client)),
+          );
+          await tester.pumpAndSettle();
+          if (replies) {
+            await tester.tap(find.text('查看全部回复（30）'));
+            await tester.pump(const Duration(milliseconds: 300));
+            client.subCommentRequests.single.complete(
+              _commentResult([original]),
+            );
+            await tester.pumpAndSettle();
+          }
+          final scroll = find.byType(CustomScrollView).last;
+          final requests = replies
+              ? client.subCommentRequests
+              : client.refreshRequests;
+          final indexes = replies
+              ? client.subCommentPageIndexes
+              : client.commentPageIndexes;
+          await tester.timedDrag(
+            scroll,
+            const Offset(0, 300),
+            const Duration(seconds: 1),
+          );
+          await tester.pump(const Duration(seconds: 1));
+          expect(indexes, [1, 1]);
+          requests.last.completeError(Exception('reset failed'));
+          await tester.pumpAndSettle();
+          expect(find.text('保留内容', findRichText: true), findsOneWidget);
+          await tester.tap(find.text('重试'));
+          await tester.pump();
+          expect(indexes, [1, 1, 1]);
+          expect(find.text('保留内容', findRichText: true), findsOneWidget);
+          requests.last.complete(
+            _commentResult([
+              original,
+              ...List.generate(24, (index) => _comment('刷新结果 $index')),
+            ], hasMore: true),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('保留内容', findRichText: true), findsOneWidget);
+          expect(find.text('刷新结果 0', findRichText: true), findsOneWidget);
+          await tester.drag(scroll, const Offset(0, -4000));
+          await tester.pump();
+          expect(indexes, [1, 1, 1, 2]);
+          requests.last.complete(_commentResult([_comment('第二页结果')]));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+  for (final replies in [false, true]) {
+    testWidgets(
+      '${replies ? "replies" : "comments"} reset ignores older pagination response',
+      (tester) async {
+        final initialRows = List.generate(25, (index) => _comment('原始 $index'));
+        final client = _ControllableOnlineApiClient(
+          Future.value(
+            _commentResult(
+              replies ? [_comment('父评论', replyCount: 30)] : initialRows,
+              hasMore: !replies,
+            ),
+          ),
+        );
+        await tester.pumpWidget(_buildCommentsApp(client));
+        await tester.pumpAndSettle();
+        if (replies) {
+          await tester.tap(find.text('查看全部回复（30）'));
+          await tester.pump(const Duration(milliseconds: 300));
+          client.subCommentRequests.single.complete(
+            _commentResult(initialRows, hasMore: true),
+          );
+          await tester.pumpAndSettle();
+        }
+        final scroll = find.byType(CustomScrollView).last;
+        await tester.drag(scroll, const Offset(0, -4000));
+        await tester.pump();
+        final requests = replies
+            ? client.subCommentRequests
+            : client.refreshRequests;
+        final indexes = replies
+            ? client.subCommentPageIndexes
+            : client.commentPageIndexes;
+        expect(indexes, [1, 2]);
+        final oldPage = requests.last;
+        final scrollState = tester.state<ScrollableState>(
+          find.descendant(of: scroll, matching: find.byType(Scrollable)),
+        );
+        scrollState.position.jumpTo(0);
+        final reset = tester
+            .widget<RefreshIndicator>(find.byType(RefreshIndicator).last)
+            .onRefresh();
+        await tester.pump();
+        expect(indexes, [1, 2, 1]);
+        requests.last.complete(
+          _commentResult(
+            List.generate(25, (index) => _comment('刷新 $index')),
+            hasMore: true,
+          ),
+        );
+        await reset;
+        await tester.pumpAndSettle();
+        expect(find.text('刷新 0', findRichText: true), findsOneWidget);
+        oldPage.complete(_commentResult([_comment('过期分页')], hasMore: false));
+        await tester.pumpAndSettle();
+        expect(find.text('过期分页', findRichText: true), findsNothing);
+        expect(find.text('刷新 0', findRichText: true), findsOneWidget);
+        await tester.drag(scroll, const Offset(0, -4000));
+        await tester.pump();
+        expect(indexes, [1, 2, 1, 2]);
+        requests.last.complete(_commentResult([_comment('新第二页')]));
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+  for (final style in AppUiStyle.values) {
+    testWidgets(
+      '$style pending initial comments pull shares request and next page is two',
+      (tester) async {
+        final initial = Completer<OnlineCommentPageResult>();
+        final client = _ControllableOnlineApiClient(initial.future);
+        await tester.pumpWidget(
+          AppUiStyleScope(style: style, child: _buildCommentsApp(client)),
+        );
+        await tester.pump();
+        await tester.timedDrag(
+          find.byType(CustomScrollView).first,
+          const Offset(0, 300),
+          const Duration(seconds: 1),
+        );
+        await tester.pump(const Duration(seconds: 1));
+        expect(client.commentPageIndexes, [1]);
+        expect(client.refreshRequests, isEmpty);
+        initial.complete(
+          _commentResult(
+            List.generate(25, (index) => _comment('首屏 $index')),
+            hasMore: true,
+            lastId: 'first',
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('首屏 0', findRichText: true), findsOneWidget);
+        await tester.drag(
+          find.byType(CustomScrollView).first,
+          const Offset(0, -4000),
+        );
+        await tester.pump();
+        expect(client.commentPageIndexes, [1, 2]);
+        client.refreshRequests.single.complete(
+          _commentResult([_comment('第二页')]),
+        );
+        await tester.pumpAndSettle();
+        expect(client.commentPageIndexes, [1, 2]);
+      },
+    );
+
+    testWidgets(
+      '$style pending initial replies pull shares request and next page is two',
+      (tester) async {
+        final client = _ControllableOnlineApiClient(
+          Future.value(_commentResult([_comment('父评论', replyCount: 30)])),
+        );
+        await tester.pumpWidget(
+          AppUiStyleScope(style: style, child: _buildCommentsApp(client)),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('查看全部回复（30）'));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.timedDrag(
+          find.byType(CustomScrollView).last,
+          const Offset(0, 300),
+          const Duration(seconds: 1),
+        );
+        await tester.pump(const Duration(seconds: 1));
+        expect(client.subCommentRequests, hasLength(1));
+        expect(client.subCommentPageIndexes, [1]);
+        client.subCommentRequests.single.complete(
+          _commentResult(
+            List.generate(25, (index) => _comment('首屏回复 $index')),
+            hasMore: true,
+            lastId: 'reply-first',
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byType(CustomScrollView).last,
+          const Offset(0, -4000),
+        );
+        await tester.pump();
+        expect(client.subCommentPageIndexes, [1, 2]);
+        client.subCommentRequests.last.complete(
+          _commentResult([_comment('第二页回复')]),
+        );
+        await tester.pumpAndSettle();
+        expect(client.subCommentPageIndexes, [1, 2]);
+      },
+    );
+  }
+  for (final style in AppUiStyle.values) {
+    for (final empty in [false, true]) {
+      testWidgets(
+        '$style comments ${empty ? "empty" : "list"} pull refreshes once',
+        (tester) async {
+          final client = _ControllableOnlineApiClient(
+            Future.value(_commentResult(empty ? [] : [_comment('保留评论')])),
+          );
+          final app = _buildCommentsApp(client);
+          await tester.pumpWidget(AppUiStyleScope(style: style, child: app));
+          await tester.pumpAndSettle();
+          final scroll = find.byType(CustomScrollView).first;
+          await tester.timedDrag(
+            scroll,
+            const Offset(0, 300),
+            const Duration(seconds: 1),
+          );
+          await tester.pump(const Duration(seconds: 1));
+          expect(client.refreshRequests, hasLength(1));
+          await tester.drag(scroll, const Offset(0, 300));
+          await tester.pump(const Duration(seconds: 1));
+          expect(client.refreshRequests, hasLength(1));
+          client.refreshRequests.single.complete(
+            _commentResult([_comment('刷新评论')]),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('刷新评论', findRichText: true), findsOneWidget);
+        },
+      );
+    }
+
+    testWidgets(
+      '$style reply sheet empty pull refreshes once and keeps PopupRoute',
+      (tester) async {
+        final client = _ControllableOnlineApiClient(
+          Future.value(_commentResult([_comment('父评论', replyCount: 2)])),
+        );
+        await tester.pumpWidget(
+          AppUiStyleScope(style: style, child: _buildCommentsApp(client)),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('查看全部回复（2）'));
+        await tester.pump(const Duration(milliseconds: 300));
+        client.subCommentRequests.single.complete(_commentResult([]));
+        await tester.pumpAndSettle();
+        final scroll = find.byType(CustomScrollView).last;
+        expect(
+          ModalRoute.of(tester.element(scroll)),
+          isA<PopupRoute<dynamic>>(),
+        );
+        await tester.timedDrag(
+          scroll,
+          const Offset(0, 300),
+          const Duration(seconds: 1),
+        );
+        await tester.pump(const Duration(seconds: 1));
+        expect(client.subCommentRequests, hasLength(2));
+        expect(client.subCommentPageIndexes, [1, 1]);
+        await tester.drag(scroll, const Offset(0, 300));
+        await tester.pump(const Duration(seconds: 1));
+        expect(client.subCommentRequests, hasLength(2));
+        client.subCommentRequests.last.complete(
+          _commentResult([_comment('刷新回复')]),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('刷新回复', findRichText: true), findsOneWidget);
+      },
+    );
+  }
+
+  testWidgets(
+    'comments style change preserves loaded data and scrolled state',
+    (tester) async {
+      final client = _ControllableOnlineApiClient(
+        Future.value(
+          _commentResult(List.generate(30, (index) => _comment('评论 $index'))),
+        ),
+      );
+      final style = ValueNotifier(AppUiStyle.material);
+      addTearDown(style.dispose);
+      await tester.pumpWidget(
+        ValueListenableBuilder(
+          valueListenable: style,
+          child: _buildCommentsApp(client),
+          builder: (context, value, child) =>
+              AppUiStyleScope(style: value, child: child!),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(CustomScrollView).first,
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+      final scroll = find.descendant(
+        of: find.byType(CustomScrollView).first,
+        matching: find.byType(Scrollable),
+      );
+      final state = tester.state<ScrollableState>(scroll);
+      final offset = state.position.pixels;
+      expect(offset, greaterThan(0));
+      style.value = AppUiStyle.cupertino;
+      await tester.pumpAndSettle();
+      expect(tester.state(scroll), same(state));
+      expect(state.position.pixels, closeTo(offset, 0.1));
+      expect(client.refreshRequests, isEmpty);
+      expect(find.textContaining('评论 ', findRichText: true), findsWidgets);
+    },
+  );
   testWidgets('online comments first load shows comment row skeletons', (
     tester,
   ) async {
@@ -161,7 +484,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('加载更多回复'), findsNothing);
-    await tester.drag(find.byType(ListView).last, const Offset(0, -3000));
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -3000),
+    );
     await tester.pump();
 
     expect(client.subCommentRequests, hasLength(2));
@@ -338,6 +664,7 @@ class _ControllableOnlineApiClient extends OnlineApiClient {
   final List<Completer<OnlineCommentPageResult>> subCommentRequests =
       <Completer<OnlineCommentPageResult>>[];
   final List<int> subCommentPageIndexes = <int>[];
+  final List<int> commentPageIndexes = <int>[];
   int _commentCallCount = 0;
 
   @override
@@ -350,6 +677,7 @@ class _ControllableOnlineApiClient extends OnlineApiClient {
     String? lastId,
     bool isHot = false,
   }) {
+    commentPageIndexes.add(pageIndex);
     if (_commentCallCount++ == 0) {
       return initialResponse;
     }

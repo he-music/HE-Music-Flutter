@@ -3,8 +3,9 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart
 import 'package:flutter/foundation.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
+import 'package:he_music_flutter/shared/widgets/app_button.dart';
 import 'package:he_music_flutter/features/lyrics/data/storage/lyric_store.dart';
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
@@ -482,9 +483,9 @@ void main() {
     expect(store.refreshed, isTrue);
     expect(find.text('歌词来源：缓存'), findsNothing);
   });
-  for (final glass in [false, true]) {
+  for (final cupertino in [false, true]) {
     testWidgets(
-      'lyric offset sheet replaces options and preserves button order with glass=$glass',
+      'lyric offset sheet replaces options and preserves button order with cupertino=$cupertino',
       (tester) async {
         tester.view.physicalSize = const Size(390, 740);
         tester.view.devicePixelRatio = 1;
@@ -493,17 +494,13 @@ void main() {
         final store = _Store();
         const request = LyricRequest(trackId: 'song');
         await tester.pumpWidget(
-          AppGlassScope(
-            enabled: glass,
-            child: GlassAdaptiveScope(
-              minQuality: GlassQuality.minimal,
-              maxQuality: GlassQuality.minimal,
-              child: _app(
-                playerBoundary: true,
-                document: _document.withSource(LyricSource.cache),
-                request: request,
-                store: store,
-              ),
+          AppUiStyleScope(
+            style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material,
+            child: _app(
+              playerBoundary: true,
+              document: _document.withSource(LyricSource.cache),
+              request: request,
+              store: store,
             ),
           ),
         );
@@ -525,12 +522,7 @@ void main() {
         expect(tile, findsNothing);
         expect(find.text('搜索歌词'), findsNothing);
         expect(find.text('清除缓存并重新获取'), findsNothing);
-        expect(
-          glass
-              ? find.byType(GlassModalSheetScaffold)
-              : find.byType(BottomSheet),
-          findsOneWidget,
-        );
+        expect(find.byType(BottomSheet), findsOneWidget);
         expect(
           tester.getRect(sheet).top,
           greaterThan(tester.getRect(find.byType(LyricPanel)).center.dy),
@@ -591,9 +583,9 @@ void main() {
           Duration.zero,
         );
         await tester.pumpAndSettle();
-        expect(tester.widget<OutlinedButton>(advance).onPressed, isNull);
-        expect(tester.widget<OutlinedButton>(delay).onPressed, isNull);
-        expect(tester.widget<TextButton>(reset).onPressed, isNull);
+        expect(tester.widget<AppButton>(advance).onPressed, isNull);
+        expect(tester.widget<AppButton>(delay).onPressed, isNull);
+        expect(tester.widget<AppButton>(reset).onPressed, isNull);
         expect(await store.readOffset(request, manual: false), 100);
         expect(tester.takeException(), isNull);
       },

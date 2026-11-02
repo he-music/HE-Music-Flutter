@@ -12,6 +12,10 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_asset_resolver.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../controllers/custom_skin_editor_controller.dart';
 
@@ -71,7 +75,7 @@ class _CustomSkinEditorPageState extends ConsumerState<CustomSkinEditorPage> {
         editor.phase == CustomSkinEditorPhase.processing ||
         editor.phase == CustomSkinEditorPhase.saving;
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(
           AppI18n.tByLocaleCode(config.localeCode, 'settings.skin.custom.name'),
@@ -128,7 +132,7 @@ class _CustomSkinEditorPageState extends ConsumerState<CustomSkinEditorPage> {
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: SizedBox(
                     width: double.infinity,
-                    child: FilledButton(
+                    child: AppButton.filled(
                       key: const ValueKey<String>('apply-custom-skin'),
                       onPressed: busy || !editor.canApplyFor(config.skinId)
                           ? null
@@ -147,7 +151,10 @@ class _CustomSkinEditorPageState extends ConsumerState<CustomSkinEditorPage> {
                       child: editor.phase == CustomSkinEditorPhase.saving
                           ? const SizedBox.square(
                               dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: AppActivityIndicator(
+                                size: 20,
+                                strokeWidth: 2,
+                              ),
                             )
                           : Text(
                               AppI18n.tByLocaleCode(
@@ -167,7 +174,7 @@ class _CustomSkinEditorPageState extends ConsumerState<CustomSkinEditorPage> {
     String localeCode,
     CustomSkinEditorController controller,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AppAlertDialog(
         title: Text(
@@ -223,19 +230,27 @@ class _EmptyEditor extends StatelessWidget {
       child: processing
           ? const SizedBox.square(
               dimension: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.4),
+              child: AppActivityIndicator(size: 28, strokeWidth: 2.4),
             )
-          : FilledButton.icon(
+          : AppButton.filled(
               key: const ValueKey<String>('choose-custom-skin-image'),
               onPressed: onChoose,
-              icon: const Icon(Icons.photo_library_outlined),
-              label: Text(
-                AppI18n.tByLocaleCode(
-                  localeCode,
-                  defaultTargetPlatform == TargetPlatform.macOS
-                      ? 'settings.skin.custom.choose.file'
-                      : 'settings.skin.custom.choose',
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.photo_library_outlined),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      AppI18n.tByLocaleCode(
+                        localeCode,
+                        defaultTargetPlatform == TargetPlatform.macOS
+                            ? 'settings.skin.custom.choose.file'
+                            : 'settings.skin.custom.choose',
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
     );

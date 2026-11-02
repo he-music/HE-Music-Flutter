@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +21,7 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/utils/share_link_builder.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/app_confirmation_dialog.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/online_song_list_item.dart';
@@ -45,7 +48,7 @@ class MyHistoryPage extends ConsumerWidget {
     final state = ref.watch(myHistoryControllerProvider);
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppNavigationBar(
           leading: const AppBackButton(),
           title: Text(AppI18n.t(config, 'my.history')),
           actions: <Widget>[
@@ -67,7 +70,9 @@ class MyHistoryPage extends ConsumerWidget {
                   emptyText: AppI18n.t(config, 'my.history.empty'),
                   onTap: (index) => _playHistory(context, ref, items, index),
                 ),
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(
+                  child: AppActivityIndicator(size: 36, strokeWidth: 4),
+                ),
                 error: (error, stackTrace) => _HistoryErrorView(
                   message: '$error',
                   retryLabel: AppI18n.t(config, 'my.retry'),
@@ -568,7 +573,7 @@ class _HistoryErrorView extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: Text(retryLabel)),
+            AppButton.filled(onPressed: onRetry, child: Text(retryLabel)),
           ],
         ),
       ),

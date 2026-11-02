@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_asset_resolver.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
@@ -212,6 +213,66 @@ void main() {
     expect(overlayIndex, greaterThanOrEqualTo(0));
     expect(riveIndex, greaterThan(overlayIndex));
   });
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'Cupertino wallpaper readability in $brightness uses one static veil',
+      (tester) async {
+        final registry = AppSkinRegistry.builtIn(AppThemeAccent.appleBlue);
+        for (final style in AppUiStyle.values) {
+          for (final skinId in [
+            AppSkinRegistry.classicId,
+            AppSkinRegistry.starlitMelodyId,
+            AppSkinRegistry.citySoundCreatorId,
+          ]) {
+            final skin = registry.resolve(skinId);
+            final config = skin.configFor(brightness);
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: brightness == Brightness.light
+                    ? AppTheme.light(skin, uiStyle: style)
+                    : AppTheme.dark(skin, uiStyle: style),
+                home: AppSkinBackgroundLayer(
+                  skin: skin,
+                  enableAnimation: false,
+                  assetResolver: const _FailingResolver(),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final veil = find.byKey(const ValueKey('app-skin-reading-veil'));
+            if (style == AppUiStyle.material ||
+                skinId == AppSkinRegistry.classicId) {
+              expect(veil, findsNothing);
+            } else {
+              var alpha = config.background.overlayColor.a;
+              if (veil.evaluate().isNotEmpty) {
+                final color = tester.widget<ColoredBox>(veil).color;
+                alpha = Color.alphaBlend(
+                  color,
+                  config.background.overlayColor,
+                ).a;
+                final stack = tester.widget<Stack>(
+                  find.byKey(const ValueKey('app-skin-background')),
+                );
+                expect(
+                  stack.children.last.key,
+                  const ValueKey('app-skin-reading-veil'),
+                );
+              }
+              expect(
+                alpha,
+                greaterThanOrEqualTo(
+                  brightness == Brightness.light ? 0.29 : 0.35,
+                ),
+              );
+            }
+            expect(find.byType(BackdropFilter), findsNothing);
+            expect(tester.takeException(), isNull);
+          }
+        }
+      },
+    );
+  }
 }
 
 Color _fallbackColor(WidgetTester tester) {

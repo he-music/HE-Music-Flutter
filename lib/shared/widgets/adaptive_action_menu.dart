@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-
-import '../../app/theme/glass/app_glass_scope.dart';
-import '../../app/theme/glass/app_glass_material.dart';
+import 'package:flutter/cupertino.dart';
+import '../../app/theme/app_ui_theme.dart';
 
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
@@ -135,18 +133,15 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
   }
 
   Future<T?> _showContextMenu(BuildContext context) {
-    final useGlassMenu = AppGlassScope.controlsEnabled(context);
     final position = _resolveContextMenuPosition(
       context,
       anchorContext: context,
       anchorPosition: _lastGlobalPosition,
-      useRootOverlay: useGlassMenu,
+      useRootOverlay: true,
     );
-    if (useGlassMenu) {
-      return _showGlassContextMenu(context, position, widget.items);
-    }
     return showMenu<T>(
       context: context,
+      useRootNavigator: true,
       position: position,
       popUpAnimationStyle: AnimationStyle.noAnimation,
       items: widget.items
@@ -163,6 +158,9 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
   }
 
   Future<T?> _showBottomSheet(BuildContext context) {
+    if (AppUiTheme.usesCupertino(context)) {
+      return _showCupertinoActions(context, widget.items);
+    }
     return showAppThemedBottomSheet<T>(
       context: context,
       useRootNavigator: true,
@@ -217,27 +215,28 @@ Future<T?> showAdaptiveActionMenu<T>({
   BuildContext? anchorContext,
   Offset? anchorPosition,
   Widget? mobileHeader,
+  Widget? title,
+  Widget? message,
+  bool forceBottomSheet = false,
+  bool useRootNavigator = true,
   Widget? mobileFooter,
   AdaptiveActionMenuMobileDensity mobileDensity =
       AdaptiveActionMenuMobileDensity.compact,
 }) {
-  final useContextMenu = shouldUseDesktopMenu(context);
+  final useContextMenu = !forceBottomSheet && shouldUseDesktopMenu(context);
   if (useContextMenu) {
     final snapshot = AdaptiveActionMenuAnchor._consume();
     final resolvedAnchorPosition = anchorPosition ?? snapshot.globalPosition;
     final resolvedAnchorContext = anchorContext ?? snapshot.context ?? context;
-    final useGlassMenu = AppGlassScope.controlsEnabled(context);
     final position = _resolveContextMenuPosition(
       context,
       anchorContext: resolvedAnchorContext,
       anchorPosition: resolvedAnchorPosition,
-      useRootOverlay: useGlassMenu,
+      useRootOverlay: useRootNavigator,
     );
-    if (useGlassMenu) {
-      return _showGlassContextMenu(context, position, items);
-    }
     return showMenu<T>(
       context: context,
+      useRootNavigator: useRootNavigator,
       position: position,
       popUpAnimationStyle: AnimationStyle.noAnimation,
       items: items
@@ -252,9 +251,20 @@ Future<T?> showAdaptiveActionMenu<T>({
           .toList(growable: false),
     );
   }
+  if (AppUiTheme.usesCupertino(context) &&
+      mobileHeader == null &&
+      mobileFooter == null) {
+    return _showCupertinoActions(
+      context,
+      items,
+      title: title,
+      message: message,
+      useRootNavigator: useRootNavigator,
+    );
+  }
   return showAppThemedBottomSheet<T>(
     context: context,
-    useRootNavigator: true,
+    useRootNavigator: useRootNavigator,
     fitContent: true,
     builder: (bottomSheetContext) => _AdaptiveActionMenuBottomSheetBody<T>(
       items: items,
@@ -266,108 +276,48 @@ Future<T?> showAdaptiveActionMenu<T>({
   );
 }
 
-Future<T?> _showGlassContextMenu<T>(
+Future<T?> _showCupertinoActions<T>(
   BuildContext context,
-  RelativeRect position,
-  List<AdaptiveActionMenuItem<T>> items,
-) => showGeneralDialog<T>(
-  context: context,
-  useRootNavigator: true,
-  barrierColor: Colors.transparent,
-  barrierDismissible: true,
-  barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-  transitionDuration: Duration.zero,
-  pageBuilder: (context, animation, secondaryAnimation) =>
-      _GlassContextMenu<T>(position: position, items: items),
-);
-
-class _GlassContextMenu<T> extends StatefulWidget {
-  const _GlassContextMenu({required this.position, required this.items});
-
-  final RelativeRect position;
-  final List<AdaptiveActionMenuItem<T>> items;
-
-  @override
-  State<_GlassContextMenu<T>> createState() => _GlassContextMenuState<T>();
-}
-
-class _GlassContextMenuState<T> extends State<_GlassContextMenu<T>> {
-  final _controller = GlassMenuController();
-  bool _finished = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _controller.open();
-    });
+  List<AdaptiveActionMenuItem<T>> items, {
+  Widget? title,
+  Widget? message,
+  bool useRootNavigator = true,
+}) {
+  var dismissed = false;
+  void dismiss(BuildContext popupContext, [T? value]) {
+    if (dismissed) return;
+    dismissed = true;
+    Navigator.of(popupContext).pop(value);
   }
 
-  void _finish([T? value]) {
-    if (_finished || !mounted) return;
-    _finished = true;
-    Navigator.of(context).pop(value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: Stack(
-        children: [
-          Positioned(
-            left: widget.position.left,
-            top: widget.position.top,
-            child: ScrollConfiguration(
-              behavior: const _DesktopActionMenuScrollBehavior(),
-              child: GlassMenu(
-                controller: _controller,
-                trigger: const SizedBox(width: 1, height: 1),
-                morphFromZero: true,
-                autoAdjustToScreen: true,
-                menuPadding: const EdgeInsets.all(8),
-                settings: AppGlassMaterial.sheetFor(context),
-                quality: AppGlassScope.qualityOf(context),
-                onClose: _finish,
-                items: [
-                  for (final item in widget.items) ...[
-                    if (item.startsNewSection) const GlassMenuDivider(),
-                    GlassMenuItem(
-                      key: item.key,
-                      title: item.label,
-                      enabled: item.enabled,
-                      isDestructive: item.destructive,
-                      icon: item.iconRole != null
-                          ? AppSkinIcon(role: item.iconRole!)
-                          : item.icon == null
-                          ? null
-                          : Icon(item.icon),
-                      onTap: () => _finish(item.value),
-                    ),
-                  ],
-                ],
-              ),
+  return showCupertinoModalPopup<T>(
+    context: context,
+    useRootNavigator: useRootNavigator,
+    semanticsDismissible: true,
+    builder: (popupContext) => CupertinoActionSheet(
+      title: title,
+      message: message,
+      actions: [
+        for (final item in items)
+          if (item.enabled)
+            CupertinoActionSheetAction(
+              key: item.key,
+              isDestructiveAction: item.destructive,
+              onPressed: () => dismiss(popupContext, item.value),
+              child: Text(item.label),
+            )
+          else
+            CupertinoButton(
+              key: item.key,
+              onPressed: null,
+              child: Text(item.label),
             ),
-          ),
-        ],
+      ],
+      cancelButton: CupertinoActionSheetAction(
+        onPressed: () => dismiss(popupContext),
+        child: Text(CupertinoLocalizations.of(popupContext).cancelButtonLabel),
       ),
-    );
-  }
-}
-
-class _DesktopActionMenuScrollBehavior extends MaterialScrollBehavior {
-  const _DesktopActionMenuScrollBehavior();
-
-  @override
-  Widget buildScrollbar(
-    BuildContext context,
-    Widget child,
-    ScrollableDetails details,
-  ) => Scrollbar(
-    controller: details.controller,
-    thumbVisibility: true,
-    interactive: true,
-    child: child,
+    ),
   );
 }
 

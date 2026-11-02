@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
@@ -45,7 +46,7 @@ class SheetMusicDownloadButton extends ConsumerWidget {
           );
     return Tooltip(
       message: label,
-      child: TextButton.icon(
+      child: AppButton.textIcon(
         style: compact
             ? TextButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,

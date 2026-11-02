@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_lyric/core/lyric_model.dart' as flm;
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -200,7 +201,13 @@ class _LyricPanelState extends ConsumerState<LyricPanel> {
       },
       loading: () => widget.compact
           ? const SizedBox.shrink()
-          : const Center(child: CircularProgressIndicator(color: Colors.white)),
+          : const Center(
+              child: AppActivityIndicator(
+                size: 36,
+                strokeWidth: 4,
+                color: Colors.white,
+              ),
+            ),
       error: (error, stackTrace) => widget.compact
           ? const SizedBox.shrink()
           : Center(

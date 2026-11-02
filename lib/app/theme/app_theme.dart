@@ -1,6 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../config/app_ui_style.dart';
+import 'app_ui_theme.dart';
 import '../../shared/constants/layout_tokens.dart';
 import 'app_status_colors.dart';
 import 'skin/app_skin_models.dart';
@@ -30,19 +33,25 @@ abstract final class AppTheme {
   static ThemeData light(
     AppSkinPackage skin, {
     bool showContentBackground = false,
+    AppUiStyle uiStyle = AppUiStyle.material,
   }) => _buildTheme(
     config: skin.light,
+    isClassicSkin: skin.metadata.id == 'classic',
     icons: skin.icons,
     showContentBackground: showContentBackground,
+    uiStyle: uiStyle,
   );
 
   static ThemeData dark(
     AppSkinPackage skin, {
     bool showContentBackground = false,
+    AppUiStyle uiStyle = AppUiStyle.material,
   }) => _buildTheme(
     config: skin.dark,
+    isClassicSkin: skin.metadata.id == 'classic',
     icons: skin.icons,
     showContentBackground: showContentBackground,
+    uiStyle: uiStyle,
   );
 
   static SystemUiOverlayStyle systemOverlayStyleForBrightness(
@@ -59,52 +68,128 @@ abstract final class AppTheme {
 
   static ThemeData _buildTheme({
     required AppSkinBrightnessConfig config,
+    required bool isClassicSkin,
     required AppSkinIconCatalog icons,
     required bool showContentBackground,
+    required AppUiStyle uiStyle,
   }) {
+    final isCupertino = uiStyle == AppUiStyle.cupertino;
+    if (isCupertino && isClassicSkin) {
+      config = _cupertinoClassicConfig(config);
+    }
     final brightness = config.colorScheme.brightness;
     final colorScheme = config.colorScheme;
     final colors = config.colors;
     final geometry = config.geometry;
+    final controlRadius = isCupertino ? 10.0 : geometry.controlRadius;
+    final cardRadius = isCupertino ? 10.0 : geometry.cardRadius;
     final baseTextTheme = ThemeData(
       brightness: brightness,
       useMaterial3: true,
     ).textTheme;
-    final textTheme = baseTextTheme.copyWith(
-      headlineMedium: baseTextTheme.headlineMedium?.copyWith(
-        fontWeight: FontWeight.w500,
-        letterSpacing: -0.8,
-        height: 1.05,
-      ),
-      headlineSmall: baseTextTheme.headlineSmall?.copyWith(
-        fontWeight: FontWeight.w500,
-        letterSpacing: -0.5,
-      ),
-      titleLarge: baseTextTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w500,
-        letterSpacing: -0.2,
-      ),
-      titleMedium: baseTextTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w500,
-      ),
-      titleSmall: baseTextTheme.titleSmall?.copyWith(
-        fontWeight: FontWeight.w500,
-      ),
-      bodyMedium: baseTextTheme.bodyMedium?.copyWith(height: 1.35),
-      bodySmall: baseTextTheme.bodySmall?.copyWith(
-        height: 1.3,
-        color: colorScheme.onSurfaceVariant,
-      ),
-      labelLarge: baseTextTheme.labelLarge?.copyWith(
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.1,
-      ),
+    final cupertinoTypography = CupertinoTextThemeData(
+      primaryColor: colorScheme.primary,
     );
+    final textTheme = isCupertino
+        ? baseTextTheme.merge(
+            TextTheme(
+              headlineLarge: cupertinoTypography.navLargeTitleTextStyle
+                  .copyWith(inherit: true, color: colorScheme.onSurface),
+              headlineMedium: cupertinoTypography.navLargeTitleTextStyle
+                  .copyWith(
+                    inherit: true,
+                    fontSize: 28,
+                    color: colorScheme.onSurface,
+                  ),
+              headlineSmall: cupertinoTypography.navLargeTitleTextStyle
+                  .copyWith(
+                    inherit: true,
+                    fontSize: 22,
+                    color: colorScheme.onSurface,
+                  ),
+              titleLarge: cupertinoTypography.navTitleTextStyle.copyWith(
+                inherit: true,
+                color: colorScheme.onSurface,
+              ),
+              titleMedium: cupertinoTypography.navTitleTextStyle.copyWith(
+                inherit: true,
+                color: colorScheme.onSurface,
+              ),
+              titleSmall: cupertinoTypography.navTitleTextStyle.copyWith(
+                inherit: true,
+                color: colorScheme.onSurface,
+              ),
+              bodyLarge: cupertinoTypography.textStyle.copyWith(
+                inherit: true,
+                color: colorScheme.onSurface,
+              ),
+              bodyMedium: cupertinoTypography.textStyle.copyWith(
+                inherit: true,
+                color: colorScheme.onSurface,
+              ),
+              bodySmall: cupertinoTypography.textStyle.copyWith(
+                inherit: true,
+                fontSize: 13,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              labelLarge: cupertinoTypography.actionTextStyle.copyWith(
+                inherit: true,
+              ),
+            ),
+          )
+        : baseTextTheme.copyWith(
+            headlineMedium: baseTextTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.8,
+              height: 1.05,
+            ),
+            headlineSmall: baseTextTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.5,
+            ),
+            titleLarge: baseTextTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.2,
+            ),
+            titleMedium: baseTextTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+            titleSmall: baseTextTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+            bodyMedium: baseTextTheme.bodyMedium?.copyWith(height: 1.35),
+            bodySmall: baseTextTheme.bodySmall?.copyWith(
+              height: 1.3,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            labelLarge: baseTextTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.1,
+            ),
+          );
     final overlayStyle = systemOverlayStyleForBrightness(brightness);
+    final skinTheme = AppSkinTheme(
+      config: config,
+      icons: icons,
+      showContentBackground: showContentBackground,
+    );
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
+      cupertinoOverrideTheme: CupertinoThemeData(
+        brightness: brightness,
+        primaryColor: colorScheme.primary,
+        primaryContrastingColor: colorScheme.onPrimary,
+        scaffoldBackgroundColor: colors.scaffoldBackground,
+        barBackgroundColor: colors.fixedControlSurface.withValues(alpha: 1),
+        textTheme: CupertinoTextThemeData(
+          primaryColor: colorScheme.primary,
+          textStyle: textTheme.bodyMedium!.copyWith(
+            color: colorScheme.onSurface,
+          ),
+        ),
+      ),
       textTheme: textTheme,
       scaffoldBackgroundColor: colors.scaffoldBackground,
       canvasColor: colors.canvasBackground,
@@ -113,12 +198,9 @@ abstract final class AppTheme {
           ? _immersivePageTransitionsTheme
           : _pageTransitionsTheme,
       extensions: <ThemeExtension<dynamic>>[
+        AppUiTheme(style: uiStyle),
         AppStatusColors.fromScheme(colorScheme),
-        AppSkinTheme(
-          config: config,
-          icons: icons,
-          showContentBackground: showContentBackground,
-        ),
+        skinTheme,
       ],
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -134,17 +216,19 @@ abstract final class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
-        color: showContentBackground
+        color: isCupertino
+            ? skinTheme.contentBackgroundColor
+            : showContentBackground
             ? colors.cardBackground
             : colors.cardBackground.withValues(alpha: 0),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(geometry.cardRadius),
+          borderRadius: BorderRadius.circular(cardRadius),
         ),
         surfaceTintColor: Colors.transparent,
       ),
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(geometry.cardRadius),
+          borderRadius: BorderRadius.circular(cardRadius),
         ),
         iconColor: colorScheme.primary,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -160,24 +244,21 @@ abstract final class AppTheme {
           vertical: 16,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(geometry.controlRadius),
+          borderRadius: BorderRadius.circular(controlRadius),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(geometry.controlRadius),
+          borderRadius: BorderRadius.circular(controlRadius),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(geometry.controlRadius),
+          borderRadius: BorderRadius.circular(controlRadius),
           borderSide: BorderSide(color: colorScheme.primary, width: 1.2),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colors.navigationBackground,
-        indicatorColor: geometry.showNavigationIndicatorPill
-            ? colors.navigationIndicator
-            : Colors.transparent,
-        height: 60,
+        indicatorColor: colors.navigationIndicator,
         elevation: 0,
         labelTextStyle: WidgetStatePropertyAll(
           textTheme.labelMedium?.copyWith(
@@ -208,7 +289,7 @@ abstract final class AppTheme {
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(geometry.controlRadius),
+            borderRadius: BorderRadius.circular(controlRadius),
           ),
           textStyle: textTheme.labelLarge,
         ),
@@ -219,7 +300,7 @@ abstract final class AppTheme {
           side: BorderSide(color: colorScheme.outlineVariant),
           foregroundColor: colorScheme.onSurface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(geometry.controlRadius),
+            borderRadius: BorderRadius.circular(controlRadius),
           ),
           textStyle: textTheme.labelLarge,
         ),
@@ -228,7 +309,7 @@ abstract final class AppTheme {
         backgroundColor: colors.bottomSheetBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(geometry.bottomSheetRadius),
+            top: Radius.circular(isCupertino ? 16 : geometry.bottomSheetRadius),
           ),
         ),
       ),
@@ -239,6 +320,40 @@ abstract final class AppTheme {
         contentTextStyle: const TextStyle(color: Colors.white),
       ),
       dividerTheme: DividerThemeData(color: colors.divider),
+    );
+  }
+
+  static AppSkinBrightnessConfig _cupertinoClassicConfig(
+    AppSkinBrightnessConfig config,
+  ) {
+    final isDark = config.colorScheme.brightness == Brightness.dark;
+    final background = isDark
+        ? CupertinoColors.systemGroupedBackground.darkColor
+        : CupertinoColors.systemGroupedBackground.color;
+    final grouped = isDark
+        ? CupertinoColors.secondarySystemGroupedBackground.darkColor
+        : CupertinoColors.secondarySystemGroupedBackground.color;
+    return config.copyWith(
+      colorScheme: config.colorScheme.copyWith(
+        surface: background,
+        surfaceContainer: grouped,
+        surfaceContainerHigh: grouped,
+        surfaceContainerHighest: isDark
+            ? CupertinoColors.tertiarySystemGroupedBackground.darkColor
+            : CupertinoColors.tertiarySystemGroupedBackground.color,
+      ),
+      colors: config.colors.copyWith(
+        scaffoldBackground: background,
+        cardBackground: grouped,
+        inputBackground: isDark
+            ? CupertinoColors.tertiarySystemGroupedBackground.darkColor
+            : CupertinoColors.tertiarySystemFill.color,
+        navigationBackground: background,
+        fixedControlSurface: background,
+        scrollingContentSurface: grouped,
+        bottomSheetBackground: grouped,
+        dialogBackground: grouped,
+      ),
     );
   }
 }

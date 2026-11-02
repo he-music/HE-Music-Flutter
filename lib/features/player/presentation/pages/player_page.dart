@@ -17,6 +17,7 @@ import '../../../../app/router/app_route_observers.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../../../app/theme/player/app_player_style_registry.dart';
 import '../../../../app/theme/player/styles/cassette_player_palette.dart';
@@ -29,6 +30,9 @@ import '../../../../shared/helpers/song_artist_navigation_helper.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/helpers/user_playlist_song_action_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
+import '../../../../shared/widgets/app_slider.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/utils/share_link_builder.dart';
 import '../../../download/domain/entities/download_task.dart';
@@ -1011,6 +1015,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     unawaited(
       showPlayerStyledBottomSheet<_PlayerMoreAction>(
         context: context,
+        useCupertinoActionSheet: true,
         isScrollControlled: true,
         showDragHandle: true,
         builder: (sheetContext) => Consumer(
@@ -1114,6 +1119,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
             return _buildConstrainedPlayerSheetList(
               context: sheetContext,
+              useCupertinoActionSheet: true,
               listKey: const ValueKey<String>('player-more-sheet-list'),
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
               children: <Widget>[
@@ -1495,12 +1501,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           Text('${value.toStringAsFixed(2)}x'),
                         ],
                       ),
-                      Slider(
+                      AppSlider(
                         value: value,
                         min: 0.5,
                         max: 2.0,
                         divisions: 30,
                         label: '${value.toStringAsFixed(2)}x',
+                        semanticFormatterCallback: (value) =>
+                            '${value.toStringAsFixed(2)}x',
                         onChanged: (next) {
                           setState(() => value = next);
                         },
@@ -1509,7 +1517,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                         },
                       ),
                       const SizedBox(height: 6),
-                      FilledButton(
+                      AppButton.filled(
                         onPressed: () {
                           controller.setSpeed(1.0);
                           Navigator.of(sheetContext).pop();
@@ -1658,12 +1666,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           Text('${(value * 100).round()}%'),
                         ],
                       ),
-                      Slider(
+                      AppSlider(
                         value: value,
                         min: 0.0,
                         max: 1.0,
                         divisions: 20,
                         label: '${(value * 100).round()}%',
+                        semanticFormatterCallback: (value) =>
+                            '${(value * 100).round()}%',
                         onChanged: (next) {
                           setState(() => value = next);
                         },
@@ -1672,7 +1682,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                         },
                       ),
                       const SizedBox(height: 6),
-                      FilledButton(
+                      AppButton.filled(
                         onPressed: () {
                           controller.setVolume(1.0);
                           Navigator.of(sheetContext).pop();
@@ -1712,7 +1722,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           listKey: const ValueKey<String>('player-quality-sheet-list'),
           children: <Widget>[
             for (final quality in availableQualities)
-              ListTile(
+              AppListTile(
                 leading: const Icon(Icons.graphic_eq_rounded),
                 title: Text(quality.name),
                 subtitle: _buildQualitySubtitle(quality),
@@ -1812,7 +1822,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           listKey: const ValueKey<String>('player-artist-selection-sheet-list'),
           children: <Widget>[
             for (final artist in available)
-              ListTile(
+              AppListTile(
                 leading: const Icon(Icons.person_outline_rounded),
                 title: Text(artist.name),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -1903,7 +1913,11 @@ Widget _buildConstrainedPlayerSheetList({
   required List<Widget> children,
   Key? listKey,
   EdgeInsetsGeometry? padding,
+  bool useCupertinoActionSheet = false,
 }) {
+  if (useCupertinoActionSheet && AppUiTheme.usesCupertino(context)) {
+    return PlayerMoreActionSheet(listKey: listKey, children: children);
+  }
   return SafeArea(
     child: ListView(
       key: listKey,
@@ -2521,8 +2535,10 @@ class _PlayerWideVolumeControl extends ConsumerWidget {
               thumbColor: foreground,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
             ),
-            child: Slider(
+            child: AppSlider(
               key: const ValueKey('player-wide-volume'),
+              activeColor: foreground,
+              thumbColor: foreground,
               label: AppI18n.tByLocaleCode(locale, 'player.action.volume'),
               value: volume.clamp(0.0, 1.0),
               onChanged: (value) => unawaited(controller.setVolume(value)),

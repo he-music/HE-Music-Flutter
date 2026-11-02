@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:marquee/marquee.dart';
 
@@ -217,7 +218,8 @@ class PlayerTrackHeader extends ConsumerWidget {
                             'player-track-preparing-indicator',
                           ),
                           dimension: compact ? 10 : 12,
-                          child: CircularProgressIndicator(
+                          child: AppActivityIndicator(
+                            size: compact ? 10 : 12,
                             strokeWidth: 1.5,
                             color: palette.edge,
                           ),
@@ -323,7 +325,8 @@ class PlayerTrackHeader extends ConsumerWidget {
                               'player-track-preparing-indicator',
                             ),
                             dimension: 14,
-                            child: CircularProgressIndicator(
+                            child: AppActivityIndicator(
+                              size: 14,
                               strokeWidth: 2,
                               color: scenePalette?.edge ?? Colors.white,
                             ),

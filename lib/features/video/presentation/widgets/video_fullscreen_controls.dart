@@ -6,6 +6,11 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/adaptive_action_menu.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../domain/entities/video_detail_content.dart';
 import '../../domain/entities/video_detail_link.dart';
 import '../../playback/controllers/video_picture_in_picture_controller.dart';
@@ -128,11 +133,26 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
 
   Future<T?> _choose<T>(
     String title,
-    List<Widget> Function(BuildContext) items,
+    List<({String label, T value, bool selected, String? subtitle})> choices,
   ) async {
     _hideTimer?.cancel();
     _choosing = true;
     try {
+      if (AppUiTheme.usesCupertino(context)) {
+        return await showAdaptiveActionMenu<T>(
+          context: context,
+          title: Text(title),
+          items: [
+            for (final choice in choices)
+              AdaptiveActionMenuItem(
+                value: choice.value,
+                label:
+                    '${choice.selected ? '✓ ' : ''}${choice.label}'
+                    '${choice.subtitle == null ? '' : '\n${choice.subtitle}'}',
+              ),
+          ],
+        );
+      }
       return await showAppThemedBottomSheet<T>(
         context: context,
         heightFactor: 0.85,
@@ -149,7 +169,18 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
                   style: Theme.of(sheetContext).textTheme.titleMedium,
                 ),
               ),
-              ...items(sheetContext),
+              for (final choice in choices)
+                ListTile(
+                  title: Text(choice.label),
+                  subtitle: choice.subtitle == null
+                      ? null
+                      : Text(choice.subtitle!),
+                  selected: choice.selected,
+                  trailing: choice.selected
+                      ? const Icon(Icons.check_rounded)
+                      : null,
+                  onTap: () => Navigator.of(sheetContext).pop(choice.value),
+                ),
             ],
           ),
         ),
@@ -159,20 +190,6 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
       if (mounted) _showControls();
     }
   }
-
-  Widget _option<T>(
-    BuildContext context,
-    String label,
-    T value,
-    bool selected, {
-    String? subtitle,
-  }) => ListTile(
-    title: Text(label),
-    subtitle: subtitle == null ? null : Text(subtitle),
-    selected: selected,
-    trailing: selected ? const Icon(Icons.check_rounded) : null,
-    onTap: () => Navigator.of(context).pop(value),
-  );
 
   VideoDetailLink? get _selectedQuality {
     final links = widget.content?.links ?? const <VideoDetailLink>[];
@@ -185,18 +202,15 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
   Future<void> _chooseQuality() async {
     final links = [...?widget.content?.links]
       ..sort((a, b) => b.quality.compareTo(a.quality));
-    final link = await _choose<VideoDetailLink>(
-      _label('quality'),
-      (context) => [
-        for (final link in links)
-          _option(
-            context,
-            link.qualityLabel,
-            link,
-            link.cacheKey == _state.quality,
-          ),
-      ],
-    );
+    final link = await _choose<VideoDetailLink>(_label('quality'), [
+      for (final link in links)
+        (
+          label: link.qualityLabel,
+          value: link,
+          selected: link.cacheKey == _state.quality,
+          subtitle: null,
+        ),
+    ]);
     if (link == null || !mounted) return;
     final success = await widget.playback.switchQuality(
       link,
@@ -208,13 +222,15 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
   }
 
   Future<void> _chooseRate() async {
-    final rate = await _choose<double>(
-      _label('speed'),
-      (context) => [
-        for (final rate in const [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
-          _option(context, _rateLabel(rate), rate, rate == _state.rate),
-      ],
-    );
+    final rate = await _choose<double>(_label('speed'), [
+      for (final rate in const [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
+        (
+          label: _rateLabel(rate),
+          value: rate,
+          selected: rate == _state.rate,
+          subtitle: null,
+        ),
+    ]);
     if (rate == null || !mounted) return;
     try {
       await widget.surface.setRate(rate);
@@ -224,34 +240,52 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
   }
 
   Future<void> _chooseFit() async {
-    final fit = await _choose<BoxFit>(
-      _label('fit'),
-      (context) => [
-        _option(
-          context,
-          _label('fit_contain'),
-          BoxFit.contain,
-          _fit == BoxFit.contain,
-        ),
-        _option(
-          context,
-          _label('fit_cover'),
-          BoxFit.cover,
-          _fit == BoxFit.cover,
-          subtitle: _label('fit_cover_hint'),
-        ),
-        _option(
-          context,
-          _label('fit_fill'),
-          BoxFit.fill,
-          _fit == BoxFit.fill,
-          subtitle: _label('fit_fill_hint'),
-        ),
-      ],
-    );
+    final fit = await _choose<BoxFit>(_label('fit'), [
+      (
+        label: _label('fit_contain'),
+        value: BoxFit.contain,
+        selected: _fit == BoxFit.contain,
+        subtitle: null,
+      ),
+      (
+        label: _label('fit_cover'),
+        value: BoxFit.cover,
+        selected: _fit == BoxFit.cover,
+        subtitle: _label('fit_cover_hint'),
+      ),
+      (
+        label: _label('fit_fill'),
+        value: BoxFit.fill,
+        selected: _fit == BoxFit.fill,
+        subtitle: _label('fit_fill_hint'),
+      ),
+    ]);
     if (fit == null || !mounted) return;
     widget.surface.setFit(fit);
     setState(() => _fit = fit);
+  }
+
+  Future<void> _chooseMore() async {
+    _hideTimer?.cancel();
+    _choosing = true;
+    String? action;
+    try {
+      action = await showAdaptiveActionMenu<String>(
+        context: context,
+        title: Text(_label('more')),
+        items: [
+          AdaptiveActionMenuItem(value: 'fit', label: _label('fit')),
+          if (widget.pictureInPicture.available)
+            AdaptiveActionMenuItem(value: 'pip', label: _label('pip')),
+        ],
+      );
+    } finally {
+      _choosing = false;
+      if (mounted) _showControls();
+    }
+    if (!mounted) return;
+    if (action == 'fit') await _chooseFit();
+    if (action == 'pip') await _enterPip();
   }
 
   Future<void> _enterPip() async {
@@ -350,7 +384,7 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
     String tooltip,
     IconData icon,
     VoidCallback? onPressed,
-  ) => IconButton(
+  ) => AppIconButton(
     key: ValueKey('video-fullscreen-$key'),
     tooltip: tooltip,
     color: Colors.white,
@@ -363,7 +397,7 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
     String tooltip,
     String text,
     VoidCallback? onPressed,
-  ) => TextButton(
+  ) => AppButton.text(
     key: ValueKey('video-fullscreen-$key'),
     style: TextButton.styleFrom(
       foregroundColor: Colors.white,
@@ -476,7 +510,11 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
               if ((_state.buffering || _state.switching) && !_locked)
                 const Center(
                   child: IgnorePointer(
-                    child: CircularProgressIndicator(color: Colors.white),
+                    child: AppActivityIndicator(
+                      color: Colors.white,
+                      size: 36,
+                      strokeWidth: 4,
+                    ),
                   ),
                 ),
               IgnorePointer(
@@ -614,6 +652,15 @@ class _VideoFullscreenControlsState extends State<VideoFullscreenControls> {
                                           _label('fit'),
                                           Icons.aspect_ratio_rounded,
                                           () => unawaited(_chooseFit()),
+                                        )
+                                      else if (AppUiTheme.usesCupertino(
+                                        context,
+                                      ))
+                                        _icon(
+                                          'more',
+                                          _label('more'),
+                                          Icons.more_vert,
+                                          () => unawaited(_chooseMore()),
                                         )
                                       else
                                         PopupMenuButton<String>(

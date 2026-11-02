@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +10,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../domain/entities/qr_login_state.dart';
 import '../providers/qr_login_providers.dart';
 
@@ -28,7 +30,7 @@ class QrLoginConfirmPage extends ConsumerWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         title: Text(AppI18n.t(config, 'auth.qr.confirm_title')),
         leading: AppBackButton(onPressed: () => _handleBack(context)),
       ),
@@ -114,13 +116,13 @@ class QrLoginConfirmPage extends ConsumerWidget {
                   SizedBox(
                     width: double.infinity,
                     child: switch (viewModel.action) {
-                      _QrLoginConfirmAction.login => FilledButton(
+                      _QrLoginConfirmAction.login => AppButton.filled(
                         onPressed: () => _goToLogin(context),
                         child: Text(
                           AppI18n.t(config, 'auth.qr.confirm_need_login'),
                         ),
                       ),
-                      _QrLoginConfirmAction.confirm => FilledButton(
+                      _QrLoginConfirmAction.confirm => AppButton.filled(
                         onPressed: qrState.isBusy
                             ? null
                             : () => _confirm(context, ref),
@@ -128,7 +130,7 @@ class QrLoginConfirmPage extends ConsumerWidget {
                           AppI18n.t(config, 'auth.qr.confirm_submit'),
                         ),
                       ),
-                      _QrLoginConfirmAction.backMy => FilledButton.tonal(
+                      _QrLoginConfirmAction.backMy => AppButton.tonal(
                         onPressed: () => _handleBack(context),
                         child: Text(
                           AppI18n.t(config, 'auth.qr.confirm_back_my'),

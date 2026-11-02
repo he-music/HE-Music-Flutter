@@ -15,6 +15,10 @@ import '../../domain/entities/player_track.dart';
 import '../providers/player_providers.dart';
 import 'player_queue_list.dart';
 
+import 'package:flutter/cupertino.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+
 class PlayerQueuePanelContent extends ConsumerStatefulWidget {
   const PlayerQueuePanelContent({this.onRequestDismiss, super.key});
 
@@ -68,6 +72,26 @@ class _PlayerQueuePanelContentState
     );
     final currentIndex = queueState.currentIndex;
     final previousSnapshot = queueState.previousSnapshot;
+    final tabs = <Widget>[
+      _QueueTabLabel(
+        height: tabHeight,
+        title: AppI18n.t(config, 'player.queue.current'),
+        count: queue.length,
+        source: queueState.source,
+        onOpenSource: queueState.source?.isValid == true
+            ? () => _openSource(context, queueState.source!)
+            : null,
+      ),
+      _QueueTabLabel(
+        height: tabHeight,
+        title: AppI18n.t(config, 'player.queue.previous'),
+        count: previousSnapshot?.queue.length ?? 0,
+        source: previousSnapshot?.source,
+        onOpenSource: previousSnapshot?.source?.isValid == true
+            ? () => _openSource(context, previousSnapshot!.source!)
+            : null,
+      ),
+    ];
     return Column(
       children: <Widget>[
         Padding(
@@ -75,53 +99,28 @@ class _PlayerQueuePanelContentState
           child: Row(
             children: <Widget>[
               Expanded(
-                child: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  dividerColor: Colors.transparent,
-                  splashFactory: NoSplash.splashFactory,
-                  overlayColor: WidgetStateProperty.all(Colors.transparent),
-                  labelStyle: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
-                  unselectedLabelStyle: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
-                  tabs: <Widget>[
-                    _QueueTabLabel(
-                      height: tabHeight,
-                      title: AppI18n.t(config, 'player.queue.current'),
-                      count: queue.length,
-                      source: queueState.source,
-                      onOpenSource:
-                          queueState.source == null ||
-                              !queueState.source!.isValid
-                          ? null
-                          : () => _openSource(context, queueState.source!),
-                    ),
-                    _QueueTabLabel(
-                      height: tabHeight,
-                      title: AppI18n.t(config, 'player.queue.previous'),
-                      count: previousSnapshot?.queue.length ?? 0,
-                      source: previousSnapshot?.source,
-                      onOpenSource:
-                          previousSnapshot?.source == null ||
-                              !previousSnapshot!.source!.isValid
-                          ? null
-                          : () =>
-                                _openSource(context, previousSnapshot.source!),
-                    ),
-                  ],
-                ),
+                child: AppUiTheme.usesCupertino(context)
+                    ? _buildCupertinoTabs(tabs)
+                    : TabBar(
+                        controller: _tabController,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        dividerColor: Colors.transparent,
+                        splashFactory: NoSplash.splashFactory,
+                        overlayColor: const WidgetStatePropertyAll(
+                          Colors.transparent,
+                        ),
+                        labelStyle: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        unselectedLabelStyle: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w500),
+                        tabs: tabs,
+                      ),
               ),
-              IconButton(
+              AppIconButton(
                 onPressed: queue.isEmpty ? null : controller.clearQueue,
                 tooltip: AppI18n.t(config, 'player.queue.clear'),
-                visualDensity: const VisualDensity(
-                  horizontal: -2,
-                  vertical: -2,
-                ),
                 icon: const AppSkinIcon(
                   role: AppSkinIconRole.queueClear,
                   size: 22,
@@ -167,6 +166,34 @@ class _PlayerQueuePanelContentState
     );
   }
 
+  Widget _buildCupertinoTabs(List<Widget> tabs) => AnimatedBuilder(
+    animation: _tabController,
+    builder: (context, _) {
+      final control = CupertinoSlidingSegmentedControl<int>(
+        groupValue: _tabController.index,
+        proportionalWidth: true,
+        children: {
+          for (var index = 0; index < tabs.length; index++)
+            index: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: tabs[index],
+            ),
+        },
+        onValueChanged: (index) {
+          if (index != null) {
+            _tabController.animateTo(index);
+          }
+        },
+      );
+      if (MediaQuery.textScalerOf(context).scale(17) > 25.5) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: control,
+        );
+      }
+      return SizedBox(width: double.infinity, child: control);
+    },
+  );
   void _openSource(BuildContext context, PlayerQueueSource source) {
     widget.onRequestDismiss?.call();
     final uri = Uri(
@@ -308,7 +335,9 @@ class _QueueTabLabel extends StatelessWidget implements PreferredSizeWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(title),
+          Flexible(
+            child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

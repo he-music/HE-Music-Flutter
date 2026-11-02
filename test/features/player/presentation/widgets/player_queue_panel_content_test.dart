@@ -1,3 +1,6 @@
+import 'package:flutter/cupertino.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,18 +23,29 @@ import 'package:he_music_flutter/features/player/presentation/widgets/player_que
 import '../../../../helpers/expect_text_height_fits.dart';
 
 void main() {
-  testWidgets('queue tabs accommodate large labels and counts', (tester) async {
-    await tester.pumpWidget(
-      _buildTestApp(
-        theme: ThemeData(useMaterial3: true),
-        controllerFactory: _QueueTestController.new,
-        textScale: 3,
-      ),
-    );
-    await tester.pumpAndSettle();
-    expectTextHeightFits(tester, find.byType(TabBar));
-    expect(tester.takeException(), isNull);
-  });
+  for (final style in AppUiStyle.values) {
+    testWidgets('$style queue tabs accommodate large labels and counts', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildTestApp(
+          theme: ThemeData(extensions: [AppUiTheme(style: style)]),
+          controllerFactory: _QueueTestController.new,
+          textScale: 3,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expectTextHeightFits(
+        tester,
+        find.byType(
+          style == AppUiStyle.cupertino
+              ? CupertinoSlidingSegmentedControl<int>
+              : TabBar,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('global queue clear requests the city skin role', (tester) async {
     late _QueueTestController controller;
@@ -94,38 +108,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('position and duration do not rebuild queue panel content', (
-    tester,
-  ) async {
-    late _QueueTestController controller;
-    await tester.pumpWidget(
-      _buildTestApp(
-        theme: AppTheme.light(citySoundCreatorSkin()),
-        controllerFactory: () {
-          controller = _QueueTestController();
-          return controller;
-        },
-      ),
+  for (final style in AppUiStyle.values) {
+    testWidgets(
+      '$style position and duration do not rebuild queue panel content',
+      (tester) async {
+        late _QueueTestController controller;
+        await tester.pumpWidget(
+          _buildTestApp(
+            theme: AppTheme.light(citySoundCreatorSkin(), uiStyle: style),
+            controllerFactory: () {
+              controller = _QueueTestController();
+              return controller;
+            },
+          ),
+        );
+        await tester.pump();
+
+        final initialTabView = tester.widget<TabBarView>(
+          find.byType(TabBarView),
+        );
+        controller.updatePosition(const Duration(seconds: 1));
+        await tester.pump();
+
+        expect(
+          tester.widget<TabBarView>(find.byType(TabBarView)),
+          same(initialTabView),
+        );
+
+        controller.updateDuration(const Duration(minutes: 3));
+        await tester.pump();
+
+        expect(
+          tester.widget<TabBarView>(find.byType(TabBarView)),
+          same(initialTabView),
+        );
+      },
     );
-    await tester.pump();
-
-    final initialTabView = tester.widget<TabBarView>(find.byType(TabBarView));
-    controller.updatePosition(const Duration(seconds: 1));
-    await tester.pump();
-
-    expect(
-      tester.widget<TabBarView>(find.byType(TabBarView)),
-      same(initialTabView),
-    );
-
-    controller.updateDuration(const Duration(minutes: 3));
-    await tester.pump();
-
-    expect(
-      tester.widget<TabBarView>(find.byType(TabBarView)),
-      same(initialTabView),
-    );
-  });
+  }
 
   testWidgets('queue updates rebuild queue panel content', (tester) async {
     late _QueueTestController controller;
@@ -154,30 +173,61 @@ void main() {
     expect(find.text('Song 2'), findsOneWidget);
   });
 
-  testWidgets('queue tabs switch with horizontal swipes', (tester) async {
-    await tester.pumpWidget(
-      _buildTestApp(
-        theme: AppTheme.light(citySoundCreatorSkin()),
-        controllerFactory: _QueueWithHistoryTestController.new,
-      ),
-    );
-    await tester.pump();
+  for (final style in AppUiStyle.values) {
+    testWidgets('$style queue tabs switch with taps and horizontal swipes', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildTestApp(
+          theme: AppTheme.light(citySoundCreatorSkin(), uiStyle: style),
+          controllerFactory: _QueueWithHistoryTestController.new,
+        ),
+      );
+      await tester.pump();
 
-    expect(find.text('Current Song').hitTestable(), findsOneWidget);
-    expect(find.text('Previous Song').hitTestable(), findsNothing);
+      expect(find.text('Current Song').hitTestable(), findsOneWidget);
+      expect(find.text('Previous Song').hitTestable(), findsNothing);
 
-    await tester.fling(find.byType(TabBarView), const Offset(-600, 0), 1000);
-    await tester.pumpAndSettle();
+      expect(find.text('History').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('History'));
+      await tester.pumpAndSettle();
+      expect(find.text('Previous Song').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('Current'));
+      await tester.pumpAndSettle();
+      expect(find.text('Current Song').hitTestable(), findsOneWidget);
+      await tester.fling(find.byType(TabBarView), const Offset(-600, 0), 1000);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Previous Song').hitTestable(), findsOneWidget);
-    expect(tester.widget<TabBar>(find.byType(TabBar)).controller?.index, 1);
+      expect(find.text('Previous Song').hitTestable(), findsOneWidget);
+      expect(
+        style == AppUiStyle.cupertino
+            ? tester
+                  .widget<CupertinoSlidingSegmentedControl<int>>(
+                    find.byType(CupertinoSlidingSegmentedControl<int>),
+                  )
+                  .groupValue
+            : tester.widget<TabBar>(find.byType(TabBar)).controller?.index,
+        1,
+      );
 
-    await tester.fling(find.byType(TabBarView), const Offset(600, 0), 1000);
-    await tester.pumpAndSettle();
+      await tester.fling(find.byType(TabBarView), const Offset(600, 0), 1000);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Current Song').hitTestable(), findsOneWidget);
-    expect(tester.widget<TabBar>(find.byType(TabBar)).controller?.index, 0);
-  });
+      expect(find.text('Current Song').hitTestable(), findsOneWidget);
+      expect(
+        style == AppUiStyle.cupertino
+            ? tester
+                  .widget<CupertinoSlidingSegmentedControl<int>>(
+                    find.byType(CupertinoSlidingSegmentedControl<int>),
+                  )
+                  .groupValue
+            : tester.widget<TabBar>(find.byType(TabBar)).controller?.index,
+        0,
+      );
+    });
+  }
 
   testWidgets('long queue opens around the current track', (tester) async {
     await tester.pumpWidget(

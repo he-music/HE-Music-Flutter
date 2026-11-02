@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +14,47 @@ import 'package:he_music_flutter/features/download/presentation/pages/download_p
 import 'package:he_music_flutter/features/download/presentation/providers/download_providers.dart';
 
 void main() {
+  testWidgets(
+    'mobile Cupertino download menu preserves cancel and delete confirmation',
+    (tester) async {
+      final controller = _FilledDownloadController();
+      await _pumpDownloadPage(
+        tester,
+        uiStyle: AppUiStyle.cupertino,
+        controllerFactory: () => controller,
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('download_more_button_4')));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoActionSheet), findsOneWidget);
+      final delete = find.byKey(
+        const Key('download_more_remove_task_and_file_4'),
+      );
+      expect(
+        tester.widget<CupertinoActionSheetAction>(delete).isDestructiveAction,
+        isTrue,
+      );
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(controller.deletedTaskId, isNull);
+      await tester.tap(find.byKey(const Key('download_more_button_4')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('移除任务和文件'));
+      await tester.pumpAndSettle();
+      expect(find.text('删除下载文件？'), findsOneWidget);
+      expect(controller.deletedTaskId, isNull);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(controller.deletedTaskId, isNull);
+      await tester.tap(find.byKey(const Key('download_more_button_4')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('移除任务和文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('移除任务和文件'));
+      await tester.pumpAndSettle();
+      expect(controller.deletedTaskId, '4');
+    },
+  );
   testWidgets(
     'deleting files requires confirmation and cancellation preserves them',
     (tester) async {
@@ -309,6 +353,7 @@ Future<void> _pumpDownloadPage(
   Size size = const Size(390, 844),
   TargetPlatform? platform,
   DownloadController Function()? controllerFactory,
+  AppUiStyle uiStyle = AppUiStyle.material,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -328,7 +373,10 @@ Future<void> _pumpDownloadPage(
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: ThemeData(platform: platform),
+        theme: ThemeData(
+          platform: platform,
+          extensions: [AppUiTheme(style: uiStyle)],
+        ),
         home: MediaQuery(
           data: MediaQueryData(size: size),
           child: const DownloadPage(initialTab: DownloadPageTab.tasks),

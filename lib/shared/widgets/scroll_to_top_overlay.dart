@@ -3,11 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'app_adaptive_controls.dart';
 
 import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
-import '../../app/theme/glass/app_glass_scope.dart';
 import '../../app/theme/skin/app_skin_theme.dart';
 
 /// Adds a floating back-to-top control to a scrollable child.
@@ -148,41 +147,23 @@ class ScrollToTopButton extends ConsumerWidget {
       appConfigProvider.select((config) => config.localeCode),
     );
     final label = AppI18n.tByLocaleCode(localeCode, 'common.back_to_top');
-    final glass =
-        AppGlassScope.controlsEnabled(context) &&
-        !MediaQuery.highContrastOf(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     const icon = Icon(Icons.vertical_align_top_rounded);
-    final Widget button;
-    if (glass) {
-      button = Tooltip(
-        message: label,
-        child: GlassIconButton(
-          icon: icon,
-          onPressed: onPressed,
-          semanticLabel: label,
-          size: 48,
-          useOwnLayer: true,
-          quality: AppGlassScope.qualityOf(context),
-        ),
-      );
-    } else {
-      final theme = Theme.of(context);
-      final surface =
-          theme.extension<AppSkinTheme>()?.config.colors.fixedControlSurface ??
-          theme.colorScheme.surfaceContainerHigh;
-      button = Material(
-        color: surface.withValues(alpha: 1),
-        elevation: 3,
-        shape: const CircleBorder(),
-        child: IconButton(
-          tooltip: label,
-          onPressed: onPressed,
-          icon: icon,
-          color: theme.colorScheme.onSurface,
-        ),
-      );
-    }
+    final theme = Theme.of(context);
+    final surface =
+        theme.extension<AppSkinTheme>()?.config.colors.fixedControlSurface ??
+        theme.colorScheme.surfaceContainerHigh;
+    final button = Material(
+      color: surface.withValues(alpha: 1),
+      elevation: 3,
+      shape: const CircleBorder(),
+      child: AppIconButton(
+        tooltip: label,
+        onPressed: onPressed,
+        icon: icon,
+        color: theme.colorScheme.onSurface,
+      ),
+    );
 
     return IgnorePointer(
       ignoring: !visible,
@@ -194,8 +175,6 @@ class ScrollToTopButton extends ConsumerWidget {
             dimension: 48,
             child: reduceMotion
                 ? (visible ? button : const SizedBox.shrink())
-                : glass
-                ? GlassMaterialize(visible: visible, child: button)
                 : AnimatedOpacity(
                     opacity: visible ? 1 : 0,
                     duration: const Duration(milliseconds: 180),

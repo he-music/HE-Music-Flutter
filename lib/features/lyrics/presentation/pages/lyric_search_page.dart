@@ -5,6 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
@@ -221,7 +225,7 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
         Expanded(
           child: Semantics(
             label: label,
-            child: TextField(
+            child: AppTextField(
               controller: controller,
               enabled: _selecting == null,
               style: theme.textTheme.bodyMedium,
@@ -280,11 +284,11 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
     final theme = Theme.of(context);
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: AppBackButton(onPressed: () => Navigator.of(context).pop()),
         title: const Text('搜索歌词', maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          TextButton(
+          AppButton.text(
             onPressed: canSearch ? _submit : null,
             child: const Text('搜索'),
           ),
@@ -312,7 +316,7 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
                 loading: () => const SizedBox.shrink(),
                 error: (_, _) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: TextButton(
+                  child: AppButton.text(
                     onPressed: () => ref.invalidate(onlinePlatformsProvider),
                     child: const Text('平台加载失败，重试'),
                   ),
@@ -367,7 +371,7 @@ class _LyricSearchPageState extends ConsumerState<LyricSearchPage> {
                 (platformsAsync.isLoading && !platformsAsync.hasValue))
               const SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                child: Center(child: AppActivityIndicator(strokeWidth: 2)),
               ),
             if (_message != null)
               SliverToBoxAdapter(

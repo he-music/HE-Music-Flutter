@@ -1,18 +1,21 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:he_music_flutter/shared/widgets/app_text_field.dart';
+import 'package:he_music_flutter/shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
 import 'package:he_music_flutter/features/online/presentation/pages/parse_source_url_page.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 
 void main() {
-  for (final glassEnabled in <bool>[false, true]) {
+  for (final style in AppUiStyle.values) {
     testWidgets(
-      'parse form remains usable with a tall keyboard and glass=$glassEnabled',
+      'parse form remains usable with a tall keyboard and style=$style',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(400, 600);
@@ -29,24 +32,22 @@ void main() {
               ),
             ],
             child: MaterialApp(
-              home: AppGlassScope(
-                enabled: glassEnabled,
-                child: const ParseSourceUrlPage(),
-              ),
+              theme: ThemeData(extensions: [AppUiTheme(style: style)]),
+              home: const ParseSourceUrlPage(),
             ),
           ),
         );
         await tester.enterText(
-          find.byType(TextField),
+          find.byType(EditableText),
           'https://example.com/song',
         );
         tester.view.viewInsets = const FakeViewPadding(bottom: 380);
         await tester.pumpAndSettle();
         expect(tester.testTextInput.isVisible, isTrue);
         expect(tester.takeException(), isNull);
-        expect(find.byType(TextField).hitTestable(), findsOneWidget);
+        expect(find.byType(EditableText).hitTestable(), findsOneWidget);
 
-        await tester.ensureVisible(find.widgetWithText(FilledButton, '解析'));
+        await tester.ensureVisible(find.widgetWithText(AppButton, '解析'));
         await tester.pumpAndSettle();
         expect(find.text('解析').hitTestable(), findsOneWidget);
         await tester.tap(find.text('解析'));
@@ -83,7 +84,10 @@ void main() {
 
     expect(find.text('链接解析'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
-    expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isFalse);
+    expect(
+      tester.widget<AppTextField>(find.byType(AppTextField)).autofocus,
+      isFalse,
+    );
     expect(tester.testTextInput.isVisible, isFalse);
   });
 
@@ -102,7 +106,10 @@ void main() {
         child: const MaterialApp(home: ParseSourceUrlPage()),
       ),
     );
-    await tester.enterText(find.byType(TextField), 'https://example.com/song');
+    await tester.enterText(
+      find.byType(EditableText),
+      'https://example.com/song',
+    );
     await tester.tap(find.text('解析'));
     await tester.pump();
     await tester.pump();

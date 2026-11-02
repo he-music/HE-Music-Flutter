@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'app_activity_indicator.dart';
 
 import '../../app/i18n/app_i18n.dart';
 
@@ -69,10 +70,10 @@ class SongListCount extends StatelessWidget {
           if (loading)
             SizedBox.square(
               dimension: 12,
-              child: CircularProgressIndicator(
+              child: AppActivityIndicator(
+                size: 12,
                 strokeWidth: 1.5,
                 color: color,
-                value: MediaQuery.disableAnimationsOf(context) ? 0.75 : null,
               ),
             )
           else

@@ -13,6 +13,10 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/adaptive_action_menu.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../online/presentation/pages/online_comments_page.dart';
 import '../../../player/presentation/providers/player_providers.dart';
@@ -338,7 +342,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
               child: SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(
+                child: AppActivityIndicator(
                   color: Colors.white54,
                   strokeWidth: 2,
                 ),
@@ -414,7 +418,13 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
           ),
         // 加载中
         if (itemState == _ItemLoadState.loading)
-          const Center(child: CircularProgressIndicator(color: Colors.white)),
+          const Center(
+            child: AppActivityIndicator(
+              color: Colors.white,
+              size: 36,
+              strokeWidth: 4,
+            ),
+          ),
         // 加载失败
         if (itemState == _ItemLoadState.error)
           Center(
@@ -435,7 +445,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
                   style: const TextStyle(color: Colors.white54),
                 ),
                 const SizedBox(height: 12),
-                OutlinedButton(
+                AppButton.outlined(
                   onPressed: () => _loadDetailForIndex(index),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.white54),
@@ -1028,7 +1038,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
     });
   }
 
-  void _showQualitySheet(VideoDetailContent content) {
+  Future<void> _showQualitySheet(VideoDetailContent content) async {
     final selectedLink = _selectedLink(content);
     final config = ref.read(appConfigProvider);
     final overlayEntry = OverlayEntry(
@@ -1047,59 +1057,77 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
 
     // Modal route 位于视频页之上，弹层存续期间需要持续提供视频页的系统栏样式。
     Overlay.of(context, rootOverlay: true).insert(overlayEntry);
-    final sheetFuture = showAppThemedBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                child: Text(
-                  AppI18n.t(config, 'video.detail.quality_switch'),
-                  style: Theme.of(sheetContext).textTheme.titleMedium,
-                ),
+    try {
+      if (AppUiTheme.usesCupertino(context)) {
+        final link = await showAdaptiveActionMenu<VideoDetailLink>(
+          context: context,
+          title: Text(AppI18n.t(config, 'video.detail.quality_switch')),
+          items: [
+            for (final link in content.links)
+              AdaptiveActionMenuItem(
+                value: link,
+                label:
+                    '${selectedLink?.cacheKey == link.cacheKey ? '✓ ' : ''}'
+                    '${link.qualityLabel}'
+                    '${link.format.trim().isEmpty ? '' : ' · ${link.format.trim().toUpperCase()}'}',
+                enabled: !_playbackController.state.isSwitchingQuality,
               ),
-              for (final link in content.links)
-                ListTile(
-                  leading: Icon(
-                    link.quality >= 1080
-                        ? Icons.videocam_rounded
-                        : Icons.videocam_outlined,
-                    color: selectedLink?.cacheKey == link.cacheKey
-                        ? Theme.of(sheetContext).colorScheme.primary
-                        : null,
-                  ),
-                  title: Text(link.qualityLabel),
-                  subtitle: link.format.trim().isNotEmpty
-                      ? Text(link.format.trim().toUpperCase())
-                      : null,
-                  trailing: selectedLink?.cacheKey == link.cacheKey
-                      ? Icon(
-                          Icons.check_rounded,
-                          color: Theme.of(sheetContext).colorScheme.primary,
-                        )
-                      : null,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _switchQuality(link);
-                  },
-                ),
-              const SizedBox(height: 6),
-            ],
-          ),
+          ],
         );
-      },
-    );
-    unawaited(
-      sheetFuture.whenComplete(() {
-        overlayEntry
-          ..remove()
-          ..dispose();
-      }),
-    );
+        if (link != null && mounted) await _switchQuality(link);
+        return;
+      }
+      await showAppThemedBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: Text(
+                    AppI18n.t(config, 'video.detail.quality_switch'),
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                ),
+                for (final link in content.links)
+                  ListTile(
+                    leading: Icon(
+                      link.quality >= 1080
+                          ? Icons.videocam_rounded
+                          : Icons.videocam_outlined,
+                      color: selectedLink?.cacheKey == link.cacheKey
+                          ? Theme.of(sheetContext).colorScheme.primary
+                          : null,
+                    ),
+                    title: Text(link.qualityLabel),
+                    subtitle: link.format.trim().isNotEmpty
+                        ? Text(link.format.trim().toUpperCase())
+                        : null,
+                    trailing: selectedLink?.cacheKey == link.cacheKey
+                        ? Icon(
+                            Icons.check_rounded,
+                            color: Theme.of(sheetContext).colorScheme.primary,
+                          )
+                        : null,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _switchQuality(link);
+                    },
+                  ),
+                const SizedBox(height: 6),
+              ],
+            ),
+          );
+        },
+      );
+    } finally {
+      overlayEntry
+        ..remove()
+        ..dispose();
+    }
   }
 
   Future<void> _switchQuality(VideoDetailLink link) async {
@@ -1138,7 +1166,11 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const CircularProgressIndicator(color: Colors.white),
+          const AppActivityIndicator(
+            color: Colors.white,
+            size: 36,
+            strokeWidth: 4,
+          ),
           const SizedBox(height: 12),
           Text(
             AppI18n.t(ref.read(appConfigProvider), 'video.feed.loading'),
@@ -1162,7 +1194,7 @@ class _VideoDetailPageState extends ConsumerState<VideoDetailPage>
               style: const TextStyle(color: Colors.white54),
             ),
             const SizedBox(height: 14),
-            OutlinedButton(
+            AppButton.outlined(
               onPressed: _initializeFirstVideo,
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.white54),

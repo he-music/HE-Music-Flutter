@@ -1,12 +1,11 @@
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/shared/widgets/app_adaptive_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
@@ -27,45 +26,33 @@ import 'package:he_music_flutter/features/settings/presentation/pages/settings_i
 import 'package:toastification/toastification.dart';
 
 void main() {
-  testWidgets(
-    'glass settings uses native page and search controls and opens sections',
-    (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.padding = const FakeViewPadding(top: 24);
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        AppGlassScope(
-          enabled: true,
-          child: GlassAdaptiveScope(
-            minQuality: GlassQuality.minimal,
-            maxQuality: GlassQuality.minimal,
-            child: _buildSettingsApp(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(GlassScaffold), findsOneWidget);
-      expect(find.byType(GlassTextField), findsOneWidget);
-      final appBar = find.byType(GlassAppBar);
-      final search = find.byKey(
-        const ValueKey<String>('settings-search-field'),
-      );
-      expect(
-        tester.getTopLeft(search).dy,
-        greaterThanOrEqualTo(tester.getBottomLeft(appBar).dy + 16),
-      );
-      expect(search.hitTestable(), findsOneWidget);
-      await tester.tap(find.text('歌词'));
-      await tester.pumpAndSettle();
-      expect(find.text('歌词大小'), findsOneWidget);
-      expect(
-        tester.getTopLeft(find.text('歌词大小')).dy,
-        greaterThan(tester.getBottomLeft(find.byType(GlassAppBar)).dy),
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('settings reserves navigation space and opens sections', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.padding = const FakeViewPadding(top: 24);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_buildSettingsApp());
+    await tester.pumpAndSettle();
+    expect(find.byType(Scaffold), findsWidgets);
+    expect(find.byType(TextField), findsOneWidget);
+    final appBar = find.byType(AppNavigationBar);
+    final search = find.byKey(const ValueKey<String>('settings-search-field'));
+    expect(
+      tester.getTopLeft(search).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(appBar).dy + 16),
+    );
+    expect(search.hitTestable(), findsOneWidget);
+    await tester.tap(find.text('歌词'));
+    await tester.pumpAndSettle();
+    expect(find.text('歌词大小'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('歌词大小')).dy,
+      greaterThan(tester.getBottomLeft(find.byType(AppNavigationBar)).dy),
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   test('setting option labels and descriptions support English', () {
     final config = AppConfigState.initial.copyWith(localeCode: 'en');
@@ -75,6 +62,7 @@ void main() {
           .map((item) => settingsThemeAccentLabel(item, config))
           .toList(),
       <String>[
+        'Apple blue',
         'Forest',
         'Ocean',
         'Cobalt',
@@ -280,51 +268,43 @@ void main() {
     );
   });
 
-  testWidgets('glass preference can be changed from appearance settings', (
-    tester,
-  ) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    tester.view.physicalSize = const Size(1170, 2532);
-    addTearDown(tester.view.resetPhysicalSize);
-    await tester.pumpWidget(_buildSettingsApp(container: container));
-    await tester.pump();
-    await tester.tap(find.text('外观'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('玻璃效果'));
-    await tester.pumpAndSettle();
-    expect(find.text('玻璃质量'), findsOneWidget);
-    expect(find.text('高'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('省电'),
-      150,
-      scrollable: find.descendant(
-        of: find.byType(BottomSheet),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    expect(find.text('应用优化'), findsOneWidget);
-    await tester.tap(find.text('省电'));
-    await tester.pumpAndSettle();
-    expect(
-      container.read(appConfigProvider).glassMode,
-      AppGlassMode.powerSaving,
-    );
-    await tester.tap(find.text('玻璃效果'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('关闭'),
-      150,
-      scrollable: find.descendant(
-        of: find.byType(BottomSheet),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    await tester.tap(find.text('关闭'));
-    await tester.pumpAndSettle();
-    expect(container.read(appConfigProvider).glassMode, AppGlassMode.off);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'interface style can be changed without leaving appearance settings',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      tester.view.physicalSize = const Size(1170, 2532);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(_buildSettingsApp(container: container));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('外观'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('界面风格'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cupertino'));
+      await tester.pumpAndSettle();
+      expect(container.read(appConfigProvider).uiStyle, AppUiStyle.cupertino);
+      expect(find.text('主题与配色'), findsOneWidget);
+      await tester.tap(find.text('主题色'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apple 蓝'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(appConfigProvider).themeAccent,
+        AppThemeAccent.appleBlue,
+      );
+      await tester.tap(find.text('界面风格'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Material').last);
+      await tester.pumpAndSettle();
+      expect(container.read(appConfigProvider).uiStyle, AppUiStyle.material);
+      expect(
+        container.read(appConfigProvider).themeAccent,
+        AppThemeAccent.appleBlue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('mobile appearance section shows grouped settings', (
     tester,

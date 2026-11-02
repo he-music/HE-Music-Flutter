@@ -5,6 +5,9 @@ import '../../config/app_config_controller.dart';
 import 'app_player_style_models.dart';
 import 'app_player_style_theme.dart';
 
+import '../../config/app_ui_style.dart';
+import '../app_ui_theme.dart';
+
 class AppPlayerStyleBoundary extends ConsumerWidget {
   const AppPlayerStyleBoundary({required this.child, super.key});
 
@@ -27,6 +30,9 @@ class AppPlayerStyleBoundary extends ConsumerWidget {
       appPlayerForegroundColors,
       appPlayerSystemOverlayStyle,
       sheetBrightness: Theme.of(context).brightness,
+      uiStyle: AppUiTheme.usesCupertino(context)
+          ? AppUiStyle.cupertino
+          : AppUiStyle.material,
     );
     return AnnotatedRegion(
       value: appPlayerSystemOverlayStyle,

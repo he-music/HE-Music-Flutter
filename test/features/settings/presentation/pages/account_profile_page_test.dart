@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:he_music_flutter/shared/widgets/app_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/app_navigation_service.dart';
@@ -24,10 +25,10 @@ void main() {
 
     await _pumpPage(tester, controller: controller, client: client);
 
-    final nickname = tester.widget<TextFormField>(
+    final nickname = tester.widget<AppTextFormField>(
       find.byKey(const ValueKey<String>('account-profile-nickname')),
     );
-    final avatar = tester.widget<TextFormField>(
+    final avatar = tester.widget<AppTextFormField>(
       find.byKey(const ValueKey<String>('account-profile-avatar')),
     );
     expect(nickname.controller?.text, 'Original Name');
@@ -227,7 +228,7 @@ void main() {
     );
     await _pumpToast(tester);
 
-    final nickname = tester.widget<TextFormField>(
+    final nickname = tester.widget<AppTextFormField>(
       find.byKey(const ValueKey<String>('account-profile-nickname')),
     );
     expect(nickname.controller?.text, 'Unsaved Name');

@@ -1,9 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -115,7 +119,7 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
-            SwitchListTile.adaptive(
+            AppSwitchListTile(
               key: const ValueKey<String>(
                 'player-sleep-timer-after-current-switch',
               ),
@@ -128,7 +132,7 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
                   : null,
             ),
             const Divider(height: 8),
-            ListTile(
+            AppListTile(
               enabled: enabled,
               leading: const Icon(Icons.not_interested_rounded),
               title: Text(AppI18n.t(config, 'player.sleep_timer.off')),
@@ -145,11 +149,11 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
                     ? () => unawaited(_setTimer(Duration(minutes: minutes)))
                     : null,
               ),
-            ListTile(
+            AppListTile(
               enabled: enabled,
               leading: const Icon(Icons.tune_rounded),
               title: Text(AppI18n.t(config, 'player.sleep_timer.custom')),
-              trailing: const Icon(Icons.chevron_right_rounded),
+              showChevron: true,
               onTap: enabled
                   ? () => unawaited(_openCustomDurationPicker())
                   : null,
@@ -223,7 +227,7 @@ class _SleepTimerPresetTile extends ConsumerWidget {
     final selected = ref.watch(
       sleepTimerRemainingMinutesProvider.select((value) => value == minutes),
     );
-    return ListTile(
+    return AppListTile(
       enabled: onTap != null,
       leading: const Icon(Icons.timer_outlined),
       title: Text(_formatDurationOption(config, minutes)),
@@ -305,6 +309,7 @@ class _SleepTimerCustomDurationSheetState
                     Expanded(
                       child: _buildPicker(
                         controller: _hourController,
+                        value: _hours,
                         childCount: _maxHours + 1,
                         onSelectedItemChanged: (value) {
                           setState(() => _hours = value);
@@ -318,6 +323,7 @@ class _SleepTimerCustomDurationSheetState
                     Expanded(
                       child: _buildPicker(
                         controller: _minuteController,
+                        value: _minutes,
                         childCount: _maxMinutes + 1,
                         onSelectedItemChanged: (value) {
                           setState(() => _minutes = value);
@@ -337,14 +343,14 @@ class _SleepTimerCustomDurationSheetState
               Row(
                 children: <Widget>[
                   Expanded(
-                    child: OutlinedButton(
+                    child: AppButton.outlined(
                       onPressed: () => Navigator.of(context).pop(),
                       child: Text(AppI18n.t(config, 'common.cancel')),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: FilledButton(
+                    child: AppButton.filled(
                       onPressed: _hasDuration
                           ? () {
                               Navigator.of(
@@ -366,10 +372,37 @@ class _SleepTimerCustomDurationSheetState
 
   Widget _buildPicker({
     required FixedExtentScrollController controller,
+    required int value,
     required int childCount,
     required ValueChanged<int> onSelectedItemChanged,
   }) {
     final textStyle = Theme.of(context).textTheme.titleMedium;
+    if (!AppUiTheme.usesCupertino(context)) {
+      return Center(
+        child: DropdownButtonFormField<int>(
+          initialValue: value,
+          isExpanded: true,
+          items: [
+            for (var index = 0; index < childCount; index++)
+              DropdownMenuItem(value: index, child: Text('$index')),
+          ],
+          onChanged: (next) {
+            if (next != null) {
+              onSelectedItemChanged(next);
+            }
+          },
+        ),
+      );
+    }
+    if (!controller.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            controller.hasClients &&
+            controller.selectedItem != value) {
+          controller.jumpToItem(value);
+        }
+      });
+    }
     return CupertinoPicker(
       scrollController: controller,
       itemExtent: _pickerItemExtent,

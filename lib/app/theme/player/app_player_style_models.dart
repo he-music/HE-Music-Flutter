@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../config/app_ui_style.dart';
+
 /// 封面（stage）轴：真实前景舞台。
 enum AppPlayerStageKind { classic, none, vinyl, cassette, radialSpectrum }
 
@@ -190,7 +192,21 @@ class AppPlayerSheetStyle {
   final Color handleColor;
   final double topRadius;
 
-  static AppPlayerSheetStyle forBrightness(Brightness brightness) {
-    return brightness == Brightness.dark ? dark : light;
+  static AppPlayerSheetStyle forBrightness(
+    Brightness brightness, {
+    AppUiStyle uiStyle = AppUiStyle.material,
+  }) {
+    final base = brightness == Brightness.dark ? dark : light;
+    if (uiStyle == AppUiStyle.material) {
+      return base;
+    }
+    return AppPlayerSheetStyle(
+      backgroundColor: base.backgroundColor,
+      foregroundColor: base.foregroundColor,
+      secondaryForegroundColor: base.secondaryForegroundColor,
+      dividerColor: base.dividerColor,
+      handleColor: base.handleColor,
+      topRadius: 16,
+    );
   }
 }

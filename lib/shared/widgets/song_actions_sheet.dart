@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_i18n.dart';
-import '../../app/theme/glass/app_glass_scope.dart';
+import '../../app/theme/app_ui_theme.dart';
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
@@ -93,7 +93,8 @@ Future<void> showSongActionsSheet({
   final localeCode = Localizations.localeOf(context).languageCode;
   final resolvedPlayActionLabel =
       playActionLabel ?? AppI18n.tByLocaleCode(localeCode, 'song.action.play');
-  if (!forceBottomSheet && shouldUseDesktopMenu(context)) {
+  if (AppUiTheme.usesCupertino(context) ||
+      (!forceBottomSheet && shouldUseDesktopMenu(context))) {
     final actions = <AdaptiveActionMenuItem<VoidCallback>>[
       AdaptiveActionMenuItem<VoidCallback>(
         value: onPlay,
@@ -133,6 +134,7 @@ Future<void> showSongActionsSheet({
             'detail.batch.remove_from_playlist',
           ),
           iconRole: AppSkinIconRole.songRemove,
+          destructive: true,
         ),
       AdaptiveActionMenuItem<VoidCallback>(
         value: onWatchMv,
@@ -199,14 +201,20 @@ Future<void> showSongActionsSheet({
           iconRole: AppSkinIconRole.songSearchSameName,
         ),
     ];
-    final navigator = Navigator.of(
-      context,
-      rootNavigator: AppGlassScope.controlsEnabled(context),
-    );
+    final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
     return SongActionsSheetController.trackRoute<VoidCallback>(
       routeFuture: showAdaptiveActionMenu<VoidCallback>(
         context: context,
         items: actions,
+        forceBottomSheet: forceBottomSheet,
+        useRootNavigator: useRootNavigator,
+        title: _SongHeader(
+          coverUrl: coverUrl,
+          title: title,
+          subtitle: subtitle,
+          duration: duration,
+        ),
+        message: Text(sourceLabel),
         anchorContext: anchorContext,
         anchorPosition: anchorPosition,
       ),

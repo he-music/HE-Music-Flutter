@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -768,7 +769,7 @@ class _SectionBlock extends ConsumerWidget {
                 ),
               ),
               if (hasMore)
-                TextButton(
+                AppButton.text(
                   onPressed: () => onMoreSection(type),
                   child: Text(AppI18n.tByLocaleCode(localeCode, 'common.more')),
                 ),

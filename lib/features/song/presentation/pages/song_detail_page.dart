@@ -3,17 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter/cupertino.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../app/theme/glass/app_glass_material.dart';
-import '../../../../app/theme/glass/app_glass_scope.dart';
-import '../../../../app/theme/skin/app_skin_icon.dart';
-import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/helpers/album_id_helper.dart';
@@ -465,31 +463,11 @@ class _SongDetailAppBar extends StatelessWidget {
     return SizedBox(
       key: const ValueKey<String>('song-detail-top-bar'),
       height: kToolbarHeight,
-      child: AppGlassScope.controlsEnabled(context)
-          ? GlassAppBar(
-              toolbarHeight: kToolbarHeight,
-              centerTitle: false,
-              buttonSettings: AppGlassMaterial.settings(
-                context,
-                navigation: true,
-              ),
-              leading: MusicDetailActionButton(
-                icon: const AppSkinIcon(role: AppSkinIconRole.back),
-                tooltip: AppI18n.t(config, 'common.back'),
-                onPressed: onBack,
-              ),
-              title: titleWidget,
-              actions: <Widget>[moreButton],
-            )
-          : AppBar(
-              automaticallyImplyLeading: false,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              leading: AppBackButton(onPressed: onBack),
-              title: titleWidget,
-              actions: <Widget>[moreButton],
-            ),
+      child: AppNavigationBar(
+        leading: AppBackButton(onPressed: onBack),
+        title: titleWidget,
+        actions: <Widget>[moreButton],
+      ),
     );
   }
 }
@@ -659,7 +637,7 @@ class _HeroActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final useGlass = AppGlassScope.controlsEnabled(context);
+    final cupertino = AppUiTheme.usesCupertino(context);
     final playLabel = AppI18n.t(
       config,
       showPauseAction ? 'player.action.pause' : 'song.action.play',
@@ -691,35 +669,8 @@ class _HeroActions extends StatelessWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
-        if (useGlass)
-          GlassButton.custom(
-            onTap: onPlay,
-            label: playLabel,
-            shape: const LiquidRoundedRectangle(borderRadius: 16),
-            useOwnLayer: true,
-            quality: AppGlassScope.qualityOf(context),
-            style: GlassButtonStyle.prominent,
-            settings: LiquidGlassSettings(glassColor: colors.primary),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: DefaultTextStyle(
-                  style: theme.textTheme.labelLarge!.copyWith(
-                    color: colors.onPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  child: IconTheme(
-                    data: IconThemeData(color: colors.onPrimary),
-                    child: playContent,
-                  ),
-                ),
-              ),
-            ),
-          )
+        if (cupertino)
+          CupertinoButton.filled(onPressed: onPlay, child: playContent)
         else
           FilledButton(
             onPressed: onPlay,
@@ -737,18 +688,11 @@ class _HeroActions extends StatelessWidget {
           ),
         Semantics(
           toggled: isFavorited,
-          child: useGlass
-              ? Tooltip(
-                  message: favoriteLabel,
-                  excludeFromSemantics: true,
-                  child: GlassIconButton(
-                    icon: favoriteIcon,
-                    onPressed: onToggleFavorite,
-                    semanticLabel: favoriteLabel,
-                    size: 48,
-                    useOwnLayer: true,
-                    quality: AppGlassScope.qualityOf(context),
-                  ),
+          child: cupertino
+              ? AppIconButton(
+                  icon: favoriteIcon,
+                  onPressed: onToggleFavorite,
+                  tooltip: favoriteLabel,
                 )
               : IconButton.filledTonal(
                   onPressed: onToggleFavorite,

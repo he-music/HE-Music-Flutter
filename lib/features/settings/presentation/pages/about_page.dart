@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -10,6 +12,7 @@ import '../../../../app/config/app_environment.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../update/domain/entities/update_release.dart';
 import '../../../update/domain/entities/update_state.dart';
 import '../../../update/presentation/providers/update_providers.dart';
@@ -87,7 +90,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       return content;
     }
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(AppI18n.t(config, 'settings.about.title')),
       ),
@@ -214,7 +217,7 @@ class AboutContent extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 18),
-        FilledButton.icon(
+        AppButton.filledIcon(
           onPressed: updateState.status == UpdateStatus.checking
               ? null
               : () => ref
@@ -224,7 +227,7 @@ class AboutContent extends ConsumerWidget {
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: AppActivityIndicator(size: 18, strokeWidth: 2),
                 )
               : const Icon(Icons.system_update_rounded),
           label: Text(

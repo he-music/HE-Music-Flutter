@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../shared/widgets/app_button.dart';
 import 'package:toastification/toastification.dart';
 
 import 'app_navigation_service.dart';
@@ -72,7 +73,7 @@ class AppMessageService {
           ? null
           : Align(
               alignment: AlignmentDirectional.centerStart,
-              child: TextButton(
+              child: AppButton.text(
                 onPressed: () {
                   toastification.dismiss(item);
                   onAction();

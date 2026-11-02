@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:he_music_flutter/shared/widgets/app_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/app_navigation_service.dart';
@@ -203,7 +204,7 @@ Future<void> _enterPasswords(WidgetTester tester) async {
 
 String _fieldText(WidgetTester tester, String key) {
   return tester
-          .widget<TextFormField>(find.byKey(ValueKey<String>(key)))
+          .widget<AppTextFormField>(find.byKey(ValueKey<String>(key)))
           .controller
           ?.text ??
       '';

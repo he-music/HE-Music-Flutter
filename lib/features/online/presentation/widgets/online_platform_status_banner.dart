@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -32,7 +33,7 @@ class OnlinePlatformStatusBanner extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-          TextButton(
+          AppButton.text(
             onPressed: sync.refreshing
                 ? null
                 : () => ref.read(onlinePlatformsProvider.notifier).refresh(),

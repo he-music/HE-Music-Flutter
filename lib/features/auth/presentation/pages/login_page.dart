@@ -17,6 +17,10 @@ import '../../../../app/theme/skin/app_skin_background.dart';
 import '../../../../core/device/device_info_provider.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../domain/entities/qr_login_state.dart';
 import '../providers/qr_login_providers.dart';
 import '../../../online/presentation/providers/online_providers.dart';
@@ -100,7 +104,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     final config = ref.read(appConfigProvider);
     final oauthStatusText = _oauthStatusText?.trim() ?? '';
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         title: Text(AppI18n.t(config, 'auth.login.title')),
         leading: AppBackButton(onPressed: _handleBack),
       ),
@@ -192,7 +196,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                     const SizedBox(
                                       width: 16,
                                       height: 16,
-                                      child: CircularProgressIndicator(
+                                      child: AppActivityIndicator(
+                                        size: 16,
                                         strokeWidth: 2,
                                       ),
                                     ),
@@ -202,7 +207,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                               Text(oauthStatusText),
                               if (_oauthBusy) ...<Widget>[
                                 const SizedBox(height: 10),
-                                TextButton(
+                                AppButton.text(
                                   onPressed: _cancelOAuthFlow,
                                   child: Text(
                                     AppI18n.t(config, 'auth.oauth.cancel'),
@@ -378,7 +383,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     ThemeData theme,
   ) {
     return <Widget>[
-      TextField(
+      AppTextField(
         controller: _usernameController,
         textInputAction: TextInputAction.next,
         enabled: !_oauthBusy,
@@ -390,7 +395,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         ),
       ),
       const SizedBox(height: 14),
-      TextField(
+      AppTextField(
         controller: _passwordController,
         obscureText: true,
         enabled: !_oauthBusy,
@@ -405,14 +410,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
       const SizedBox(height: 18),
       SizedBox(
         width: double.infinity,
-        child: FilledButton(
+        child: AppButton.filled(
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           onPressed: (_submitting || _oauthBusy) ? null : _submit,
           child: _submitting
               ? SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(
+                  child: AppActivityIndicator(
+                    size: 18,
                     strokeWidth: 2,
                     semanticsLabel: AppI18n.t(config, 'auth.login.submitting'),
                   ),
@@ -445,7 +451,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
               child: SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: AppActivityIndicator(size: 18, strokeWidth: 2),
               ),
             ),
           )
@@ -457,7 +463,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
               runSpacing: 10,
               children: _authProviders
                   .map((provider) {
-                    return OutlinedButton(
+                    return AppButton.outlined(
                       onPressed: _oauthBusy
                           ? null
                           : () => _startOAuth(provider),
@@ -914,7 +920,10 @@ class _QrLoginSection extends ConsumerWidget {
                           child: SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: AppActivityIndicator(
+                              size: 22,
+                              strokeWidth: 2,
+                            ),
                           ),
                         )
                       : QrImageView(
@@ -958,10 +967,16 @@ class _QrLoginSection extends ConsumerWidget {
         if (showRefresh) ...<Widget>[
           const SizedBox(height: 12),
           Center(
-            child: TextButton.icon(
+            child: AppButton.text(
               onPressed: onRefresh,
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text(AppI18n.t(config, 'auth.qr.refresh')),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.refresh_rounded),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(AppI18n.t(config, 'auth.qr.refresh'))),
+                ],
+              ),
             ),
           ),
         ],

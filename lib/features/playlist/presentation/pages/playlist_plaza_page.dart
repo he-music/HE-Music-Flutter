@@ -1,5 +1,6 @@
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -8,6 +9,7 @@ import '../../../../shared/helpers/root_route_navigation_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/media_grid_card.dart';
@@ -55,7 +57,7 @@ class _PlaylistPlazaPageState extends ConsumerState<PlaylistPlazaPage> {
 
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppNavigationBar(
           leading: const AppBackButton(),
           title: Text(AppI18n.t(config, 'playlist.plaza.title')),
         ),
@@ -409,7 +411,9 @@ class _PlaylistPlazaBody extends StatelessWidget {
           itemBuilder: (context, index) {
             if (index >= state.playlists.length) {
               if (state.loadingMore) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(
+                  child: AppActivityIndicator(size: 36, strokeWidth: 4),
+                );
               }
               return PlazaLoadMoreRetryCard(
                 message: state.playlistsErrorMessage,

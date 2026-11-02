@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
@@ -20,6 +21,9 @@ import 'lyric_photo_brightness_control.dart';
 import 'lyric_offset_control.dart';
 import 'lyric_search_empty.dart';
 import '../providers/lyrics_providers.dart';
+
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 
 enum _LyricOptionsAction { search, offset }
 
@@ -269,7 +273,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            ListTile(
+            AppListTile(
               title: Text(
                 widget.target.title,
                 maxLines: 1,
@@ -285,7 +289,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
               future: _hasManual,
               builder: (context, snapshot) => Column(
                 children: [
-                  ListTile(
+                  AppListTile(
                     leading: const Icon(Icons.search),
                     title: Text(
                       AppI18n.t(
@@ -305,7 +309,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                   if (snapshot.data == false &&
                       (source == LyricSource.cache ||
                           source == LyricSource.online))
-                    ListTile(
+                    AppListTile(
                       leading: const Icon(Icons.refresh),
                       title: Text(AppI18n.t(config, 'player.lyric.refresh')),
                       subtitle: Text(
@@ -314,7 +318,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                       trailing: _restoring
                           ? const SizedBox.square(
                               dimension: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: AppActivityIndicator(strokeWidth: 2),
                             )
                           : null,
                       onTap: _restoring
@@ -338,13 +342,13 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                             },
                     ),
                   if (snapshot.data == true)
-                    ListTile(
+                    AppListTile(
                       leading: const Icon(Icons.restore),
                       title: Text(AppI18n.t(config, 'player.lyric.restore')),
                       trailing: _restoring
                           ? const SizedBox.square(
                               dimension: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: AppActivityIndicator(strokeWidth: 2),
                             )
                           : null,
                       onTap: _restoring
@@ -377,7 +381,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 manual: source == LyricSource.manual,
                 onTap: () => Navigator.pop(context, _LyricOptionsAction.offset),
               ),
-            ListTile(
+            AppListTile(
               leading: const Icon(Icons.style_outlined),
               title: Text(AppI18n.t(config, 'player.lyric.style')),
               onTap: () => showSettingsSingleChoiceSheet<String>(
@@ -400,7 +404,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 .backdropKind
                 .supportsLyricBrightness)
               const LyricPhotoBrightnessTile(),
-            ListTile(
+            AppListTile(
               leading: const Icon(Icons.text_fields),
               title: Text(AppI18n.t(config, 'settings.lyric_font_preset')),
               subtitle: Text(
@@ -421,7 +425,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 onSelected: controller.setLyricFontPreset,
               ),
             ),
-            ListTile(
+            AppListTile(
               leading: const Icon(Icons.palette_outlined),
               title: Text(AppI18n.t(config, 'settings.lyric_highlight_color')),
               onTap: () => showSettingsSingleChoiceSheet<String>(
@@ -458,7 +462,7 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                 },
               ),
             ),
-            SwitchListTile(
+            AppSwitchListTile(
               secondary: const Icon(Icons.lyrics_outlined),
               title: Text(
                 AppI18n.t(config, 'settings.enable_word_by_word_lyric'),

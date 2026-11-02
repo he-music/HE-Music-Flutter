@@ -5,6 +5,9 @@ import '../../app/config/app_config_controller.dart';
 import '../../app/i18n/app_i18n.dart';
 import '../models/he_music_models.dart';
 
+import '../../app/theme/app_ui_theme.dart';
+import 'app_button.dart';
+
 /// 平台加载失败提示行。
 class PlazaPlatformsErrorView extends ConsumerWidget {
   const PlazaPlatformsErrorView({
@@ -33,7 +36,7 @@ class PlazaPlatformsErrorView extends ConsumerWidget {
               ),
             ),
           ),
-          TextButton(
+          AppButton.text(
             onPressed: onRetry,
             child: Text(AppI18n.t(config, 'common.retry')),
           ),
@@ -71,7 +74,7 @@ class PlazaErrorView extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            FilledButton.tonal(
+            AppButton.tonal(
               onPressed: onRetry,
               child: Text(AppI18n.t(config, 'common.retry')),
             ),
@@ -131,7 +134,7 @@ class PlazaLoadMoreRetryCard extends ConsumerWidget {
             ).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
           ),
           const SizedBox(height: 8),
-          FilledButton.tonal(
+          AppButton.tonal(
             onPressed: onRetry,
             child: Text(AppI18n.t(config, 'common.retry')),
           ),
@@ -158,6 +161,29 @@ class PlazaChoiceChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    if (AppUiTheme.usesCupertino(context)) {
+      final style = TextButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        foregroundColor: selected
+            ? colorScheme.primary
+            : colorScheme.onSurfaceVariant,
+      );
+      return Semantics(
+        selected: selected,
+        child: selected
+            ? AppButton.tonal(
+                onPressed: onSelected,
+                style: style,
+                child: Text(label),
+              )
+            : AppButton.text(
+                onPressed: onSelected,
+                style: style,
+                child: Text(label),
+              ),
+      );
+    }
     return ChoiceChip(
       label: Text(label),
       showCheckmark: false,
@@ -208,36 +234,45 @@ class PlazaFilterChipRow extends StatelessWidget {
                 final selected = option.value == selectedValue;
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text(option.label),
-                    showCheckmark: false,
-                    selected: selected,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    selectedColor: colorScheme.primary.withValues(alpha: 0.10),
-                    backgroundColor: colorScheme.surface.withValues(
-                      alpha: 0.18,
-                    ),
-                    side: BorderSide(
-                      width: 0.9,
-                      color: selected
-                          ? colorScheme.primary.withValues(alpha: 0.30)
-                          : colorScheme.outlineVariant,
-                    ),
-                    labelStyle: theme.textTheme.labelMedium?.copyWith(
-                      color: selected
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 2,
-                      vertical: 0,
-                    ),
-                    visualDensity: const VisualDensity(
-                      horizontal: -2,
-                      vertical: -3,
-                    ),
-                    onSelected: (_) => onSelect(option.value),
-                  ),
+                  child: AppUiTheme.usesCupertino(context)
+                      ? PlazaChoiceChip(
+                          label: option.label,
+                          selected: selected,
+                          onSelected: () => onSelect(option.value),
+                        )
+                      : ChoiceChip(
+                          label: Text(option.label),
+                          showCheckmark: false,
+                          selected: selected,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          selectedColor: colorScheme.primary.withValues(
+                            alpha: 0.10,
+                          ),
+                          backgroundColor: colorScheme.surface.withValues(
+                            alpha: 0.18,
+                          ),
+                          side: BorderSide(
+                            width: 0.9,
+                            color: selected
+                                ? colorScheme.primary.withValues(alpha: 0.30)
+                                : colorScheme.outlineVariant,
+                          ),
+                          labelStyle: theme.textTheme.labelMedium?.copyWith(
+                            color: selected
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 0,
+                          ),
+                          visualDensity: const VisualDensity(
+                            horizontal: -2,
+                            vertical: -3,
+                          ),
+                          onSelected: (_) => onSelect(option.value),
+                        ),
                 );
               })
               .toList(growable: false),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter/cupertino.dart';
 
-import '../../../../app/theme/glass/app_glass_scope.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/constants/layout_tokens.dart';
@@ -75,17 +75,12 @@ class HomeSearchField extends StatelessWidget {
       height: heightFor(context),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (AppGlassScope.controlsEnabled(context) &&
-              !MediaQuery.highContrastOf(context)) {
-            return GlassButton.custom(
-              onTap: onTap,
-              label: placeholderPrimary,
-              width: constraints.maxWidth,
-              height: heightFor(context),
-              shape: LiquidRoundedRectangle(borderRadius: radius),
-              useOwnLayer: true,
-              quality: AppGlassScope.qualityOf(context),
-              settings: AppSearchField.glassSettingsFor(context),
+          if (AppUiTheme.usesCupertino(context)) {
+            return CupertinoButton(
+              padding: EdgeInsets.zero,
+              color: AppSearchField.materialFillColorFor(context),
+              borderRadius: BorderRadius.circular(radius),
+              onPressed: onTap,
               child: content,
             );
           }

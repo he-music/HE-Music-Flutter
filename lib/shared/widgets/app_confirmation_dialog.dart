@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_i18n.dart';
 import 'app_alert_dialog.dart';
+import 'app_dialog.dart';
 
 Future<bool> confirmAppAction(
   BuildContext context, {
@@ -10,7 +11,7 @@ Future<bool> confirmAppAction(
   required String confirmLabel,
 }) async {
   final localeCode = Localizations.localeOf(context).languageCode;
-  return await showDialog<bool>(
+  return await showAppDialog<bool>(
         context: context,
         builder: (dialogContext) => AppAlertDialog(
           title: Text(title),

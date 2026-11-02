@@ -9,6 +9,9 @@ import 'app_network_image.dart';
 import '../constants/layout_tokens.dart';
 import '../models/he_music_models.dart';
 
+import '../../app/theme/app_ui_theme.dart';
+import '../../app/theme/skin/app_skin_theme.dart';
+
 class SongListItemData {
   const SongListItemData({
     required this.title,
@@ -160,6 +163,9 @@ class SongListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final showDivider =
+        AppUiTheme.usesCupertino(context) &&
+        !(theme.extension<AppSkinTheme>()?.showContentBackground ?? false);
     final isCurrent = data.isCurrent;
     final isSelected = selectable && selected;
     final effectiveOnTap = selectable ? (onSelectTap ?? onTap) : onTap;
@@ -304,6 +310,24 @@ class SongListItem extends StatelessWidget {
                     onMoreTap: onMoreTap,
                   ),
                 ),
+              ),
+            ),
+          ),
+        if (showDivider)
+          PositionedDirectional(
+            bottom: 0,
+            start:
+                LayoutTokens.listItemInnerGutter +
+                (selectable ? 34 : 0) +
+                _SongCover._coverSize +
+                12,
+            end: LayoutTokens.listItemInnerGutter,
+            child: IgnorePointer(
+              child: Divider(
+                key: const ValueKey<String>('cupertino-song-divider'),
+                height: 1 / MediaQuery.devicePixelRatioOf(context),
+                thickness: 1 / MediaQuery.devicePixelRatioOf(context),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.12),
               ),
             ),
           ),

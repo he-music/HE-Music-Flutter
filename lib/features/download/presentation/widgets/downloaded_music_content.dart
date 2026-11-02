@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../shared/widgets/adaptive_action_menu.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/widgets/song_sort_button.dart';
@@ -67,9 +69,9 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
   Widget build(BuildContext context) {
     final songs = ref.watch(sortedDownloadedSongsProvider);
     return songs.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: AppActivityIndicator()),
       error: (error, stack) => Center(
-        child: TextButton(
+        child: AppButton.text(
           onPressed: () => ref.invalidate(downloadedSongsProvider),
           child: Text(text('common.retry')),
         ),
@@ -213,37 +215,36 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
       platformId: platform,
       platforms: platforms,
     );
-    final action = await showAppThemedBottomSheet<String>(
+    final action = await showAdaptiveActionMenu<String>(
       context: context,
-      fitContent: true,
-      builder: (sheetContext) => ListView(
-        shrinkWrap: true,
-        children: [
-          if (song.isAvailable)
-            ListTile(
-              leading: const Icon(Icons.queue_music_rounded),
-              title: Text(text('download.library.add_to_queue')),
-              onTap: () => Navigator.of(sheetContext).pop('queue'),
-            ),
-          if (canViewSheetMusic)
-            ListTile(
-              leading: const Icon(Icons.library_music_outlined),
-              title: Text(text('song.action.view_sheet_music')),
-              onTap: () => Navigator.of(sheetContext).pop('sheet_music'),
-            ),
-          ListTile(
-            enabled: !_busySongs.contains(song.id),
-            leading: const Icon(Icons.download_rounded),
-            title: Text(text('download.library.redownload')),
-            onTap: () => Navigator.of(sheetContext).pop('redownload'),
+      title: Text(song.task.title),
+      mobileDensity: AdaptiveActionMenuMobileDensity.regular,
+      items: [
+        if (song.isAvailable)
+          AdaptiveActionMenuItem(
+            value: 'queue',
+            icon: Icons.queue_music_rounded,
+            label: text('download.library.add_to_queue'),
           ),
-          ListTile(
-            leading: const Icon(Icons.remove_circle_outline_rounded),
-            title: Text(text('download.library.remove')),
-            onTap: () => Navigator.of(sheetContext).pop('remove'),
+        if (canViewSheetMusic)
+          AdaptiveActionMenuItem(
+            value: 'sheet_music',
+            icon: Icons.library_music_outlined,
+            label: text('song.action.view_sheet_music'),
           ),
-        ],
-      ),
+        AdaptiveActionMenuItem(
+          value: 'redownload',
+          enabled: !_busySongs.contains(song.id),
+          icon: Icons.download_rounded,
+          label: text('download.library.redownload'),
+        ),
+        AdaptiveActionMenuItem(
+          value: 'remove',
+          icon: Icons.remove_circle_outline_rounded,
+          label: text('download.library.remove'),
+          destructive: true,
+        ),
+      ],
     );
     if (!mounted || action == null) return;
     await _run(() async {

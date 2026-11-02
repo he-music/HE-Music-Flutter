@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
@@ -174,40 +177,48 @@ void main() {
     expect(find.text('用户歌单首屏歌曲'), findsOneWidget);
   });
 
-  testWidgets('default user playlist disables delete action', (tester) async {
-    final repository = _FakeUserPlaylistDetailRepository(isDefault: true);
+  for (final style in AppUiStyle.values) {
+    testWidgets('default user playlist disables delete action ($style)', (
+      tester,
+    ) async {
+      final repository = _FakeUserPlaylistDetailRepository(isDefault: true);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWith(_TestAppConfigController.new),
-          playerControllerProvider.overrideWith(_TestPlayerController.new),
-          onlinePlatformsProvider.overrideWith(
-            _TestOnlinePlatformsController.new,
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            onlinePlatformsProvider.overrideWith(
+              _TestOnlinePlatformsController.new,
+            ),
+            favoriteSongStatusProvider.overrideWith(
+              _TestFavoriteSongStatusController.new,
+            ),
+            userPlaylistDetailRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppUiTheme(style: style)]),
+            home: const UserPlaylistDetailPage(id: 'playlist-1', title: '测试歌单'),
           ),
-          favoriteSongStatusProvider.overrideWith(
-            _TestFavoriteSongStatusController.new,
-          ),
-          userPlaylistDetailRepositoryProvider.overrideWithValue(repository),
-        ],
-        child: const MaterialApp(
-          home: UserPlaylistDetailPage(id: 'playlist-1', title: '测试歌单'),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    await tester.tap(find.byTooltip('更多操作'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('默认歌单不可删除'), findsOneWidget);
-    await tester.tap(find.text('删除歌单'));
-    await tester.pumpAndSettle();
+      expect(find.text('默认歌单不可删除'), findsOneWidget);
+      if (style == AppUiStyle.cupertino) {
+        expect(find.byType(CupertinoActionSheet), findsOneWidget);
+      }
+      await tester.tap(find.text('删除歌单'));
+      await tester.pumpAndSettle();
 
-    expect(repository.deletePlaylistCallCount, 0);
-    expect(find.text('确认删除这个歌单？删除后不可恢复。'), findsNothing);
-  });
+      expect(repository.deletePlaylistCallCount, 0);
+      expect(find.text('确认删除这个歌单？删除后不可恢复。'), findsNothing);
+    });
+  }
 
   testWidgets(
     'user playlist info replaces full skeleton while songs are pending',

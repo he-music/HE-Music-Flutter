@@ -1,4 +1,4 @@
-import 'app_glass_mode.dart';
+import 'app_ui_style.dart';
 import 'app_lyric_auxiliary_mode.dart';
 import 'app_environment.dart';
 import 'app_player_wide_view.dart';
@@ -15,7 +15,7 @@ import '../theme/player/app_player_style_registry.dart';
 class AppConfigState {
   const AppConfigState({
     required this.apiBaseUrl,
-    this.glassMode = AppGlassMode.automatic,
+    this.uiStyle = AppUiStyle.material,
     required this.themeMode,
     required this.themeAccent,
     required this.skinId,
@@ -52,7 +52,7 @@ class AppConfigState {
   });
 
   final String apiBaseUrl;
-  final AppGlassMode glassMode;
+  final AppUiStyle uiStyle;
   final AppThemeMode themeMode;
   final AppThemeAccent themeAccent;
   final String skinId;
@@ -97,7 +97,7 @@ class AppConfigState {
 
   AppConfigState copyWith({
     String? apiBaseUrl,
-    AppGlassMode? glassMode,
+    AppUiStyle? uiStyle,
     AppThemeMode? themeMode,
     AppThemeAccent? themeAccent,
     String? skinId,
@@ -147,7 +147,7 @@ class AppConfigState {
           enableCellularAudioCache ?? this.enableCellularAudioCache,
       audioCacheLimitBytes: audioCacheLimitBytes ?? this.audioCacheLimitBytes,
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
-      glassMode: glassMode ?? this.glassMode,
+      uiStyle: uiStyle ?? this.uiStyle,
       themeMode: themeMode ?? this.themeMode,
       themeAccent: themeAccent ?? this.themeAccent,
       skinId: skinId ?? this.skinId,

@@ -1,5 +1,7 @@
 import '../../../../shared/widgets/app_alert_dialog.dart';
+import '../../../../shared/widgets/app_dialog.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
@@ -51,14 +53,14 @@ class AudioCacheSettingsTile extends ConsumerWidget {
     final title = Text(AppI18n.t(config, item.titleKey));
     final icon = Icon(item.icon);
     final Widget tile = switch (item.id) {
-      SettingsItemIds.playbackAudioCache => SwitchListTile.adaptive(
+      SettingsItemIds.playbackAudioCache => AppSwitchListTile(
         secondary: icon,
         title: title,
         subtitle: Text(AppI18n.t(config, 'settings.audio_cache.enabled_desc')),
         value: enabled,
         onChanged: controller.setEnablePlaybackAudioCache,
       ),
-      SettingsItemIds.cellularAudioCache => SwitchListTile.adaptive(
+      SettingsItemIds.cellularAudioCache => AppSwitchListTile(
         secondary: icon,
         title: title,
         value: cellular,
@@ -127,7 +129,7 @@ class _ClearAudioCacheTileState extends ConsumerState<_ClearAudioCacheTile> {
 
   Future<void> _clear() async {
     final config = ref.read(appConfigProvider);
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AppAlertDialog(
         title: Text(AppI18n.t(config, 'settings.audio_cache.clear')),

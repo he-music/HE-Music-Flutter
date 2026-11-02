@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import 'package:flutter/cupertino.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_message_service.dart';
@@ -35,7 +41,7 @@ class _GitHubDownloadAccelerationPageState
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: <Widget>[
-              SwitchListTile.adaptive(
+              AppSwitchListTile(
                 key: const ValueKey<String>(
                   'github-download-proxy-auto-update-switch',
                 ),
@@ -68,7 +74,7 @@ class _GitHubDownloadAccelerationPageState
                 ),
               ),
             ),
-            IconButton(
+            AppIconButton(
               key: const ValueKey<String>('refresh-github-proxy-list'),
               tooltip: AppI18n.t(
                 config,
@@ -80,7 +86,7 @@ class _GitHubDownloadAccelerationPageState
               icon: _refreshing
                   ? const SizedBox.square(
                       dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: AppActivityIndicator(size: 20, strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh_rounded),
             ),
@@ -92,7 +98,7 @@ class _GitHubDownloadAccelerationPageState
           loading: () => const Center(
             child: Padding(
               padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
+              child: AppActivityIndicator(size: 36, strokeWidth: 4),
             ),
           ),
           error: (error, stackTrace) => _buildLoadError(config),
@@ -103,7 +109,7 @@ class _GitHubDownloadAccelerationPageState
       return content;
     }
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(
           AppI18n.t(config, 'settings.github_download_acceleration.title'),
@@ -161,18 +167,43 @@ class _GitHubDownloadAccelerationPageState
               child: Column(
                 children: <Widget>[
                   for (var index = 0; index < proxies.length; index++) ...[
-                    RadioListTile<String>(
-                      key: ValueKey<String>(
-                        'github-download-proxy-${proxies[index].id}',
+                    if (AppUiTheme.usesCupertino(context))
+                      Semantics(
+                        selected: selectedProxy?.id == proxies[index].id,
+                        child: AppListTile(
+                          key: ValueKey<String>(
+                            'github-download-proxy-${proxies[index].id}',
+                          ),
+                          title: Text(proxies[index].name),
+                          subtitle: Text(
+                            proxies[index].urlPrefix,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: selectedProxy?.id == proxies[index].id
+                              ? Icon(
+                                  CupertinoIcons.check_mark,
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                              : null,
+                          onTap: () => ref
+                              .read(appConfigProvider.notifier)
+                              .setGitHubDownloadProxyId(proxies[index].id),
+                        ),
+                      )
+                    else
+                      RadioListTile<String>(
+                        key: ValueKey<String>(
+                          'github-download-proxy-${proxies[index].id}',
+                        ),
+                        value: proxies[index].id,
+                        title: Text(proxies[index].name),
+                        subtitle: Text(
+                          proxies[index].urlPrefix,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      value: proxies[index].id,
-                      title: Text(proxies[index].name),
-                      subtitle: Text(
-                        proxies[index].urlPrefix,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
                     if (index < proxies.length - 1) const Divider(height: 1),
                   ],
                 ],
@@ -195,11 +226,17 @@ class _GitHubDownloadAccelerationPageState
             ),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
+          AppButton.outlined(
             onPressed: () =>
                 ref.invalidate(gitHubDownloadProxyControllerProvider),
-            icon: const Icon(Icons.refresh_rounded),
-            label: Text(AppI18n.t(config, 'common.retry')),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.refresh_rounded),
+                const SizedBox(width: 8),
+                Flexible(child: Text(AppI18n.t(config, 'common.retry'))),
+              ],
+            ),
           ),
         ],
       ),

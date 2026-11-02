@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:go_captcha_flutter/go_captcha_flutter.dart';
@@ -41,7 +44,7 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         title: Text(AppI18n.t(config, 'captcha.title')),
         actions: <Widget>[
           IconButton(
@@ -78,7 +81,9 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
           ),
         ),
-        child: const Center(child: CircularProgressIndicator()),
+        child: const Center(
+          child: AppActivityIndicator(size: 36, strokeWidth: 4),
+        ),
       );
     }
     final errorMessage = _errorMessage;
@@ -462,7 +467,7 @@ class _StatusPanel extends StatelessWidget {
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
+            child: AppButton.filled(
               onPressed: onPrimaryTap,
               child: Text(primaryLabel),
             ),
@@ -470,7 +475,7 @@ class _StatusPanel extends StatelessWidget {
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
+            child: AppButton.outlined(
               onPressed: () => context.pop(false),
               child: Text(cancelLabel),
             ),

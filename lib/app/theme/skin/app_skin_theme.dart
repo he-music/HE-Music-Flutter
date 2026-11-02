@@ -14,6 +14,16 @@ class AppSkinTheme extends ThemeExtension<AppSkinTheme> {
   final AppSkinIconCatalog icons;
   final bool showContentBackground;
 
+  /// All page content cards use the same preference and skin opacity.
+  Color get contentBackgroundColor {
+    final surface = config.colors.scrollingContentSurface;
+    return surface.withValues(
+      alpha: showContentBackground
+          ? surface.a * config.surfaces.scrollingContentOpacity
+          : 0,
+    );
+  }
+
   @override
   AppSkinTheme copyWith({
     AppSkinBrightnessConfig? config,

@@ -4,12 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/config/app_ui_style.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/skin/app_skin_asset_resolver.dart';
 import '../../../../app/theme/skin/app_skin_background.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_registry.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'custom_skin_editor_page.dart';
 
 class SkinSelectionPage extends ConsumerStatefulWidget {
@@ -112,7 +116,7 @@ class _SkinSelectionPageState extends ConsumerState<SkinSelectionPage> {
       return content;
     }
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(AppI18n.t(config, 'settings.skin.selection.title')),
       ),
@@ -286,7 +290,7 @@ class _SkinDetailPage extends ConsumerWidget {
     final applied = skin.metadata.id == registry.normalizeId(config.skinId);
     final localeCode = config.localeCode;
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(AppI18n.tByLocaleCode(localeCode, skin.metadata.nameKey)),
       ),
@@ -368,7 +372,7 @@ class _SkinDetailPage extends ConsumerWidget {
             constraints: const BoxConstraints(maxWidth: 480),
             child: SizedBox(
               width: double.infinity,
-              child: FilledButton(
+              child: AppButton.filled(
                 key: const ValueKey<String>('apply-skin-button'),
                 onPressed: applied
                     ? null
@@ -526,9 +530,12 @@ class _LiveSkinPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final style = AppUiTheme.usesCupertino(context)
+        ? AppUiStyle.cupertino
+        : AppUiStyle.material;
     final theme = brightness == Brightness.dark
-        ? AppTheme.dark(skin)
-        : AppTheme.light(skin);
+        ? AppTheme.dark(skin, uiStyle: style)
+        : AppTheme.light(skin, uiStyle: style);
     return Theme(
       data: theme,
       child: Builder(

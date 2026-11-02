@@ -3,6 +3,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../../app/config/app_config_state.dart';
@@ -121,7 +122,7 @@ Future<void> showUpdateAvailableReleaseSheet({
                     notes
                   else
                     Flexible(child: SingleChildScrollView(child: notes)),
-                  TextButton.icon(
+                  AppButton.textIcon(
                     style: compactButtonStyle,
                     onPressed: () => context.push(
                       Uri(
@@ -136,7 +137,7 @@ Future<void> showUpdateAvailableReleaseSheet({
                   if (acceleratedUrl != null) ...[
                     SizedBox(
                       width: double.infinity,
-                      child: FilledButton.icon(
+                      child: AppButton.filledIcon(
                         style: compactButtonStyle,
                         onPressed: () async {
                           Navigator.of(sheetContext).pop();
@@ -156,7 +157,7 @@ Future<void> showUpdateAvailableReleaseSheet({
                   Row(
                     children: <Widget>[
                       Expanded(
-                        child: OutlinedButton(
+                        child: AppButton.outlined(
                           style: compactButtonStyle,
                           onPressed: () => Navigator.of(sheetContext).pop(),
                           child: Text(
@@ -172,12 +173,12 @@ Future<void> showUpdateAvailableReleaseSheet({
                       const SizedBox(width: 8),
                       Expanded(
                         child: acceleratedUrl != null
-                            ? OutlinedButton(
+                            ? AppButton.outlined(
                                 style: compactButtonStyle,
                                 onPressed: openRegularDownload,
                                 child: regularLabel,
                               )
-                            : FilledButton(
+                            : AppButton.filled(
                                 style: compactButtonStyle,
                                 onPressed: openRegularDownload,
                                 child: regularLabel,

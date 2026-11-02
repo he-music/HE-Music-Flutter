@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +7,7 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../../shared/widgets/scroll_to_top_overlay.dart';
@@ -50,7 +52,7 @@ class _RankingListPageState extends ConsumerState<RankingListPage> {
 
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppNavigationBar(
           leading: const AppBackButton(),
           title: Text(AppI18n.t(config, 'ranking.title')),
         ),
@@ -234,7 +236,7 @@ class _PlatformsErrorView extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(
+          AppButton.text(
             onPressed: onRetry,
             child: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),
           ),
@@ -322,7 +324,7 @@ class _ErrorView extends ConsumerWidget {
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 10),
           if (onRetry != null)
-            OutlinedButton(
+            AppButton.outlined(
               onPressed: onRetry,
               child: Text(AppI18n.t(config, 'common.retry')),
             ),

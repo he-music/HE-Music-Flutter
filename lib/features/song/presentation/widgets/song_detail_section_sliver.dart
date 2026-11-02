@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 
 import '../../../sheet_music/presentation/widgets/sheet_music_list.dart';
 import '../../../../shared/constants/layout_tokens.dart';
@@ -139,7 +140,7 @@ Widget buildSongDetailSectionSliver({
                     ),
                   ),
                   if (section.resourceType == 'sheet_music')
-                    TextButton.icon(
+                    AppButton.textIcon(
                       onPressed: onMoreSheetMusic,
                       iconAlignment: IconAlignment.end,
                       icon: const Icon(Icons.chevron_right_rounded, size: 18),

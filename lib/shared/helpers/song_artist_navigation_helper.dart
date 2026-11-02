@@ -7,6 +7,9 @@ import '../../app/i18n/app_i18n.dart';
 import '../../app/router/app_routes.dart';
 import '../constants/layout_tokens.dart';
 import '../models/he_music_models.dart';
+import '../../app/theme/app_ui_theme.dart';
+import '../widgets/adaptive_action_menu.dart';
+import '../widgets/app_list_tile.dart';
 
 Future<void> openSongArtistSelection({
   required BuildContext context,
@@ -38,6 +41,30 @@ Future<void> openSongArtistSelection({
     return;
   }
 
+  // Keep long artist lists in the scrolling selection panel.
+  if (AppUiTheme.usesCupertino(context) && availableArtists.length <= 6) {
+    final artist = await showAdaptiveActionMenu<SongInfoArtistInfo>(
+      context: context,
+      title: Text(AppI18n.tByLocaleCode(localeCode, 'song.artist.select')),
+      message: Text(
+        AppI18n.formatByLocaleCode(localeCode, 'song.artist.count', {
+          'count': '${availableArtists.length}',
+        }),
+      ),
+      items: [
+        for (final artist in availableArtists)
+          AdaptiveActionMenuItem(value: artist, label: artist.name),
+      ],
+    );
+    if (artist != null && context.mounted) {
+      _openArtistDetail(
+        context: context,
+        platformId: platformId,
+        artist: artist,
+      );
+    }
+    return;
+  }
   await showAppThemedBottomSheet<void>(
     heightFactor: LayoutTokens.artistSelectionSheetMaxHeightFactor,
     fitContent: true,
@@ -54,7 +81,7 @@ Future<void> openSongArtistSelection({
           child: ListView(
             shrinkWrap: true,
             children: <Widget>[
-              ListTile(
+              AppListTile(
                 title: Text(
                   AppI18n.tByLocaleCode(localeCode, 'song.artist.select'),
                 ),
@@ -68,7 +95,7 @@ Future<void> openSongArtistSelection({
               ),
               const Divider(height: 1),
               ...availableArtists.map(
-                (artist) => ListTile(
+                (artist) => AppListTile(
                   leading: const Icon(Icons.person_outline_rounded),
                   title: Text(artist.name),
                   trailing: const Icon(Icons.chevron_right_rounded),

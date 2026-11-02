@@ -10,6 +10,10 @@ import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../providers/song_sort_providers.dart';
 import '../utils/song_sort.dart';
 
+import 'package:flutter/cupertino.dart';
+import '../../app/theme/app_ui_theme.dart';
+import 'app_button.dart';
+
 const _defaultSongSortFields = <SongSortField>[
   SongSortField.original,
   SongSortField.title,
@@ -72,7 +76,7 @@ class SongSortButton extends ConsumerWidget {
     return Tooltip(
       message: summary,
       excludeFromSemantics: true,
-      child: TextButton(
+      child: AppButton.text(
         key: const Key('song-sort-button'),
         style: TextButton.styleFrom(
           foregroundColor: active
@@ -311,6 +315,39 @@ class _SongSortSheetState extends State<_SongSortSheet> {
                             ],
                           );
                         }
+                        if (AppUiTheme.usesCupertino(context)) {
+                          return SizedBox(
+                            width: double.infinity,
+                            child: CupertinoSlidingSegmentedControl<bool>(
+                              key: const Key('song-sort-direction'),
+                              groupValue: _ascending,
+                              disabledChildren: directionEnabled
+                                  ? const {}
+                                  : const {true, false},
+                              children: {
+                                for (final ascending in [true, false])
+                                  ascending: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    child: Text(
+                                      text(
+                                        ascending
+                                            ? 'song_sort.ascending'
+                                            : 'song_sort.descending',
+                                      ),
+                                    ),
+                                  ),
+                              },
+                              onValueChanged: (value) {
+                                if (directionEnabled && value != null) {
+                                  setState(() => _ascending = value);
+                                }
+                              },
+                            ),
+                          );
+                        }
                         return SegmentedButton<bool>(
                           key: const Key('song-sort-direction'),
                           expandedInsets: EdgeInsets.zero,
@@ -358,7 +395,7 @@ class _SongSortSheetState extends State<_SongSortSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            FilledButton(
+            AppButton.filled(
               key: const Key('song-sort-confirm'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/app_button.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
-import '../../../../shared/widgets/glass_panel.dart';
+import '../../../../shared/widgets/app_panel.dart';
 import '../../domain/entities/online_feature_state.dart';
 
 class OnlineHeroCard extends StatelessWidget {
@@ -22,9 +24,8 @@ class OnlineHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final localeCode = Localizations.localeOf(context).languageCode;
-    return GlassPanel(
+    return AppPanel(
       borderRadius: BorderRadius.circular(32),
-      blurSigma: 0,
       tintColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       child: Row(
@@ -77,9 +78,8 @@ class OnlineSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return GlassPanel(
+    return AppPanel(
       borderRadius: BorderRadius.circular(28),
-      blurSigma: 0,
       tintColor: theme.colorScheme.surface.withValues(alpha: 0.42),
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
@@ -161,7 +161,7 @@ class LoginCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          TextField(
+          AppTextField(
             controller: usernameController,
             decoration: InputDecoration(
               labelText: AppI18n.tByLocaleCode(
@@ -171,7 +171,7 @@ class LoginCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          TextField(
+          AppTextField(
             controller: passwordController,
             decoration: InputDecoration(
               labelText: AppI18n.tByLocaleCode(
@@ -185,13 +185,13 @@ class LoginCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
-              FilledButton(
+              AppButton.filled(
                 onPressed: onLogin,
                 child: Text(
                   AppI18n.tByLocaleCode(localeCode, 'online.login.submit'),
                 ),
               ),
-              OutlinedButton(
+              AppButton.outlined(
                 onPressed: onFetchProfile,
                 child: Text(
                   AppI18n.tByLocaleCode(localeCode, 'online.login.profile'),
@@ -277,7 +277,7 @@ class SearchEntryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton.icon(
+          AppButton.filledIcon(
             onPressed: onOpenSearchPage,
             icon: const Icon(Icons.open_in_new_rounded),
             label: Text(
@@ -315,7 +315,7 @@ class PlaylistCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          TextField(
+          AppTextField(
             controller: playlistNameController,
             decoration: InputDecoration(
               labelText: AppI18n.tByLocaleCode(
@@ -325,14 +325,14 @@ class PlaylistCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          FilledButton(
+          AppButton.filled(
             onPressed: onCreate,
             child: Text(
               AppI18n.tByLocaleCode(localeCode, 'online.playlist.create'),
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
+          AppTextField(
             controller: playlistFavoriteIdController,
             decoration: InputDecoration(
               labelText: AppI18n.tByLocaleCode(
@@ -346,13 +346,13 @@ class PlaylistCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
-              OutlinedButton(
+              AppButton.outlined(
                 onPressed: onFavorite,
                 child: Text(
                   AppI18n.tByLocaleCode(localeCode, 'online.playlist.favorite'),
                 ),
               ),
-              OutlinedButton(
+              AppButton.outlined(
                 onPressed: onUnfavorite,
                 child: Text(
                   AppI18n.tByLocaleCode(
@@ -390,7 +390,7 @@ class CommentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          TextField(
+          AppTextField(
             controller: commentResourceIdController,
             decoration: InputDecoration(
               labelText: AppI18n.tByLocaleCode(
@@ -400,7 +400,7 @@ class CommentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          TextField(
+          AppTextField(
             controller: resourceTypeController,
             decoration: InputDecoration(
               labelText: AppI18n.tByLocaleCode(
@@ -410,7 +410,7 @@ class CommentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          FilledButton(
+          AppButton.filled(
             onPressed: onLoadComments,
             child: Text(
               AppI18n.tByLocaleCode(localeCode, 'online.comment.load'),

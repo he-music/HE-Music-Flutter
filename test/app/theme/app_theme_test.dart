@@ -36,29 +36,35 @@ void main() {
     expect(overlayStyle.statusBarColor, Colors.transparent);
   });
 
-  test('immersive themes use transparent Android route transitions', () {
-    final skin = AppSkinRegistry.builtIn(
-      AppThemeAccent.rose,
-    ).resolve(AppSkinRegistry.citySoundCreatorId);
+  test(
+    'immersive themes keep navigation indicators and transparent Android transitions',
+    () {
+      final skin = AppSkinRegistry.builtIn(
+        AppThemeAccent.rose,
+      ).resolve(AppSkinRegistry.citySoundCreatorId);
 
-    final lightTheme = AppTheme.light(skin);
-    final darkTheme = AppTheme.dark(skin);
+      final lightTheme = AppTheme.light(skin);
+      final darkTheme = AppTheme.dark(skin);
 
-    expect(lightTheme.extension<AppSkinTheme>()?.config, skin.light);
-    expect(darkTheme.extension<AppSkinTheme>()?.config, skin.dark);
-    for (final theme in <ThemeData>[lightTheme, darkTheme]) {
-      expect(theme.scaffoldBackgroundColor, Colors.transparent);
-      expect(theme.navigationBarTheme.indicatorColor, Colors.transparent);
-      final androidTransition =
-          theme.pageTransitionsTheme.builders[TargetPlatform.android];
-      expect(androidTransition, isA<FadeForwardsPageTransitionsBuilder>());
-      expect(
-        (androidTransition! as FadeForwardsPageTransitionsBuilder)
-            .backgroundColor,
-        Colors.transparent,
-      );
-    }
-  });
+      expect(lightTheme.extension<AppSkinTheme>()?.config, skin.light);
+      expect(darkTheme.extension<AppSkinTheme>()?.config, skin.dark);
+      for (final theme in <ThemeData>[lightTheme, darkTheme]) {
+        expect(theme.scaffoldBackgroundColor, Colors.transparent);
+        expect(
+          theme.navigationBarTheme.indicatorColor,
+          theme.extension<AppSkinTheme>()!.config.colors.navigationIndicator,
+        );
+        final androidTransition =
+            theme.pageTransitionsTheme.builders[TargetPlatform.android];
+        expect(androidTransition, isA<FadeForwardsPageTransitionsBuilder>());
+        expect(
+          (androidTransition! as FadeForwardsPageTransitionsBuilder)
+              .backgroundColor,
+          Colors.transparent,
+        );
+      }
+    },
+  );
 
   test('classic keeps its existing dialog and navigation surfaces', () {
     final skin = AppSkinRegistry.builtIn(

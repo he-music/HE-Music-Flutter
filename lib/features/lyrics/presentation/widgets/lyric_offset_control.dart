@@ -10,6 +10,9 @@ import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_request.dart';
 import '../providers/lyrics_providers.dart';
 
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/widgets/app_button.dart';
+
 String _offsetLabel(int milliseconds, String locale) {
   String text(String key) => AppI18n.tByLocaleCode(locale, 'player.lyric.$key');
   if (milliseconds == 0) return text('offset_zero');
@@ -49,7 +52,7 @@ class LyricOffsetTile extends ConsumerWidget {
     final offset = ref.watch(
       lyricOffsetProvider((request: request, manual: manual)),
     );
-    return ListTile(
+    return AppListTile(
       key: const ValueKey('lyric-offset-tile'),
       leading: const Icon(Icons.timer_outlined),
       title: Text(AppI18n.tByLocaleCode(locale, 'player.lyric.offset')),
@@ -58,7 +61,7 @@ class LyricOffsetTile extends ConsumerWidget {
             ? AppI18n.tByLocaleCode(locale, 'player.lyric.offset_load_failed')
             : _offsetLabel(offset.value ?? 0, locale),
       ),
-      trailing: const Icon(Icons.chevron_right_rounded),
+      showChevron: true,
       onTap: onTap,
     );
   }
@@ -157,7 +160,7 @@ class _LyricOffsetControlState extends ConsumerState<LyricOffsetControl> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: AppButton.outlined(
                   key: const ValueKey('lyric-offset-advance'),
                   onPressed: canAdjust ? () => _update(100) : null,
                   child: Text(
@@ -167,7 +170,7 @@ class _LyricOffsetControlState extends ConsumerState<LyricOffsetControl> {
                 ),
               ),
               const SizedBox(width: 8),
-              TextButton(
+              AppButton.text(
                 key: const ValueKey('lyric-offset-reset'),
                 onPressed: canAdjust && milliseconds != 0
                     ? () => _update(null)
@@ -176,7 +179,7 @@ class _LyricOffsetControlState extends ConsumerState<LyricOffsetControl> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: OutlinedButton(
+                child: AppButton.outlined(
                   key: const ValueKey('lyric-offset-delay'),
                   onPressed: canAdjust ? () => _update(-100) : null,
                   child: Text(
@@ -188,7 +191,7 @@ class _LyricOffsetControlState extends ConsumerState<LyricOffsetControl> {
             ],
           ),
           if (offset?.hasError == true)
-            TextButton(
+            AppButton.text(
               onPressed: () => ref.invalidate(lyricOffsetProvider(target)),
               child: Text(text('offset_retry')),
             ),

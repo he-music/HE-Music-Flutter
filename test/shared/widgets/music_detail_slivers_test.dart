@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/shared/widgets/app_adaptive_controls.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/music_detail_slivers.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
 import 'package:he_music_flutter/shared/widgets/music_control_surface.dart';
@@ -42,21 +40,9 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final expandedTint = tester
-            .widget<GlassContainer>(find.byType(GlassContainer))
-            .settings!
-            .backerColor!
-            .a;
-        expect(expandedTint, inExclusiveRange(0, 1));
+        expect(find.byType(BackdropFilter), findsNothing);
         await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
         await tester.pumpAndSettle();
-        final pinnedTint = tester
-            .widget<GlassContainer>(find.byType(GlassContainer))
-            .settings!
-            .backerColor!
-            .a;
-        expect(pinnedTint, greaterThan(expandedTint));
-        expect(pinnedTint, lessThan(1));
         await tester.tap(find.text('Play All 30'));
         await tester.tap(find.text('Batch'));
         expect(played, 1);
@@ -94,7 +80,7 @@ void main() {
             .collapseProgress,
         1,
       );
-      expect(find.byType(GlassContainer), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsNothing);
       await tester.tap(find.text('Play All 30'));
       await tester.tap(find.text('Shuffle'));
       expect(played, isTrue);
@@ -116,7 +102,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(GlassContainer), findsNothing);
+      expect(find.byType(BackdropFilter), findsNothing);
       expect(
         tester
             .widgetList<Material>(
@@ -178,53 +164,44 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-  testWidgets('glass detail navigation remains interactive after collapsing', (
+  testWidgets('detail navigation remains interactive after collapsing', (
     tester,
   ) async {
     var backed = false;
     var favorited = false;
     await tester.pumpWidget(
-      AppGlassScope(
-        enabled: true,
-        child: GlassAdaptiveScope(
-          minQuality: GlassQuality.minimal,
-          maxQuality: GlassQuality.minimal,
-          initialQuality: GlassQuality.minimal,
-          child: MaterialApp(
-            home: DetailPageShell(
-              child: CustomScrollView(
-                slivers: [
-                  MusicDetailSliverAppBar(
-                    title: 'Album',
-                    subtitle: 'Artist',
-                    coverUrl: '',
-                    description: '',
-                    onBack: () => backed = true,
-                    onShowDescription: () {},
-                    actions: [
-                      MusicDetailActionButton(
-                        icon: const Icon(Icons.favorite_border),
-                        tooltip: 'Favorite',
-                        onPressed: () => favorited = true,
-                      ),
-                    ],
-                  ),
-                  SliverList.builder(
-                    itemCount: 40,
-                    itemBuilder: (_, index) =>
-                        SizedBox(height: 60, child: Text('Track $index')),
+      MaterialApp(
+        home: DetailPageShell(
+          child: CustomScrollView(
+            slivers: [
+              MusicDetailSliverAppBar(
+                title: 'Album',
+                subtitle: 'Artist',
+                coverUrl: '',
+                description: '',
+                onBack: () => backed = true,
+                onShowDescription: () {},
+                actions: [
+                  MusicDetailActionButton(
+                    icon: const Icon(Icons.favorite_border),
+                    tooltip: 'Favorite',
+                    onPressed: () => favorited = true,
                   ),
                 ],
               ),
-            ),
+              SliverList.builder(
+                itemCount: 40,
+                itemBuilder: (_, index) =>
+                    SizedBox(height: 60, child: Text('Track $index')),
+              ),
+            ],
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byType(GlassScaffold), findsOneWidget);
-    expect(find.byType(GlassAppBar), findsOneWidget);
-    expect(find.byType(GlassIconButton), findsNWidgets(2));
+    expect(find.byType(Scaffold), findsWidgets);
+    expect(find.byType(AppIconButton), findsOneWidget);
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Favorite'));
@@ -386,25 +363,11 @@ Widget _buildControlTestApp({
   final theme = brightness == Brightness.light
       ? AppTheme.light(skin)
       : AppTheme.dark(skin);
-  final mode = switch (fallback) {
-    'off' => AppGlassMode.off,
-    'powerSaving' => AppGlassMode.powerSaving,
-    _ => AppGlassMode.low,
-  };
-  return AppGlassScope(
-    enabled: mode != AppGlassMode.off,
-    mode: mode,
-    child: GlassAdaptiveScope(
-      minQuality: GlassQuality.minimal,
-      maxQuality: GlassQuality.minimal,
-      initialQuality: GlassQuality.minimal,
-      child: MaterialApp(
-        theme: fallback == 'classic' ? ThemeData() : theme,
-        home: MediaQuery(
-          data: MediaQueryData(highContrast: fallback == 'highContrast'),
-          child: DetailPageShell(child: body),
-        ),
-      ),
+  return MaterialApp(
+    theme: fallback == 'classic' ? ThemeData() : theme,
+    home: MediaQuery(
+      data: MediaQueryData(highContrast: fallback == 'highContrast'),
+      child: DetailPageShell(child: body),
     ),
   );
 }

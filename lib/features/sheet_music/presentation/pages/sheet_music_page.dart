@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -253,7 +254,7 @@ class _SheetMusicStatus extends StatelessWidget {
           Text(message, textAlign: TextAlign.center),
           if (onRetry != null) ...[
             const SizedBox(height: 12),
-            OutlinedButton(
+            AppButton.outlined(
               onPressed: onRetry,
               child: Text(AppI18n.tByLocaleCode(locale, 'common.retry')),
             ),

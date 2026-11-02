@@ -9,6 +9,8 @@ import '../../../player/domain/entities/player_quality_option.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/link_info_size_parser.dart';
 
+import '../../../../shared/widgets/app_list_tile.dart';
+
 List<PlayerQualityOption> buildDownloadQualityOptions({
   required List<LinkInfo> links,
   required Map<String, String> qualityDescriptions,
@@ -60,7 +62,7 @@ Future<PlayerQualityOption?> showDownloadQualitySheet({
               ),
             ),
             for (final quality in qualities)
-              ListTile(
+              AppListTile(
                 leading: const Icon(Icons.graphic_eq_rounded),
                 title: Text(_qualityTitle(quality)),
                 subtitle: _QualitySubtitle(quality: quality),

@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
@@ -104,20 +108,18 @@ class _SheetMusicReaderState extends State<SheetMusicReader> {
   }
 
   Future<void> _showPages() async {
-    final selected = await showModalBottomSheet<int>(
+    final selected = await showAppThemedBottomSheet<int>(
       context: context,
       useRootNavigator: true,
       useSafeArea: true,
       showDragHandle: true,
       isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.55,
-      ),
+      heightFactor: 0.55,
       builder: (context) => Column(
         children: [
-          ListTile(
+          AppListTile(
             title: Text(_label('sheet_music.choose_page')),
-            trailing: IconButton(
+            trailing: AppIconButton(
               tooltip: _label('common.close'),
               onPressed: () => Navigator.of(context).pop(),
               icon: const Icon(Icons.close_rounded),
@@ -203,7 +205,7 @@ class _SheetMusicReaderState extends State<SheetMusicReader> {
               Expanded(
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: TextButton(
+                  child: AppButton.text(
                     key: const ValueKey('sheet-fit-toggle'),
                     style: TextButton.styleFrom(
                       foregroundColor: color,
@@ -234,7 +236,7 @@ class _SheetMusicReaderState extends State<SheetMusicReader> {
                 liveRegion: true,
                 child: Tooltip(
                   message: _label('sheet_music.choose_page'),
-                  child: TextButton(
+                  child: AppButton.text(
                     style: TextButton.styleFrom(
                       foregroundColor: color,
                       textStyle: Theme.of(context).textTheme.labelMedium
@@ -336,7 +338,7 @@ class _SheetMusicReaderState extends State<SheetMusicReader> {
                 const Icon(Icons.broken_image_outlined, size: 40),
                 const SizedBox(height: 12),
                 Text(_label('sheet_music.image_failed')),
-                TextButton(
+                AppButton.text(
                   onPressed: () => _retryImage(index),
                   child: Text(_label('common.retry')),
                 ),

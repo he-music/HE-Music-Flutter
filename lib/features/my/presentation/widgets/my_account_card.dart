@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_network_image.dart';
-import '../../../../shared/widgets/glass_panel.dart';
+import '../../../../shared/widgets/app_panel.dart';
 import '../../domain/entities/my_profile.dart';
 
 class MyAccountCard extends ConsumerWidget {
@@ -21,9 +21,8 @@ class MyAccountCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final theme = Theme.of(context);
-    return GlassPanel(
+    return AppPanel(
       borderRadius: BorderRadius.circular(32),
-      blurSigma: 0,
       tintColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       child: Row(

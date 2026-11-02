@@ -1,6 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_count.dart';
 
 void main() {
@@ -107,34 +110,43 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets(
-    'fits narrow layouts with large text and respects reduced motion',
-    (tester) async {
+  for (final style in AppUiStyle.values) {
+    testWidgets('$style count waiting feedback respects reduced motion', (
+      tester,
+    ) async {
+      final child = SongListCount(
+        loadedCount: 1000,
+        totalCount: 2000,
+        hasMore: true,
+        loading: true,
+        onLoadAll: () async {},
+      );
+      await tester.pumpWidget(_app(child, style: style));
+      if (style == AppUiStyle.cupertino) {
+        final spinner = tester.widget<CupertinoActivityIndicator>(
+          find.byType(CupertinoActivityIndicator),
+        );
+        expect(spinner.radius, 6);
+      } else {
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      }
       await tester.pumpWidget(
         _app(
-          SongListCount(
-            loadedCount: 1000,
-            totalCount: 2000,
-            hasMore: true,
-            loading: true,
-            onLoadAll: () async {},
-          ),
+          child,
+          style: style,
           width: 110,
           textScale: 3,
           reducedMotion: true,
         ),
       );
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(
-        tester
-            .widget<CircularProgressIndicator>(
-              find.byType(CircularProgressIndicator),
-            )
-            .value,
-        0.75,
-      );
-    },
-  );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(CupertinoActivityIndicator), findsNothing);
+      expect(find.byIcon(Icons.hourglass_empty_rounded), findsOneWidget);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+  }
 }
 
 Widget _app(
@@ -142,7 +154,9 @@ Widget _app(
   double width = 220,
   double textScale = 1,
   bool reducedMotion = false,
+  AppUiStyle style = AppUiStyle.material,
 }) => MaterialApp(
+  theme: ThemeData(extensions: [AppUiTheme(style: style)]),
   locale: const Locale('zh'),
   supportedLocales: const [Locale('zh'), Locale('en')],
   localizationsDelegates: GlobalMaterialLocalizations.delegates,

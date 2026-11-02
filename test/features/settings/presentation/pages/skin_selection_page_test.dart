@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:he_music_flutter/shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
@@ -81,7 +82,7 @@ void main() {
     );
     expect(
       tester
-          .widget<FilledButton>(
+          .widget<AppButton>(
             find.byKey(const ValueKey<String>('apply-skin-button')),
           )
           .onPressed,
@@ -199,7 +200,7 @@ void main() {
     );
     expect(
       tester
-          .widget<FilledButton>(
+          .widget<AppButton>(
             find.byKey(const ValueKey<String>('apply-custom-skin')),
           )
           .onPressed,
@@ -215,7 +216,7 @@ void main() {
     await tester.pump();
     expect(
       tester
-          .widget<FilledButton>(
+          .widget<AppButton>(
             find.byKey(const ValueKey<String>('apply-custom-skin')),
           )
           .onPressed,
@@ -267,7 +268,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final applyButton = find.byKey(const ValueKey<String>('apply-custom-skin'));
-    expect(tester.widget<FilledButton>(applyButton).onPressed, isNotNull);
+    expect(tester.widget<AppButton>(applyButton).onPressed, isNotNull);
 
     await tester.tap(applyButton);
     await tester.pump();
@@ -275,7 +276,7 @@ void main() {
       container.read(appConfigProvider).skinId,
       AppSkinRegistry.customImageId,
     );
-    expect(tester.widget<FilledButton>(applyButton).onPressed, isNull);
+    expect(tester.widget<AppButton>(applyButton).onPressed, isNull);
   });
 
   testWidgets('starlit detail uses product copy and can be applied', (

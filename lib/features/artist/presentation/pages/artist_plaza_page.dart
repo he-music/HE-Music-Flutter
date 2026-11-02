@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +9,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/widgets/artist_grid_card.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/online_platform_tabs.dart';
@@ -53,7 +55,7 @@ class _ArtistPlazaPageState extends ConsumerState<ArtistPlazaPage> {
 
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppNavigationBar(
           leading: const AppBackButton(),
           title: Text(AppI18n.t(config, 'artist.plaza.title')),
         ),
@@ -279,7 +281,9 @@ class _ArtistPlazaBody extends StatelessWidget {
                 child: state.loadingMore
                     ? const Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Center(child: CircularProgressIndicator()),
+                        child: Center(
+                          child: AppActivityIndicator(size: 36, strokeWidth: 4),
+                        ),
                       )
                     : PlazaLoadMoreRetryCard(
                         message: state.itemsErrorMessage,

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:he_music_flutter/core/database/local_music_database.dart';
 import 'package:he_music_flutter/features/music_library/data/datasources/local_music_dao.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
-import 'package:he_music_flutter/shared/widgets/app_glass_player_scaffold.dart';
+import 'package:he_music_flutter/shared/widgets/app_player_scaffold.dart';
 import 'package:he_music_flutter/features/music_library/data/datasources/local_artwork_extractor.dart';
 import 'package:he_music_flutter/features/music_library/domain/repositories/local_music_repository.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
@@ -13,11 +13,11 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
@@ -32,6 +32,7 @@ import 'package:he_music_flutter/shared/widgets/underline_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  _cupertinoMenuTests();
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
@@ -42,25 +43,18 @@ void main() {
       (tester) async {
         const playerKey = ValueKey('folder-test-mini-player');
         await tester.pumpWidget(
-          AppGlassScope(
-            enabled: true,
-            child: GlassAdaptiveScope(
-              minQuality: GlassQuality.minimal,
-              maxQuality: GlassQuality.minimal,
-              child: _buildTestApp(
-                pageBuilder: (page) => Builder(
-                  builder: (context) => MediaQuery(
-                    data: MediaQuery.of(
-                      context,
-                    ).copyWith(textScaler: TextScaler.linear(textScale)),
-                    child: AppGlassPlayerScaffold(
-                      body: page,
-                      miniPlayer: Builder(
-                        builder: (context) => SizedBox(
-                          key: playerKey,
-                          height: MiniPlayerBar.heightFor(context),
-                        ),
-                      ),
+          _buildTestApp(
+            pageBuilder: (page) => Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(textScale)),
+                child: AppPlayerScaffold(
+                  body: page,
+                  miniPlayer: Builder(
+                    builder: (context) => SizedBox(
+                      key: playerKey,
+                      height: MiniPlayerBar.heightFor(context),
                     ),
                   ),
                 ),
@@ -178,76 +172,62 @@ void main() {
     },
   );
 
-  for (final glass in [false, true]) {
-    testWidgets(
-      'local sorting confirms drafts in the shared sheet (glass: $glass)',
-      (tester) async {
-        final controller = _PopulatedLocalLibraryController();
-        await tester.pumpWidget(
-          AppGlassScope(
-            enabled: glass,
-            child: GlassAdaptiveScope(
-              minQuality: GlassQuality.minimal,
-              maxQuality: GlassQuality.minimal,
-              child: _buildTestApp(controllerFactory: () => controller),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final container = ProviderScope.containerOf(
-          tester.element(find.byType(LocalLibraryPage)),
-        );
-        final globalPreference = container.read(songSortPreferenceProvider);
-        await tester.pumpAndSettle();
-        final sortButton = find.byKey(const Key('song-sort-button'));
-        expect(find.byTooltip('歌曲排序: 标题 · 升序'), findsOneWidget);
-        await tester.tap(sortButton);
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('song-sort-sheet')), findsOneWidget);
-        expect(
-          find.byType(GlassModalSheetScaffold),
-          glass ? findsOneWidget : findsNothing,
-        );
-        expect(find.text('默认顺序'), findsNothing);
-        expect(
-          find.descendant(
-            of: find.byKey(const Key('song-sort-sheet')),
-            matching: find.text('歌手'),
-          ),
-          findsOneWidget,
-        );
-        await tester.tap(find.text('最近添加'));
-        await tester.pumpAndSettle();
-        expect(controller.sortPreference.field, SongSortField.title);
-        await tester.tap(find.byKey(const Key('song-sort-close')));
-        await tester.pumpAndSettle();
-        expect(controller.sortPreference.field, SongSortField.title);
-        await tester.tap(sortButton);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('最近添加'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('song-sort-confirm')));
-        await tester.pumpAndSettle();
-        expect(
-          controller.sortPreference,
-          const SongSortPreference(
-            field: SongSortField.createdAt,
-            ascending: false,
-          ),
-        );
-        expect(find.byTooltip('歌曲排序: 最近添加 · 降序'), findsOneWidget);
-        expect(container.read(songSortPreferenceProvider), globalPreference);
-        final prefs = await SharedPreferences.getInstance();
-        expect(prefs.getString('local_sort_by'), 'created_at');
-        expect(prefs.getBool('local_sort_ascending'), isFalse);
-        expect(
-          prefs.getString(SongSortPreferenceController.storageKey),
-          isNull,
-        );
-        expect(tester.takeException(), isNull);
-        await _disposePage(tester);
-      },
-    );
+  for (final style in AppUiStyle.values) {
+    testWidgets('local sorting confirms drafts in the shared sheet ($style)', (
+      tester,
+    ) async {
+      final controller = _PopulatedLocalLibraryController();
+      await tester.pumpWidget(
+        _buildTestApp(controllerFactory: () => controller, uiStyle: style),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(LocalLibraryPage)),
+      );
+      final globalPreference = container.read(songSortPreferenceProvider);
+      await tester.pumpAndSettle();
+      final sortButton = find.byKey(const Key('song-sort-button'));
+      expect(find.byTooltip('歌曲排序: 标题 · 升序'), findsOneWidget);
+      await tester.tap(sortButton);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('song-sort-sheet')), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('默认顺序'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('song-sort-sheet')),
+          matching: find.text('歌手'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('最近添加'));
+      await tester.pumpAndSettle();
+      expect(controller.sortPreference.field, SongSortField.title);
+      await tester.tap(find.byKey(const Key('song-sort-close')));
+      await tester.pumpAndSettle();
+      expect(controller.sortPreference.field, SongSortField.title);
+      await tester.tap(sortButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('最近添加'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('song-sort-confirm')));
+      await tester.pumpAndSettle();
+      expect(
+        controller.sortPreference,
+        const SongSortPreference(
+          field: SongSortField.createdAt,
+          ascending: false,
+        ),
+      );
+      expect(find.byTooltip('歌曲排序: 最近添加 · 降序'), findsOneWidget);
+      expect(container.read(songSortPreferenceProvider), globalPreference);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('local_sort_by'), 'created_at');
+      expect(prefs.getBool('local_sort_ascending'), isFalse);
+      expect(prefs.getString(SongSortPreferenceController.storageKey), isNull);
+      expect(tester.takeException(), isNull);
+      await _disposePage(tester);
+    });
   }
 
   testWidgets(
@@ -512,9 +492,32 @@ class _TestLocalRepository implements LocalMusicRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+void _cupertinoMenuTests() {
+  testWidgets('local mobile Cupertino more menu opens and cancels', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildTestApp(
+        uiStyle: AppUiStyle.cupertino,
+        controllerFactory: _PopulatedLocalLibraryController.new,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final item = tester.widget<SongListItem>(find.byType(SongListItem).first);
+    item.onMoreTap!();
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoActionSheet), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoActionSheet), findsNothing);
+    await _disposePage(tester);
+  });
+}
+
 Widget _buildTestApp({
   LocalLibraryController Function()? controllerFactory,
   Widget Function(Widget page)? pageBuilder,
+  AppUiStyle uiStyle = AppUiStyle.material,
 }) {
   return ProviderScope(
     overrides: [
@@ -527,7 +530,7 @@ Widget _buildTestApp({
       ),
     ],
     child: MaterialApp(
-      theme: AppTheme.light(citySoundCreatorSkin()),
+      theme: AppTheme.light(citySoundCreatorSkin(), uiStyle: uiStyle),
       home:
           pageBuilder?.call(const LocalLibraryPage()) ??
           const LocalLibraryPage(),

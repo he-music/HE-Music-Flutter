@@ -7,6 +7,10 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/helpers/song_detail_navigation_helper.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../domain/entities/online_platform.dart';
 import '../providers/online_providers.dart';
@@ -118,7 +122,7 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
     final theme = Theme.of(context);
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppNavigationBar(
           leading: const AppBackButton(),
           title: Text(AppI18n.t(config, 'parse.title')),
         ),
@@ -130,7 +134,7 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 // 输入框
-                TextField(
+                AppTextField(
                   controller: _controller,
                   maxLines: 4,
                   maxLength: 300,
@@ -145,13 +149,13 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
                 ),
                 const SizedBox(height: 12),
                 // 解析按钮
-                FilledButton(
+                AppButton.filled(
                   onPressed: _loading ? null : _parse,
                   child: _loading
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: AppActivityIndicator(size: 18, strokeWidth: 2),
                         )
                       : Text(AppI18n.t(config, 'common.parse')),
                 ),
@@ -175,7 +179,7 @@ class _ParseSourceUrlPageState extends ConsumerState<ParseSourceUrlPage> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
-          child: CircularProgressIndicator(),
+          child: AppActivityIndicator(),
         ),
       );
     }

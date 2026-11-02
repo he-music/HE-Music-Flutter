@@ -1,6 +1,9 @@
 import '../../../../shared/constants/layout_tokens.dart';
 import 'package:flutter/material.dart';
 
+import 'package:flutter/cupertino.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 
@@ -53,14 +56,19 @@ Future<void> showSettingsSingleChoiceSheet<T>({
                         style: Theme.of(sheetContext).textTheme.labelLarge,
                       ),
                     ),
-                  ListTile(
+                  AppListTile(
                     leading: option.leading,
                     title: Text(option.title),
                     subtitle: option.subtitle == null
                         ? null
                         : Text(option.subtitle!),
                     trailing: option.value == currentValue
-                        ? const Icon(Icons.check_rounded)
+                        ? Icon(
+                            AppUiTheme.usesCupertino(sheetContext)
+                                ? CupertinoIcons.check_mark
+                                : Icons.check_rounded,
+                            color: Theme.of(sheetContext).colorScheme.primary,
+                          )
                         : null,
                     onTap: () {
                       onSelected(option.value);

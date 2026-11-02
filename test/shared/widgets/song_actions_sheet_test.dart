@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/song_actions_sheet.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 
 void main() {
   for (final example in [
@@ -47,16 +47,16 @@ void main() {
     });
   }
 
-  for (final glass in [false, true]) {
+  for (final cupertino in [false, true]) {
     testWidgets(
-      'duration stays readable on small screens with large text and glass=$glass',
+      'duration stays readable on small screens with large text and cupertino=$cupertino',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(320, 480));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await tester.pumpWidget(
           _durationTestApp(
             const Duration(hours: 1, minutes: 12, seconds: 8),
-            glass: glass,
+            cupertino: cupertino,
             textScale: 2,
           ),
         );
@@ -768,21 +768,19 @@ class _CountingNavigatorObserver extends NavigatorObserver {
 
 Widget _durationTestApp(
   Duration? duration, {
-  bool glass = false,
+  bool cupertino = false,
   double textScale = 1,
 }) => MaterialApp(
+  theme: ThemeData(
+    extensions: [
+      AppUiTheme(style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material),
+    ],
+  ),
   builder: (context, child) => MediaQuery(
     data: MediaQuery.of(
       context,
     ).copyWith(textScaler: TextScaler.linear(textScale)),
-    child: AppGlassScope(
-      enabled: glass,
-      child: GlassAdaptiveScope(
-        minQuality: GlassQuality.minimal,
-        maxQuality: GlassQuality.minimal,
-        child: child!,
-      ),
-    ),
+    child: child!,
   ),
   home: Builder(
     builder: (context) => Scaffold(

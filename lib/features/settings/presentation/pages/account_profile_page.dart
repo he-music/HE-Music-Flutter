@@ -9,6 +9,10 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../my/domain/entities/my_overview_state.dart';
 import '../../../my/domain/entities/my_profile.dart';
@@ -51,7 +55,7 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
       return content;
     }
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(AppI18n.t(config, 'settings.profile.title')),
       ),
@@ -70,7 +74,7 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
       if (overviewState.errorMessage != null && !overviewState.loading) {
         return _buildLoadError(config, overviewState.errorMessage!);
       }
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: AppActivityIndicator());
     }
     _initializeFields(profile);
 
@@ -113,7 +117,7 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
                 ),
               ],
               const SizedBox(height: 28),
-              TextFormField(
+              AppTextFormField(
                 key: const ValueKey<String>('account-profile-nickname'),
                 controller: _nicknameController,
                 decoration: InputDecoration(
@@ -125,7 +129,7 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
                 validator: (value) => _validateNickname(config, value),
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              AppTextFormField(
                 key: const ValueKey<String>('account-profile-avatar'),
                 controller: _avatarController,
                 decoration: InputDecoration(
@@ -138,22 +142,28 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
                 onFieldSubmitted: (_) => _submit(config),
               ),
               const SizedBox(height: 24),
-              FilledButton.icon(
+              AppButton.filled(
                 key: const ValueKey<String>('account-profile-submit'),
                 onPressed: _submitting ? null : () => _submit(config),
-                icon: _submitting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(
-                  AppI18n.t(
-                    config,
-                    _submitting
-                        ? 'settings.profile.saving'
-                        : 'settings.profile.save',
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_submitting)
+                      const AppActivityIndicator(size: 18)
+                    else
+                      const Icon(Icons.save_outlined),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        AppI18n.t(
+                          config,
+                          _submitting
+                              ? 'settings.profile.saving'
+                              : 'settings.profile.save',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -182,10 +192,18 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-            FilledButton.icon(
+            AppButton.filled(
               onPressed: () => _openLogin(AppRoutes.settingsProfile),
-              icon: const Icon(Icons.login_rounded),
-              label: Text(AppI18n.t(config, 'settings.account.login')),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.login_rounded),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(AppI18n.t(config, 'settings.account.login')),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -202,7 +220,7 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
           children: <Widget>[
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            FilledButton(
+            AppButton.filled(
               onPressed: () {
                 setState(() {
                   _loadRequested = false;

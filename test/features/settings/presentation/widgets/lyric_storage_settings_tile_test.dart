@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/features/lyrics/data/storage/lyric_store.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/lyric_request.dart';
 import 'package:he_music_flutter/features/lyrics/domain/entities/raw_lyric_bundle.dart';
 import 'package:he_music_flutter/features/lyrics/presentation/providers/lyrics_providers.dart';
 import 'package:he_music_flutter/features/settings/presentation/widgets/lyric_storage_settings_tile.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -77,27 +77,29 @@ void main() {
     return tester.runAsync(() => result).then((value) => value as T);
   }
 
-  for (final glassEnabled in [false, true]) {
+  for (final cupertinoEnabled in [false, true]) {
     testWidgets(
-      'manual deletion requires confirmation with glass=$glassEnabled and automatic clear preserves choices',
+      'manual deletion requires confirmation with cupertino=$cupertinoEnabled and automatic clear preserves choices',
       (tester) async {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [lyricStoreProvider.overrideWithValue(store)],
-            child: AppGlassScope(
-              enabled: glassEnabled,
-              child: GlassAdaptiveScope(
-                minQuality: GlassQuality.minimal,
-                maxQuality: GlassQuality.minimal,
-                child: const MaterialApp(
-                  home: Scaffold(
-                    body: Column(
-                      children: [
-                        LyricStorageSettingsTile(manual: false),
-                        LyricStorageSettingsTile(manual: true),
-                      ],
-                    ),
+            child: MaterialApp(
+              theme: ThemeData(
+                extensions: [
+                  AppUiTheme(
+                    style: cupertinoEnabled
+                        ? AppUiStyle.cupertino
+                        : AppUiStyle.material,
                   ),
+                ],
+              ),
+              home: Scaffold(
+                body: Column(
+                  children: [
+                    LyricStorageSettingsTile(manual: false),
+                    LyricStorageSettingsTile(manual: true),
+                  ],
                 ),
               ),
             ),
@@ -114,11 +116,6 @@ void main() {
         await tester.tap(find.text('手动选择歌词'));
         await tester.pumpAndSettle();
         expect(find.text('删除全部手动选择歌词？'), findsOneWidget);
-        if (glassEnabled) {
-          final dialog = tester.widget<GlassDialog>(find.byType(GlassDialog));
-          expect(dialog.actions.last.isDestructive, isTrue);
-          expect(dialog.actions.last.isPrimary, isFalse);
-        }
         await tester.tap(find.text('取消'));
         await tester.pumpAndSettle();
         expect(await runStore(tester, () => store.hasManual(target)), isTrue);
@@ -133,7 +130,7 @@ void main() {
       },
     );
     testWidgets(
-      'reset all timing requires confirmation, preserves lyrics, and supports glass=$glassEnabled',
+      'reset all timing requires confirmation, preserves lyrics, and supports cupertino=$cupertinoEnabled',
       (tester) async {
         await tester.runAsync(() async {
           await store.adjustOffset(target, 100, manual: false);
@@ -142,15 +139,17 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [lyricStoreProvider.overrideWithValue(store)],
-            child: AppGlassScope(
-              enabled: glassEnabled,
-              child: GlassAdaptiveScope(
-                minQuality: GlassQuality.minimal,
-                maxQuality: GlassQuality.minimal,
-                child: const MaterialApp(
-                  home: Scaffold(body: ResetLyricOffsetsSettingsTile()),
-                ),
+            child: MaterialApp(
+              theme: ThemeData(
+                extensions: [
+                  AppUiTheme(
+                    style: cupertinoEnabled
+                        ? AppUiStyle.cupertino
+                        : AppUiStyle.material,
+                  ),
+                ],
               ),
+              home: Scaffold(body: ResetLyricOffsetsSettingsTile()),
             ),
           ),
         );
@@ -166,11 +165,6 @@ void main() {
               .onTap,
           isNull,
         );
-        if (glassEnabled) {
-          final dialog = tester.widget<GlassDialog>(find.byType(GlassDialog));
-          expect(dialog.actions.last.isDestructive, isTrue);
-          expect(dialog.actions.last.isPrimary, isFalse);
-        }
         await tester.tap(find.text('取消'));
         await tester.pumpAndSettle();
         expect(

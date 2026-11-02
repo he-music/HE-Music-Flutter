@@ -39,7 +39,7 @@ void main() {
     final bottomSheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
     expect(
       bottomSheet.backgroundColor,
-      skin.light.colors.bottomSheetBackground,
+      skin.light.colors.bottomSheetBackground.withValues(alpha: 1),
     );
 
     await tester.tap(find.text('Close'));

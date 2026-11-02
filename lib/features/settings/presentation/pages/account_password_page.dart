@@ -9,6 +9,10 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../data/providers/account_settings_providers.dart';
 
 class AccountPasswordPage extends ConsumerStatefulWidget {
@@ -51,7 +55,7 @@ class _AccountPasswordPageState extends ConsumerState<AccountPasswordPage> {
       return content;
     }
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         leading: const AppBackButton(),
         title: Text(AppI18n.t(config, 'settings.password.title')),
       ),
@@ -136,22 +140,28 @@ class _AccountPasswordPageState extends ConsumerState<AccountPasswordPage> {
                 onSubmitted: (_) => _submit(config),
               ),
               const SizedBox(height: 24),
-              FilledButton.icon(
+              AppButton.filled(
                 key: const ValueKey<String>('account-password-submit'),
                 onPressed: _submitting ? null : () => _submit(config),
-                icon: _submitting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.password_rounded),
-                label: Text(
-                  AppI18n.t(
-                    config,
-                    _submitting
-                        ? 'settings.password.saving'
-                        : 'settings.password.save',
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_submitting)
+                      const AppActivityIndicator(size: 18)
+                    else
+                      const Icon(Icons.password_rounded),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        AppI18n.t(
+                          config,
+                          _submitting
+                              ? 'settings.password.saving'
+                              : 'settings.password.save',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -161,7 +171,7 @@ class _AccountPasswordPageState extends ConsumerState<AccountPasswordPage> {
     );
   }
 
-  TextFormField _buildPasswordField({
+  AppTextFormField _buildPasswordField({
     required Key key,
     required AppConfigState config,
     required TextEditingController controller,
@@ -171,7 +181,7 @@ class _AccountPasswordPageState extends ConsumerState<AccountPasswordPage> {
     required String? Function(String?) validator,
     ValueChanged<String>? onSubmitted,
   }) {
-    return TextFormField(
+    return AppTextFormField(
       key: key,
       controller: controller,
       obscureText: !visible,
@@ -216,10 +226,18 @@ class _AccountPasswordPageState extends ConsumerState<AccountPasswordPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-            FilledButton.icon(
+            AppButton.filled(
               onPressed: () => _openLogin(AppRoutes.settingsPassword),
-              icon: const Icon(Icons.login_rounded),
-              label: Text(AppI18n.t(config, 'settings.account.login')),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.login_rounded),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(AppI18n.t(config, 'settings.account.login')),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

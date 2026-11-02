@@ -12,6 +12,8 @@ import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/utils/compact_number_formatter.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_refreshable_scroll_view.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../providers/online_providers.dart';
@@ -281,7 +283,10 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
   int _pageIndex = 1;
   String _lastId = '';
   String? _error;
+  bool _failedReset = false;
   bool _requestedInitialLoad = false;
+  Future<void>? _resetRequest;
+  int _requestGeneration = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -302,6 +307,8 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
         oldWidget.resourceType != widget.resourceType ||
         oldWidget.platform != widget.platform;
     if (changed) {
+      _requestGeneration++;
+      _resetRequest = null;
       _requestedInitialLoad = false;
       setState(() {
         _loading = true;
@@ -310,6 +317,7 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
         _pageIndex = 1;
         _lastId = '';
         _error = null;
+        _failedReset = false;
         _comments.clear();
       });
       if (widget.isActive) {
@@ -333,88 +341,97 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    return AppRefreshableScrollView(
+      onRefresh: _refresh,
+      controller: _scrollController,
+      slivers: _buildCommentSlivers(context),
+    );
+  }
+
+  List<Widget> _buildCommentSlivers(BuildContext context) {
     if (_loading && _comments.isEmpty) {
-      return const _CommentListLoadingSkeleton();
+      return const [_CommentListLoadingSkeleton()];
     }
     if (_error != null && _comments.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: <Widget>[
-          const SizedBox(height: 160),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: <Widget>[
-                  Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+      return [
+        SliverList.list(
+          children: <Widget>[
+            const SizedBox(height: 160),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: <Widget>[
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  FilledButton(
-                    onPressed: _refresh,
-                    child: Text(
-                      AppI18n.t(ref.read(appConfigProvider), 'common.retry'),
+                    const SizedBox(height: 10),
+                    AppButton.filled(
+                      onPressed: _refresh,
+                      child: Text(
+                        AppI18n.t(ref.read(appConfigProvider), 'common.retry'),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      );
+          ],
+        ),
+      ];
     }
     if (_comments.isEmpty) {
-      return RefreshIndicator(
-        elevation: 0,
-        onRefresh: _refresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
+      return [
+        SliverList.list(
           children: <Widget>[
             const SizedBox(height: 144),
             _CommentEmptyView(tabType: widget.tabType),
           ],
         ),
-      );
+      ];
     }
-    return RefreshIndicator(
-      elevation: 0,
-      onRefresh: _refresh,
-      child: ListView.separated(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
+    return [
+      SliverPadding(
         padding: EdgeInsets.fromLTRB(
           12,
           8,
           12,
           12 + MediaQuery.paddingOf(context).bottom,
         ),
-        itemCount: _comments.length + 1,
-        separatorBuilder: (context, index) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          if (index >= _comments.length) {
-            return _CommentFooter(
-              loadingMore: _loadingMore,
-              hasMore: _hasMore,
-              error: _error,
-              hasComments: _comments.isNotEmpty,
-              onRetry: _loadMore,
+        sliver: SliverList.separated(
+          itemCount: _comments.length + 1,
+          separatorBuilder: (context, index) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            if (index >= _comments.length) {
+              return _CommentFooter(
+                loadingMore: _loadingMore,
+                hasMore: _hasMore,
+                error: _error,
+                hasComments: _comments.isNotEmpty,
+                onRetry: _failedReset ? _refresh : _loadMore,
+              );
+            }
+            final item = _comments[index];
+            return _CommentCard(
+              comment: item,
+              onViewAllReplies: () => _openReplies(item),
             );
-          }
-          final item = _comments[index];
-          return _CommentCard(
-            comment: item,
-            onViewAllReplies: () => _openReplies(item),
-          );
-        },
+          },
+        ),
       ),
-    );
+    ];
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh() {
+    final pending = _resetRequest;
+    if (pending != null) {
+      return pending;
+    }
+    _requestGeneration++;
     _requestedInitialLoad = true;
     setState(() {
       _loading = true;
@@ -424,7 +441,14 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
       _lastId = '';
       _error = null;
     });
-    await _loadPage(reset: true);
+    late final Future<void> request;
+    request = _loadPage(reset: true).whenComplete(() {
+      if (identical(_resetRequest, request)) {
+        _resetRequest = null;
+      }
+    });
+    _resetRequest = request;
+    return request;
   }
 
   void _scheduleInitialLoadIfNeeded({bool force = false}) {
@@ -439,7 +463,7 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
   }
 
   Future<void> _loadMore() async {
-    if (_loading || _loadingMore || !_hasMore) {
+    if (_failedReset || _loading || _loadingMore || !_hasMore) {
       return;
     }
     await _loadPage(reset: false);
@@ -449,6 +473,8 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
     if (_loadingMore) {
       return;
     }
+    final generation = _requestGeneration;
+    final pageIndex = _pageIndex;
     if (!reset) {
       setState(() => _loadingMore = true);
     }
@@ -459,12 +485,12 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
             resourceId: widget.resourceId,
             resourceType: widget.resourceType,
             platform: widget.platform,
-            pageIndex: _pageIndex,
+            pageIndex: pageIndex,
             pageSize: _pageSize,
             lastId: _lastId.isEmpty ? null : _lastId,
             isHot: widget.tabType.isHot,
           );
-      if (!mounted) {
+      if (!mounted || generation != _requestGeneration) {
         return;
       }
       final next = result.list
@@ -480,20 +506,22 @@ class _CommentTabPaneState extends ConsumerState<_CommentTabPane>
         }
         _hasMore = result.hasMore;
         _lastId = result.lastId;
-        _pageIndex += 1;
+        _pageIndex = pageIndex + 1;
         _loading = false;
         _loadingMore = false;
         _error = null;
+        _failedReset = false;
       });
       widget.onTotalCountChanged(result.totalCount);
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || generation != _requestGeneration) {
         return;
       }
       setState(() {
         _loading = false;
         _loadingMore = false;
         _error = '$error';
+        _failedReset = reset;
       });
     }
   }
@@ -583,17 +611,18 @@ class _CommentListLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return SliverPadding(
       key: ValueKey<String>(
         compact
             ? 'comment-replies-loading-skeleton'
             : 'comments-loading-skeleton',
       ),
-      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(12, compact ? 10 : 8, 12, 12),
-      itemCount: compact ? 4 : 5,
-      separatorBuilder: (_, _) => SizedBox(height: compact ? 8 : 10),
-      itemBuilder: (_, _) => _CommentRowLoadingSkeleton(compact: compact),
+      sliver: SliverList.separated(
+        itemCount: compact ? 4 : 5,
+        separatorBuilder: (_, _) => SizedBox(height: compact ? 8 : 10),
+        itemBuilder: (_, _) => _CommentRowLoadingSkeleton(compact: compact),
+      ),
     );
   }
 }
@@ -959,6 +988,9 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
   int _pageIndex = 1;
   String _lastId = '';
   String? _error;
+  bool _failedReset = false;
+  Future<void>? _resetRequest;
+  int _requestGeneration = 0;
 
   @override
   void initState() {
@@ -1012,77 +1044,84 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
               ),
             ),
             const Divider(height: 1),
-            Expanded(
-              child: RefreshIndicator(
-                elevation: 0,
-                onRefresh: _refresh,
-                child: _buildReplyList(context),
-              ),
-            ),
+            Expanded(child: _buildReplyList(context)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildReplyList(BuildContext context) {
+  Widget _buildReplyList(BuildContext context) => AppRefreshableScrollView(
+    onRefresh: _refresh,
+    controller: _scrollController,
+    slivers: _buildReplySlivers(context),
+  );
+
+  List<Widget> _buildReplySlivers(BuildContext context) {
     if (_loading && _replies.isEmpty) {
-      return const _CommentListLoadingSkeleton(compact: true);
+      return const [_CommentListLoadingSkeleton(compact: true)];
     }
     if (_error != null && _replies.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: <Widget>[
-          const SizedBox(height: 120),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: <Widget>[
-                  Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+      return [
+        SliverList.list(
+          children: <Widget>[
+            const SizedBox(height: 120),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: <Widget>[
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  FilledButton(
-                    onPressed: _refresh,
-                    child: Text(
-                      AppI18n.t(ref.read(appConfigProvider), 'common.retry'),
+                    const SizedBox(height: 10),
+                    AppButton.filled(
+                      onPressed: _refresh,
+                      child: Text(
+                        AppI18n.t(ref.read(appConfigProvider), 'common.retry'),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      );
+          ],
+        ),
+      ];
     }
-    return ListView.separated(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      itemCount: _replies.length + 1,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (index >= _replies.length) {
-          return _CommentFooter(
-            loadingMore: _loadingMore,
-            hasMore: _hasMore,
-            error: _error,
-            hasComments: _replies.isNotEmpty,
-            onRetry: _loadMore,
-          );
-        }
-        final item = _replies[index];
-        return _ReplyTile(comment: item);
-      },
-    );
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        sliver: SliverList.separated(
+          itemCount: _replies.length + 1,
+          separatorBuilder: (context, index) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            if (index >= _replies.length) {
+              return _CommentFooter(
+                loadingMore: _loadingMore,
+                hasMore: _hasMore,
+                error: _error,
+                hasComments: _replies.isNotEmpty,
+                onRetry: _failedReset ? _refresh : _loadMore,
+              );
+            }
+            return _ReplyTile(comment: _replies[index]);
+          },
+        ),
+      ),
+    ];
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh() {
+    final pending = _resetRequest;
+    if (pending != null) {
+      return pending;
+    }
+    _requestGeneration++;
     setState(() {
       _loading = true;
       _loadingMore = false;
@@ -1091,17 +1130,26 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
       _lastId = '';
       _error = null;
     });
-    await _loadPage(reset: true);
+    late final Future<void> request;
+    request = _loadPage(reset: true).whenComplete(() {
+      if (identical(_resetRequest, request)) {
+        _resetRequest = null;
+      }
+    });
+    _resetRequest = request;
+    return request;
   }
 
   Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore || _loading) {
+    if (_failedReset || _loadingMore || !_hasMore || _loading) {
       return;
     }
     await _loadPage(reset: false);
   }
 
   Future<void> _loadPage({required bool reset}) async {
+    final generation = _requestGeneration;
+    final pageIndex = _pageIndex;
     final parentId = _asText(widget.parentComment['id']) ?? '';
     if (parentId.isEmpty) {
       setState(() {
@@ -1122,11 +1170,11 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
             parentId: parentId,
             resourceType: widget.resourceType,
             platform: widget.platform,
-            pageIndex: _pageIndex,
+            pageIndex: pageIndex,
             pageSize: _pageSize,
             lastId: _lastId.isEmpty ? null : _lastId,
           );
-      if (!mounted) {
+      if (!mounted || generation != _requestGeneration) {
         return;
       }
       final next = result.list
@@ -1142,19 +1190,21 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
         }
         _hasMore = result.hasMore;
         _lastId = result.lastId;
-        _pageIndex += 1;
+        _pageIndex = pageIndex + 1;
         _loading = false;
         _loadingMore = false;
         _error = null;
+        _failedReset = false;
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || generation != _requestGeneration) {
         return;
       }
       setState(() {
         _loading = false;
         _loadingMore = false;
         _error = '$error';
+        _failedReset = reset;
       });
     }
   }

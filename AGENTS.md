@@ -20,14 +20,15 @@
 ## 编码风格与命名约定
 遵循 `analysis_options.yaml` 中启用的 `flutter_lints` 规则。Dart 代码使用标准 2 空格缩进。文件名保持 `snake_case.dart`，类、枚举和类型别名使用 `UpperCamelCase`，方法、变量和 provider 使用 `lowerCamelCase`。保持现有的 feature-first 结构，优先沿用当前 Riverpod、GoRouter 和 repository 模式，不要额外引入平行抽象层。
 
-## 液态玻璃开发与审查
+## Material 与 Cupertino 界面风格
 
-后续凡涉及 `liquid_glass_widgets`、液态玻璃 UI 或 `Glass*` 组件的开发、重构和审查，必须先读取并遵循 [liquid-glass-widgets skill](.pi/skills/liquid-glass-widgets/SKILL.md)。审查已有改动时也必须使用该 skill。
-
-- 以官方样例和当前依赖版本的公共 API 为依据，不凭印象自创材质参数或用普通组件包一层玻璃替代原生玻璃组件。
-- 玻璃导航及浮动表面页面使用 `GlassScaffold`；禁止嵌套折射玻璃。
-- 默认使用 `standard`，仅持久导航和明确的主视觉表面使用 `premium`，并保留自适应降级。
-- 若现有实现或历史决策与 skill 不一致，明确记录差异及实际影响，不能以测试通过代替规范检查。
+- 应用仅维护 Flutter SDK 的 Material 与 Cupertino 两种界面风格，不引入第三方液态玻璃渲染库。
+- `AppUiStyle` 是用户明确选择的设计语言，独立于皮肤、主题色、深浅色、系统平台和皮肤动画。不得通过伪造 `ThemeData.platform` 实现风格切换。
+- 优先在共享组件中适配两种风格，共用业务页面、GoRouter 和 Riverpod 状态。切换风格不得重新挂载 Navigator 或丢失播放、输入和浏览状态。
+- Cupertino 的普通顶部标题栏跟随实际页面背景：透明壁纸页面使用透明标题栏并关闭背景模糊，经典或实色页面保留正常底色。底部导航、持续播放控制和弹窗面板保持稳定的不透明底色。复杂底部面板保留 PopupRoute 语义、键盘避让及返回值；不得直接全量换为 PageRoute 类型的 Cupertino Sheet。
+- Material 使用全宽 M3 导航与贴合其上的播放条；Cupertino 使用全宽标签栏与独立浮动播放条。两者都正确覆盖或避让安全区，并在键盘开合时保持位置稳定。MiniPlayer 和播放器详情的队列共用 `showPlayerStyledBottomSheet`，播放器嵌套面板须保留主题标记、系统栏保护和弹层返回语义。
+- “显示内容背景”控制全部 Cupertino 内容卡片，包括设置分组和功能入口；关闭后保留排版、分隔线和交互反馈。搜索输入框、固定播放控制、底栏及弹窗使用独立的控制表面。
+- 规范与人工验收见 [界面风格设计决策](docs/adr/0010-use-sdk-interface-styles.md) 和 [验收指南](docs/interface-style-acceptance.md)。
 
 ## 动画设置的作用范围
 

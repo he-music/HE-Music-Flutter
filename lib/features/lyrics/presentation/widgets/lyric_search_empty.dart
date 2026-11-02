@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -41,7 +42,7 @@ class LyricSearchEmpty extends ConsumerWidget {
       appConfigProvider.select((state) => state.localeCode),
     );
     return Center(
-      child: TextButton.icon(
+      child: AppButton.textIcon(
         style: TextButton.styleFrom(foregroundColor: color),
         onPressed: track == null
             ? null

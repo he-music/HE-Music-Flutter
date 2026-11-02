@@ -9,6 +9,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../providers/qr_login_providers.dart';
 
 class QrLoginScanPage extends ConsumerStatefulWidget {
@@ -26,7 +27,7 @@ class _QrLoginScanPageState extends ConsumerState<QrLoginScanPage> {
     final config = ref.watch(appConfigProvider);
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppNavigationBar(
         title: Text(AppI18n.t(config, 'auth.qr.scan_title')),
         leading: AppBackButton(onPressed: () => _handleBack(context)),
       ),

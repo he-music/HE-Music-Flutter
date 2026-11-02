@@ -1,5 +1,7 @@
 import '../../../../shared/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,6 +13,7 @@ import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
@@ -47,7 +50,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage> {
     final state = ref.watch(myCollectionControllerProvider);
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppNavigationBar(
           leading: const AppBackButton(),
           title: Text(AppI18n.t(config, 'my.collection')),
           actions: <Widget>[
@@ -108,7 +111,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage> {
     AppConfigState config,
     MyFavoriteItem item,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AppAlertDialog(
@@ -341,7 +344,7 @@ class _ErrorPanel extends StatelessWidget {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               const SizedBox(height: 8),
-              FilledButton(onPressed: onRetry, child: Text(retryLabel)),
+              AppButton.filled(onPressed: onRetry, child: Text(retryLabel)),
             ],
           ),
         ),

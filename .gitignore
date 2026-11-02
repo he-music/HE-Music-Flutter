@@ -64,6 +64,8 @@ app.*.map.json
 !/docs/adr/
 /docs/adr/*
 !/docs/adr/0009-use-liquid-glass-as-control-surface.md
-!/docs/liquid-glass-acceptance.md
+!/docs/adr/0010-use-sdk-interface-styles.md
+!/docs/interface-style-acceptance.md
+!/docs/cupertino-widget-audit.md
 !/docs/sheet-music.md
 !/docs/song-list-pagination.md

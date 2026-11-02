@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-
-import '../../../../app/theme/glass/app_glass_scope.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 
 import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
@@ -209,7 +208,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       child: SafeArea(
         // Reserve the player clearance inside scrollable content, not outside
         // the viewport, so results can pass behind the floating player.
-        bottom: !AppGlassScope.isEnabled(context),
+        bottom: true,
         child: Column(
           children: <Widget>[
             Padding(
@@ -235,7 +234,12 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
             Expanded(
               child: platforms.isEmpty
                   ? loadingPlatforms
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const Center(
+                            child: AppActivityIndicator(
+                              size: 36,
+                              strokeWidth: 4,
+                            ),
+                          )
                         : SearchFeedback(
                             localeCode: config.localeCode,
                             error: AppI18n.t(
@@ -1541,24 +1545,9 @@ class _SearchHeader extends ConsumerWidget {
               );
             }),
           );
-    final glassEnabled = AppGlassScope.controlsEnabled(context);
     return Row(
       children: <Widget>[
-        if (glassEnabled) ...[
-          Tooltip(
-            message: AppI18n.t(config, 'common.back'),
-            child: GlassIconButton(
-              onPressed: onBack,
-              size: LayoutTokens.controlMinExtent,
-              useOwnLayer: true,
-              semanticLabel: AppI18n.t(config, 'common.back'),
-              quality: AppGlassScope.qualityOf(context),
-              icon: const AppSkinIcon(role: AppSkinIconRole.back),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ] else
-          AppBackButton(onPressed: onBack),
+        AppBackButton(onPressed: onBack),
         Expanded(
           child: SearchTopBox(
             controller: controller,
@@ -1574,45 +1563,20 @@ class _SearchHeader extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 8),
-        if (glassEnabled)
-          Tooltip(
-            message: AppI18n.t(config, 'home.search'),
-            child: GlassIconButton(
-              onPressed: () => unawaited(onSearch()),
-              size: LayoutTokens.controlMinExtent,
-              useOwnLayer: true,
-              semanticLabel: AppI18n.t(config, 'home.search'),
-              quality: AppGlassScope.qualityOf(context),
-              icon: AppSkinIcon(
-                role: AppSkinIconRole.searchSubmit,
-                color: theme.colorScheme.primary,
-                size: 20,
+        AppIconButton(
+          tooltip: AppI18n.t(config, 'home.search'),
+          style: IconButton.styleFrom(
+            backgroundColor: AppSearchField.materialFillColorFor(context),
+            foregroundColor: theme.colorScheme.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                AppSearchField.radiusFor(context),
               ),
-            ),
-          )
-        else
-          IconButton.filledTonal(
-            tooltip: AppI18n.t(config, 'home.search'),
-            constraints: const BoxConstraints.tightFor(
-              width: LayoutTokens.controlMinExtent,
-              height: LayoutTokens.controlMinExtent,
-            ),
-            visualDensity: VisualDensity.standard,
-            style: IconButton.styleFrom(
-              backgroundColor: AppSearchField.materialFillColorFor(context),
-              foregroundColor: theme.colorScheme.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  AppSearchField.radiusFor(context),
-                ),
-              ),
-            ),
-            onPressed: () => unawaited(onSearch()),
-            icon: const AppSkinIcon(
-              role: AppSkinIconRole.searchSubmit,
-              size: 20,
             ),
           ),
+          onPressed: () => unawaited(onSearch()),
+          icon: const AppSkinIcon(role: AppSkinIconRole.searchSubmit, size: 20),
+        ),
       ],
     );
   }

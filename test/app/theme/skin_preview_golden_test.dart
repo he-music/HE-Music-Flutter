@@ -1,5 +1,9 @@
 import 'dart:io';
 
+import 'dart:ui' as ui;
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -123,7 +127,79 @@ void main() {
       },
       skip: Platform.isLinux,
     );
+    testWidgets(
+      '${previewCase.name} Cupertino home and settings remain readable',
+      (tester) async {
+        await tester.runAsync(_loadPreviewFonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        for (final brightness in Brightness.values) {
+          final router = createAppRouter(AppRoutes.home);
+          await tester.pumpWidget(
+            _buildPreviewApp(
+              router,
+              brightness,
+              previewCase.skinId,
+              uiStyle: AppUiStyle.cupertino,
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (previewCase.hasWallpaper) {
+            await _pumpUntilWallpaperDecoded(tester);
+          }
+          final bar = tester.getRect(find.byType(CupertinoTabBar));
+          expect(bar.left, 0);
+          expect(bar.right, 390);
+          expect(
+            find.byWidgetPredicate(
+              (widget) => widget is BackdropFilter && widget.enabled,
+            ),
+            findsNothing,
+          );
+          await _saveCupertinoPreview(
+            tester,
+            '${previewCase.skinId}-${brightness.name}-home',
+          );
+          router.push(AppRoutes.settingsSectionLocation('appearance'));
+          await tester.pumpAndSettle();
+          expect(find.text('Appearance'), findsOneWidget);
+          expect(
+            find.byWidgetPredicate(
+              (widget) => widget is BackdropFilter && widget.enabled,
+            ),
+            findsNothing,
+          );
+          await _saveCupertinoPreview(
+            tester,
+            '${previewCase.skinId}-${brightness.name}-settings',
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          router.dispose();
+        }
+      },
+    );
   }
+}
+
+Future<void> _saveCupertinoPreview(WidgetTester tester, String name) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_previewKey),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File(
+        '${Directory.systemTemp.path}/he-music-cupertino-skin-previews/$name.png',
+      );
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
 }
 
 Future<void> _pumpUntilWallpaperDecoded(WidgetTester tester) async {
@@ -152,13 +228,18 @@ Future<void> _pumpUntilWallpaperDecoded(WidgetTester tester) async {
   throw TestFailure('皮肤预览壁纸在 15 秒内未完成解码');
 }
 
-Widget _buildPreviewApp(GoRouter router, Brightness brightness, String skinId) {
+Widget _buildPreviewApp(
+  GoRouter router,
+  Brightness brightness,
+  String skinId, {
+  AppUiStyle uiStyle = AppUiStyle.material,
+}) {
   final skin = AppSkinRegistry.builtIn(
     AppConfigState.initial.themeAccent,
   ).resolve(skinId);
   final baseTheme = brightness == Brightness.light
-      ? AppTheme.light(skin)
-      : AppTheme.dark(skin);
+      ? AppTheme.light(skin, uiStyle: uiStyle)
+      : AppTheme.dark(skin, uiStyle: uiStyle);
   final textTheme = baseTheme.textTheme.apply(
     fontFamily: _previewFontFamily,
     fontFamilyFallback: _previewFontFallback,
@@ -167,6 +248,26 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness, String skinId) {
   final theme = baseTheme.copyWith(
     platform: TargetPlatform.android,
     textTheme: textTheme,
+    cupertinoOverrideTheme: uiStyle == AppUiStyle.cupertino
+        ? CupertinoThemeData(
+            brightness: brightness,
+            primaryColor: baseTheme.colorScheme.primary,
+            primaryContrastingColor: baseTheme.colorScheme.onPrimary,
+            barBackgroundColor:
+                baseTheme.cupertinoOverrideTheme!.barBackgroundColor,
+            scaffoldBackgroundColor: baseTheme.scaffoldBackgroundColor,
+            textTheme: CupertinoTextThemeData(
+              primaryColor: baseTheme.colorScheme.primary,
+              textStyle: textTheme.bodyMedium!,
+              actionTextStyle: textTheme.bodyLarge!.copyWith(
+                color: baseTheme.colorScheme.primary,
+              ),
+              navTitleTextStyle: textTheme.titleLarge!,
+              navLargeTitleTextStyle: textTheme.headlineLarge!,
+              tabLabelTextStyle: textTheme.bodySmall!.copyWith(fontSize: 10),
+            ),
+          )
+        : baseTheme.cupertinoOverrideTheme,
     primaryTextTheme: baseTheme.primaryTextTheme.apply(
       fontFamily: _previewFontFamily,
       fontFamilyFallback: _previewFontFallback,
@@ -187,7 +288,7 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness, String skinId) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(
-        () => _PreviewAppConfigController(brightness, skinId),
+        () => _PreviewAppConfigController(brightness, skinId, uiStyle),
       ),
       appRouterProvider.overrideWithValue(router),
       playerControllerProvider.overrideWith(_PreviewPlayerController.new),
@@ -202,7 +303,7 @@ Widget _buildPreviewApp(GoRouter router, Brightness brightness, String skinId) {
     child: MaterialApp.router(
       debugShowCheckedModeBanner: false,
       theme: theme,
-      locale: const Locale('zh'),
+      locale: Locale(uiStyle == AppUiStyle.cupertino ? 'en' : 'zh'),
       supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
         GlobalMaterialLocalizations.delegate,
@@ -239,6 +340,10 @@ Future<void> _loadPreviewFonts() async {
     textLoader.load(),
     cjkLoader.load(),
     iconLoader.load(),
+    (FontLoader('packages/cupertino_icons/CupertinoIcons')..addFont(
+          rootBundle.load('packages/cupertino_icons/assets/CupertinoIcons.ttf'),
+        ))
+        .load(),
   ]);
 }
 
@@ -248,10 +353,11 @@ Future<ByteData> _fontData(String path) async {
 }
 
 class _PreviewAppConfigController extends AppConfigController {
-  _PreviewAppConfigController(this.brightness, this.skinId);
+  _PreviewAppConfigController(this.brightness, this.skinId, this.uiStyle);
 
   final Brightness brightness;
   final String skinId;
+  final AppUiStyle uiStyle;
 
   @override
   AppConfigState build() {
@@ -260,8 +366,10 @@ class _PreviewAppConfigController extends AppConfigController {
           ? AppThemeMode.light
           : AppThemeMode.dark,
       skinId: skinId,
+      uiStyle: uiStyle,
       enableSkinAnimation: false,
-      localeCode: 'zh',
+      // The bundled CJK subset covers the home fixture, not all settings labels.
+      localeCode: uiStyle == AppUiStyle.cupertino ? 'en' : 'zh',
     );
   }
 }

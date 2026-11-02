@@ -1,11 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter/cupertino.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 
 import '../../../../app/config/app_player_wide_view.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/theme/glass/app_glass_scope.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/player/app_player_scene_palette.dart';
 
 /// Independent wide-player composition. Phone paging and landscape layouts do
@@ -61,169 +62,174 @@ class PlayerWideLayout extends StatelessWidget {
         PlayerScenePalette.maybeOf(context)?.foreground ?? Colors.white;
     return Material(
       type: MaterialType.transparency,
-      child: GlassScaffold(
+      child: Stack(
         key: const ValueKey('player-wide-layout'),
-        background: background,
-        edgeFade: false,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(32, 12, 32, 8),
-                child: SizedBox(
-                  height: math.max(
-                    48,
-                    MediaQuery.textScalerOf(context).scale(32),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: _WideAction(
-                          icon: Icons.keyboard_arrow_down_rounded,
-                          label: AppI18n.tByLocaleCode(
-                            localeCode,
-                            'common.back',
-                          ),
-                          onPressed: onClose,
-                        ),
-                      ),
-                      SizedBox(width: 320, child: _buildViewSelector(context)),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _WideAction(
-                              icon: Icons.palette_outlined,
-                              label: AppI18n.tByLocaleCode(
-                                localeCode,
-                                'player.action.style',
-                              ),
-                              onPressed: onOpenStyle,
-                            ),
-                            const SizedBox(width: 12),
-                            _WideAction(
-                              icon: Icons.more_horiz_rounded,
-                              label: AppI18n.tByLocaleCode(
-                                localeCode,
-                                'common.more',
-                              ),
-                              onPressed: onOpenMore,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1440),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(48, 12, 48, 24),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (view != AppPlayerWideView.lyrics)
-                            Expanded(
-                              flex: 5,
-                              child: KeyedSubtree(
-                                key: const ValueKey('player-wide-stage'),
-                                child: _buildStageWithMetadata(),
-                              ),
-                            ),
-                          if (view == AppPlayerWideView.split)
-                            const SizedBox(width: 64),
-                          if (view != AppPlayerWideView.cover)
-                            Expanded(
-                              flex: 7,
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 960,
-                                  ),
-                                  child: SizedBox.expand(
-                                    key: const ValueKey('player-wide-lyrics'),
-                                    child: lyrics,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+        fit: StackFit.expand,
+        children: [
+          background,
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(32, 12, 32, 8),
+                  child: SizedBox(
+                    height: math.max(
+                      48,
+                      MediaQuery.textScalerOf(context).scale(32),
                     ),
-                  ),
-                ),
-              ),
-              DecoratedBox(
-                key: const ValueKey('player-wide-control-bar'),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: .16),
-                    ],
-                  ),
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1440),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
-                        child: IconTheme(
-                          data: IconThemeData(color: foreground),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _WideAction(
+                            icon: Icons.keyboard_arrow_down_rounded,
+                            label: AppI18n.tByLocaleCode(
+                              localeCode,
+                              'common.back',
+                            ),
+                            onPressed: onClose,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 320,
+                          child: _buildViewSelector(context),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Expanded(
-                                flex: 3,
-                                child: view == AppPlayerWideView.lyrics
-                                    ? metadata
-                                    : const SizedBox.shrink(),
-                              ),
-                              const SizedBox(width: 24),
-                              Expanded(
-                                flex: 5,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    progress,
-                                    const SizedBox(height: 4),
-                                    controls,
-                                  ],
+                              _WideAction(
+                                icon: Icons.palette_outlined,
+                                label: AppI18n.tByLocaleCode(
+                                  localeCode,
+                                  'player.action.style',
                                 ),
+                                onPressed: onOpenStyle,
                               ),
-                              const SizedBox(width: 24),
-                              Expanded(
-                                flex: 3,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 180,
-                                    ),
-                                    child: actions,
-                                  ),
+                              const SizedBox(width: 12),
+                              _WideAction(
+                                icon: Icons.more_horiz_rounded,
+                                label: AppI18n.tByLocaleCode(
+                                  localeCode,
+                                  'common.more',
                                 ),
+                                onPressed: onOpenMore,
                               ),
                             ],
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1440),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(48, 12, 48, 24),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (view != AppPlayerWideView.lyrics)
+                              Expanded(
+                                flex: 5,
+                                child: KeyedSubtree(
+                                  key: const ValueKey('player-wide-stage'),
+                                  child: _buildStageWithMetadata(),
+                                ),
+                              ),
+                            if (view == AppPlayerWideView.split)
+                              const SizedBox(width: 64),
+                            if (view != AppPlayerWideView.cover)
+                              Expanded(
+                                flex: 7,
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 960,
+                                    ),
+                                    child: SizedBox.expand(
+                                      key: const ValueKey('player-wide-lyrics'),
+                                      child: lyrics,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                DecoratedBox(
+                  key: const ValueKey('player-wide-control-bar'),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: .16),
+                      ],
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1440),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
+                          child: IconTheme(
+                            data: IconThemeData(color: foreground),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: view == AppPlayerWideView.lyrics
+                                      ? metadata
+                                      : const SizedBox.shrink(),
+                                ),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  flex: 5,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      progress,
+                                      const SizedBox(height: 4),
+                                      controls,
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  flex: 3,
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 180,
+                                      ),
+                                      child: actions,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -266,22 +272,19 @@ class PlayerWideLayout extends StatelessWidget {
     ];
     final foreground =
         PlayerScenePalette.maybeOf(context)?.foreground ?? Colors.white;
-    if (AppGlassScope.controlsEnabled(context)) {
-      return GlassSegmentedControl(
+    if (AppUiTheme.usesCupertino(context)) {
+      return CupertinoSlidingSegmentedControl<AppPlayerWideView>(
         key: const ValueKey('player-wide-view-selector'),
-        segments: [for (final label in labels) GlassSegment(label: label)],
-        selectedIndex: view.index,
-        onSegmentSelected: (index) =>
-            onViewChanged(AppPlayerWideView.values[index]),
-        useOwnLayer: true,
-        quality: AppGlassScope.qualityOf(context),
-        selectedTextStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedTextStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: foreground.withValues(alpha: .65),
-        ),
+        groupValue: view,
+        children: {
+          for (final item in AppPlayerWideView.values)
+            item: Text(labels[item.index], style: TextStyle(color: foreground)),
+        },
+        onValueChanged: (value) {
+          if (value != null) onViewChanged(value);
+        },
+        backgroundColor: foreground.withValues(alpha: .08),
+        thumbColor: foreground.withValues(alpha: .18),
       );
     }
     return SegmentedButton<AppPlayerWideView>(
@@ -323,19 +326,7 @@ class _WideAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final foreground =
         PlayerScenePalette.maybeOf(context)?.foreground ?? Colors.white;
-    if (AppGlassScope.controlsEnabled(context)) {
-      return Tooltip(
-        message: label,
-        child: GlassIconButton(
-          icon: Icon(icon, color: foreground),
-          onPressed: onPressed,
-          semanticLabel: label,
-          useOwnLayer: true,
-          quality: AppGlassScope.qualityOf(context),
-        ),
-      );
-    }
-    return IconButton(
+    return AppIconButton(
       onPressed: onPressed,
       tooltip: label,
       icon: Icon(icon, color: foreground),

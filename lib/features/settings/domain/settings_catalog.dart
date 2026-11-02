@@ -28,7 +28,7 @@ abstract final class SettingsGroupIds {
 }
 
 abstract final class SettingsItemIds {
-  static const glassMode = 'glass-mode';
+  static const uiStyle = 'ui-style';
   static const themeMode = 'theme-mode';
   static const themeAccent = 'theme-accent';
   static const skin = 'skin';
@@ -169,13 +169,21 @@ const List<SettingsGroupNode> settingsGroups = <SettingsGroupNode>[
 
 const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
   SettingsItemNode(
-    id: SettingsItemIds.glassMode,
+    id: SettingsItemIds.uiStyle,
     sectionId: SettingsSectionIds.appearance,
     groupId: SettingsGroupIds.appearanceTheme,
-    titleKey: 'settings.glass',
+    titleKey: 'settings.ui_style',
     kind: SettingsItemKind.select,
-    icon: Icons.blur_on_rounded,
-    keywords: <String>['玻璃', '省电', '效果', 'glass', 'battery'],
+    icon: Icons.design_services_outlined,
+    keywords: <String>[
+      '界面',
+      '设计',
+      '风格',
+      'Material',
+      'Cupertino',
+      'design',
+      'style',
+    ],
   ),
   SettingsItemNode(
     id: SettingsItemIds.themeMode,

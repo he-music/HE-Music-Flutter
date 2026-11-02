@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -112,10 +113,7 @@ class _PartitaLyricDataHost extends ConsumerWidget {
         child: SizedBox.square(
           key: const ValueKey<String>('partita-lyric-loading'),
           dimension: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.4,
-            color: palette.accent,
-          ),
+          child: AppActivityIndicator(strokeWidth: 2.4, color: palette.accent),
         ),
       ),
       error: (error, stackTrace) => _PartitaLyricFallback(

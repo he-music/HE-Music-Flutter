@@ -1,6 +1,10 @@
 import '../../../../shared/widgets/app_alert_dialog.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import '../../../../app/theme/glass/app_glass_scope.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/app_dialog.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -237,12 +241,12 @@ class _MyPageState extends ConsumerState<MyPage> {
   Future<void> _createPlaylist() async {
     final config = ref.read(appConfigProvider);
     var playlistName = '';
-    final name = await showDialog<String>(
+    final name = await showAppDialog<String>(
       context: context,
       builder: (dialogContext) {
         return AppAlertDialog(
           title: Text(AppI18n.t(config, 'my.playlist.create.title')),
-          content: TextField(
+          content: AppTextField(
             autofocus: true,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
@@ -395,7 +399,7 @@ class _AccountCard extends StatelessWidget {
                   )
                 else if (!tokenSet) ...<Widget>[
                   const SizedBox(height: 12),
-                  FilledButton(
+                  AppButton.filled(
                     onPressed: onLogin,
                     child: Text(
                       AppI18n.tByLocaleCode(localeCode, 'my.profile.login_now'),
@@ -456,6 +460,19 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    if (AppUiTheme.usesCupertino(context)) {
+      return AppListSection(
+        children: [
+          AppListTile(
+            leading: AppSkinIcon(role: iconRole),
+            title: Text(title),
+            subtitle: subtitle == null ? null : Text(subtitle!),
+            showChevron: true,
+            onTap: onTap,
+          ),
+        ],
+      );
+    }
     return AppSkinSurface(
       role: AppSkinSurfaceRole.scrollingContent,
       child: Material(
@@ -549,7 +566,7 @@ class _ErrorCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          TextButton(onPressed: onRetry, child: Text(retryLabel)),
+          AppButton.text(onPressed: onRetry, child: Text(retryLabel)),
         ],
       ),
     );
@@ -738,47 +755,15 @@ class _PlaylistActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    if (AppGlassScope.controlsEnabled(context) &&
-        !MediaQuery.highContrastOf(context)) {
-      return Padding(
-        padding: const EdgeInsets.only(left: 8),
-        child: Tooltip(
-          message: tooltip,
-          child: GlassIconButton(
-            icon: AppSkinIcon(
-              role: iconRole,
-              size: 20,
-              color: colorScheme.onSurface,
-            ),
-            onPressed: onPressed,
-            semanticLabel: tooltip,
-            size: LayoutTokens.controlMinExtent,
-            useOwnLayer: true,
-            quality: AppGlassScope.qualityOf(context),
-          ),
-        ),
-      );
-    }
     return Padding(
       padding: const EdgeInsets.only(left: 8),
-      child: Material(
-        color: colorScheme.surface.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onPressed,
-          child: Tooltip(
-            message: tooltip,
-            child: SizedBox(
-              width: LayoutTokens.controlMinExtent,
-              height: LayoutTokens.controlMinExtent,
-              child: AppSkinIcon(
-                role: iconRole,
-                size: 20,
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
+      child: AppIconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: AppSkinIcon(
+          role: iconRole,
+          size: 20,
+          color: colorScheme.onSurface,
         ),
       ),
     );
@@ -845,17 +830,31 @@ class _PlaylistList extends StatelessWidget {
         ],
         if (items.length > 5) ...<Widget>[
           const SizedBox(height: 12),
-          TextButton.icon(
+          AppButton.text(
             onPressed: onToggleExpanded,
-            icon: Icon(
-              expanded
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-            ),
-            label: Text(
-              expanded
-                  ? AppI18n.tByLocaleCode(localeCode, 'my.playlist.collapse')
-                  : AppI18n.tByLocaleCode(localeCode, 'my.playlist.expand'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  expanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    expanded
+                        ? AppI18n.tByLocaleCode(
+                            localeCode,
+                            'my.playlist.collapse',
+                          )
+                        : AppI18n.tByLocaleCode(
+                            localeCode,
+                            'my.playlist.expand',
+                          ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -887,7 +886,7 @@ class _InlineRetryCard extends StatelessWidget {
         children: <Widget>[
           Expanded(child: Text(message)),
           const SizedBox(width: 8),
-          TextButton(onPressed: onRetry, child: Text(retryLabel)),
+          AppButton.text(onPressed: onRetry, child: Text(retryLabel)),
         ],
       ),
     );

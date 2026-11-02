@@ -14,6 +14,7 @@ import '../../../../../shared/models/he_music_models.dart';
 import '../../../../../shared/providers/song_sort_providers.dart';
 import '../../../../../shared/widgets/song_sort_button.dart';
 import '../../../../../shared/widgets/app_back_button.dart';
+import '../../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../../shared/widgets/online_platform_tabs.dart';
 import '../../../../../shared/widgets/plaza_loading_skeleton.dart';
@@ -131,7 +132,7 @@ class _NewSongPageState extends ConsumerState<NewSongPage> {
             )
           : null,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppNavigationBar(
           leading: AppBackButton(
             onPressed: _isBatchMode ? () => _setBatchMode(false) : null,
             tooltip: _isBatchMode

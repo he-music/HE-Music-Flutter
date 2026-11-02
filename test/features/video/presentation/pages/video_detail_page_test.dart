@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,6 +176,64 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'Cupertino detail quality cancel and selection retain system bar guard',
+    (tester) async {
+      final factory = _FakeVideoPlaybackSurfaceFactory();
+      await tester.pumpWidget(
+        _buildTestApp(
+          repository: _FakeVideoDetailRepository(
+            detail: _buildDetail(
+              id: 'mv-1',
+              url: 'https://example.com/1080.mp4',
+              links: const [
+                LinkInfo(
+                  name: '1080p',
+                  quality: 1080,
+                  format: 'mp4',
+                  size: '',
+                  url: 'https://example.com/1080.mp4',
+                ),
+                LinkInfo(
+                  name: '720p',
+                  quality: 720,
+                  format: 'mp4',
+                  size: '',
+                  url: 'https://example.com/720.mp4',
+                ),
+              ],
+            ),
+          ),
+          factory: factory,
+          theme: ThemeData.dark().copyWith(
+            extensions: [const AppUiTheme(style: AppUiStyle.cupertino)],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final guard = find.byKey(
+        const ValueKey<String>('video-detail-system-ui-overlay-guard'),
+      );
+      await tester.tap(find.byIcon(Icons.high_quality_rounded));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoActionSheet), findsOneWidget);
+      expect(find.text('✓ 1080P · MP4'), findsOneWidget);
+      expect(guard, findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(guard, findsNothing);
+      expect(factory.sessions, hasLength(1));
+      await tester.tap(find.byIcon(Icons.high_quality_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('720P · MP4'));
+      await tester.pumpAndSettle();
+      expect(guard, findsNothing);
+      expect(factory.sessions, hasLength(2));
+      expect(factory.sessions.last.state.isPlaying, isTrue);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets('video detail progress drag delegates seekTo to session', (
     tester,

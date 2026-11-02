@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_lyric/core/lyric_model.dart' as model;
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,7 +100,7 @@ class _LyricCandidatePreviewState extends State<LyricCandidatePreview> {
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
-                    child: TextButton(
+                    child: AppButton.text(
                       onPressed: () => setState(() {
                         _bundle = widget.loadBundle();
                       }),
@@ -119,7 +121,7 @@ class _LyricCandidatePreviewState extends State<LyricCandidatePreview> {
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton.tonal(
+          AppButton.tonal(
             style: FilledButton.styleFrom(
               textStyle: theme.textTheme.labelLarge,
             ),
@@ -127,7 +129,7 @@ class _LyricCandidatePreviewState extends State<LyricCandidatePreview> {
             child: widget.selecting
                 ? const SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: AppActivityIndicator(size: 18, strokeWidth: 2),
                   )
                 : const Text('使用此歌词'),
           ),

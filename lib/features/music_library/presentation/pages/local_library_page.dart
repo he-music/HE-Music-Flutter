@@ -3,9 +3,15 @@ import 'dart:io' show File, FileSystemException, Platform;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:file_selector/file_selector.dart';
-import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+
 import '../../../../shared/widgets/app_alert_dialog.dart';
+import '../../../../shared/widgets/adaptive_action_menu.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_dialog.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -148,7 +154,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                 onLongPress: selectionController.enterMultiSelect,
                 onSelectionToggle: selectionController.toggleSelection,
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: AppActivityIndicator()),
               error: (error, stackTrace) => _ErrorView(
                 message: '$error',
                 localeCode: localeCode,
@@ -217,7 +223,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     LocalLibraryController controller,
     String localeCode,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AppAlertDialog(
         title: Text(
@@ -248,64 +254,51 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     }
   }
 
-  void _showMoreActionsSheet(
+  Future<void> _showMoreActionsSheet(
     BuildContext context,
     LocalSong song,
     String localeCode,
     WidgetRef ref,
-  ) {
-    showAppThemedBottomSheet<void>(
+  ) async {
+    final action = await showAdaptiveActionMenu<String>(
       context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            ListTile(
-              leading: const Icon(Icons.play_circle_outline_rounded),
-              title: Text(
-                AppI18n.tByLocaleCode(localeCode, 'local.more.play_next'),
-              ),
-              onTap: () {
-                Navigator.of(context).pop();
-                _playLocalSong(context, ref, [song], 0);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.queue_music_rounded),
-              title: Text(
-                AppI18n.tByLocaleCode(localeCode, 'local.more.add_to_queue'),
-              ),
-              onTap: () {
-                Navigator.of(context).pop();
-                final track = _toPlayerTrack(song);
-                ref.read(playerControllerProvider.notifier).appendTrack(track);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share_rounded),
-              title: Text(
-                AppI18n.tByLocaleCode(localeCode, 'local.more.share'),
-              ),
-              onTap: () async {
-                Navigator.of(context).pop();
-                await _shareLocalSong(context, song, localeCode, ref);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit_rounded),
-              title: Text(
-                AppI18n.tByLocaleCode(localeCode, 'local.more.edit_metadata'),
-              ),
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push(AppRoutes.localMetadataEdit, extra: song);
-              },
-            ),
-          ],
+      mobileDensity: AdaptiveActionMenuMobileDensity.regular,
+      items: [
+        AdaptiveActionMenuItem(
+          value: 'play',
+          icon: Icons.play_circle_outline_rounded,
+          label: AppI18n.tByLocaleCode(localeCode, 'local.more.play_next'),
         ),
-      ),
+        AdaptiveActionMenuItem(
+          value: 'queue',
+          icon: Icons.queue_music_rounded,
+          label: AppI18n.tByLocaleCode(localeCode, 'local.more.add_to_queue'),
+        ),
+        AdaptiveActionMenuItem(
+          value: 'share',
+          icon: Icons.share_rounded,
+          label: AppI18n.tByLocaleCode(localeCode, 'local.more.share'),
+        ),
+        AdaptiveActionMenuItem(
+          value: 'edit',
+          icon: Icons.edit_rounded,
+          label: AppI18n.tByLocaleCode(localeCode, 'local.more.edit_metadata'),
+        ),
+      ],
     );
+    if (!context.mounted || action == null) return;
+    switch (action) {
+      case 'play':
+        _playLocalSong(context, ref, [song], 0);
+      case 'queue':
+        ref
+            .read(playerControllerProvider.notifier)
+            .appendTrack(_toPlayerTrack(song));
+      case 'share':
+        await _shareLocalSong(context, song, localeCode, ref);
+      case 'edit':
+        context.push(AppRoutes.localMetadataEdit, extra: song);
+    }
   }
 
   Future<void> _shareLocalSong(
@@ -1008,7 +1001,7 @@ class _ErrorView extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
             const SizedBox(height: 12),
-            FilledButton(
+            AppButton.filled(
               onPressed: onRetry,
               child: Text(AppI18n.tByLocaleCode(localeCode, 'local.rescan')),
             ),
@@ -1051,7 +1044,7 @@ class _FolderManagerViewState extends ConsumerState<_FolderManagerView> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: AppActivityIndicator());
     }
     return Column(
       children: <Widget>[
@@ -1132,7 +1125,7 @@ class _FolderManagerViewState extends ConsumerState<_FolderManagerView> {
       }
     } else {
       // 其他平台：文本输入
-      final path = await showDialog<String>(
+      final path = await showAppDialog<String>(
         context: context,
         builder: (context) {
           final controller = TextEditingController();
@@ -1140,7 +1133,7 @@ class _FolderManagerViewState extends ConsumerState<_FolderManagerView> {
             title: Text(
               AppI18n.tByLocaleCode(widget.localeCode, 'local.folder.add'),
             ),
-            content: TextField(
+            content: AppTextField(
               controller: controller,
               decoration: const InputDecoration(
                 hintText: '/path/to/music/folder',
@@ -1182,7 +1175,7 @@ class _FolderManagerViewState extends ConsumerState<_FolderManagerView> {
   }
 
   Future<void> _confirmDelete(ScanFolder folder) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AppAlertDialog(
         title: Text(
@@ -1233,7 +1226,7 @@ class _FolderListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isEnabled = folder.enabled == 1;
-    return ListTile(
+    return AppListTile(
       leading: Icon(
         Icons.folder_rounded,
         color: isEnabled

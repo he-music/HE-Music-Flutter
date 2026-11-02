@@ -1,4 +1,6 @@
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +11,7 @@ import '../../../../shared/utils/platform_utils.dart';
 import '../../../../shared/widgets/adaptive_action_menu.dart';
 import '../../../../shared/widgets/app_confirmation_dialog.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../domain/entities/download_task.dart';
 import '../providers/download_providers.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
@@ -73,7 +76,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     final locale = Localizations.localeOf(context).languageCode;
     return DetailPageShell(
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppNavigationBar(
           leading: const AppBackButton(),
           title: Text(AppI18n.tByLocaleCode(locale, 'download.title')),
           actions: [
@@ -268,14 +271,20 @@ class _DownloadTaskList extends ConsumerWidget {
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton.icon(
+            child: AppButton.text(
               onPressed: onClearCompleted,
-              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-              label: Text(
-                AppI18n.tByLocaleCode(
-                  localeCode,
-                  'download.action.clear_completed',
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.delete_sweep_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    AppI18n.tByLocaleCode(
+                      localeCode,
+                      'download.action.clear_completed',
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -594,6 +603,17 @@ class _MoreButton extends StatelessWidget {
     String localeCode,
     TargetPlatform platform,
   ) async {
+    if (AppUiTheme.usesCupertino(context)) {
+      final selected = await showAdaptiveActionMenu<String>(
+        context: context,
+        items: _buildActions(localeCode, platform),
+        title: Text(task.title),
+      );
+      if (selected != null && context.mounted) {
+        await _handleAction(context, selected);
+      }
+      return;
+    }
     final selected = await showAppThemedBottomSheet<String>(
       context: context,
       isScrollControlled: true,

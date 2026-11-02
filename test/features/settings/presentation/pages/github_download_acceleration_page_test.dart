@@ -1,18 +1,43 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/github_download_acceleration_page.dart';
+import 'package:he_music_flutter/shared/widgets/app_adaptive_controls.dart';
 import 'package:he_music_flutter/features/update/domain/entities/github_download_proxy_config.dart';
 import 'package:he_music_flutter/features/update/domain/repositories/github_download_proxy_repository.dart';
 import 'package:he_music_flutter/features/update/presentation/providers/update_providers.dart';
 import 'package:toastification/toastification.dart';
 
 void main() {
+  testWidgets('Cupertino proxy choices use native rows and persist selection', (
+    tester,
+  ) async {
+    final repository = _FakeRepository();
+    final container = _container(repository);
+    addTearDown(container.dispose);
+    await _pumpPage(tester, container, style: AppUiStyle.cupertino);
+    expect(find.byType(RadioListTile<String>), findsNothing);
+    expect(find.byType(CupertinoListTile), findsNWidgets(3));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('github-download-proxy-secondary')),
+    );
+    await tester.pump();
+    expect(
+      container.read(appConfigProvider).githubDownloadProxyId,
+      'secondary',
+    );
+    expect(find.byIcon(CupertinoIcons.check_mark), findsOneWidget);
+    expect(repository.refreshCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('initial page load uses local config without refreshing', (
     tester,
   ) async {
@@ -32,7 +57,7 @@ void main() {
     );
     expect(
       tester
-          .widget<SwitchListTile>(
+          .widget<AppSwitchListTile>(
             find.byKey(
               const ValueKey<String>(
                 'github-download-proxy-auto-update-switch',
@@ -174,13 +199,20 @@ ProviderContainer _container(_FakeRepository repository) {
   );
 }
 
-Future<void> _pumpPage(WidgetTester tester, ProviderContainer container) async {
+Future<void> _pumpPage(
+  WidgetTester tester,
+  ProviderContainer container, {
+  AppUiStyle style = AppUiStyle.material,
+}) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         navigatorKey: rootNavigatorKey,
-        home: const GitHubDownloadAccelerationPage(),
+        home: AppUiStyleScope(
+          style: style,
+          child: const GitHubDownloadAccelerationPage(),
+        ),
       ),
     ),
   );

@@ -2,10 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.dart';
 
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
@@ -19,20 +18,22 @@ import 'package:he_music_flutter/features/player/presentation/widgets/player_sty
 import '../../../../helpers/expect_text_height_fits.dart';
 
 void main() {
-  for (final glass in [false, true]) {
+  for (final cupertino in [false, true]) {
     for (final size in [
       const Size(390, 844),
       const Size(880, 1000),
       const Size(900, 430),
     ]) {
-      testWidgets('三类选项切换和滚动保持面板与预览固定 glass=$glass size=$size', (tester) async {
+      testWidgets('三类选项切换和滚动保持面板与预览固定 cupertino=$cupertino size=$size', (
+        tester,
+      ) async {
         final harness = await _pumpSheet(
           tester,
           _FakeSpectrumPermission(
             current: RealtimeSpectrumPermissionState.granted,
           ),
           surfaceSize: size,
-          glass: glass,
+          cupertino: cupertino,
         );
         final layout = find.byKey(
           const ValueKey('player-style-selection-layout'),
@@ -464,7 +465,7 @@ Future<_SheetHarness> _pumpSheet(
   _FakeSpectrumPermission permission, {
   Size surfaceSize = const Size(430, 1200),
   double textScale = 1,
-  bool glass = false,
+  bool cupertino = false,
   PlayerTrack? track,
 }) async {
   tester.view.devicePixelRatio = 1;
@@ -481,36 +482,33 @@ Future<_SheetHarness> _pumpSheet(
         }),
         realtimeSpectrumPermissionPortProvider.overrideWithValue(permission),
       ],
-      child: AppGlassScope(
-        enabled: glass,
-        mode: AppGlassMode.low,
-        child: GlassAdaptiveScope(
-          minQuality: GlassQuality.minimal,
-          maxQuality: GlassQuality.minimal,
-          initialQuality: GlassQuality.minimal,
-          child: MaterialApp(
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaler.linear(textScale)),
-              child: child!,
+      child: MaterialApp(
+        theme: ThemeData(
+          extensions: [
+            AppUiTheme(
+              style: cupertino ? AppUiStyle.cupertino : AppUiStyle.material,
             ),
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => FilledButton(
-                  onPressed: () => showPlayerStyledBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    fixedHeightFactor: PlayerStyleSelectionSheet.heightFactorOf(
-                      context,
-                    ),
-                    maxWidth: 640,
-                    builder: (context) =>
-                        PlayerStyleSelectionSheet(track: track),
-                  ),
-                  child: const Text('Open'),
+          ],
+        ),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => showPlayerStyledBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                fixedHeightFactor: PlayerStyleSelectionSheet.heightFactorOf(
+                  context,
                 ),
+                maxWidth: 640,
+                builder: (context) => PlayerStyleSelectionSheet(track: track),
               ),
+              child: const Text('Open'),
             ),
           ),
         ),

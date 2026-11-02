@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/i18n/app_i18n.dart';
@@ -10,6 +11,8 @@ import '../../features/my/domain/entities/my_favorite_item.dart';
 import '../../features/my/presentation/providers/my_playlist_shelf_providers.dart';
 import '../utils/playlist_song_count_text.dart';
 import '../../features/online/presentation/widgets/search_playlist_list_item.dart';
+
+import 'app_button.dart';
 
 class SelectedUserPlaylist {
   const SelectedUserPlaylist({required this.id, required this.isDefault});
@@ -70,7 +73,9 @@ class SelectUserPlaylistSheet extends ConsumerWidget {
             localeCode: localeCode,
             onCreatePlaylist: onCreatePlaylist,
           ),
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(
+            child: AppActivityIndicator(size: 36, strokeWidth: 4),
+          ),
           error: (error, stackTrace) => _SheetHint(
             title: AppI18n.tByLocaleCode(
               localeCode,
@@ -187,7 +192,7 @@ class _SheetHint extends StatelessWidget {
           Text(title, textAlign: TextAlign.center),
           if (actionLabel != null && onAction != null) ...<Widget>[
             const SizedBox(height: 12),
-            OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+            AppButton.outlined(onPressed: onAction, child: Text(actionLabel!)),
           ],
         ],
       ),

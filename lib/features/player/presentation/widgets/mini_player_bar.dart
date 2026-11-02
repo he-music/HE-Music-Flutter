@@ -4,18 +4,17 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
+import '../../../../app/theme/skin/app_skin_surface.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/constants/layout_tokens.dart';
-import '../../../../shared/widgets/app_glass_surface.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/theme/glass/app_glass_scope.dart';
-import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
+import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
-import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../domain/entities/player_play_mode.dart';
 import '../../domain/entities/player_playback_state.dart';
 import '../../domain/entities/player_track.dart';
@@ -27,7 +26,6 @@ class MiniPlayerBar extends ConsumerStatefulWidget {
   const MiniPlayerBar({
     required this.onOpenFullPlayer,
     this.bottomSafeArea = false,
-    this.embedded = false,
     super.key,
   });
 
@@ -46,7 +44,6 @@ class MiniPlayerBar extends ConsumerStatefulWidget {
 
   final VoidCallback onOpenFullPlayer;
   final bool bottomSafeArea;
-  final bool embedded;
 
   @override
   ConsumerState<MiniPlayerBar> createState() => _MiniPlayerBarState();
@@ -204,92 +201,90 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
           .where((image) => image != currentArtwork)
           .toList(growable: false),
     );
-    final glassEnabled = AppGlassScope.isEnabled(context);
-    final inline =
-        widget.embedded &&
-        GlassTabBarAccessoryPlacementScope.of(context) ==
-            GlassTabBarAccessoryPlacement.inline;
-    final colors = Theme.of(context).colorScheme;
+    final usesCupertino = AppUiTheme.usesCupertino(context);
     final bar = LayoutBuilder(
       builder: (context, constraints) {
         return Padding(
-          padding: widget.embedded
-              ? EdgeInsets.zero
-              : glassEnabled
-              ? const EdgeInsets.fromLTRB(16, 0, 16, 8)
-              : const EdgeInsets.fromLTRB(12, 2, 12, 2),
-          child: AppGlassSurface(
+          padding: usesCupertino
+              ? const EdgeInsets.fromLTRB(12, 8, 12, 8)
+              : EdgeInsets.zero,
+          child: AppSkinSurface(
             role: AppSkinSurfaceRole.miniPlayer,
+            showDecoration: false,
+            borderRadius: usesCupertino
+                ? BorderRadius.circular(16)
+                : const BorderRadius.vertical(top: Radius.circular(12)),
             child: SizedBox(
-              height: MiniPlayerBar.heightFor(context),
-              child: Row(
-                children: <Widget>[
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: widget.onOpenFullPlayer,
-                    child: SizedBox.square(
-                      dimension: miniPlayerArtworkSize,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        child: _CoverImage(
-                          key: ValueKey<Object>(_coverKeyForTrack(track)),
-                          url: track.artworkUrl,
-                          bytes: track.artworkBytes,
+              height:
+                  MiniPlayerBar.heightFor(context) +
+                  (widget.bottomSafeArea && !usesCupertino
+                      ? MediaQuery.viewPaddingOf(context).bottom
+                      : 0),
+              child: SafeArea(
+                top: false,
+                bottom: widget.bottomSafeArea && !usesCupertino,
+                maintainBottomViewPadding: true,
+                child: Row(
+                  children: <Widget>[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: widget.onOpenFullPlayer,
+                      child: SizedBox.square(
+                        dimension: miniPlayerArtworkSize,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          child: _CoverImage(
+                            key: ValueKey<Object>(_coverKeyForTrack(track)),
+                            url: track.artworkUrl,
+                            bytes: track.artworkBytes,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _TrackPageView(
-                      track: track,
-                      queue: player.queue,
-                      currentIndex: player.currentIndex,
-                      previousTrack: previousTrack,
-                      nextTrack: nextTrack,
-                      usesLinearOrder:
-                          player.playMode != PlayerPlayMode.shuffle,
-                      isRadioMode: player.isRadioMode,
-                      onTap: widget.onOpenFullPlayer,
-                      onPrevious: controller.playPrevious,
-                      onNext: controller.playNext,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _TrackPageView(
+                        track: track,
+                        queue: player.queue,
+                        currentIndex: player.currentIndex,
+                        previousTrack: previousTrack,
+                        nextTrack: nextTrack,
+                        usesLinearOrder:
+                            player.playMode != PlayerPlayMode.shuffle,
+                        isRadioMode: player.isRadioMode,
+                        onTap: widget.onOpenFullPlayer,
+                        onPrevious: controller.playPrevious,
+                        onNext: controller.playNext,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    style: glassEnabled
-                        ? IconButton.styleFrom(
-                            foregroundColor: colors.primary,
-                            backgroundColor: colors.primary.withValues(
-                              alpha: 0.10,
-                            ),
-                          )
-                        : null,
-                    onPressed: controller.togglePlayPause,
-                    icon: AppSkinIcon(
-                      role: player.isPlaying
-                          ? AppSkinIconRole.miniPlayerPause
-                          : AppSkinIconRole.miniPlayerPlay,
-                    ),
-                    tooltip: AppI18n.tByLocaleCode(
-                      localeCode,
-                      player.isPlaying ? 'player.pause' : 'player.play',
-                    ),
-                  ),
-                  if (!inline && !player.isRadioMode)
-                    IconButton(
-                      onPressed: () => _openQueueSheet(context),
-                      icon: const AppSkinIcon(
-                        role: AppSkinIconRole.miniPlayerQueue,
+                    AppIconButton(
+                      onPressed: controller.togglePlayPause,
+                      icon: AppSkinIcon(
+                        role: player.isPlaying
+                            ? AppSkinIconRole.miniPlayerPause
+                            : AppSkinIconRole.miniPlayerPlay,
                       ),
                       tooltip: AppI18n.tByLocaleCode(
                         localeCode,
-                        'player.queue',
+                        player.isPlaying ? 'player.pause' : 'player.play',
                       ),
                     ),
-                  const SizedBox(width: 2),
-                ],
+                    if (!player.isRadioMode)
+                      AppIconButton(
+                        onPressed: () => _openQueueSheet(context),
+                        icon: const AppSkinIcon(
+                          role: AppSkinIconRole.miniPlayerQueue,
+                        ),
+                        tooltip: AppI18n.tByLocaleCode(
+                          localeCode,
+                          'player.queue',
+                        ),
+                      ),
+                    const SizedBox(width: 2),
+                  ],
+                ),
               ),
             ),
           ),
@@ -321,7 +316,9 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
           }
           return false;
         },
-        child: widget.bottomSafeArea ? SafeArea(top: false, child: bar) : bar,
+        child: widget.bottomSafeArea && usesCupertino
+            ? SafeArea(top: false, maintainBottomViewPadding: true, child: bar)
+            : bar,
       ),
     );
   }
@@ -352,7 +349,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
   }
 
   void _openQueueSheet(BuildContext context) {
-    showAppThemedBottomSheet<void>(
+    showPlayerStyledBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       fixedHeightFactor: LayoutTokens.queueSheetHeightFactor,

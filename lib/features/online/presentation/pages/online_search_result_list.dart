@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -243,7 +244,7 @@ class _OnlineSearchResultListState
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(widget.loadMoreError!, textAlign: TextAlign.center),
-            TextButton.icon(
+            AppButton.textIcon(
               onPressed: widget.onLoadMore,
               icon: const Icon(Icons.refresh),
               label: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),

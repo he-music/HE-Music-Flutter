@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -71,10 +72,7 @@ class StarTunnelLyricPage extends ConsumerWidget {
       loading: () => Center(
         child: SizedBox.square(
           dimension: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.4,
-            color: colors.accent,
-          ),
+          child: AppActivityIndicator(strokeWidth: 2.4, color: colors.accent),
         ),
       ),
       error: (_, _) => Center(

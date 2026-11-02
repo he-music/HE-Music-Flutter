@@ -2,18 +2,16 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../../app/theme/glass/app_glass_scope.dart';
-import '../../../../app/theme/skin/app_skin_theme.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../shared/helpers/detail_cover_preview_helper.dart';
 import '../../../../shared/helpers/detail_song_action_handler.dart';
@@ -305,12 +303,6 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
                 child: _ArtistControlSurface(
                   collapseExtent: collapseExtent,
                   joinsCover: true,
-                  glassBuilder: (settings, quality) => _ArtistGlassTabs(
-                    controller: _tabController,
-                    labels: tabLabels,
-                    settings: settings,
-                    quality: quality,
-                  ),
                   child: TabBar(
                     controller: _tabController,
                     isScrollable: false,
@@ -823,74 +815,17 @@ class _ArtistDetailPageState extends ConsumerState<ArtistDetailPage>
   }
 }
 
-class _ArtistGlassTabs extends StatelessWidget {
-  const _ArtistGlassTabs({
-    required this.controller,
-    required this.labels,
-    required this.settings,
-    required this.quality,
-  });
-
-  final TabController controller;
-  final List<String> labels;
-  final LiquidGlassSettings settings;
-  final GlassQuality quality;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final labelStyle = theme.textTheme.titleSmall?.copyWith(
-      fontWeight: FontWeight.w500,
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) => AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) => GlassTabBar.inline(
-          tabs: labels.map((label) => GlassTab(label: label)).toList(),
-          selectedIndex: controller.index,
-          onTabSelected: (index) => controller.animateTo(
-            index,
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : null,
-          ),
-          barHeight: 48,
-          barBorderRadius: 0,
-          tabWidth: constraints.maxWidth / labels.length,
-          tabPadding: EdgeInsets.zero,
-          indicatorBorderRadius: 12,
-          indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.10),
-          selectedLabelStyle: labelStyle?.copyWith(
-            color: theme.colorScheme.primary,
-          ),
-          unselectedLabelStyle: labelStyle?.copyWith(
-            color: theme.colorScheme.onSurface,
-          ),
-          selectedLabelColor: theme.colorScheme.primary,
-          unselectedLabelColor: theme.colorScheme.onSurface,
-          settings: settings,
-          quality: quality,
-          backgroundQuality: quality,
-        ),
-      ),
-    );
-  }
-}
-
 /// 两条固定控件共用材质；滚动只更新背景，控件和歌曲列表保留为 child。
 class _ArtistControlSurface extends StatelessWidget {
   const _ArtistControlSurface({
     required this.collapseExtent,
     required this.child,
     this.joinsCover = false,
-    this.glassBuilder,
   });
 
   final double collapseExtent;
   final Widget child;
   final bool joinsCover;
-  final Widget Function(LiquidGlassSettings settings, GlassQuality quality)?
-  glassBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -899,7 +834,6 @@ class _ArtistControlSurface extends StatelessWidget {
       scrollController: scroll.outerController,
       collapseExtent: collapseExtent,
       joinsCover: joinsCover,
-      glassBuilder: glassBuilder,
       child: child,
     );
   }
@@ -1042,21 +976,9 @@ class _ArtistSliverHeader extends StatelessWidget {
                       ? collapsedOverlayStyle
                       : SystemUiOverlayStyle.light)
                   .copyWith(statusBarColor: Colors.transparent);
-          final softControls =
-              theme.scaffoldBackgroundColor.a < 1 &&
-              AppGlassScope.controlsEnabled(context) &&
-              !MediaQuery.highContrastOf(context);
-          final bottomPanelColor = softControls
-              ? (theme
-                            .extension<AppSkinTheme>()
-                            ?.config
-                            .colors
-                            .fixedControlSurface ??
-                        theme.colorScheme.surface)
-                    .withValues(alpha: 0.72 - 0.05 * collapse)
-              : theme.colorScheme.surface.withValues(
-                  alpha: 0.94 - 0.18 * collapse,
-                );
+          final bottomPanelColor = theme.colorScheme.surface.withValues(
+            alpha: 0.94 - 0.18 * collapse,
+          );
           return AnnotatedRegion<SystemUiOverlayStyle>(
             value: overlayStyle,
             child: Stack(
@@ -2023,7 +1945,7 @@ class _TabErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            FilledButton(
+            AppButton.filled(
               onPressed: () => unawaited(onRetry()),
               child: Text(
                 AppI18n.tByLocaleCode(

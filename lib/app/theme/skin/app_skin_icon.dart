@@ -6,6 +6,9 @@ import 'app_skin_models.dart';
 import 'app_skin_theme.dart';
 import '../skins/classic_skin.dart';
 
+import '../app_ui_theme.dart';
+import '../app_ui_icons.dart';
+
 class AppSkinIcon extends StatefulWidget {
   const AppSkinIcon({
     required this.role,
@@ -55,7 +58,9 @@ class _AppSkinIconState extends State<AppSkinIcon> {
     final color = widget.color ?? IconTheme.of(context).color;
     if (spec == null) {
       return Icon(
-        classicIconForRole(widget.role),
+        AppUiTheme.usesCupertino(context)
+            ? cupertinoIconForRole(widget.role)
+            : classicIconForRole(widget.role),
         size: size,
         color: color,
         semanticLabel: widget.semanticLabel,
@@ -98,7 +103,11 @@ class _AppSkinIconState extends State<AppSkinIcon> {
     required Color? color,
   }) {
     return Icon(
-      spec.fallbackIcon,
+      AppUiTheme.usesCupertino(context) &&
+              spec.asset.kind == AppSkinAssetSlotKind.none &&
+              spec.fallbackIcon == classicIconForRole(widget.role)
+          ? cupertinoIconForRole(widget.role)
+          : spec.fallbackIcon,
       size: size,
       color: color,
       semanticLabel: widget.semanticLabel,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../shared/widgets/app_activity_indicator.dart';
+import '../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +22,7 @@ import 'router/platform_route_policy.dart';
 import 'startup/app_startup_provider.dart';
 import 'startup/app_auto_update_gate.dart';
 import 'theme/app_theme.dart';
+import 'theme/app_ui_theme.dart';
 import 'theme/skin/app_skin_background.dart';
 import 'theme/skin/app_skin_registry.dart';
 
@@ -39,6 +42,7 @@ class HeMusicApp extends ConsumerWidget {
       appConfigProvider.select(
         (state) => (
           themeMode: state.themeMode,
+          uiStyle: state.uiStyle,
           themeAccent: state.themeAccent,
           skinId: state.skinId,
           customSkinConfig: state.customSkinConfig,
@@ -56,15 +60,17 @@ class HeMusicApp extends ConsumerWidget {
     return MaterialApp.router(
       title: AppI18n.tByLocaleCode(appConfig.localeCode, 'app.title'),
       debugShowCheckedModeBanner: false,
-      scrollBehavior: const AppScrollBehavior(),
+      scrollBehavior: AppScrollBehavior(uiStyle: appConfig.uiStyle),
       themeMode: _toThemeMode(appConfig.themeMode),
       theme: AppTheme.light(
         skin,
+        uiStyle: appConfig.uiStyle,
         showContentBackground: appConfig.showContentBackground,
       ),
       darkTheme: AppTheme.dark(
         skin,
         showContentBackground: appConfig.showContentBackground,
+        uiStyle: appConfig.uiStyle,
       ),
       locale: _resolveLocale(appConfig.localeCode),
       supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
@@ -75,7 +81,10 @@ class HeMusicApp extends ConsumerWidget {
       ],
       routerConfig: appRouter,
       builder: (context, child) {
-        final content = child ?? const SizedBox.shrink();
+        final content = AppUiStyleScope(
+          style: appConfig.uiStyle,
+          child: child ?? const SizedBox.shrink(),
+        );
         final enableStartupGates = !isTestBinding || enableStartupGateInTests;
         final startupChild = enableStartupGates
             ? AppAutoUpdateGate(child: content)
@@ -209,7 +218,7 @@ class _AppStartupGate extends ConsumerWidget {
             children: [
               const SizedBox.square(
                 dimension: 24,
-                child: CircularProgressIndicator(strokeWidth: 2.4),
+                child: AppActivityIndicator(strokeWidth: 2.4),
               ),
               const SizedBox(height: 20),
               _OfflineStartupActions(localeCode: localeCode),
@@ -230,7 +239,7 @@ class _AppStartupGate extends ConsumerWidget {
           body: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              FilledButton(
+              AppButton.filled(
                 onPressed: () {
                   ref.invalidate(onlinePlatformsProvider);
                   ref.invalidate(appStartupProvider);
@@ -389,12 +398,12 @@ class _OfflineStartupActions extends ConsumerWidget {
         alignment: WrapAlignment.center,
         spacing: 8,
         children: [
-          TextButton.icon(
+          AppButton.textIcon(
             onPressed: () => ref.read(appRouterProvider).go(AppRoutes.library),
             icon: const Icon(Icons.library_music_outlined),
             label: Text(AppI18n.tByLocaleCode(localeCode, 'local.title')),
           ),
-          TextButton.icon(
+          AppButton.textIcon(
             onPressed: () =>
                 ref.read(appRouterProvider).go(AppRoutes.downloads),
             icon: const Icon(Icons.download_done_rounded),

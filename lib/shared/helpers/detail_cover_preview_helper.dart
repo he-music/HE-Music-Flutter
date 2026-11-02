@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:saver_gallery/saver_gallery.dart';
@@ -49,7 +50,8 @@ Future<void> showDetailCoverPreview({
                       return const SizedBox(
                         width: 26,
                         height: 26,
-                        child: CircularProgressIndicator(
+                        child: AppActivityIndicator(
+                          size: 26,
                           strokeWidth: 2.5,
                           color: Colors.white,
                         ),

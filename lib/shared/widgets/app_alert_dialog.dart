@@ -1,12 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
-import '../../app/theme/glass/app_glass_material.dart';
-import '../../app/theme/glass/app_glass_scope.dart';
+import '../../app/theme/app_ui_theme.dart';
 
-/// Adapts the app's simple Material alerts to the native glass dialog.
-/// Rich/disabled actions retain Material semantics rather than being flattened
-/// into the glass API, which supports only 1–3 enabled text actions.
+/// Preserves rich/disabled actions while using each design's alert semantics.
 class AppAlertDialog extends StatelessWidget {
   const AppAlertDialog({
     super.key,
@@ -21,76 +18,35 @@ class AppAlertDialog extends StatelessWidget {
   final List<Widget>? actions;
   final bool scrollable;
 
-  Widget _materialDialog() => AlertDialog(
-    title: title,
-    content: content,
-    actions: actions,
-    scrollable: scrollable,
-  );
-
   @override
   Widget build(BuildContext context) {
-    if (!AppGlassScope.controlsEnabled(context)) return _materialDialog();
-    final buttons = actions ?? const <Widget>[];
-    if (buttons.isEmpty ||
-        buttons.length > 3 ||
-        (title != null && (title is! Text || (title as Text).data == null)) ||
-        buttons.any(
-          (button) =>
-              button is! ButtonStyleButton ||
-              button.onPressed == null ||
-              button.child is! Text ||
-              (button.child as Text).data == null,
-        )) {
-      return _materialDialog();
+    if (!AppUiTheme.usesCupertino(context)) {
+      return AlertDialog(
+        title: title,
+        content: content,
+        actions: actions,
+        scrollable: scrollable,
+      );
     }
-    final message = switch (content) {
-      Text(
-        data: final text,
-        style: null,
-        textAlign: null,
-        maxLines: null,
-        overflow: null,
-        textScaler: null,
-        semanticsLabel: null,
-      ) =>
-        text,
-      _ => null,
-    };
     final colors = Theme.of(context).colorScheme;
-    return Material(
-      type: MaterialType.transparency,
-      child: Center(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            24 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: SingleChildScrollView(
-            child: GlassDialog(
-              maxWidth: 360,
-              title: (title as Text?)?.data,
-              message: message,
-              content: message == null ? content : null,
-              settings: AppGlassMaterial.sheetFor(context),
-              quality: AppGlassScope.qualityOf(context),
-              actions: [
-                for (final action in buttons.cast<ButtonStyleButton>())
-                  GlassDialogAction(
-                    label: (action.child as Text).data!,
-                    onPressed: action.onPressed!,
-                    isPrimary: action is FilledButton,
-                    isDestructive:
-                        action.style?.foregroundColor?.resolve({}) ==
-                        colors.error,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return CupertinoAlertDialog(
+      title: title,
+      content: content == null
+          ? null
+          : Material(type: MaterialType.transparency, child: content),
+      actions: [
+        for (final action in actions ?? const <Widget>[])
+          if (action is ButtonStyleButton)
+            CupertinoDialogAction(
+              onPressed: action.onPressed,
+              isDefaultAction: action is FilledButton,
+              isDestructiveAction:
+                  action.style?.foregroundColor?.resolve({}) == colors.error,
+              child: action.child ?? const SizedBox.shrink(),
+            )
+          else
+            action,
+      ],
     );
   }
 }

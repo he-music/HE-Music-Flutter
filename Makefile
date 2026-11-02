@@ -7,6 +7,7 @@ endif
 
 .PHONY: help get upgrade run analyze test format fix gen skin-previews player-previews player-cover-previews player-background-previews player-lyric-previews clean build-apk build-aab release-check release
 .PHONY: ios-launch-logo
+.PHONY: player-interface-previews
 
 help:
 	@printf "\n常用命令:\n"
@@ -21,6 +22,7 @@ help:
 	@printf "  make ios-launch-logo  从当前 Logo 更新 iOS 原生启动图（macOS）\n"
 	@printf "  make skin-previews  更新内置皮肤真实 UI 预览\n"
 	@printf "  make player-previews  更新播放器封面、背景、歌词预览\n"
+	@printf "  make player-interface-previews  导出两种界面风格的播放器弹层预览\n"
 	@printf "  make player-cover-previews / player-background-previews / player-lyric-previews  按类别更新\n"
 	@printf "  make clean          清理构建产物\n"
 	@printf "  make build-apk      构建 Android release APK（按 ABI 拆分）\n"
@@ -60,6 +62,9 @@ skin-previews:
 
 player-previews:
 	$(FLUTTER) test --dart-define=GENERATE_PLAYER_PREVIEWS=true test/app/theme/player_component_preview_test.dart
+
+player-interface-previews:
+	$(FLUTTER) test --dart-define=GENERATE_PLAYER_INTERFACE_PREVIEWS=true --plain-name "export player interface style previews" test/features/player/presentation/pages/player_page_test.dart
 
 player-cover-previews:
 	$(FLUTTER) test --dart-define=GENERATE_PLAYER_PREVIEWS=true --dart-define=PREVIEW_AXIS=stage test/app/theme/player_component_preview_test.dart

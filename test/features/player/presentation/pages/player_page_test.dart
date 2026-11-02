@@ -17,9 +17,10 @@ import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_player_wide_view.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
+import 'package:he_music_flutter/shared/widgets/app_slider.dart';
+import 'package:he_music_flutter/shared/widgets/app_button.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/router/app_route_observers.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
@@ -126,10 +127,10 @@ const _monetFixtureDocument = LyricDocument(
 );
 
 void main() {
-  for (final glass in [true, false]) {
+  for (final style in AppUiStyle.values) {
     for (final action in ['Speed', 'Volume']) {
       for (final size in [const Size(390, 844), const Size(844, 390)]) {
-        testWidgets('$action sheet fits content at $size with glass=$glass', (
+        testWidgets('$action sheet fits content at $size with $style', (
           tester,
         ) async {
           tester.view.devicePixelRatio = 1;
@@ -138,16 +139,11 @@ void main() {
           addTearDown(tester.view.reset);
           late _SheetControlsPlayerController controller;
           await tester.pumpWidget(
-            AppGlassScope(
-              enabled: glass,
-              mode: glass ? AppGlassMode.low : AppGlassMode.off,
-              child: GlassAdaptiveScope(
-                minQuality: GlassQuality.minimal,
-                maxQuality: GlassQuality.minimal,
-                child: _buildPlayerTestApp(
-                  controllerFactory: () =>
-                      controller = _SheetControlsPlayerController(),
-                ),
+            AppUiStyleScope(
+              style: style,
+              child: _buildPlayerTestApp(
+                controllerFactory: () =>
+                    controller = _SheetControlsPlayerController(),
               ),
             ),
           );
@@ -157,22 +153,45 @@ void main() {
           await _scrollPlayerMoreSheetTo(tester, action);
           await tester.tap(find.text(action));
           await tester.pumpAndSettle();
-          final surface = glass
-              ? find.byKey(const Key('glass_modal_sheet_fill'))
-              : find.byType(BottomSheet);
+          final surface = find.byType(BottomSheet);
           final rect = tester.getRect(surface);
-          if (glass) {
-            expect(rect.left, closeTo(8, .1));
-            expect(rect.right, closeTo(382, .1));
-          }
           expect(rect.height, lessThan(844 * .3));
           tester.view.physicalSize = size;
           await tester.pumpAndSettle();
           final slider = find.descendant(
-            of: find.byType(glass ? GlassModalSheet : BottomSheet),
-            matching: find.byType(Slider),
+            of: find.byType(BottomSheet),
+            matching: find.byType(AppSlider),
           );
-          await tester.drag(slider, const Offset(50, 0));
+          expect(
+            find.descendant(
+              of: surface,
+              matching: find.byType(
+                style == AppUiStyle.cupertino ? CupertinoSlider : Slider,
+              ),
+            ),
+            findsOneWidget,
+          );
+          if (style == AppUiStyle.cupertino) {
+            // Cupertino sliders begin a drag at the thumb.
+            final control = tester.widget<AppSlider>(slider);
+            final rect = tester.getRect(
+              find.descendant(
+                of: slider,
+                matching: find.byType(CupertinoSlider),
+              ),
+            );
+            final fraction =
+                (control.value - control.min) / (control.max - control.min);
+            await tester.dragFrom(
+              Offset(
+                rect.left + 24 + (rect.width - 48) * fraction,
+                rect.center.dy,
+              ),
+              const Offset(-50, 0),
+            );
+          } else {
+            await tester.drag(slider, const Offset(50, 0));
+          }
           await tester.pumpAndSettle();
           expect(
             action == 'Speed' ? controller.lastSpeed : controller.lastVolume,
@@ -202,62 +221,71 @@ void main() {
       }
     }
   }
-  testWidgets(
-    'glass sleep timer sheets fit content and custom picker scrolls',
-    (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        AppGlassScope(
-          enabled: true,
-          mode: AppGlassMode.low,
-          child: GlassAdaptiveScope(
-            minQuality: GlassQuality.minimal,
-            maxQuality: GlassQuality.minimal,
+  for (final style in AppUiStyle.values) {
+    testWidgets(
+      'sleep timer controls remain reachable after resizing with $style',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          AppUiStyleScope(
+            style: style,
             child: _buildPlayerTestApp(
               controllerFactory: _OnlineTrackPlayerController.new,
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
-      await tester.pumpAndSettle();
-      await _scrollPlayerMoreSheetTo(tester, 'Sleep Timer');
-      await tester.tap(find.text('Sleep Timer'));
-      await tester.pumpAndSettle();
-      final fill = find.byKey(const Key('glass_modal_sheet_fill'));
-      final presetRect = tester.getRect(fill);
-      final list = find.byKey(const ValueKey('player-sleep-timer-sheet-list'));
-      expect(presetRect.bottom - tester.getBottomLeft(list).dy, lessThan(24));
-      expect(
-        presetRect.bottom - tester.getBottomLeft(find.text('Custom')).dy,
-        lessThan(48),
-      );
-      await _scrollSleepTimerSheetTo(tester, 'Custom');
-      await tester.tap(find.text('Custom'));
-      await tester.pumpAndSettle();
-      final customFill = find.byKey(const Key('glass_modal_sheet_fill')).last;
-      final customRect = tester.getRect(customFill);
-      expect(
-        customRect.bottom - tester.getBottomLeft(find.byType(FilledButton)).dy,
-        lessThan(24),
-      );
-      expect(find.byType(CupertinoPicker), findsNWidgets(2));
-      tester.view.physicalSize = const Size(844, 390);
-      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Confirm'));
-      await tester.pumpAndSettle();
-      expect(find.text('Confirm').hitTestable(), findsOneWidget);
-      await tester.tap(find.text('Confirm'));
-      await tester.pumpAndSettle();
-      expect(find.byType(GlassModalSheet), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.pumpAndSettle();
+        await _scrollPlayerMoreSheetTo(tester, 'Sleep Timer');
+        await tester.tap(find.text('Sleep Timer'));
+        await tester.pumpAndSettle();
+        final fill = find.byType(BottomSheet);
+        final presetRect = tester.getRect(fill);
+        final list = find.byKey(
+          const ValueKey('player-sleep-timer-sheet-list'),
+        );
+        expect(presetRect.bottom - tester.getBottomLeft(list).dy, lessThan(24));
+        expect(
+          presetRect.bottom - tester.getBottomLeft(find.text('Custom')).dy,
+          lessThan(48),
+        );
+        await _scrollSleepTimerSheetTo(tester, 'Custom');
+        await tester.tap(find.text('Custom'));
+        await tester.pumpAndSettle();
+        final customRect = tester.getRect(find.byType(BottomSheet).last);
+        final confirm = find.ancestor(
+          of: find.text('Confirm'),
+          matching: find.byType(AppButton),
+        );
+        expect(
+          customRect.bottom - tester.getBottomLeft(confirm).dy,
+          lessThan(24),
+        );
+        expect(
+          find.byType(CupertinoPicker),
+          style == AppUiStyle.cupertino ? findsNWidgets(2) : findsNothing,
+        );
+        expect(
+          find.byType(DropdownButtonFormField<int>),
+          style == AppUiStyle.material ? findsNWidgets(2) : findsNothing,
+        );
+        tester.view.physicalSize = const Size(844, 390);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Confirm'));
+        await tester.pumpAndSettle();
+        expect(find.text('Confirm').hitTestable(), findsOneWidget);
+        await tester.tap(find.text('Confirm'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final (label, detailPath) in <(String, String)>[
     ('View Album', AppRoutes.albumDetail),
     ('View Artist', AppRoutes.artistDetail),
@@ -1240,7 +1268,12 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      _buildPlayerTestApp(controllerFactory: _OnlineTrackPlayerController.new),
+      AppUiStyleScope(
+        style: AppUiStyle.cupertino,
+        child: _buildPlayerTestApp(
+          controllerFactory: _OnlineTrackPlayerController.new,
+        ),
+      ),
     );
     await tester.pump();
     await tester.pump();
@@ -1487,6 +1520,123 @@ void main() {
   });
 
   testWidgets(
+    'export player interface style previews',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      final artwork = await tester.runAsync(() async {
+        for (final family in [
+          'Roboto',
+          'CupertinoSystemText',
+          'CupertinoSystemDisplay',
+        ]) {
+          await (FontLoader(family)..addFont(
+                File(
+                  'test/assets/fonts/Roboto-Regular.ttf',
+                ).readAsBytes().then(ByteData.sublistView),
+              ))
+              .load();
+        }
+        await (FontLoader(
+          'MaterialIcons',
+        )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+        await (FontLoader('packages/cupertino_icons/CupertinoIcons')..addFont(
+              rootBundle.load(
+                'packages/cupertino_icons/assets/CupertinoIcons.ttf',
+              ),
+            ))
+            .load();
+        return File('test/assets/player/artist_photo.png').readAsBytes();
+      });
+      const capture = ValueKey('player-interface-preview');
+      for (final style in AppUiStyle.values) {
+        for (final brightness in Brightness.values) {
+          await tester.pumpWidget(
+            RepaintBoundary(
+              key: capture,
+              child: AppUiStyleScope(
+                style: style,
+                child: _buildPlayerTestApp(
+                  controllerFactory: () =>
+                      _WidePreviewPlayerController(artwork!),
+                  platformName: 'QQ Music',
+                  config: AppConfigState.initial.copyWith(
+                    localeCode: 'en',
+                    uiStyle: style,
+                    playerStageId: AppPlayerStageRegistry.classicId,
+                  ),
+                  theme: ThemeData(
+                    brightness: brightness,
+                    colorScheme:
+                        ColorScheme.fromSeed(
+                          seedColor: const Color(0xFF007AFF),
+                          brightness: brightness,
+                        ).copyWith(
+                          primary: brightness == Brightness.light
+                              ? const Color(0xFF007AFF)
+                              : const Color(0xFF0A84FF),
+                          onPrimary: Colors.white,
+                        ),
+                    textTheme: ThemeData.dark().textTheme.apply(
+                      fontFamily: 'Roboto',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+          await tester.pumpAndSettle();
+          await _saveInterfacePreview(
+            tester,
+            capture,
+            '${style.name}-${brightness.name}-more',
+          );
+          final navigator = Navigator.of(
+            tester.element(find.byType(PlayerPage)),
+            rootNavigator: true,
+          );
+          for (final (action, name) in [
+            ('Speed', 'speed'),
+            ('Sleep Timer', 'sleep'),
+            ('Player Style', 'style'),
+          ]) {
+            await _scrollPlayerMoreSheetTo(tester, action);
+            await tester.tap(find.text(action));
+            await tester.pumpAndSettle();
+            await _saveInterfacePreview(
+              tester,
+              capture,
+              '${style.name}-${brightness.name}-$name',
+            );
+            navigator.pop();
+            await tester.pumpAndSettle();
+            await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+            await tester.pumpAndSettle();
+          }
+          navigator.pop();
+          await tester.pumpAndSettle();
+          await tester.tap(find.byIcon(Icons.queue_music_rounded));
+          await tester.pumpAndSettle();
+          await _saveInterfacePreview(
+            tester,
+            capture,
+            '${style.name}-${brightness.name}-queue',
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        }
+      }
+    },
+    skip: !const bool.fromEnvironment('GENERATE_PLAYER_INTERFACE_PREVIEWS'),
+  );
+
+  testWidgets(
     'export wide player view previews',
     (tester) async {
       tester.view.devicePixelRatio = 1;
@@ -1515,26 +1665,17 @@ void main() {
         await tester.pumpWidget(
           RepaintBoundary(
             key: capture,
-            child: AppGlassScope(
-              enabled: true,
-              mode: AppGlassMode.low,
-              child: GlassAdaptiveScope(
-                minQuality: GlassQuality.minimal,
-                maxQuality: GlassQuality.minimal,
-                child: _buildPlayerTestApp(
-                  controllerFactory: () =>
-                      _WidePreviewPlayerController(artwork!),
-                  lyricDocument: _monetFixtureDocument,
-                  config: AppConfigState.initial.copyWith(
-                    localeCode: 'en',
-                    playerWideView: view,
-                  ),
-                  theme: ThemeData.dark().copyWith(
-                    textTheme: ThemeData.dark().textTheme.apply(
-                      fontFamily: 'WidePreview',
-                      fontFamilyFallback: ['WidePreviewCjk'],
-                    ),
-                  ),
+            child: _buildPlayerTestApp(
+              controllerFactory: () => _WidePreviewPlayerController(artwork!),
+              lyricDocument: _monetFixtureDocument,
+              config: AppConfigState.initial.copyWith(
+                localeCode: 'en',
+                playerWideView: view,
+              ),
+              theme: ThemeData.dark().copyWith(
+                textTheme: ThemeData.dark().textTheme.apply(
+                  fontFamily: 'WidePreview',
+                  fontFamilyFallback: ['WidePreviewCjk'],
                 ),
               ),
             ),
@@ -1717,14 +1858,14 @@ void main() {
           .value,
       42000,
     );
-    final volume = tester.widget<Slider>(
+    final volume = tester.widget<AppSlider>(
       find.byKey(const ValueKey('player-wide-volume')),
     );
     volume.onChanged!(.4);
     await tester.pump();
     expect(
       tester
-          .widget<Slider>(find.byKey(const ValueKey('player-wide-volume')))
+          .widget<AppSlider>(find.byKey(const ValueKey('player-wide-volume')))
           .value,
       .4,
     );
@@ -3864,8 +4005,31 @@ TiltLyricPainter _tiltPainter(WidgetTester tester) {
       as TiltLyricPainter;
 }
 
+Future<void> _saveInterfacePreview(
+  WidgetTester tester,
+  Key capture,
+  String name,
+) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(capture),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File('/tmp/he-player-interface-previews/$name.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes!.buffer.asUint8List());
+      expect(await file.length(), greaterThan(1024));
+    } finally {
+      image.dispose();
+    }
+  });
+}
+
 Widget _buildPlayerTestApp({
   required PlayerController Function() controllerFactory,
+  String platformName = 'QQ 音乐',
   BigInt? featureSupportFlag,
   AppConfigState? config,
   ThemeData? theme,
@@ -3916,6 +4080,7 @@ Widget _buildPlayerTestApp({
       artistPhotoCacheProvider.overrideWith(_EmptyArtistPhotoCache.new),
       onlinePlatformsProvider.overrideWith(
         () => _TestOnlinePlatformsController(
+          platformName: platformName,
           featureSupportFlag:
               featureSupportFlag ??
               (PlatformFeatureSupportFlag.getAlbumInfo |
@@ -3951,10 +4116,12 @@ Future<void> _scrollPlayerMoreSheetTo(WidgetTester tester, String label) async {
   await tester.scrollUntilVisible(
     find.text(label),
     120,
-    scrollable: find.descendant(
-      of: find.byKey(const ValueKey<String>('player-more-sheet-list')),
-      matching: find.byType(Scrollable),
-    ),
+    scrollable: find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('player-more-sheet-list')),
+          matching: find.byType(Scrollable),
+        )
+        .last,
   );
   await tester.pumpAndSettle();
 }
@@ -4099,6 +4266,7 @@ class _WidePreviewPlayerController extends _OnlineTrackPlayerController {
         initial.queue.first.copyWith(
           title: 'City Echoes',
           artist: 'HE Music',
+          album: 'City Echoes',
           artworkBytes: artwork,
         ),
       ],
@@ -4394,16 +4562,20 @@ const List<PlayerTrack> _transitionTracks = <PlayerTrack>[
 ];
 
 class _TestOnlinePlatformsController extends OnlinePlatformsController {
-  _TestOnlinePlatformsController({required this.featureSupportFlag});
+  _TestOnlinePlatformsController({
+    required this.featureSupportFlag,
+    this.platformName = 'QQ 音乐',
+  });
 
   final BigInt featureSupportFlag;
+  final String platformName;
 
   @override
   Future<List<OnlinePlatform>> build() async {
     return <OnlinePlatform>[
       OnlinePlatform(
         id: 'qq',
-        name: 'QQ 音乐',
+        name: platformName,
         shortName: 'QQ',
         status: 1,
         featureSupportFlag: featureSupportFlag,

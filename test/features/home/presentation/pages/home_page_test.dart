@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +29,36 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 
 void main() {
+  for (final style in AppUiStyle.values) {
+    testWidgets('$style home empty recommendation pull refreshes once', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        AppUiStyleScope(style: style, child: _buildTestApp()),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomePage)),
+      );
+      final controller =
+          container.read(homePageControllerProvider.notifier)
+              as _TestHomePageController;
+      final scroll = find.byType(CustomScrollView).first;
+      await tester.timedDrag(
+        scroll,
+        const Offset(0, 300),
+        const Duration(seconds: 1),
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(controller.refreshCalls, 1);
+      await tester.drag(scroll, const Offset(0, 300));
+      await tester.pump(const Duration(seconds: 1));
+      expect(controller.refreshCalls, 1);
+      controller.pendingRefresh.complete(null);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('search respects large text and keeps a usable touch target', (
     tester,
   ) async {
@@ -208,6 +241,15 @@ class _TestPlayerController extends PlayerController {
 }
 
 class _TestHomePageController extends HomePageController {
+  int refreshCalls = 0;
+  final pendingRefresh = Completer<String?>();
+
+  @override
+  Future<String?> refresh() {
+    refreshCalls++;
+    return pendingRefresh.future;
+  }
+
   @override
   HomePageState build() {
     final platform = OnlinePlatform(

@@ -3,22 +3,22 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:he_music_flutter/shared/widgets/app_button.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'cache_sheet_images.dart';
 import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:toastification/toastification.dart';
-import 'package:he_music_flutter/app/config/app_glass_mode.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skins/classic_skin.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
-import 'package:he_music_flutter/app/theme/glass/app_glass_scope.dart';
 import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -39,7 +39,6 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
-import 'package:he_music_flutter/shared/widgets/app_glass_player_scaffold.dart';
 import 'package:he_music_flutter/shared/helpers/detail_song_action_handler.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
@@ -47,9 +46,9 @@ import 'package:he_music_flutter/features/sheet_music/presentation/widgets/sheet
 
 void main() {
   for (final brightness in Brightness.values) {
-    for (final glassMode in [AppGlassMode.off, AppGlassMode.standard]) {
+    for (final uiStyle in [AppUiStyle.material, AppUiStyle.cupertino]) {
       testWidgets(
-        'classic detail surfaces match the list background ($brightness $glassMode)',
+        'classic detail surfaces match the list background ($brightness $uiStyle)',
         (tester) async {
           await tester.binding.setSurfaceSize(const Size(390, 844));
           addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -74,7 +73,7 @@ void main() {
             tester,
             repository,
             theme: theme,
-            glassMode: glassMode,
+            uiStyle: uiStyle,
             capturePreview: true,
           );
           await tester.pumpAndSettle();
@@ -128,7 +127,7 @@ void main() {
           if (const bool.fromEnvironment('GENERATE_SHEET_MUSIC_PREVIEWS')) {
             await _saveSheetLayout(
               tester,
-              'classic-${brightness.name}-${glassMode.name}',
+              'classic-${brightness.name}-${uiStyle.name}',
             );
           }
           await tester.tap(find.byTooltip('全屏阅读'));
@@ -611,28 +610,25 @@ void main() {
       },
     );
   }
-  for (final mode in [AppGlassMode.standard, AppGlassMode.powerSaving]) {
-    testWidgets('sheet music keeps only the shared shell glass in $mode', (
+  for (final mode in [AppUiStyle.cupertino, AppUiStyle.material]) {
+    testWidgets('sheet music keeps shared page semantics in $mode', (
       tester,
     ) async {
       final repository = _Repository();
       repository.listResult = () async =>
           throw const SheetMusicNotImplementedException();
-      await _pump(tester, repository, glassMode: mode);
+      await _pump(tester, repository, uiStyle: mode);
       await tester.pumpAndSettle();
-      expect(find.byType(GlassScaffold), findsOneWidget);
-      expect(find.byType(GlassAppBar), findsNothing);
+      expect(find.byType(Scaffold), findsWidgets);
       expect(find.text('曲谱功能暂未开放'), findsOneWidget);
-      expect(find.byType(GlassButton), findsNothing);
-      expect(find.byType(GlassIconButton), findsNothing);
-      expect(find.widgetWithText(OutlinedButton, '重试'), findsOneWidget);
+      expect(find.widgetWithText(AppButton, '重试'), findsOneWidget);
       expect(find.byType(AppBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
 
   testWidgets(
-    'reader actions and panels stay Material when global glass is enabled',
+    'reader content keeps its layout when Cupertino controls are selected',
     (tester) async {
       final repository = _Repository()
         ..detailResult = () async => const SheetMusicInfo(
@@ -647,19 +643,15 @@ void main() {
         tester,
         repository,
         detail: true,
-        glassMode: AppGlassMode.standard,
+        uiStyle: AppUiStyle.cupertino,
       );
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextButton, '下载全部'), findsOneWidget);
-      expect(find.byType(GlassButton), findsNothing);
-      expect(find.byType(GlassIconButton), findsNothing);
-      expect(find.byType(GlassAppBar), findsNothing);
+      expect(find.widgetWithText(AppButton, '下载全部'), findsOneWidget);
       expect(find.byTooltip('曲谱信息'), findsNothing);
       expect(find.byIcon(Icons.fullscreen_rounded), findsNothing);
       await tester.tap(find.text('1 / 2'));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.byType(GlassModalSheet), findsNothing);
       await tester.tap(find.byKey(const ValueKey('sheet-thumbnail-1')));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('全屏阅读'));
@@ -668,13 +660,8 @@ void main() {
       final fullscreen = find.byWidgetPredicate(
         (widget) => widget is SheetMusicReader && widget.fullscreen,
       );
-      expect(
-        find.descendant(of: fullscreen, matching: find.byType(GlassScaffold)),
-        findsNothing,
-      );
-      expect(find.widgetWithText(TextButton, '保存当前页'), findsOneWidget);
-      expect(find.byType(GlassButton), findsNothing);
-      expect(find.byType(GlassIconButton), findsNothing);
+      expect(fullscreen, findsOneWidget);
+      expect(find.widgetWithText(AppButton, '保存当前页'), findsOneWidget);
       await tester.tap(find.byTooltip('关闭'));
       await tester.pumpAndSettle();
     },
@@ -797,10 +784,10 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
-  for (final glassMode in [AppGlassMode.off, AppGlassMode.standard]) {
+  for (final uiStyle in [AppUiStyle.material, AppUiStyle.cupertino]) {
     for (final bottomInset in [0.0, 24.0]) {
       testWidgets(
-        'reading controls clear the mini player with glass=$glassMode inset=$bottomInset',
+        'reading controls clear the mini player with style=$uiStyle inset=$bottomInset',
         (tester) async {
           tester.view.devicePixelRatio = 1;
           tester.view.physicalSize = const Size(390, 844);
@@ -830,7 +817,7 @@ void main() {
             tester,
             repository,
             detail: true,
-            glassMode: glassMode,
+            uiStyle: uiStyle,
             layoutPlayer: player,
           );
           await tester.pumpAndSettle();
@@ -897,11 +884,7 @@ void main() {
           expect(find.text('2 / 2'), findsOneWidget);
           player.setHasTrack(false);
           await tester.pumpAndSettle();
-          if (glassMode == AppGlassMode.off) {
-            expect(tester.getSize(mini).height, 0);
-          } else {
-            expect(mini, findsNothing);
-          }
+          expect(tester.getSize(mini).height, 0);
           final bottomWithoutPlayer = tester.getBottomLeft(reader).dy;
           player.setHasTrack(true);
           await tester.pumpAndSettle();
@@ -1055,7 +1038,7 @@ void main() {
           tester,
           repository,
           detail: true,
-          glassMode: AppGlassMode.standard,
+          uiStyle: AppUiStyle.cupertino,
           layoutPlayer: _LayoutPlayer(),
           capturePreview: true,
           theme: theme,
@@ -1088,7 +1071,7 @@ Future<GoRouter> _pump(
   bool detail = false,
   BigInt? flags,
   bool actionHost = false,
-  AppGlassMode glassMode = AppGlassMode.off,
+  AppUiStyle uiStyle = AppUiStyle.material,
   SheetMusicDownloadRepository? downloadRepository,
   ThemeData? theme,
   bool capturePreview = false,
@@ -1147,23 +1130,22 @@ Future<GoRouter> _pump(
             downloadRepository,
           ),
       ],
-      child: AppGlassScope(
-        enabled: glassMode != AppGlassMode.off,
-        mode: glassMode,
-        child: GlassAdaptiveScope(
-          minQuality: GlassQuality.minimal,
-          maxQuality: GlassQuality.minimal,
-          child: MaterialApp.router(
-            routerConfig: router,
-            theme: theme,
-            builder: capturePreview
-                ? (_, child) => RepaintBoundary(
-                    key: const ValueKey('sheet-layout-preview'),
-                    child: ColoredBox(color: Colors.lightBlue, child: child!),
-                  )
-                : null,
-          ),
+      child: MaterialApp.router(
+        routerConfig: router,
+        theme: (theme ?? ThemeData()).copyWith(
+          extensions: [
+            ...?theme?.extensions.values.where(
+              (extension) => extension is! AppUiTheme,
+            ),
+            AppUiTheme(style: uiStyle),
+          ],
         ),
+        builder: capturePreview
+            ? (_, child) => RepaintBoundary(
+                key: const ValueKey('sheet-layout-preview'),
+                child: ColoredBox(color: Colors.lightBlue, child: child!),
+              )
+            : null,
       ),
     ),
   );
@@ -1180,13 +1162,7 @@ class _LayoutPlayerShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mini = MiniPlayerBar(
-      bottomSafeArea: !AppGlassScope.isEnabled(context),
-      onOpenFullPlayer: () {},
-    );
-    if (AppGlassScope.isEnabled(context)) {
-      return AppGlassPlayerScaffold(body: child, miniPlayer: mini);
-    }
+    final mini = MiniPlayerBar(bottomSafeArea: true, onOpenFullPlayer: () {});
     return Scaffold(body: child, bottomNavigationBar: mini);
   }
 }

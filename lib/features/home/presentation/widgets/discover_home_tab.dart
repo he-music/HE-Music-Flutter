@@ -25,6 +25,7 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/song_actions_sheet.dart';
+import '../../../../shared/widgets/app_refreshable_scroll_view.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/utils/cover_resolver.dart';
@@ -383,250 +384,242 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
             );
             return ScrollToTopOverlay(
               controller: _scrollControllers[page]!,
-              child: RefreshIndicator(
-                elevation: 0,
+              child: AppRefreshableScrollView(
                 onRefresh: () async {
                   final error = await homeController.refresh();
                   if (error != null && mounted) {
                     AppMessageService.showError(error);
                   }
                 },
-                child: CustomScrollView(
-                  controller: _scrollControllers[page],
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
-                  slivers: <Widget>[
-                    SliverToBoxAdapter(child: SizedBox(height: _searchHeight)),
-                    if (page == HomePageKind.discover)
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(
-                          LayoutTokens.compactPageGutter,
-                          8,
-                          LayoutTokens.compactPageGutter,
-                          0,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: _EntryRow(
+                controller: _scrollControllers[page],
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                slivers: <Widget>[
+                  SliverToBoxAdapter(child: SizedBox(height: _searchHeight)),
+                  if (page == HomePageKind.discover)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        LayoutTokens.compactPageGutter,
+                        8,
+                        LayoutTokens.compactPageGutter,
+                        0,
+                      ),
+                      sliver: SliverToBoxAdapter(
+                        child: _EntryRow(
+                          config: config,
+                          onTapEntry: (entry) => _openEntry(
+                            context: context,
                             config: config,
-                            onTapEntry: (entry) => _openEntry(
-                              context: context,
-                              config: config,
-                              platformId: selectedPlatformId,
-                              entry: entry,
-                            ),
+                            platformId: selectedPlatformId,
+                            entry: entry,
                           ),
                         ),
                       ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                    SliverToBoxAdapter(
-                      child: _PlatformBar(
-                        selectedPlatformId: content.selectedPlatformId,
-                        onSelected: homeController.selectPlatform,
-                        chips: platformChips,
-                      ),
                     ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 14)),
-                    ...buildHomeSectionSlivers(
-                      state: content,
-                      gridSpec: gridSpec,
-                      quickEntryGridSpec: quickEntryGridSpec,
-                      loadingText: AppI18n.t(config, 'home.loading'),
-                      emptyText: AppI18n.t(
-                        config,
-                        page == HomePageKind.recommend
-                            ? 'home.recommend.empty'
-                            : 'home.empty',
-                      ),
-                      retryText: AppI18n.t(config, 'home.retry'),
-                      onRetry: homeController.retry,
-                      sectionActionOf: (section) => _buildSectionAction(
-                        context: context,
-                        config: config,
-                        sectionType: section.sectionType,
-                        selectedPlatformId: selectedPlatformId,
-                      ),
-                      onTapSong: (songs, index) => _playDiscoverSong(
-                        context: context,
-                        ref: pageRef,
-                        songs: songs,
-                        startIndex: index,
-                      ),
-                      onTapAlbum: (album) => context.pushAlbumDetail(
-                        id: album.id,
-                        platform: album.platform,
-                        title: album.name,
-                      ),
-                      onTapPlaylist: (playlist) => context.pushPlaylistDetail(
-                        id: playlist.id,
-                        platform: playlist.platform,
-                        title: playlist.name,
-                      ),
-                      onTapMv: (mv) => _openDiscoverDetailPage(
-                        context: context,
-                        path: AppRoutes.videoDetail,
-                        id: mv.id,
-                        platform: mv.platform,
-                        title: mv.name,
-                      ),
-                      onTapArtist: (artist) => _openDiscoverDetailPage(
-                        context: context,
-                        path: AppRoutes.artistDetail,
-                        id: artist.id,
-                        platform: artist.platform,
-                        title: artist.name,
-                      ),
-                      onTapRanking: (ranking) => _openDiscoverDetailPage(
-                        context: context,
-                        path: AppRoutes.rankingDetail,
-                        id: ranking.id,
-                        platform: ranking.platform,
-                        title: ranking.name,
-                      ),
-                      onTapRadio: (radio) =>
-                          handleRadioPlayback(pageRef, radio),
-                      onTapEntry: (entry) => _openPageEntry(
-                        context: context,
-                        config: config,
-                        platformId: selectedPlatformId,
-                        entry: entry,
-                      ),
-                      onMoreSong: (song) => _showDiscoverSongActions(
-                        context: context,
-                        ref: pageRef,
-                        song: song,
-                      ),
-                      buildSongStatus: (context, song, builder) {
-                        final platform = song.platform.isEmpty
-                            ? selectedPlatformId
-                            : song.platform;
-                        final favoriteKey = buildFavoriteSongKey(
-                          songId: song.id,
-                          platform: platform,
-                        );
-                        return Consumer(
-                          builder: (context, ref, _) {
-                            final isLiked = ref.watch(
-                              favoriteSongStatusProvider.select(
-                                (state) => state.songKeys.contains(favoriteKey),
-                              ),
-                            );
-                            final isCurrent = ref.watch(
-                              playerControllerProvider.select(
-                                (state) => _isCurrentHomeSong(
-                                  currentTrackId:
-                                      state.displayTrack?.id.trim() ?? '',
-                                  currentTrackPlatform:
-                                      (state.displayTrack?.platform ?? '')
-                                          .trim(),
-                                  song: song,
-                                ),
-                              ),
-                            );
-                            return builder(isLiked, isCurrent);
-                          },
-                        );
-                      },
-                      onLikeSong: (song) => _toggleSongFavorite(
-                        ref: pageRef,
-                        song: song,
-                        fallbackPlatformId: selectedPlatformId,
-                      ),
-                      buildRadioStatus: (context, radio, builder) => Consumer(
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                  SliverToBoxAdapter(
+                    child: _PlatformBar(
+                      selectedPlatformId: content.selectedPlatformId,
+                      onSelected: homeController.selectPlatform,
+                      chips: platformChips,
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 14)),
+                  ...buildHomeSectionSlivers(
+                    state: content,
+                    gridSpec: gridSpec,
+                    quickEntryGridSpec: quickEntryGridSpec,
+                    loadingText: AppI18n.t(config, 'home.loading'),
+                    emptyText: AppI18n.t(
+                      config,
+                      page == HomePageKind.recommend
+                          ? 'home.recommend.empty'
+                          : 'home.empty',
+                    ),
+                    retryText: AppI18n.t(config, 'home.retry'),
+                    onRetry: homeController.retry,
+                    sectionActionOf: (section) => _buildSectionAction(
+                      context: context,
+                      config: config,
+                      sectionType: section.sectionType,
+                      selectedPlatformId: selectedPlatformId,
+                    ),
+                    onTapSong: (songs, index) => _playDiscoverSong(
+                      context: context,
+                      ref: pageRef,
+                      songs: songs,
+                      startIndex: index,
+                    ),
+                    onTapAlbum: (album) => context.pushAlbumDetail(
+                      id: album.id,
+                      platform: album.platform,
+                      title: album.name,
+                    ),
+                    onTapPlaylist: (playlist) => context.pushPlaylistDetail(
+                      id: playlist.id,
+                      platform: playlist.platform,
+                      title: playlist.name,
+                    ),
+                    onTapMv: (mv) => _openDiscoverDetailPage(
+                      context: context,
+                      path: AppRoutes.videoDetail,
+                      id: mv.id,
+                      platform: mv.platform,
+                      title: mv.name,
+                    ),
+                    onTapArtist: (artist) => _openDiscoverDetailPage(
+                      context: context,
+                      path: AppRoutes.artistDetail,
+                      id: artist.id,
+                      platform: artist.platform,
+                      title: artist.name,
+                    ),
+                    onTapRanking: (ranking) => _openDiscoverDetailPage(
+                      context: context,
+                      path: AppRoutes.rankingDetail,
+                      id: ranking.id,
+                      platform: ranking.platform,
+                      title: ranking.name,
+                    ),
+                    onTapRadio: (radio) => handleRadioPlayback(pageRef, radio),
+                    onTapEntry: (entry) => _openPageEntry(
+                      context: context,
+                      config: config,
+                      platformId: selectedPlatformId,
+                      entry: entry,
+                    ),
+                    onMoreSong: (song) => _showDiscoverSongActions(
+                      context: context,
+                      ref: pageRef,
+                      song: song,
+                    ),
+                    buildSongStatus: (context, song, builder) {
+                      final platform = song.platform.isEmpty
+                          ? selectedPlatformId
+                          : song.platform;
+                      final favoriteKey = buildFavoriteSongKey(
+                        songId: song.id,
+                        platform: platform,
+                      );
+                      return Consumer(
                         builder: (context, ref, _) {
-                          final selected = ref.watch(
-                            playerControllerProvider.select(
-                              (state) =>
-                                  state.isRadioMode &&
-                                  state.currentRadioId == radio.id &&
-                                  state.currentRadioPlatform == radio.platform,
+                          final isLiked = ref.watch(
+                            favoriteSongStatusProvider.select(
+                              (state) => state.songKeys.contains(favoriteKey),
                             ),
                           );
-                          return builder(selected);
-                        },
-                      ),
-                      buildEntryRadioStatus: (context, entry, builder) =>
-                          Consumer(
-                            builder: (context, ref, _) {
-                              final selected = ref.watch(
-                                playerControllerProvider.select(
-                                  (state) =>
-                                      state.isRadioMode &&
-                                      state.currentRadioId == entry.targetId &&
-                                      state.currentRadioPlatform ==
-                                          selectedPlatformId,
-                                ),
-                              );
-                              return builder(selected);
-                            },
-                          ),
-                      resolveSongCover: (song) => _resolveDiscoverSongCover(
-                        config: config,
-                        platforms: globalPlatforms,
-                        platformId: content.selectedPlatformId,
-                        song: song,
-                      ),
-                      resolveAlbumCover: (album) => _resolveDiscoverGridCover(
-                        platforms: globalPlatforms,
-                        selectedPlatformId: content.selectedPlatformId,
-                        itemPlatformId: album.platform,
-                        cover: album.cover,
-                      ),
-                      resolvePlaylistCover: (playlist) =>
-                          _resolveDiscoverGridCover(
-                            platforms: globalPlatforms,
-                            selectedPlatformId: content.selectedPlatformId,
-                            itemPlatformId: playlist.platform,
-                            cover: playlist.cover,
-                          ),
-                      resolveMvCover: (mv) => _resolveDiscoverGridCover(
-                        platforms: globalPlatforms,
-                        selectedPlatformId: content.selectedPlatformId,
-                        itemPlatformId: mv.platform,
-                        cover: mv.cover,
-                      ),
-                      resolveArtistCover: (artist) => _resolveDiscoverGridCover(
-                        platforms: globalPlatforms,
-                        selectedPlatformId: content.selectedPlatformId,
-                        itemPlatformId: artist.platform,
-                        cover: artist.cover,
-                      ),
-                      resolveRadioCover: (radio) => _resolveDiscoverGridCover(
-                        platforms: globalPlatforms,
-                        selectedPlatformId: content.selectedPlatformId,
-                        itemPlatformId: radio.platform,
-                        cover: radio.cover,
-                      ),
-                    ),
-                    if (page == HomePageKind.recommend && content.loadingMore)
-                      const SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                      ),
-                    if (page == HomePageKind.recommend &&
-                        content.loadMoreErrorMessage != null)
-                      SliverToBoxAdapter(
-                        child: Center(
-                          child: TextButton(
-                            onPressed: homeController.loadMore,
-                            child: Text(
-                              AppI18n.t(
-                                config,
-                                'common.load_more_failed_retry',
+                          final isCurrent = ref.watch(
+                            playerControllerProvider.select(
+                              (state) => _isCurrentHomeSong(
+                                currentTrackId:
+                                    state.displayTrack?.id.trim() ?? '',
+                                currentTrackPlatform:
+                                    (state.displayTrack?.platform ?? '').trim(),
+                                song: song,
                               ),
                             ),
+                          );
+                          return builder(isLiked, isCurrent);
+                        },
+                      );
+                    },
+                    onLikeSong: (song) => _toggleSongFavorite(
+                      ref: pageRef,
+                      song: song,
+                      fallbackPlatformId: selectedPlatformId,
+                    ),
+                    buildRadioStatus: (context, radio, builder) => Consumer(
+                      builder: (context, ref, _) {
+                        final selected = ref.watch(
+                          playerControllerProvider.select(
+                            (state) =>
+                                state.isRadioMode &&
+                                state.currentRadioId == radio.id &&
+                                state.currentRadioPlatform == radio.platform,
+                          ),
+                        );
+                        return builder(selected);
+                      },
+                    ),
+                    buildEntryRadioStatus: (context, entry, builder) =>
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final selected = ref.watch(
+                              playerControllerProvider.select(
+                                (state) =>
+                                    state.isRadioMode &&
+                                    state.currentRadioId == entry.targetId &&
+                                    state.currentRadioPlatform ==
+                                        selectedPlatformId,
+                              ),
+                            );
+                            return builder(selected);
+                          },
+                        ),
+                    resolveSongCover: (song) => _resolveDiscoverSongCover(
+                      config: config,
+                      platforms: globalPlatforms,
+                      platformId: content.selectedPlatformId,
+                      song: song,
+                    ),
+                    resolveAlbumCover: (album) => _resolveDiscoverGridCover(
+                      platforms: globalPlatforms,
+                      selectedPlatformId: content.selectedPlatformId,
+                      itemPlatformId: album.platform,
+                      cover: album.cover,
+                    ),
+                    resolvePlaylistCover: (playlist) =>
+                        _resolveDiscoverGridCover(
+                          platforms: globalPlatforms,
+                          selectedPlatformId: content.selectedPlatformId,
+                          itemPlatformId: playlist.platform,
+                          cover: playlist.cover,
+                        ),
+                    resolveMvCover: (mv) => _resolveDiscoverGridCover(
+                      platforms: globalPlatforms,
+                      selectedPlatformId: content.selectedPlatformId,
+                      itemPlatformId: mv.platform,
+                      cover: mv.cover,
+                    ),
+                    resolveArtistCover: (artist) => _resolveDiscoverGridCover(
+                      platforms: globalPlatforms,
+                      selectedPlatformId: content.selectedPlatformId,
+                      itemPlatformId: artist.platform,
+                      cover: artist.cover,
+                    ),
+                    resolveRadioCover: (radio) => _resolveDiscoverGridCover(
+                      platforms: globalPlatforms,
+                      selectedPlatformId: content.selectedPlatformId,
+                      itemPlatformId: radio.platform,
+                      cover: radio.cover,
+                    ),
+                  ),
+                  if (page == HomePageKind.recommend && content.loadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                  if (page == HomePageKind.recommend &&
+                      content.loadMoreErrorMessage != null)
+                    SliverToBoxAdapter(
+                      child: Center(
+                        child: TextButton(
+                          onPressed: homeController.loadMore,
+                          child: Text(
+                            AppI18n.t(config, 'common.load_more_failed_retry'),
                           ),
                         ),
                       ),
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: 20 + MediaQuery.paddingOf(context).bottom,
-                      ),
                     ),
-                  ],
-                ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 20 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                  ),
+                ],
               ),
             );
           },

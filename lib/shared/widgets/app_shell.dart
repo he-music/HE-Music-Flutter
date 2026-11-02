@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../../app/app_navigation_service.dart';
 import '../../../app/config/app_config_controller.dart';
@@ -9,10 +8,8 @@ import '../../../app/i18n/app_i18n.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/skin/app_skin_icon.dart';
 import '../../../app/theme/skin/app_skin_models.dart';
-import '../../../app/theme/glass/app_glass_scope.dart';
-import '../../../app/theme/skin/app_skin_theme.dart';
-import 'app_glass_navigation_bar.dart';
-import 'app_glass_player_scaffold.dart';
+import 'app_bottom_navigation_bar.dart';
+import 'app_player_scaffold.dart';
 import '../../../features/player/presentation/widgets/mini_player_bar.dart';
 
 /// Keep bottom navigation consistent across phone, tablet, and desktop sizes.
@@ -29,131 +26,56 @@ class AppShell extends ConsumerWidget {
     final localeCode = ref.watch(
       appConfigProvider.select((state) => state.localeCode),
     );
-    final glassEnabled = AppGlassScope.isEnabled(context);
     final miniPlayer = MiniPlayerBar(
-      embedded: glassEnabled,
       onOpenFullPlayer: () => openFullPlayer(context),
     );
-    Widget buildNavigation(
-      Widget? accessory,
-      GlassTabBarMinimizeController? controller,
-      ValueChanged<bool> expandFromUser,
-    ) => SafeArea(
-      top: false,
-      bottom: !glassEnabled,
-      maintainBottomViewPadding: !glassEnabled,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          glassEnabled ? 16 : 12,
-          0,
-          glassEnabled ? 16 : 12,
-          4,
-        ),
-        child: AppGlassNavigationBar(
-          accessory: accessory,
-          minimizeController: controller,
-          onExpandFromUser: expandFromUser,
-          child: NavigationBar(
-            selectedIndex: navigationShell.currentIndex == _myIndex ? 1 : 0,
-            backgroundColor: Colors.transparent,
-            onDestinationSelected: (index) {
-              final branchIndex = index == 0 ? _homeIndex : _myIndex;
-              navigationShell.goBranch(
-                branchIndex,
-                initialLocation: branchIndex == navigationShell.currentIndex,
-              );
-              GoRouter.of(
-                context,
-              ).go(branchIndex == _homeIndex ? AppRoutes.home : AppRoutes.my);
-            },
-            destinations: <NavigationDestination>[
-              NavigationDestination(
-                icon: const _NavigationIcon(
-                  role: AppSkinIconRole.navigationHome,
-                  selected: false,
-                ),
-                selectedIcon: const _NavigationIcon(
-                  role: AppSkinIconRole.navigationHomeSelected,
-                  selected: true,
-                ),
-                label: AppI18n.tByLocaleCode(localeCode, 'tab.home'),
-              ),
-              NavigationDestination(
-                icon: const _NavigationIcon(
-                  role: AppSkinIconRole.navigationMy,
-                  selected: false,
-                ),
-                selectedIcon: const _NavigationIcon(
-                  role: AppSkinIconRole.navigationMySelected,
-                  selected: true,
-                ),
-                label: AppI18n.tByLocaleCode(localeCode, 'tab.my'),
-              ),
-            ],
+    Widget buildNavigation() => AppBottomNavigationBar(
+      child: NavigationBar(
+        selectedIndex: navigationShell.currentIndex == _myIndex ? 1 : 0,
+        backgroundColor: Colors.transparent,
+        maintainBottomViewPadding: true,
+        onDestinationSelected: (index) {
+          final branchIndex = index == 0 ? _homeIndex : _myIndex;
+          navigationShell.goBranch(
+            branchIndex,
+            initialLocation: branchIndex == navigationShell.currentIndex,
+          );
+          GoRouter.of(
+            context,
+          ).go(branchIndex == _homeIndex ? AppRoutes.home : AppRoutes.my);
+        },
+        destinations: <NavigationDestination>[
+          NavigationDestination(
+            icon: const _NavigationIcon(role: AppSkinIconRole.navigationHome),
+            selectedIcon: const _NavigationIcon(
+              role: AppSkinIconRole.navigationHomeSelected,
+            ),
+            label: AppI18n.tByLocaleCode(localeCode, 'tab.home'),
           ),
-        ),
-      ),
-    );
-    if (glassEnabled) {
-      return AppGlassPlayerScaffold(
-        body: navigationShell,
-        miniPlayer: miniPlayer,
-        navigationBuilder: buildNavigation,
-      );
-    }
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: Column(
-        children: [
-          Expanded(child: navigationShell),
-          miniPlayer,
+          NavigationDestination(
+            icon: const _NavigationIcon(role: AppSkinIconRole.navigationMy),
+            selectedIcon: const _NavigationIcon(
+              role: AppSkinIconRole.navigationMySelected,
+            ),
+            label: AppI18n.tByLocaleCode(localeCode, 'tab.my'),
+          ),
         ],
       ),
-      bottomNavigationBar: buildNavigation(null, null, (_) {}),
+    );
+    return AppPlayerScaffold(
+      body: navigationShell,
+      miniPlayer: miniPlayer,
+      navigation: buildNavigation(),
     );
   }
 }
 
 class _NavigationIcon extends StatelessWidget {
-  const _NavigationIcon({required this.role, required this.selected});
+  const _NavigationIcon({required this.role});
 
   final AppSkinIconRole role;
-  final bool selected;
 
   @override
-  Widget build(BuildContext context) {
-    final skinTheme = Theme.of(context).extension<AppSkinTheme>();
-    final showLine =
-        selected &&
-        (!AppGlassScope.isEnabled(context) ||
-            MediaQuery.highContrastOf(context)) &&
-        skinTheme != null &&
-        !skinTheme.config.geometry.showNavigationIndicatorPill;
-    return SizedBox(
-      width: 30,
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
-        children: <Widget>[
-          AppSkinIcon(role: role),
-          if (showLine)
-            Positioned(
-              left: 5,
-              right: 5,
-              bottom: 0,
-              child: DecoratedBox(
-                key: const ValueKey<String>(
-                  'app-skin-navigation-selection-indicator',
-                ),
-                decoration: BoxDecoration(
-                  color: skinTheme.config.colors.selectionIndicator,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: const SizedBox(height: 2),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      SizedBox(width: 30, height: 32, child: AppSkinIcon(role: role));
 }

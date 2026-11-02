@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../constants/layout_tokens.dart';
 
+import 'package:flutter/cupertino.dart';
+import '../../app/theme/app_ui_theme.dart';
+
 class UnderlineTab extends StatelessWidget {
   const UnderlineTab({
     required this.label,
@@ -24,6 +27,32 @@ class UnderlineTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
+    if (AppUiTheme.usesCupertino(context)) {
+      return Semantics(
+        selected: selected,
+        enabled: enabled,
+        child: CupertinoButton(
+          onPressed: enabled ? onTap : null,
+          minimumSize: Size(44, minHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: selected ? primary.withValues(alpha: 0.12) : null,
+          borderRadius: BorderRadius.circular(8),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: !enabled
+                  ? theme.disabledColor
+                  : selected
+                  ? primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
     return Semantics(
       selected: selected,
       enabled: enabled,

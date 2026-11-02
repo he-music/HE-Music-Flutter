@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../app/theme/glass/app_glass_scope.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../domain/entities/update_release.dart';
@@ -114,27 +115,9 @@ class _ReleaseHistoryPageState extends ConsumerState<ReleaseHistoryPage> {
   Widget build(BuildContext context) {
     ref.watch(appConfigProvider.select((config) => config.localeCode));
     final title = Text(_t('update.history.title'));
-    final glassEnabled = AppGlassScope.isEnabled(context);
-    final body = SafeArea(top: !glassEnabled, child: _buildBody(context));
-    if (glassEnabled) {
-      return Material(
-        type: MaterialType.transparency,
-        child: GlassScaffold(
-          extendBody: false,
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: GlassAppBar(
-            title: title,
-            leading: GlassIconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () => context.appPopOrGo(),
-            ),
-          ),
-          body: body,
-        ),
-      );
-    }
+    final body = SafeArea(top: false, child: _buildBody(context));
     return Scaffold(
-      appBar: AppBar(leading: const AppBackButton(), title: title),
+      appBar: AppNavigationBar(leading: const AppBackButton(), title: title),
       body: body,
     );
   }
@@ -142,7 +125,9 @@ class _ReleaseHistoryPageState extends ConsumerState<ReleaseHistoryPage> {
   Widget _buildBody(BuildContext context) {
     final releases = _visible;
     if (releases.isEmpty && _loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: AppActivityIndicator(size: 36, strokeWidth: 4),
+      );
     }
     return ScrollToTopOverlay(
       controller: _scrollController,
@@ -189,7 +174,9 @@ class _ReleaseHistoryPageState extends ConsumerState<ReleaseHistoryPage> {
                 if (_loading)
                   const Padding(
                     padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(
+                      child: AppActivityIndicator(size: 36, strokeWidth: 4),
+                    ),
                   ),
                 if (_failed && releases.isNotEmpty)
                   Padding(
@@ -207,7 +194,7 @@ class _ReleaseHistoryPageState extends ConsumerState<ReleaseHistoryPage> {
                       spacing: 8,
                       children: [
                         if (_failed || _hasMore)
-                          TextButton(
+                          AppButton.text(
                             onPressed: _loading ? null : _load,
                             child: Text(
                               _t(
@@ -218,7 +205,7 @@ class _ReleaseHistoryPageState extends ConsumerState<ReleaseHistoryPage> {
                             ),
                           ),
                         if (_latest != null && !_showEarlier)
-                          TextButton(
+                          AppButton.text(
                             onPressed: () =>
                                 setState(() => _showEarlier = true),
                             child: Text(_t('update.history.earlier')),
