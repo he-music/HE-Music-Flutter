@@ -236,12 +236,9 @@ void main() {
         expect(find.byType(PlayerSheetSurface), findsNWidgets(2));
         expect(
           find.byKey(const ValueKey('settings-lyric-preview')),
-          findsOneWidget,
+          findsNothing,
         );
-        expect(
-          tester.widget<Text>(find.text('让每一句，都清晰动听')).style?.fontSize,
-          24,
-        );
+        expect(find.text('让每一句，都清晰动听'), findsNothing);
         for (final (label, size) in [('小', 20.0), ('中', 24.0), ('大', 28.0)]) {
           final option = find.descendant(
             of: find.byType(PlayerSheetSurface).last,
@@ -257,13 +254,14 @@ void main() {
         );
         await tester.tap(find.text('歌词大小'));
         await tester.pumpAndSettle();
-        final preview = find.byKey(const ValueKey('settings-lyric-preview'));
-        expect(preview, findsOneWidget);
         expect(
-          tester.widget<Text>(find.text('让每一句，都清晰动听')).style?.fontSize,
-          28,
+          find.byKey(const ValueKey('settings-lyric-preview')),
+          findsNothing,
         );
-        Navigator.of(tester.element(preview)).pop();
+        expect(find.text('让每一句，都清晰动听'), findsNothing);
+        Navigator.of(
+          tester.element(find.byType(PlayerSheetSurface).last),
+        ).pop();
         await tester.pumpAndSettle();
         expect(find.text('歌词选项'), findsOneWidget);
         final toggle = find.byType(CupertinoSwitch);

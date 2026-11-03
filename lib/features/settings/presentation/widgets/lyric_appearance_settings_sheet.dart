@@ -18,7 +18,6 @@ Future<void> showLyricFontPresetSettingsSheet({
   title: AppI18n.t(config, 'settings.lyric_font_preset'),
   currentValue: config.lyricFontPreset,
   playerStyled: playerStyled,
-  cupertinoPreview: LyricSettingsPreview(config: config),
   options: [
     for (final preset in AppLyricFontPreset.values)
       SettingsChoiceOption(
@@ -33,7 +32,7 @@ Future<void> showLyricFontPresetSettingsSheet({
   onSelected: onSelected,
 );
 
-/// Settings and player choices share one appearance preview and size scale.
+/// Preview for lyric highlight color choices.
 class LyricSettingsPreview extends StatelessWidget {
   const LyricSettingsPreview({required this.config, super.key});
 
