@@ -9,18 +9,18 @@ The classic skin has no external wallpaper or icon assets. This directory contai
 - Dark seed: `#34D399`
 - Generation: real routed Flutter home scene through `make skin-previews`
 - Actual dimensions: `360x640` for both previews
-- UI revision: Material uses Discover / Library / My navigation with its selection indicator, an adjoining opaque playback bar, and distinct recommendation / browse tabs; the classic color palette is unchanged
+- UI revision: Material uses Discover / Library / My navigation with its selection indicator, an adjoining opaque playback bar, and compact recommendation / browse TabBar and secondary platform FilterChips; the classic color palette is unchanged
 
 The classic skin still supports manual accent selection. These static previews represent the application default accent and must be regenerated if `AppConfigState.initial.themeAccent` or the rendered shared UI changes.
 
 ## Light Preview
 
 - Path: `assets/skins/classic/preview_light.png`
-- SHA-256: `0fabaac69dda70a297b13fd3f3dfa653ea83625d0d7f6b2359fd69d34b8dbf62`
+- SHA-256: `dc8fe609d9d2a0cfd919ecda07f00906297c2e776a3b314a368e3a8f9800384f`
 - Actual dimensions: `360x640`
 
 ## Dark Preview
 
 - Path: `assets/skins/classic/preview_dark.png`
-- SHA-256: `d77352def9e5a3fcd1777974bbb7ff1a1ddc74ed887af5f9f061c7690af393aa`
+- SHA-256: `eb0f5216eb038dcf4dbcb0bc8082004be2deba9927a0eb7e2f8edcb0dc087aec`
 - Actual dimensions: `360x640`

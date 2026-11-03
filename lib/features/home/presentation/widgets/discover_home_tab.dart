@@ -28,7 +28,8 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/widgets/song_actions_sheet.dart';
 import '../../../../shared/widgets/app_refreshable_scroll_view.dart';
-import '../../../../shared/widgets/underline_tab.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_search_field.dart';
 import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/utils/cover_resolver.dart';
 import '../../../../shared/utils/share_link_builder.dart';
@@ -425,7 +426,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                       chips: platformChips,
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 14)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
                   ...buildHomeSectionSlivers(
                     state: content,
                     gridSpec: gridSpec,
@@ -1536,7 +1537,7 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
   }
 }
 
-class _HomePageTabs extends StatelessWidget {
+class _HomePageTabs extends StatefulWidget {
   const _HomePageTabs({
     required this.pages,
     required this.selectedPage,
@@ -1550,79 +1551,141 @@ class _HomePageTabs extends StatelessWidget {
   final ValueChanged<HomePageKind> onSelected;
 
   @override
+  State<_HomePageTabs> createState() => _HomePageTabsState();
+}
+
+class _HomePageTabsState extends State<_HomePageTabs>
+    with TickerProviderStateMixin {
+  late TabController _tabController;
+  bool? _disableAnimations;
+
+  int get _selectedIndex {
+    final index = widget.pages.indexOf(widget.selectedPage);
+    return index < 0 ? 0 : index;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    if (_disableAnimations == disableAnimations) return;
+    if (_disableAnimations != null) _tabController.dispose();
+    _disableAnimations = disableAnimations;
+    _tabController = _createTabController();
+  }
+
+  TabController _createTabController() => TabController(
+    length: widget.pages.length,
+    initialIndex: _selectedIndex,
+    animationDuration: _disableAnimations == true
+        ? Duration.zero
+        : _homeSearchAnimationDuration,
+    vsync: this,
+  );
+
+  @override
+  void didUpdateWidget(covariant _HomePageTabs oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pages.length != widget.pages.length) {
+      _tabController.dispose();
+      _tabController = _createTabController();
+    } else if (_tabController.index != _selectedIndex) {
+      // PageView remains the page container; this only updates the indicator.
+      _tabController.animateTo(
+        _selectedIndex,
+        duration: _disableAnimations == true
+            ? Duration.zero
+            : _homeSearchAnimationDuration,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     String labelFor(HomePageKind page) => AppI18n.t(
-      config,
+      widget.config,
       page == HomePageKind.recommend
           ? 'home.tab.recommend'
           : 'home.tab.discover',
     );
+    final Widget tabs;
     if (AppUiTheme.usesCupertino(context)) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(
-          LayoutTokens.compactPageGutter + 4,
-          6,
-          LayoutTokens.compactPageGutter + 4,
-          4,
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final scale = MediaQuery.textScalerOf(context).scale(17) / 17;
-            final width = constraints.maxWidth < 240 * scale
-                ? 240 * scale
-                : constraints.maxWidth;
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: width,
-                child: CupertinoSlidingSegmentedControl<HomePageKind>(
-                  groupValue: pages.contains(selectedPage)
-                      ? selectedPage
-                      : pages.first,
-                  onValueChanged: (page) {
-                    if (page != null) onSelected(page);
-                  },
-                  children: {
-                    for (final page in pages)
-                      page: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 44),
-                        child: Center(
-                          child: Text(
-                            labelFor(page),
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
+      final scale = MediaQuery.textScalerOf(context).scale(17) / 17;
+      tabs = SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: 240 * scale,
+          child: CupertinoSlidingSegmentedControl<HomePageKind>(
+            padding: const EdgeInsets.all(3),
+            groupValue: widget.pages[_selectedIndex],
+            onValueChanged: (page) {
+              if (page != null) widget.onSelected(page);
+            },
+            children: {
+              for (final page in widget.pages)
+                page: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 38),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Center(
+                      child: Text(
+                        labelFor(page),
+                        style: theme.textTheme.bodyMedium,
                       ),
-                  },
+                    ),
+                  ),
                 ),
-              ),
-            );
-          },
+            },
+          ),
         ),
+      );
+    } else {
+      final textHeight = MediaQuery.textScalerOf(context).scale(15) * 1.4 + 12;
+      tabs = TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        padding: EdgeInsets.zero,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+        labelStyle: theme.textTheme.titleSmall?.copyWith(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: theme.textTheme.titleSmall?.copyWith(
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+        ),
+        labelColor: theme.colorScheme.primary,
+        unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+        indicatorColor: theme.colorScheme.primary,
+        indicatorWeight: 2,
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: Colors.transparent,
+        onTap: (index) => widget.onSelected(widget.pages[index]),
+        tabs: [
+          for (final page in widget.pages)
+            Tab(
+              height: textHeight < 48 ? 48 : textHeight,
+              text: labelFor(page),
+            ),
+        ],
       );
     }
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        LayoutTokens.compactPageGutter + 4,
-        6,
-        LayoutTokens.compactPageGutter + 4,
+        LayoutTokens.compactPageGutter,
+        4,
+        LayoutTokens.compactPageGutter,
         4,
       ),
-      child: Row(
-        children: pages
-            .map(
-              (page) => Flexible(
-                child: UnderlineTab(
-                  prominent: true,
-                  label: labelFor(page),
-                  selected: page == selectedPage,
-                  enabled: true,
-                  onTap: () => onSelected(page),
-                ),
-              ),
-            )
-            .toList(growable: false),
-      ),
+      child: Align(alignment: AlignmentDirectional.centerStart, child: tabs),
     );
   }
 }
@@ -1681,17 +1744,23 @@ class _HomeSearchActions extends StatelessWidget {
         const SizedBox(width: 8),
         SizedBox.square(
           dimension: HomeSearchField.heightFor(context),
-          child: Material(
-            color: theme.colorScheme.surface.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(13),
-            child: InkWell(
-              onTap: onParseUrl,
-              borderRadius: BorderRadius.circular(13),
-              child: Icon(
-                Icons.link_rounded,
-                color: theme.colorScheme.primary,
-                size: 18,
+          child: AppIconButton(
+            tooltip: AppI18n.t(config, 'parse.title'),
+            onPressed: onParseUrl,
+            style: IconButton.styleFrom(
+              backgroundColor: AppSearchField.materialFillColorFor(context),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  AppSearchField.radiusFor(context),
+                ),
               ),
+            ),
+            icon: Icon(
+              AppUiTheme.usesCupertino(context)
+                  ? CupertinoIcons.link
+                  : Icons.link_rounded,
+              color: theme.colorScheme.primary,
+              size: 18,
             ),
           ),
         ),
@@ -1855,47 +1924,100 @@ class _PlatformBar extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: SingleChildScrollView(
+        key: const ValueKey<String>('home-platform-chips'),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(
-          horizontal: LayoutTokens.compactPageGutter + 4,
+          horizontal: LayoutTokens.compactPageGutter,
         ),
         child: Row(
-          children: chips
-              .map(
-                (chip) => _UnderlineTab(
-                  label: chip.label,
-                  selected: chip.id == selectedPlatformId,
-                  enabled: true,
-                  onTap: () => onSelected(chip.id),
-                ),
-              )
-              .toList(growable: false),
+          children: [
+            for (var index = 0; index < chips.length; index++) ...[
+              if (index > 0) const SizedBox(width: 6),
+              _HomePlatformChip(
+                label: chips[index].label,
+                selected: chips[index].id == selectedPlatformId,
+                onSelected: () => onSelected(chips[index].id),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 }
 
-class _UnderlineTab extends StatelessWidget {
-  const _UnderlineTab({
+class _HomePlatformChip extends StatelessWidget {
+  const _HomePlatformChip({
     required this.label,
     required this.selected,
-    required this.enabled,
-    required this.onTap,
+    required this.onSelected,
   });
 
   final String label;
   final bool selected;
-  final bool enabled;
-  final VoidCallback onTap;
+  final VoidCallback onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return UnderlineTab(
-      label: label,
-      selected: selected,
-      enabled: enabled,
-      onTap: onTap,
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+      fontSize: 13,
+      color: selected ? colors.primary : colors.onSurfaceVariant,
+      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    );
+    if (AppUiTheme.usesCupertino(context)) {
+      return Semantics(
+        selected: selected,
+        child: CupertinoButton(
+          minimumSize: const Size(44, 44),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          onPressed: onSelected,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: selected
+                  ? colors.primary.withValues(alpha: 0.12)
+                  : colors.onSurface.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 32),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: Center(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Text(label, style: labelStyle),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 48),
+      child: FilterChip(
+        label: Text(label),
+        labelStyle: labelStyle,
+        selected: selected,
+        onSelected: (_) => onSelected(),
+        showCheckmark: false,
+        selectedColor: colors.primary.withValues(alpha: 0.12),
+        backgroundColor: colors.surfaceContainerLow,
+        side: BorderSide(
+          color: selected
+              ? colors.primary.withValues(alpha: 0.25)
+              : colors.outlineVariant,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        visualDensity: VisualDensity.standard,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
+      ),
     );
   }
 }

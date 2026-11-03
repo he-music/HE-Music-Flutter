@@ -124,7 +124,7 @@ The replacement dark derivative was inspected at full frame and local detail on 
 - Generator: `make skin-previews`, which runs `flutter test --update-goldens test/app/theme/skin_preview_golden_test.dart`.
 - Render contract: actual `MaterialApp.router`, `AppTheme`, `AppSkinBackgroundLayer`, home route, recommend/discover tabs, recommend song list, mini player, bottom navigation, production wallpapers, and production SVG catalog at a fixed `360x640` logical-pixel viewport.
 - Data contract: deterministic Riverpod overrides provide fixed Chinese UI content; no image model redraws or synthesizes application text.
-- UI revision: Material uses Discover / Library / My navigation with its selection indicator, an adjoining opaque playback bar, and distinct recommendation / browse tabs; wallpaper, SVG and Rive assets retain their recorded provenance.
+- UI revision: Material uses Discover / Library / My navigation with its selection indicator, an adjoining opaque playback bar, and compact recommendation / browse TabBar and secondary platform FilterChips; wallpaper, SVG and Rive assets retain their recorded provenance.
 - Test fonts: Roboto Regular, Medium, and Bold plus a 14 KB Chinese glyph subset derived from Android Open Source Project's Droid Sans Fallback, all under Apache License 2.0. The files, subset glyph manifest, provenance, and license are retained under `test/assets/fonts/` and are not declared as runtime assets.
 - Material fallback icons: loaded from the Material Icons font already declared by Flutter's `uses-material-design` contract.
 - Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
@@ -134,13 +134,13 @@ The replacement dark derivative was inspected at full frame and local detail on 
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `a673820d0dd391c3591d2dd6a3b6a508ce7f70ce3c7e2510f4a96ca6934c0d6e`.
+- SHA-256: `351579e98c867f4599d66de3ffc76823f5014ca89d7c059bad82170370ea07a8`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `a4aa7b1bbdda8574fd58387afb891a899e8c3e99e54550a29782d4e6a10d2903`.
+- SHA-256: `c3284114f6ee7e939555baf90bcc26066f5f779065baa1a5021f736afeb0ca15`.
 
 ## Rive ambient animation
 
