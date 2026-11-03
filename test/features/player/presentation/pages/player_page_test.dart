@@ -1802,22 +1802,13 @@ void main() {
         await tester.tap(find.text('Quality'));
         await tester.pumpAndSettle();
         expect(find.text('Playback Quality'), findsOneWidget);
-        expect(
-          style == AppUiStyle.cupertino
-              ? find.byTooltip('Close')
-              : find.text('Close'),
-          findsOneWidget,
-        );
+        expect(find.byTooltip('Close'), findsOneWidget);
         if (style == AppUiStyle.cupertino) {
           expect(find.byIcon(CupertinoIcons.check_mark), findsOneWidget);
           expect(find.byIcon(Icons.graphic_eq_rounded), findsNothing);
           expect(find.byType(CupertinoListTile), findsNWidgets(2));
         }
-        await tester.tap(
-          style == AppUiStyle.cupertino
-              ? find.byTooltip('Close')
-              : find.text('Close'),
-        );
+        await tester.tap(find.byTooltip('Close'));
         await tester.pumpAndSettle();
         expect(
           find.byKey(const ValueKey('player-quality-sheet-list')),
@@ -1832,17 +1823,8 @@ void main() {
         if (style == AppUiStyle.cupertino) {
           expect(tester.widget(card), isA<CupertinoButton>());
         }
-        expect(
-          style == AppUiStyle.cupertino
-              ? find.byTooltip('Close')
-              : find.text('Done'),
-          findsOneWidget,
-        );
-        await tester.tap(
-          style == AppUiStyle.cupertino
-              ? find.byTooltip('Close')
-              : find.text('Done'),
-        );
+        expect(find.byTooltip('Close'), findsOneWidget);
+        await tester.tap(find.byTooltip('Close'));
         await tester.pumpAndSettle();
         expect(
           find.byKey(const ValueKey('player-style-selection-layout')),

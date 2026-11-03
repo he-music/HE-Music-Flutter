@@ -116,6 +116,10 @@ void main() {
               expect(await File(deletion.blockedPath!).exists(), isTrue);
             }
           } finally {
+            final context = rootNavigatorKey.currentContext;
+            if (context != null) {
+              ScaffoldMessenger.maybeOf(context)?.removeCurrentSnackBar();
+            }
             toastification.dismissAll(delayForAnimation: false);
             toastification.managers.clear();
             await tester.pumpWidget(const SizedBox.shrink());

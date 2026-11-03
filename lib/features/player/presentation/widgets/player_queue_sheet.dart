@@ -8,7 +8,8 @@ class PlayerQueueSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      // The route owns height so the queue list fills the available sheet.
+      top: false,
+      // The panel estimates its content height inside the route's upper bound.
       child: PlayerQueuePanelContent(
         onRequestDismiss: () => Navigator.of(context).pop(),
       ),

@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 
 import 'app_navigation_service.dart';
+import 'app_message_service.dart';
 import 'app_scroll_behavior.dart';
 import 'config/app_config_controller.dart';
 import 'config/app_theme_mode.dart';
@@ -59,6 +60,7 @@ class HeMusicApp extends ConsumerWidget {
     ).resolve(appConfig.skinId);
     return MaterialApp.router(
       title: AppI18n.tByLocaleCode(appConfig.localeCode, 'app.title'),
+      scaffoldMessengerKey: AppMessageService.messengerKey,
       debugShowCheckedModeBanner: false,
       scrollBehavior: AppScrollBehavior(uiStyle: appConfig.uiStyle),
       themeMode: _toThemeMode(appConfig.themeMode),

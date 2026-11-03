@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +30,60 @@ import 'package:he_music_flutter/features/player/presentation/controllers/player
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 
 void main() {
+  testWidgets(
+    'Cupertino home segments preserve the page controller across style changes',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final style = ValueNotifier(AppUiStyle.cupertino);
+      addTearDown(style.dispose);
+      await tester.pumpWidget(
+        ValueListenableBuilder<AppUiStyle>(
+          valueListenable: style,
+          child: _buildTestApp(),
+          builder: (context, value, child) =>
+              AppUiStyleScope(style: value, child: child!),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      final segments = find.byType(
+        CupertinoSlidingSegmentedControl<HomePageKind>,
+      );
+      expect(segments, findsOneWidget);
+      expect(tester.getSize(segments).height, greaterThanOrEqualTo(44));
+      final controller = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      await tester.ensureVisible(find.text('Browse'));
+      await tester.tap(find.text('Browse'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(controller.page, 1);
+      expect(
+        tester
+            .widget<CustomScrollView>(find.byType(CustomScrollView).first)
+            .physics,
+        isA<BouncingScrollPhysics>(),
+      );
+      style.value = AppUiStyle.material;
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(segments, findsNothing);
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller,
+        same(controller),
+      );
+      expect(controller.page, 1);
+      final physics = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView).first)
+          .physics!;
+      expect(physics, isA<AlwaysScrollableScrollPhysics>());
+      expect(physics.parent, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final style in AppUiStyle.values) {
     testWidgets('$style home empty recommendation pull refreshes once', (
       tester,
@@ -119,7 +174,7 @@ void main() {
       ).textTheme.bodyMedium?.fontSize,
     );
 
-    await tester.tap(find.text('Discover'));
+    await tester.tap(find.text('Browse'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -159,7 +214,7 @@ void main() {
 
     await tester.pumpWidget(_buildTestApp());
     await tester.pump();
-    await tester.tap(find.text('Discover'));
+    await tester.tap(find.text('Browse'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

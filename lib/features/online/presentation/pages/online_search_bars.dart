@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/app_i18n.dart';
 import '../../domain/entities/online_platform.dart';
 import '../../../../shared/constants/layout_tokens.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../shared/widgets/plaza_loading_skeleton.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../../../../shared/widgets/app_search_field.dart';
@@ -148,36 +150,67 @@ class _PlatformChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final selectedColor = theme.colorScheme.primary;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Semantics(
-        button: true,
-        selected: selected,
-        enabled: enabled,
-        child: Material(
-          color: selected
-              ? selectedColor.withValues(alpha: 0.10)
-              : theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.42,
-                ),
-          borderRadius: BorderRadius.circular(999),
-          child: InkWell(
-            onTap: enabled ? onTap : null,
+    final isCupertino = AppUiTheme.usesCupertino(context);
+    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+      color: !enabled
+          ? theme.hintColor.withValues(alpha: 0.55)
+          : selected
+          ? selectedColor
+          : theme.colorScheme.onSurfaceVariant,
+    );
+    final control = isCupertino
+        ? CupertinoButton(
+            onPressed: enabled ? onTap : null,
+            minimumSize: const Size(44, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            color: selected ? selectedColor.withValues(alpha: 0.12) : null,
             borderRadius: BorderRadius.circular(999),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: !enabled
-                      ? theme.hintColor.withValues(alpha: 0.55)
-                      : selected
-                      ? selectedColor
-                      : theme.colorScheme.onSurfaceVariant,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: labelStyle,
+            ),
+          )
+        : Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: enabled ? onTap : null,
+              borderRadius: BorderRadius.circular(999),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? selectedColor.withValues(alpha: 0.10)
+                          : theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.42),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: Center(
+                      widthFactor: 1,
+                      heightFactor: 1,
+                      child: Text(label, style: labelStyle),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+          );
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: MergeSemantics(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          enabled: enabled,
+          child: control,
         ),
       ),
     );
@@ -201,7 +234,9 @@ class _SimpleTab extends StatelessWidget {
       label: label,
       selected: selected,
       enabled: true,
-      minHeight: 0,
+      minHeight: AppUiTheme.usesCupertino(context)
+          ? 44
+          : LayoutTokens.controlMinExtent,
       onTap: onTap,
     );
   }

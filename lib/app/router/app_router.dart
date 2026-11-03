@@ -1,7 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../shared/widgets/app_content_width.dart';
-import '../../shared/widgets/app_player_scaffold.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_navigation_service.dart';
@@ -26,6 +25,7 @@ import '../../features/music_library/presentation/pages/metadata_edit_page.dart'
 import '../../features/music_library/domain/entities/local_song.dart';
 import '../../features/my/presentation/pages/my_collection_page.dart';
 import '../../features/my/presentation/pages/my_history_page.dart';
+import '../../features/my/presentation/pages/library_page.dart';
 import '../../features/my/presentation/pages/my_page.dart';
 import '../../features/my/presentation/pages/user_playlist_detail_page.dart';
 import '../../features/new_release/new_album/presentation/pages/new_album_page.dart';
@@ -55,35 +55,14 @@ import '../../features/settings/presentation/pages/github_download_acceleration_
 import '../../features/video/presentation/pages/video_detail_page.dart';
 import '../../features/video/presentation/pages/video_plaza_page.dart';
 import '../../shared/widgets/app_shell.dart';
-import '../../features/player/presentation/widgets/mini_player_bar.dart';
 import 'app_route_observers.dart';
 import 'app_routes.dart';
 
-// Tab Shell 只保留底部导航直接展示的页面。
+// Navigator identities are independent of the selected design language.
+final _contentNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'content');
 final _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'home');
+final _libraryNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'library');
 final _myNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'my');
-
-/// Root content pages keep MiniPlayer visible without creating another Navigator.
-class _RootContentRouteShell extends StatelessWidget {
-  const _RootContentRouteShell({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = AppContentWidth(child: child);
-    // 固定全局迷你播放器；需要避让键盘的页面由内部 Scaffold 自行处理。
-    return AppPlayerScaffold(
-      body: content,
-      miniPlayer: AppContentWidth(
-        child: MiniPlayerBar(
-          bottomSafeArea: true,
-          onOpenFullPlayer: () => openFullPlayer(context),
-        ),
-      ),
-    );
-  }
-}
 
 /// 图片皮肤下页面背景透明，前后路由必须同步移动，避免内容叠画。
 class _SettingsSectionTransitionPage extends Page<void> {
@@ -125,6 +104,53 @@ class _SettingsSectionPageRoute extends PageRouteBuilder<void> {
               ),
       );
 
+  bool get _usesInteractiveBack =>
+      navigator != null &&
+      Theme.of(navigator!.context).platform == TargetPlatform.iOS;
+
+  @override
+  bool get popGestureEnabled =>
+      _usesInteractiveBack && !_reduceMotion && super.popGestureEnabled;
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (!_usesInteractiveBack) {
+      return super.buildTransitions(
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    // SDK owns gesture eligibility, cancellation, velocity and Navigator cleanup.
+    // Only the visual offset changes: transparent pages move a full width.
+    return AnimatedBuilder(
+      animation: navigator!.userGestureInProgressNotifier,
+      builder: (context, _) => SlideTransition(
+        position: _positionAnimation(
+          animation,
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+          linear: popGestureInProgress,
+        ),
+        textDirection: Directionality.of(context),
+        child: CupertinoRouteTransitionMixin.buildPageTransitions<void>(
+          this,
+          context,
+          kAlwaysCompleteAnimation,
+          kAlwaysDismissedAnimation,
+          child,
+        ),
+      ),
+    );
+  }
+
   bool get _reduceMotion {
     final context = navigator?.context;
     return context != null && MediaQuery.disableAnimationsOf(context);
@@ -145,14 +171,18 @@ class _SettingsSectionPageRoute extends PageRouteBuilder<void> {
           return null;
         }
         if (MediaQuery.disableAnimationsOf(context)) return child;
-        return SlideTransition(
-          position: _positionAnimation(
-            secondaryAnimation,
-            begin: Offset.zero,
-            end: const Offset(-1, 0),
+        return AnimatedBuilder(
+          animation: navigator!.userGestureInProgressNotifier,
+          builder: (context, _) => SlideTransition(
+            position: _positionAnimation(
+              secondaryAnimation,
+              begin: Offset.zero,
+              end: const Offset(-1, 0),
+              linear: _usesInteractiveBack && popGestureInProgress,
+            ),
+            textDirection: Directionality.of(context),
+            child: child,
           ),
-          textDirection: Directionality.of(context),
-          child: child,
         );
       };
 
@@ -160,32 +190,51 @@ class _SettingsSectionPageRoute extends PageRouteBuilder<void> {
     Animation<double> animation, {
     required Offset begin,
     required Offset end,
+    bool linear = false,
   }) {
     return Tween<Offset>(begin: begin, end: end).animate(
-      CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
-      ),
+      linear
+          ? animation
+          : CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            ),
     );
   }
 }
 
-GoRoute _rootContentRoute({
+GoRoute _contentRoute({
   required String path,
   required Widget Function(BuildContext context, GoRouterState state) builder,
 }) {
   return GoRoute(
     path: path,
-    parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) =>
-        _RootContentRouteShell(child: builder(context, state)),
+    parentNavigatorKey: _contentNavigatorKey,
+    redirect: (context, state) {
+      final router = GoRouter.of(context);
+      final navigation = router.routeInformationProvider.value.state;
+      if (navigation is! RouteInformationState ||
+          navigation.type == NavigatingType.go ||
+          navigation.type == NavigatingType.restore) {
+        return null;
+      }
+      final current = router.routerDelegate.currentConfiguration.lastOrNull;
+      // Root fullscreen pages interrupt the content Shell's match chain.
+      // Keep their subsequent browsing on root so GoRouter never clones the
+      // fixed content Shell's PageKey or Navigator key above itself.
+      if (current?.route.parentNavigatorKey != rootNavigatorKey) return null;
+      return state.uri
+          .replace(path: '${AppRoutes.rootBrowsePrefix}${state.uri.path}')
+          .toString();
+    },
+    builder: builder,
   );
 }
 
-/// 非 Tab 内容页挂到 root Navigator，并保留 MiniPlayer。
+/// Browsing routes share the content Navigator and the outer playback surface.
 List<RouteBase> _contentRoutes() => <RouteBase>[
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.onlineSearch,
     builder: (context, state) => OnlineSearchPage(
       platform: _readOptionalQuery(state, 'platform') ?? '',
@@ -193,15 +242,15 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       initialType: _readOptionalQuery(state, 'type'),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.online,
     builder: (context, state) => const OnlinePage(),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.parseSourceUrl,
     builder: (context, state) => const ParseSourceUrlPage(),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.onlineComments,
     builder: (context, state) => OnlineCommentsPage(
       resourceId: _readQuery(state, 'id'),
@@ -210,7 +259,7 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       title: _readOptionalQuery(state, 'title'),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.discoverDetail,
     builder: (context, state) => ArtistDetailPage(
       id: _readQuery(state, 'id'),
@@ -218,7 +267,7 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       title: _readQuery(state, 'title'),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.artistDetail,
     builder: (context, state) {
       final platform = _readQuery(state, 'platform');
@@ -236,7 +285,7 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       );
     },
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.playlistDetail,
     builder: (context, state) => PlaylistDetailPage(
       id: _readQuery(state, 'id'),
@@ -244,14 +293,14 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       title: _readOptionalQuery(state, 'title') ?? '',
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.recommendSongList,
     builder: (context, state) => RecommendSongListPage(
       id: _readQuery(state, 'id'),
       platform: _readQuery(state, 'platform'),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.albumDetail,
     builder: (context, state) {
       final platform = _readQuery(state, 'platform');
@@ -269,7 +318,7 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       );
     },
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.songDetail,
     builder: (context, state) => SongDetailPage(
       id: _readQuery(state, 'id'),
@@ -277,7 +326,7 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       title: _readOptionalQuery(state, 'title') ?? '',
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.songSheetMusic,
     builder: (context, state) => SheetMusicListPage(
       platform: _readQuery(state, 'platform'),
@@ -285,7 +334,7 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       title: _readOptionalQuery(state, 'title') ?? '',
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.sheetMusicDetail,
     builder: (context, state) => SheetMusicDetailPage(
       platform: _readQuery(state, 'platform'),
@@ -294,7 +343,7 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       title: _readOptionalQuery(state, 'title') ?? '',
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.rankingDetail,
     builder: (context, state) => RankingDetailPage(
       id: _readQuery(state, 'id'),
@@ -302,29 +351,29 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
       title: _readOptionalQuery(state, 'title'),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.newSong,
     builder: (context, state) => NewSongPage(
       initialPlatform: _readOptionalQuery(state, 'platform'),
       initialTabId: _readOptionalQuery(state, 'tab_id'),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.newAlbum,
     builder: (context, state) => NewAlbumPage(
       initialPlatform: _readOptionalQuery(state, 'platform'),
       initialTabId: _readOptionalQuery(state, 'tab_id'),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.myHistory,
     builder: (context, state) => const MyHistoryPage(),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.myCollection,
     builder: (context, state) => const MyCollectionPage(),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.userPlaylistDetail,
     builder: (context, state) => UserPlaylistDetailPage(
       id: _readQuery(state, 'id'),
@@ -336,54 +385,44 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
           ),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.localGenre,
     builder: (context, state) {
       final name = state.uri.queryParameters['name'] ?? '';
       return GenrePage(genreName: name);
     },
   ),
-  _rootContentRoute(
-    path: AppRoutes.localMetadataEdit,
-    builder: (context, state) {
-      final song = state.extra as LocalSong?;
-      if (song == null) {
-        return const Scaffold(body: Center(child: Text('Song not found')));
-      }
-      return MetadataEditPage(song: song);
-    },
-  ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.playlistPlaza,
     builder: (context, state) => PlaylistPlazaPage(
       initialPlatform: _readOptionalQuery(state, 'platform'),
     ),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.rankingList,
     builder: (context, state) =>
         RankingListPage(initialPlatform: _readOptionalQuery(state, 'platform')),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.artistPlaza,
     builder: (context, state) =>
         ArtistPlazaPage(initialPlatform: _readOptionalQuery(state, 'platform')),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.videoPlaza,
     builder: (context, state) =>
         VideoPlazaPage(initialPlatform: _readOptionalQuery(state, 'platform')),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.radioPlaza,
     builder: (context, state) =>
         RadioPlazaPage(initialPlatform: _readOptionalQuery(state, 'platform')),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.library,
     builder: (context, state) => const LocalLibraryPage(),
   ),
-  _rootContentRoute(
+  _contentRoute(
     path: AppRoutes.downloads,
     builder: (context, state) => DownloadPage(
       initialTab: state.uri.queryParameters['tab'] == 'tasks'
@@ -399,6 +438,17 @@ List<RouteBase> _contentRoutes() => <RouteBase>[
 
 /// 这些页面需要覆盖 MiniPlayer，直接走根 Navigator。
 List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
+  GoRoute(
+    path: AppRoutes.localMetadataEdit,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) {
+      final song = state.extra as LocalSong?;
+      if (song == null) {
+        return const Scaffold(body: Center(child: Text('Song not found')));
+      }
+      return MetadataEditPage(song: song);
+    },
+  ),
   GoRoute(
     path: AppRoutes.settings,
     parentNavigatorKey: rootNavigatorKey,
@@ -463,6 +513,41 @@ List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
   ),
 ];
 
+/// Fixed root aliases reuse browsing pages above fullscreen root flows.
+/// Each is a normal PageRoute, so push/pop futures and the player stack survive.
+List<RouteBase> _rootBrowsingRoutes() => [
+  for (final route in _contentRoutes().whereType<GoRoute>())
+    if (route.builder != null)
+      GoRoute(
+        path: '${AppRoutes.rootBrowsePrefix}${route.path}',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => AppShell(
+          location: route.path,
+          initialBranchLocation: _lastBranchLocation(
+            GoRouter.of(context).routerDelegate.currentConfiguration.matches,
+          ),
+          child: route.builder!(context, state),
+        ),
+      ),
+];
+
+String? _lastBranchLocation(List<RouteMatchBase> matches) {
+  for (final match in matches.reversed) {
+    if (match is ShellRouteMatch) {
+      final location = _lastBranchLocation(match.matches);
+      if (location != null) return location;
+    } else if (match is RouteMatch &&
+        const [
+          AppRoutes.home,
+          AppRoutes.collection,
+          AppRoutes.my,
+        ].contains(match.route.path)) {
+      return match.route.path;
+    }
+  }
+  return null;
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   return createAppRouter();
 });
@@ -473,37 +558,48 @@ GoRouter createAppRouter([String? initialLocation]) {
     observers: <NavigatorObserver>[appPageRouteObserver],
     initialLocation: initialLocation ?? AppRoutes.home,
     routes: <RouteBase>[
-      // ── StatefulShellRoute：底部导航的两个主页面分支 ──
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return AppShell(navigationShell: navigationShell);
-        },
-        branches: <StatefulShellBranch>[
-          // Branch 0: 首页
-          StatefulShellBranch(
-            navigatorKey: _homeNavigatorKey,
-            routes: <RouteBase>[
-              GoRoute(
-                path: AppRoutes.home,
-                builder: (context, state) => const DiscoverHomeTab(),
+      ShellRoute(
+        navigatorKey: _contentNavigatorKey,
+        builder: (context, state, child) =>
+            AppShell(location: state.uri.path, child: child),
+        routes: <RouteBase>[
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) => navigationShell,
+            branches: <StatefulShellBranch>[
+              StatefulShellBranch(
+                navigatorKey: _homeNavigatorKey,
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: AppRoutes.home,
+                    builder: (context, state) => const DiscoverHomeTab(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                navigatorKey: _libraryNavigatorKey,
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: AppRoutes.collection,
+                    builder: (context, state) => const LibraryPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                navigatorKey: _myNavigatorKey,
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: AppRoutes.my,
+                    builder: (context, state) => const MyPage(),
+                  ),
+                ],
               ),
             ],
           ),
-          // Branch 1: 我的
-          StatefulShellBranch(
-            navigatorKey: _myNavigatorKey,
-            routes: <RouteBase>[
-              GoRoute(
-                path: AppRoutes.my,
-                builder: (context, state) => const MyPage(),
-              ),
-            ],
-          ),
+          ..._contentRoutes(),
         ],
       ),
-
-      ..._contentRoutes(),
       ..._fullscreenRootRoutes(),
+      ..._rootBrowsingRoutes(),
 
       // ── 独立路由（全屏，push 到根 Navigator）──
 

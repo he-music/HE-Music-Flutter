@@ -720,11 +720,14 @@ void main() {
       expect(
         find.ancestor(
           of: find.text('已保存 2 页到相册'),
-          matching: find.byType(ToastificationTheme),
+          matching: find.byType(SnackBar),
         ),
         findsOneWidget,
       );
       expect(readerBuilds, 0);
+      ScaffoldMessenger.of(
+        rootNavigatorKey.currentContext!,
+      ).removeCurrentSnackBar();
       toastification.dismissAll(delayForAnimation: false);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 700));
@@ -769,14 +772,27 @@ void main() {
       await tester.tap(find.text('保存当前页'));
       await tester.pumpAndSettle();
       expect(downloads.pages, [1]);
-      expect(find.text('已保存 1 页到相册'), findsOneWidget);
+      final fullscreenRoute = ModalRoute.of(
+        tester.element(find.byKey(const ValueKey('sheet-fullscreen-pager'))),
+      );
+      final activeMessage = find
+          .byWidgetPredicate((widget) => widget is SnackBar)
+          .evaluate()
+          .where((element) => ModalRoute.of(element) == fullscreenRoute);
+      expect(activeMessage, hasLength(1));
       expect(
-        find.ancestor(
-          of: find.text('已保存 1 页到相册'),
-          matching: find.byType(ToastificationTheme),
+        find.descendant(
+          of: find.byElementPredicate(
+            (element) => identical(element, activeMessage.single),
+          ),
+          matching: find.text('已保存 1 页到相册'),
         ),
         findsOneWidget,
       );
+      expect(find.text('已保存 1 页到相册').hitTestable(), findsOneWidget);
+      ScaffoldMessenger.of(
+        rootNavigatorKey.currentContext!,
+      ).removeCurrentSnackBar();
       toastification.dismissAll(delayForAnimation: false);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 700));
@@ -1109,6 +1125,14 @@ Future<GoRouter> _pump(
     ],
   );
   addTearDown(router.dispose);
+  addTearDown(() async {
+    final context = rootNavigatorKey.currentContext;
+    if (context != null) {
+      ScaffoldMessenger.maybeOf(context)?.removeCurrentSnackBar();
+    }
+    toastification.dismissAll(delayForAnimation: false);
+    await tester.pumpAndSettle();
+  });
   await tester.pumpWidget(
     ProviderScope(
       overrides: [

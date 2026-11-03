@@ -71,7 +71,7 @@ void main() {
     }
   }
 
-  testWidgets('Material headers retain the supplied text action', (
+  testWidgets('Material headers expose an explicit close without submitting', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -80,8 +80,9 @@ void main() {
         child: const AppSheetHeader(title: 'Options', actionLabel: 'Dismiss'),
       ),
     );
-    expect(find.text('Dismiss'), findsOneWidget);
-    expect(find.byType(AppSheetCloseButton), findsNothing);
+    expect(find.text('Dismiss'), findsNothing);
+    expect(find.byType(AppSheetCloseButton), findsOneWidget);
+    expect(find.byTooltip('Close'), findsOneWidget);
   });
 
   testWidgets('closing a nested sheet preserves the parent route and choices', (

@@ -6,6 +6,7 @@ import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/skin/app_skin_surface.dart';
 import 'adaptive_action_menu.dart';
 import 'app_network_image.dart';
+import 'app_adaptive_controls.dart';
 import '../constants/layout_tokens.dart';
 import '../models/he_music_models.dart';
 
@@ -184,7 +185,7 @@ class SongListItem extends StatelessWidget {
     final songRow = Stack(
       fit: StackFit.passthrough,
       children: <Widget>[
-        InkWell(
+        AppPressable(
           onTap: effectiveOnTap,
           child: Row(
             crossAxisAlignment: alignCoverToTop
@@ -230,7 +231,14 @@ class SongListItem extends StatelessWidget {
                               _ListItemText(
                                 text: data.title,
                                 spans: data.titleSpans,
-                                maxLines: 1,
+                                maxLines:
+                                    MediaQuery.sizeOf(context).width < 400 ||
+                                        MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(16) >
+                                            20
+                                    ? 2
+                                    : 1,
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w500,
                                   height: 1.12,
@@ -335,7 +343,9 @@ class SongListItem extends StatelessWidget {
     );
     return AppSkinContentSurface(
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         decoration: BoxDecoration(color: backgroundColor),
         // 墨水必须绘制在选中背景和皮肤表面之上，否则按压反馈会被背景层遮挡。
         child: Material(
@@ -482,28 +492,34 @@ class _ActionIconState extends State<_ActionIcon> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    void activate() {
+      AdaptiveActionMenuAnchor.capture(
+        context,
+        globalPosition: _lastGlobalPosition,
+      );
+      _lastGlobalPosition = null;
+      widget.onPressed?.call();
+    }
+
+    return Listener(
       behavior: HitTestBehavior.translucent,
-      onTapDown: (details) => _lastGlobalPosition = details.globalPosition,
-      onSecondaryTapDown: (details) {
-        _lastGlobalPosition = details.globalPosition;
-      },
-      child: IconButton(
-        onPressed: widget.onPressed == null
-            ? null
-            : () {
-                AdaptiveActionMenuAnchor.capture(
-                  context,
-                  globalPosition: _lastGlobalPosition,
-                );
-                widget.onPressed?.call();
-              },
-        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.standard,
-        iconSize: 20,
-        icon: widget.icon,
-        tooltip: widget.tooltip,
+      onPointerDown: (event) => _lastGlobalPosition = event.position,
+      child: GestureDetector(
+        onSecondaryTapUp: widget.onPressed == null ? null : (_) => activate(),
+        child: SizedBox.square(
+          dimension: _ActionButtons.actionExtent,
+          child: AppIconButton(
+            onPressed: widget.onPressed == null ? null : activate,
+            style: IconButton.styleFrom(
+              minimumSize: const Size.square(_ActionButtons.actionExtent),
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.standard,
+            ),
+            iconSize: 20,
+            icon: widget.icon,
+            tooltip: widget.tooltip,
+          ),
+        ),
       ),
     );
   }
@@ -576,7 +592,6 @@ class _BottomMetaLine extends StatelessWidget {
               ? theme.colorScheme.primary.withValues(alpha: 0.7)
               : theme.hintColor,
           height: 1.1,
-          fontSize: 11.5,
         ),
       ),
     );
@@ -632,11 +647,13 @@ class SongListItemTextAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
+    return AppPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 32),
+        constraints: BoxConstraints(
+          minHeight: AppUiTheme.usesCupertino(context) ? 44 : 48,
+        ),
         child: Align(
           alignment: AlignmentDirectional.centerStart,
           child: Padding(
@@ -644,15 +661,16 @@ class SongListItemTextAction extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 10.5,
-                    height: 1.1,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                    ),
                   ),
                 ),
                 if (trailingIcon != null) ...<Widget>[
@@ -725,7 +743,9 @@ class _SongCover extends StatelessWidget {
     }
     // 只改边框视觉，不改封面占位，避免当前播放态切换时列表项抖动。
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
       width: _coverSize,
       height: _coverSize,
       foregroundDecoration: BoxDecoration(

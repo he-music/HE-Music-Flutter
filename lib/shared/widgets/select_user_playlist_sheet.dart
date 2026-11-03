@@ -40,14 +40,16 @@ Future<SelectedUserPlaylist?> showSelectUserPlaylistSheet(
   if (Theme.of(context).extension<AppPlayerStyleTheme>() != null) {
     return showPlayerStyledBottomSheet<SelectedUserPlaylist>(
       context: context,
-      fixedHeightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
+      fitContent: true,
+      heightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
       isScrollControlled: true,
       builder: buildSheet,
     );
   }
   return showAppThemedBottomSheet<SelectedUserPlaylist>(
     context: context,
-    fixedHeightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
+    fitContent: true,
+    heightFactor: LayoutTokens.selectionSheetMaxHeightFactor,
     isScrollControlled: true,
     builder: buildSheet,
   );
@@ -73,8 +75,10 @@ class SelectUserPlaylistSheet extends ConsumerWidget {
         localeCode: localeCode,
         onCreatePlaylist: onCreatePlaylist,
       ),
-      loading: () =>
-          const Center(child: AppActivityIndicator(size: 36, strokeWidth: 4)),
+      loading: () => const SizedBox(
+        height: 96,
+        child: Center(child: AppActivityIndicator(size: 36, strokeWidth: 4)),
+      ),
       error: (error, stackTrace) => _SheetHint(
         title: AppI18n.tByLocaleCode(
           localeCode,
@@ -89,6 +93,7 @@ class SelectUserPlaylistSheet extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: AppUiTheme.usesCupertino(context)
             ? Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   AppSheetHeader(
                     title: AppI18n.tByLocaleCode(
@@ -97,7 +102,7 @@ class SelectUserPlaylistSheet extends ConsumerWidget {
                     ),
                     padding: EdgeInsets.zero,
                   ),
-                  Expanded(child: content),
+                  Flexible(child: content),
                 ],
               )
             : content,
@@ -203,6 +208,7 @@ class _SheetHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
+      heightFactor: 1,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[

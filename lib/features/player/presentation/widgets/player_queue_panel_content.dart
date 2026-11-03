@@ -35,10 +35,18 @@ class _PlayerQueuePanelContentState
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  int _activeTab = 0;
+
+  void _handleTabChange() {
+    if (_activeTab == _tabController.index) return;
+    setState(() => _activeTab = _tabController.index);
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this, initialIndex: 0);
+    _tabController.addListener(_handleTabChange);
   }
 
   @override
@@ -93,80 +101,105 @@ class _PlayerQueuePanelContentState
             : null,
       ),
     ];
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: AppUiTheme.usesCupertino(context)
-                    ? _buildCupertinoTabs(tabs)
-                    : TabBar(
-                        controller: _tabController,
-                        isScrollable: true,
-                        tabAlignment: TabAlignment.start,
-                        dividerColor: Colors.transparent,
-                        splashFactory: NoSplash.splashFactory,
-                        overlayColor: const WidgetStatePropertyAll(
-                          Colors.transparent,
-                        ),
-                        labelStyle: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                        unselectedLabelStyle: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w500),
-                        tabs: tabs,
+    final visibleCount = _activeTab == 0
+        ? queue.length
+        : previousSnapshot?.queue.length ?? 0;
+    // Estimate the two text lines and controls; the lists remain lazy and use
+    // their existing prototype item instead of measuring every queue entry.
+    final itemHeight = math.max(
+      64.0,
+      textScaler.scale(theme.textTheme.titleSmall?.fontSize ?? 14) * 1.5 +
+          textScaler.scale(theme.textTheme.bodySmall?.fontSize ?? 12) * 1.5 +
+          16,
+    );
+    final headerHeight = math.max(48.0, tabHeight + 16) + 14;
+    final contentHeight =
+        headerHeight +
+        (visibleCount == 0
+            ? math.max(80.0, itemHeight)
+            : visibleCount * itemHeight) +
+        12;
+    return LayoutBuilder(
+      builder: (context, constraints) => SizedBox(
+        height: constraints.constrainHeight(contentHeight),
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppUiTheme.usesCupertino(context)
+                        ? _buildCupertinoTabs(tabs)
+                        : TabBar(
+                            controller: _tabController,
+                            isScrollable: true,
+                            tabAlignment: TabAlignment.start,
+                            dividerColor: Colors.transparent,
+                            splashFactory: NoSplash.splashFactory,
+                            overlayColor: const WidgetStatePropertyAll(
+                              Colors.transparent,
+                            ),
+                            labelStyle: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                            unselectedLabelStyle: theme.textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w500),
+                            tabs: tabs,
+                          ),
+                  ),
+                  AppIconButton(
+                    onPressed: queue.isEmpty ? null : controller.clearQueue,
+                    tooltip: AppI18n.t(config, 'player.queue.clear'),
+                    icon: const AppSkinIcon(
+                      role: AppSkinIconRole.queueClear,
+                      size: 22,
+                    ),
+                  ),
+                  if (widget.onRequestDismiss != null)
+                    AppSheetCloseButton(onPressed: widget.onRequestDismiss),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: PlayerQueueList(
+                      config: config,
+                      queue: queue,
+                      currentIndex: currentIndex,
+                      onPlayAt: controller.playAt,
+                      onRemoveAt: controller.removeTrackAt,
+                      onReorder: controller.reorderQueue,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: PlayerQueueList(
+                      config: config,
+                      queue: previousSnapshot?.queue ?? const [],
+                      currentIndex: previousSnapshot?.currentIndex ?? 0,
+                      editable: false,
+                      highlightCurrent: false,
+                      emptyText: AppI18n.t(
+                        config,
+                        'player.queue.previous.empty',
                       ),
+                      onPlayAt: (index) {
+                        widget.onRequestDismiss?.call();
+                        controller.swapToPreviousQueue(startIndex: index);
+                      },
+                    ),
+                  ),
+                ],
               ),
-              AppIconButton(
-                onPressed: queue.isEmpty ? null : controller.clearQueue,
-                tooltip: AppI18n.t(config, 'player.queue.clear'),
-                icon: const AppSkinIcon(
-                  role: AppSkinIconRole.queueClear,
-                  size: 22,
-                ),
-              ),
-              if (AppUiTheme.usesCupertino(context) &&
-                  widget.onRequestDismiss != null)
-                AppSheetCloseButton(onPressed: widget.onRequestDismiss),
-            ],
-          ),
+            ),
+          ],
         ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                child: PlayerQueueList(
-                  config: config,
-                  queue: queue,
-                  currentIndex: currentIndex,
-                  onPlayAt: controller.playAt,
-                  onRemoveAt: controller.removeTrackAt,
-                  onReorder: controller.reorderQueue,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                child: PlayerQueueList(
-                  config: config,
-                  queue: previousSnapshot?.queue ?? const [],
-                  currentIndex: previousSnapshot?.currentIndex ?? 0,
-                  editable: false,
-                  highlightCurrent: false,
-                  emptyText: AppI18n.t(config, 'player.queue.previous.empty'),
-                  onPlayAt: (index) {
-                    widget.onRequestDismiss?.call();
-                    controller.swapToPreviousQueue(startIndex: index);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -185,7 +218,12 @@ class _PlayerQueuePanelContentState
         },
         onValueChanged: (index) {
           if (index != null) {
-            _tabController.animateTo(index);
+            _tabController.animateTo(
+              index,
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : null,
+            );
           }
         },
       );

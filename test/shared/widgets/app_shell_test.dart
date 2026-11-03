@@ -33,7 +33,14 @@ void main() {
         addTearDown(tester.view.reset);
         final scroll = ScrollController();
         addTearDown(scroll.dispose);
+        final libraryScroll = ScrollController();
+        addTearDown(libraryScroll.dispose);
         final router = _router(
+          library: ListView.builder(
+            controller: libraryScroll,
+            itemCount: 60,
+            itemBuilder: (_, index) => ListTile(title: Text('Library $index')),
+          ),
           home: ListView.builder(
             controller: scroll,
             itemCount: 60,
@@ -71,7 +78,7 @@ void main() {
         final bar = tester.getRect(barFinder);
         expect(bar.left, 0);
         expect(bar.right, 390);
-        expect(bar.bottom, 844);
+        expect(bar.bottom, closeTo(844, 0.01));
         final miniSurface = find.descendant(
           of: find.byType(MiniPlayerBar),
           matching: find.byType(AppSkinSurface),
@@ -111,10 +118,19 @@ void main() {
 
         selectTab(1);
         await tester.pumpAndSettle();
+        libraryScroll.jumpTo(300);
+        await tester.pumpAndSettle();
+        selectTab(2);
+        await tester.pumpAndSettle();
         expect(find.text('My page'), findsOneWidget);
         selectTab(0);
         await tester.pumpAndSettle();
         expect(scroll.offset, closeTo(500, .1));
+        selectTab(1);
+        await tester.pumpAndSettle();
+        expect(libraryScroll.offset, closeTo(300, .1));
+        selectTab(0);
+        await tester.pumpAndSettle();
         final mini = find.byType(MiniPlayerBar);
         final before = tester.getRect(mini);
         tester.view.padding = const FakeViewPadding();
@@ -226,25 +242,40 @@ void main() {
   }
 }
 
-GoRouter _router({Widget? home}) => GoRouter(
+GoRouter _router({Widget? home, Widget? library}) => GoRouter(
   initialLocation: AppRoutes.home,
   routes: [
-    StatefulShellRoute.indexedStack(
-      builder: (_, _, shell) => AppShell(navigationShell: shell),
-      branches: [
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppRoutes.home,
-              builder: (_, _) => home ?? const SizedBox.shrink(),
+    ShellRoute(
+      builder: (_, state, child) =>
+          AppShell(location: state.uri.path, child: child),
+      routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (_, _, shell) => shell,
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.home,
+                  builder: (_, _) => home ?? const SizedBox.shrink(),
+                ),
+              ],
             ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppRoutes.my,
-              builder: (_, _) => const Center(child: Text('My page')),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.collection,
+                  builder: (_, _) =>
+                      library ?? const Center(child: Text('Library page')),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.my,
+                  builder: (_, _) => const Center(child: Text('My page')),
+                ),
+              ],
             ),
           ],
         ),

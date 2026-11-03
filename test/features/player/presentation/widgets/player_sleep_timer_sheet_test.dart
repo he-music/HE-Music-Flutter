@@ -101,8 +101,10 @@ void main() {
     testWidgets(
       'custom duration uses current time instead of the last tick with $style',
       (tester) async {
-        await tester.binding.setSurfaceSize(const Size(430, 1200));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(430, 1200);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
         final now = DateTime.now();
         final port = _TimerPort(_activeTimer(now));
         final times = StreamController<DateTime>.broadcast();
@@ -148,6 +150,12 @@ void main() {
               .toList();
           expect(fields[0].initialValue, 0);
           expect(fields[1].initialValue, 30);
+          final original = port.currentSleepTimerState;
+          await tester.tap(find.byType(AppSheetCloseButton).last);
+          await tester.pumpAndSettle();
+          expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+          expect(port.currentSleepTimerState, same(original));
+          expect(port.requestedDuration, isNull);
         }
         await tester.pumpWidget(const SizedBox.shrink());
       },
@@ -157,8 +165,10 @@ void main() {
   testWidgets(
     'custom duration rejects zero and survives style changes before saving',
     (tester) async {
-      await tester.binding.setSurfaceSize(const Size(430, 1200));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(430, 1200);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
       final port = _TimerPort(SleepTimerState.inactive);
       addTearDown(port.states.close);
       final style = ValueNotifier(AppUiStyle.material);

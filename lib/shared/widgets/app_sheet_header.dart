@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../app/i18n/app_i18n.dart';
-import '../../app/theme/app_ui_theme.dart';
 import 'app_sheet_close_button.dart';
-import 'app_button.dart';
 
 /// A fixed heading and an explicit exit for immediately applied sheet choices.
 class AppSheetHeader extends StatelessWidget {
@@ -29,19 +26,7 @@ class AppSheetHeader extends StatelessWidget {
             child: Text(title, style: Theme.of(context).textTheme.titleMedium),
           ),
         ),
-        if (AppUiTheme.usesCupertino(context))
-          const AppSheetCloseButton()
-        else
-          AppButton.text(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              actionLabel ??
-                  AppI18n.tByLocaleCode(
-                    Localizations.localeOf(context).languageCode,
-                    'common.done',
-                  ),
-            ),
-          ),
+        const AppSheetCloseButton(),
       ],
     ),
   );

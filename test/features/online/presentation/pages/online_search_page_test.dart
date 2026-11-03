@@ -831,17 +831,21 @@ void main() {
       find.descendant(of: platformBar, matching: find.byType(UnderlineTab)),
       findsNothing,
     );
-    final material = tester.widget<Material>(
-      find.descendant(of: platformBar, matching: find.byType(Material)),
+    final ink = tester.widget<Ink>(
+      find.descendant(of: platformBar, matching: find.byType(Ink)),
     );
-    expect(material.borderRadius, BorderRadius.circular(999));
+    expect(
+      (ink.decoration as BoxDecoration).borderRadius,
+      BorderRadius.circular(999),
+    );
+    expect(tester.getSize(find.byWidget(ink)).height, 36);
     final chip = find.descendant(
       of: platformBar,
       matching: find.byType(InkWell),
     );
-    expect(tester.getSize(chip).height, lessThan(48));
+    expect(tester.getSize(chip).height, greaterThanOrEqualTo(48));
     final typeBar = find.byType(SearchTypeBar);
-    expect(tester.getSize(typeBar).height, lessThan(48));
+    expect(tester.getSize(typeBar).height, greaterThanOrEqualTo(48));
     expect(
       tester.getTopLeft(platformBar).dy - tester.getBottomLeft(typeBar).dy,
       10,

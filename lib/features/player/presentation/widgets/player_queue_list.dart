@@ -96,7 +96,7 @@ class _PlayerQueueListState extends State<PlayerQueueList> {
                     _currentTrackAlignment)
             .clamp(position.minScrollExtent, position.maxScrollExtent)
             .toDouble();
-    if (animated) {
+    if (animated && !MediaQuery.disableAnimationsOf(context)) {
       _scrollController.animateTo(
         targetOffset,
         duration: const Duration(milliseconds: 220),

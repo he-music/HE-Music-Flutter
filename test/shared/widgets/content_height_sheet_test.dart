@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
@@ -15,22 +18,25 @@ void main() {
           addTearDown(tester.view.reset);
           int? selected;
           await tester.pumpWidget(
-            MaterialApp(
-              theme: ThemeData(extensions: [AppUiTheme(style: style)]),
-              home: Scaffold(
-                body: Builder(
-                  builder: (context) => TextButton(
-                    onPressed: () => showSettingsSingleChoiceSheet<int>(
-                      context: context,
-                      title: 'Choose',
-                      currentValue: 0,
-                      options: [
-                        for (var i = 0; i < count; i++)
-                          SettingsChoiceOption(value: i, title: 'Choice $i'),
-                      ],
-                      onSelected: (value) => selected = value,
+            ProviderScope(
+              overrides: [appConfigProvider.overrideWith(_Config.new)],
+              child: MaterialApp(
+                theme: ThemeData(extensions: [AppUiTheme(style: style)]),
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () => showSettingsSingleChoiceSheet<int>(
+                        context: context,
+                        title: 'Choose',
+                        currentValue: 0,
+                        options: [
+                          for (var i = 0; i < count; i++)
+                            SettingsChoiceOption(value: i, title: 'Choice $i'),
+                        ],
+                        onSelected: (value) => selected = value,
+                      ),
+                      child: const Text('Open'),
                     ),
-                    child: const Text('Open'),
                   ),
                 ),
               ),
@@ -58,4 +64,9 @@ void main() {
       );
     }
   }
+}
+
+class _Config extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial;
 }

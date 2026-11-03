@@ -28,26 +28,29 @@ class UnderlineTab extends StatelessWidget {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
     if (AppUiTheme.usesCupertino(context)) {
-      return Semantics(
-        selected: selected,
-        enabled: enabled,
-        child: CupertinoButton(
-          onPressed: enabled ? onTap : null,
-          minimumSize: Size(44, minHeight),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: selected ? primary.withValues(alpha: 0.12) : null,
-          borderRadius: BorderRadius.circular(8),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              color: !enabled
-                  ? theme.disabledColor
-                  : selected
-                  ? primary
-                  : theme.colorScheme.onSurfaceVariant,
+      return MergeSemantics(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          enabled: enabled,
+          child: CupertinoButton(
+            onPressed: enabled ? onTap : null,
+            minimumSize: Size(44, minHeight < 44 ? 44 : minHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: selected ? primary.withValues(alpha: 0.12) : null,
+            borderRadius: BorderRadius.circular(8),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: !enabled
+                    ? theme.disabledColor
+                    : selected
+                    ? primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),

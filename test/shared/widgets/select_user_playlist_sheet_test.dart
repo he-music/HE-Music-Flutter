@@ -65,6 +65,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
+        tester.getSize(find.byType(SelectUserPlaylistSheet)).height,
+        lessThan(300),
+      );
+      expect(
         _renderedTextColor(tester, 'Select playlist'),
         testCase.sheet.foregroundColor,
       );
@@ -131,6 +135,10 @@ void main() {
         }
         await tester.pump();
         await tester.pump();
+        expect(
+          tester.getSize(find.byType(SelectUserPlaylistSheet)).height,
+          lessThan(320),
+        );
         expect(find.text('Select playlist'), findsOneWidget);
         expect(find.byTooltip('Close').hitTestable(), findsOneWidget);
         await tester.tap(find.byTooltip('Close'));

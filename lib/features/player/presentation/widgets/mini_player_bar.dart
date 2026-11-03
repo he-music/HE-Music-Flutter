@@ -352,7 +352,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
     showPlayerStyledBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      fixedHeightFactor: LayoutTokens.queueSheetHeightFactor,
+      fitContent: true,
+      heightFactor: LayoutTokens.queueSheetHeightFactor,
       builder: (context) => const PlayerQueueSheet(),
     );
   }

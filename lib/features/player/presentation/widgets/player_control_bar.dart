@@ -3,6 +3,7 @@ import '../../../../shared/widgets/app_activity_indicator.dart';
 
 import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../domain/entities/player_play_mode.dart';
 
@@ -180,7 +181,7 @@ class _PrimaryControlButton extends StatelessWidget {
     final palette = PlayerScenePalette.maybeOf(context);
     final background = palette?.foreground ?? Colors.white;
     final foreground = palette?.surfaceDeep ?? Colors.black87;
-    return IconButton(
+    return AppIconButton(
       onPressed: onPressed,
       tooltip: isTrackTransitioning ? preparingLabel : tooltip,
       icon: isTrackTransitioning
@@ -234,7 +235,7 @@ class _RoundControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    return AppIconButton(
       onPressed: onPressed,
       tooltip: tooltip,
       icon: Icon(icon, size: iconSize),
@@ -264,7 +265,7 @@ class _SideControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    return AppIconButton(
       onPressed: onPressed,
       tooltip: tooltip,
       icon: Icon(icon),

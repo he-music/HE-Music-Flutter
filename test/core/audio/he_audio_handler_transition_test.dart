@@ -155,26 +155,34 @@ void main() {
 
   test('手动下一曲取消正在准备的自动切歌并越过自动目标', () async {
     final automaticLoad = Completer<Duration?>();
+    final automaticStarted = Completer<void>();
     final handler = _buildLocalHandler(
       setAudioSource: (source, player) {
-        return _sourceId(source) == 'song-1'
-            ? automaticLoad.future
-            : Future<Duration?>.value(null);
+        if (_sourceId(source) == 'song-1') {
+          if (!automaticStarted.isCompleted) automaticStarted.complete();
+          return automaticLoad.future;
+        }
+        return Future<Duration?>.value(null);
       },
     );
     addTearDown(handler.disposeHandler);
     await handler.setQueueData(_localQueue(4));
 
     final automatic = handler.handlePlaybackCompletedForTesting();
-    await Future<void>.delayed(Duration.zero);
-    await handler.skipToNext();
-    await Future<void>.delayed(const Duration(milliseconds: 200));
+    try {
+      await automaticStarted.future.timeout(const Duration(seconds: 3));
+      final manualCommit = handler.mediaItem.firstWhere(
+        (item) => item?.id == 'song-2',
+      );
+      await handler.skipToNext();
+      await manualCommit.timeout(const Duration(seconds: 3));
 
-    expect(handler.mediaItem.value?.id, 'song-2');
-    expect(handler.playbackState.value.queueIndex, 2);
-
-    automaticLoad.complete(null);
-    await automatic;
+      expect(handler.mediaItem.value?.id, 'song-2');
+      expect(handler.playbackState.value.queueIndex, 2);
+    } finally {
+      automaticLoad.complete(null);
+      await automatic;
+    }
     expect(handler.mediaItem.value?.id, 'song-2');
   });
 

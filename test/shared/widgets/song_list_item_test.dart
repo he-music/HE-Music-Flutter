@@ -379,7 +379,7 @@ void main() {
       );
       final subtitle = find.text('副标题');
       expect(versionLabel, findsOneWidget);
-      expect(tester.getSize(versionAction).height, 32);
+      expect(tester.getSize(versionAction).height, 48);
 
       await tester.tap(versionLabel);
       final titleRect = tester.getRect(find.text('T'));

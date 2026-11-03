@@ -111,7 +111,7 @@ void main() {
             await _pumpUntilWallpaperDecoded(tester);
           }
           expect(find.text('推荐'), findsOneWidget);
-          expect(find.text('发现'), findsOneWidget);
+          expect(find.text('浏览'), findsOneWidget);
 
           await expectLater(
             find.byKey(_previewKey),

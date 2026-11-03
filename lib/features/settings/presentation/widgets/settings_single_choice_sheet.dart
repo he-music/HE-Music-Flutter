@@ -9,6 +9,7 @@ import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/utils/platform_utils.dart';
 import '../../../../shared/widgets/adaptive_action_menu.dart';
 import '../../../../shared/widgets/app_sheet_close_button.dart';
+import '../../../../shared/widgets/app_cupertino_content_section.dart';
 
 class SettingsChoiceOption<T> {
   const SettingsChoiceOption({
@@ -155,16 +156,11 @@ Future<void> showSettingsSingleChoiceSheet<T>({
                 if (cupertino && cupertinoPreview != null) cupertinoPreview,
                 if (cupertino)
                   for (final (heading, groupOptions) in groups)
-                    CupertinoListSection.insetGrouped(
+                    AppCupertinoContentSection(
                       margin: const EdgeInsets.only(bottom: 16),
-                      backgroundColor: Colors.transparent,
-                      // A modal is a control surface, independent of the
-                      // content-card background preference.
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.tertiarySystemGroupedBackground
-                            .resolveFrom(sheetContext),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      backgroundColor: CupertinoColors
+                          .tertiarySystemGroupedBackground
+                          .resolveFrom(sheetContext),
                       hasLeading: groupOptions.any(
                         (option) => option.leading != null,
                       ),

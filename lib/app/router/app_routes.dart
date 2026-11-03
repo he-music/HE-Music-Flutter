@@ -8,6 +8,9 @@ abstract final class AppRoutes {
   static const loginQrScan = '/login/qr-scan';
   static const loginQrConfirm = '/login/qr-confirm';
   static const captcha = '/captcha';
+  // Internal fixed-root aliases preserve fullscreen-to-detail return stacks.
+  static const rootBrowsePrefix = '/browse';
+  static const collection = '/collection';
   static const library = '/library';
   static const localGenre = '/local/genre';
   static const localMetadataEdit = '/local/edit';

@@ -42,11 +42,16 @@ Future<T?> showAppThemedBottomSheet<T>({
               ),
             ),
           ),
-    builder: (sheetContext) => fixedHeightFactor == null
-        ? builder(sheetContext)
-        : FractionallySizedBox(
-            heightFactor: fixedHeightFactor,
-            child: Builder(builder: builder),
-          ),
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
+      child: fixedHeightFactor == null
+          ? Builder(builder: builder)
+          : FractionallySizedBox(
+              heightFactor: fixedHeightFactor,
+              child: Builder(builder: builder),
+            ),
+    ),
   );
 }

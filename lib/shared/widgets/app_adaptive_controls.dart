@@ -14,6 +14,8 @@ class AppIconButton extends StatelessWidget {
     this.tooltip,
     this.color,
     this.style,
+    this.iconSize,
+    this.isSelected,
     super.key,
   });
 
@@ -22,6 +24,8 @@ class AppIconButton extends StatelessWidget {
   final String? tooltip;
   final Color? color;
   final ButtonStyle? style;
+  final double? iconSize;
+  final bool? isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -31,27 +35,99 @@ class AppIconButton extends StatelessWidget {
         onPressed: onPressed,
         tooltip: tooltip,
         color: color,
-        style: style,
+        style: IconButton.styleFrom(
+          minimumSize: const Size.square(LayoutTokens.controlMinExtent),
+        ).merge(style),
+        iconSize: iconSize,
+        isSelected: isSelected,
       );
     }
-    Widget button = CupertinoButton(
-      padding: EdgeInsets.zero,
-      minimumSize: const Size.square(LayoutTokens.controlMinExtent),
-      onPressed: onPressed,
-      child: IconTheme(
-        data: IconThemeData(
-          color: color ?? Theme.of(context).colorScheme.primary,
+    final states = <WidgetState>{
+      if (onPressed == null) WidgetState.disabled,
+      if (isSelected ?? false) WidgetState.selected,
+    };
+    final minimumSize =
+        style?.minimumSize?.resolve(states) ?? const Size(44, 44);
+    final foreground =
+        color ??
+        style?.foregroundColor?.resolve(states) ??
+        (onPressed == null
+            ? Theme.of(context).disabledColor
+            : Theme.of(context).colorScheme.primary);
+    Widget button = Semantics(
+      button: true,
+      enabled: onPressed != null,
+      selected: isSelected,
+      label: tooltip,
+      child: CupertinoButton(
+        padding: style?.padding?.resolve(states) ?? EdgeInsets.zero,
+        minimumSize: Size(
+          minimumSize.width < 44 ? 44 : minimumSize.width,
+          minimumSize.height < 44 ? 44 : minimumSize.height,
         ),
-        child: icon,
+        color: style?.backgroundColor?.resolve(states),
+        disabledColor:
+            style?.backgroundColor?.resolve(states) ??
+            CupertinoColors.quaternarySystemFill,
+        borderRadius: style?.shape?.resolve(states) is CircleBorder
+            ? BorderRadius.circular(999)
+            : BorderRadius.circular(8),
+        onPressed: onPressed,
+        child: IconTheme(
+          data: IconThemeData(color: foreground, size: iconSize),
+          child: icon,
+        ),
       ),
     );
     if (tooltip != null) {
-      button = Tooltip(
-        message: tooltip!,
-        child: Semantics(label: tooltip, child: button),
-      );
+      button = Tooltip(message: tooltip!, child: button);
     }
     return button;
+  }
+}
+
+/// Keeps content and keyboard focus mounted while press feedback changes style.
+class AppPressable extends StatefulWidget {
+  const AppPressable({
+    required this.child,
+    required this.onTap,
+    this.borderRadius,
+    super.key,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final BorderRadius? borderRadius;
+
+  @override
+  State<AppPressable> createState() => _AppPressableState();
+}
+
+class _AppPressableState extends State<AppPressable> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cupertino = AppUiTheme.usesCupertino(context);
+    return InkWell(
+      onTap: widget.onTap,
+      borderRadius: widget.borderRadius,
+      splashFactory: cupertino ? NoSplash.splashFactory : null,
+      highlightColor: cupertino ? Colors.transparent : null,
+      enableFeedback: !cupertino,
+      onHighlightChanged: (pressed) {
+        if (_pressed != pressed) {
+          setState(() => _pressed = pressed);
+        }
+      },
+      child: Opacity(
+        opacity: cupertino && _pressed ? 0.6 : 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: widget.child,
+        ),
+      ),
+    );
   }
 }
 
@@ -60,15 +136,17 @@ class AppNavigationBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.leading,
     this.actions = const [],
+    this.previousPageTitle,
     super.key,
   });
 
   final Widget title;
   final Widget? leading;
+  final String? previousPageTitle;
   final List<Widget> actions;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => AppBar().preferredSize;
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +160,9 @@ class AppNavigationBar extends StatelessWidget implements PreferredSizeWidget {
             .a ==
         0;
     return CupertinoNavigationBar(
+      padding: const EdgeInsetsDirectional.only(start: 0, end: 8),
       middle: title,
+      previousPageTitle: previousPageTitle,
       leading: leading,
       trailing: actions.isEmpty
           ? null
@@ -118,11 +198,16 @@ class AppNavigationBar extends StatelessWidget implements PreferredSizeWidget {
       );
     }
     if (action is ButtonStyleButton) {
-      return CupertinoButton(
-        key: action.key,
-        onPressed: action.onPressed,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: action.child ?? const SizedBox.shrink(),
+      return Semantics(
+        button: true,
+        enabled: action.onPressed != null,
+        child: CupertinoButton(
+          key: action.key,
+          onPressed: action.onPressed,
+          minimumSize: const Size(44, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: action.child ?? const SizedBox.shrink(),
+        ),
       );
     }
     return action;

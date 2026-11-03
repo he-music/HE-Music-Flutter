@@ -274,7 +274,7 @@ void main() {
       findsNothing,
     );
     expect(toggle, findsOneWidget);
-    expect(tester.getSize(toggle).height, 32);
+    expect(tester.getSize(toggle).height, 48);
     expect(find.byKey(fullLyricKey), findsNothing);
     final cover = find.byType(AppNetworkImage);
     final collapsedCoverTop = tester.getTopLeft(cover).dy;

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
@@ -32,6 +33,65 @@ import 'package:he_music_flutter/core/audio/cache/audio_cache_provider.dart';
 import '../../../../core/audio/cache/cache_surface_test_support.dart';
 
 void main() {
+  for (final style in AppUiStyle.values) {
+    for (final brightness in Brightness.values) {
+      for (final error in [false, true]) {
+        testWidgets(
+          '$style $brightness shelf error=$error follows content background',
+          (tester) async {
+            tester.view.physicalSize = const Size(430, 1000);
+            tester.view.devicePixelRatio = 1;
+            addTearDown(tester.view.reset);
+            final pending = error ? Completer<List<MyFavoriteItem>>() : null;
+            State? pageState;
+            for (final enabled in [false, true, false]) {
+              final skin = citySoundCreatorSkin();
+              final theme = brightness == Brightness.light
+                  ? AppTheme.light(
+                      skin,
+                      uiStyle: style,
+                      showContentBackground: enabled,
+                    )
+                  : AppTheme.dark(
+                      skin,
+                      uiStyle: style,
+                      showContentBackground: enabled,
+                    );
+              await tester.pumpWidget(
+                _buildTestApp(
+                  localeCode: 'en',
+                  themeOverride: theme,
+                  playlistsFuture: pending?.future,
+                ),
+              );
+              if (pending != null && !pending.isCompleted) {
+                pending.completeError(StateError('Offline'));
+              }
+              await tester.pumpAndSettle();
+              pageState ??= tester.state(find.byType(MyPage));
+              expect(tester.state(find.byType(MyPage)), same(pageState));
+              final message = find.text(
+                error ? 'Failed to load playlists' : 'No playlists yet',
+              );
+              expect(message, findsOneWidget);
+              final card = tester.widget<Container>(
+                find
+                    .ancestor(of: message, matching: find.byType(Container))
+                    .first,
+              );
+              final fill = (card.decoration as BoxDecoration).color!;
+              expect(
+                fill.a,
+                style == AppUiStyle.cupertino && !enabled ? 0 : greaterThan(0),
+              );
+              expect(tester.takeException(), isNull);
+            }
+          },
+        );
+      }
+    }
+  }
+
   testWidgets('photo brightness changes do not rebuild my page content', (
     tester,
   ) async {
@@ -359,6 +419,7 @@ Widget _buildTestApp({
   TextScaler textScaler = TextScaler.noScaling,
   CacheSurfaceFixture? cache,
   MyCollectionRepository? collectionRepository,
+  ThemeData? themeOverride,
 }) {
   return ProviderScope(
     overrides: [
@@ -395,9 +456,11 @@ Widget _buildTestApp({
         data: MediaQuery.of(context).copyWith(textScaler: textScaler),
         child: child!,
       ),
-      theme: useCitySkin
-          ? AppTheme.light(citySoundCreatorSkin())
-          : ThemeData(platform: TargetPlatform.android),
+      theme:
+          themeOverride ??
+          (useCitySkin
+              ? AppTheme.light(citySoundCreatorSkin())
+              : ThemeData(platform: TargetPlatform.android)),
       home: const Scaffold(body: MyPage()),
     ),
   );

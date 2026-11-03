@@ -129,6 +129,20 @@ class AppSkinSurface extends StatelessWidget {
 class AppSkinContentSurface extends StatelessWidget {
   const AppSkinContentSurface({required this.child, this.padding, super.key});
 
+  /// Apply the skin preference to custom page content without changing controls.
+  static Color backgroundColorOf(
+    BuildContext context, {
+    required Color materialColor,
+  }) {
+    if (AppUiTheme.usesCupertino(context)) {
+      return Theme.of(
+            context,
+          ).extension<AppSkinTheme>()?.contentBackgroundColor ??
+          materialColor;
+    }
+    return materialColor;
+  }
+
   final Widget child;
   final EdgeInsetsGeometry? padding;
 

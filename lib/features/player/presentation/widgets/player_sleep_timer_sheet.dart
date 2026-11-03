@@ -113,18 +113,9 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
           shrinkWrap: true,
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
           children: <Widget>[
-            if (AppUiTheme.usesCupertino(context))
-              AppSheetHeader(
-                title: AppI18n.t(config, 'player.sleep_timer.title'),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text(
-                  AppI18n.t(config, 'player.sleep_timer.title'),
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
+            AppSheetHeader(
+              title: AppI18n.t(config, 'player.sleep_timer.title'),
+            ),
             AppSwitchListTile(
               key: const ValueKey<String>(
                 'player-sleep-timer-after-current-switch',
@@ -292,7 +283,6 @@ class _SleepTimerCustomDurationSheetState
   @override
   Widget build(BuildContext context) {
     final config = widget.config;
-    final theme = Theme.of(context);
     return SafeArea(
       child: SingleChildScrollView(
         child: Padding(
@@ -300,19 +290,10 @@ class _SleepTimerCustomDurationSheetState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              if (AppUiTheme.usesCupertino(context))
-                AppSheetHeader(
-                  title: AppI18n.t(config, 'player.sleep_timer.custom'),
-                  padding: EdgeInsets.zero,
-                )
-              else
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    AppI18n.t(config, 'player.sleep_timer.custom'),
-                    style: theme.textTheme.titleLarge,
-                  ),
-                ),
+              AppSheetHeader(
+                title: AppI18n.t(config, 'player.sleep_timer.custom'),
+                padding: EdgeInsets.zero,
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 180,

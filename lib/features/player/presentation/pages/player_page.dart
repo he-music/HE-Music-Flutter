@@ -1009,7 +1009,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      fixedHeightFactor: LayoutTokens.queueSheetHeightFactor,
+      fitContent: true,
+      heightFactor: LayoutTokens.queueSheetHeightFactor,
       builder: (context) => const PlayerQueueSheet(),
     );
   }
@@ -1371,8 +1372,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                             ),
                           ),
                           Text('${value.toStringAsFixed(2)}x'),
-                          if (AppUiTheme.usesCupertino(context))
-                            const AppSheetCloseButton(),
+                          const AppSheetCloseButton(),
                         ],
                       ),
                       AppSlider(
@@ -1538,8 +1538,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                             ),
                           ),
                           Text('${(value * 100).round()}%'),
-                          if (AppUiTheme.usesCupertino(context))
-                            const AppSheetCloseButton(),
+                          const AppSheetCloseButton(),
                         ],
                       ),
                       AppSlider(

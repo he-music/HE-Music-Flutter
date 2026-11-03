@@ -1,11 +1,9 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/config/app_config_controller.dart';
+import '../../../../shared/widgets/app_cupertino_content_section.dart';
 
 /// Optional item backgrounds inside an always-opaque player modal surface.
-class PlayerSheetSection extends ConsumerWidget {
+class PlayerSheetSection extends StatelessWidget {
   const PlayerSheetSection({
     required this.children,
     this.title,
@@ -18,38 +16,22 @@ class PlayerSheetSection extends ConsumerWidget {
   final bool hasLeading;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final showBackground = ref.watch(
-      appConfigProvider.select((config) => config.showContentBackground),
-    );
-    final theme = Theme.of(context);
-    return CupertinoListSection.insetGrouped(
-      margin: const EdgeInsets.only(bottom: 12),
-      hasLeading: hasLeading,
-      backgroundColor: Colors.transparent,
-      header: title == null
-          ? null
-          : Semantics(
-              header: true,
-              child: Text(
-                title!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+  Widget build(BuildContext context) => AppCupertinoContentSection(
+    margin: const EdgeInsets.only(bottom: 12),
+    hasLeading: hasLeading,
+    header: title == null
+        ? null
+        : Semantics(
+            header: true,
+            child: Text(
+              title!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
               ),
             ),
-      decoration: BoxDecoration(
-        color: showBackground
-            ? Color.alphaBlend(
-                theme.colorScheme.onSurface.withValues(alpha: 0.04),
-                theme.colorScheme.surface,
-              )
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      children: children,
-    );
-  }
+          ),
+    children: children,
+  );
 }

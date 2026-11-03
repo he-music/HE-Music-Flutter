@@ -2,13 +2,16 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/router/app_router.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
@@ -26,6 +29,7 @@ import 'package:he_music_flutter/features/home/domain/entities/recommend_song_li
 import 'package:he_music_flutter/features/home/domain/entities/recommend_song_list_request.dart';
 import 'package:he_music_flutter/features/home/presentation/providers/home_page_providers.dart';
 import 'package:he_music_flutter/features/music_library/presentation/pages/local_library_page.dart';
+import 'package:he_music_flutter/features/my/presentation/pages/library_page.dart';
 import 'package:he_music_flutter/features/my/presentation/pages/my_page.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_feature_state.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
@@ -49,9 +53,239 @@ import 'package:he_music_flutter/features/settings/presentation/pages/account_pr
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_page.dart';
 import 'package:he_music_flutter/features/video/presentation/pages/video_detail_page.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/shared/widgets/app_bottom_navigation_bar.dart';
+import 'package:he_music_flutter/shared/widgets/app_player_scaffold.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final complete in [false, true]) {
+    testWidgets(
+      'iOS settings edge back ${complete ? 'completes' : 'cancels'} without overlap',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final router = createAppRouter(AppRoutes.settings);
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          _buildImmersiveRouterTestApp(
+            router,
+            _CountingAssetResolver(),
+            platform: TargetPlatform.iOS,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('歌词'));
+        await tester.pumpAndSettle();
+        final section = find.byKey(
+          const ValueKey<String>('settings-page-lyrics'),
+        );
+        final home = find.byKey(const ValueKey<String>('settings-page-home'));
+        final navigator = Navigator.of(tester.element(section));
+        expect(
+          ModalRoute.of(tester.element(section))!.popGestureEnabled,
+          isTrue,
+        );
+        final gesture = await tester.startGesture(const Offset(2, 300));
+        await gesture.moveBy(const Offset(30, 0));
+        await tester.pump();
+        await gesture.moveBy(Offset(complete ? 250 : 70, 0));
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(navigator.userGestureInProgress, isTrue);
+        expect(tester.getTopLeft(section).dx, greaterThan(0));
+        expect(
+          tester.getRect(home).right,
+          closeTo(tester.getRect(section).left, .1),
+        );
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(navigator.userGestureInProgress, isFalse);
+        expect(
+          router.state.uri.path,
+          complete
+              ? AppRoutes.settings
+              : AppRoutes.settingsSectionLocation(SettingsSectionIds.lyrics),
+        );
+        if (!complete) {
+          expect(tester.getTopLeft(section).dx, closeTo(0, .1));
+          await tester.tap(find.byTooltip('返回'));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text('歌词'));
+        await tester.pumpAndSettle();
+        expect(section, findsOneWidget);
+        expect(tester.takeException(), isNull);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+  }
+
+  testWidgets('iOS reduced motion skips settings slide and interactive back', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    final router = createAppRouter(AppRoutes.settings);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      _buildImmersiveRouterTestApp(
+        router,
+        _CountingAssetResolver(),
+        platform: TargetPlatform.iOS,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('歌词'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    final section = find.byKey(const ValueKey<String>('settings-page-lyrics'));
+    expect(tester.getTopLeft(section).dx, 0);
+    expect(ModalRoute.of(tester.element(section))!.popGestureEnabled, isFalse);
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(section, findsNothing);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets(
+    'detail style changes retain Navigator, input, focus and one player',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildRouterTestApp(initialLocation: AppRoutes.collection),
+      );
+      await tester.pumpAndSettle();
+      final libraryElement = tester.element(find.byType(LibraryPage));
+      final router = GoRouter.of(libraryElement);
+      final container = ProviderScope.containerOf(libraryElement);
+      final controller =
+          container.read(appConfigProvider.notifier)
+              as _TestAppConfigController;
+      final branchNavigator = Navigator.of(libraryElement);
+      router.push<void>(AppRoutes.onlineSearch);
+      await tester.pumpAndSettle();
+      final search = find.byType(OnlineSearchPage);
+      final searchState = tester.state(search);
+      final contentNavigator = Navigator.of(tester.element(search));
+      expect(contentNavigator, isNot(same(branchNavigator)));
+      final editable = find.descendant(
+        of: search,
+        matching: find.byType(EditableText),
+      );
+      await tester.enterText(editable, 'keep this query');
+      await tester.pump();
+      final focus = tester.widget<EditableText>(editable).focusNode;
+      expect(focus.hasFocus, isTrue);
+      for (final style in [
+        AppUiStyle.cupertino,
+        AppUiStyle.material,
+        AppUiStyle.cupertino,
+      ]) {
+        controller.changeStyle(style);
+        await tester.pumpAndSettle();
+        expect(tester.state(search), same(searchState));
+        expect(Navigator.of(tester.element(search)), same(contentNavigator));
+        expect(
+          tester.widget<EditableText>(editable).controller.text,
+          'keep this query',
+        );
+        expect(tester.widget<EditableText>(editable).focusNode, same(focus));
+        expect(focus.hasFocus, isTrue);
+        expect(find.byType(AppPlayerScaffold), findsOneWidget);
+        expect(find.byType(MiniPlayerBar), findsOneWidget);
+        expect(
+          find.byType(AppBottomNavigationBar),
+          style == AppUiStyle.cupertino ? findsOneWidget : findsNothing,
+        );
+        if (style == AppUiStyle.cupertino) {
+          expect(
+            tester
+                .widget<CupertinoTabBar>(find.byType(CupertinoTabBar))
+                .currentIndex,
+            1,
+          );
+        }
+      }
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(
+        Navigator.of(tester.element(find.byType(LibraryPage))),
+        same(branchNavigator),
+      );
+      expect(find.byType(MiniPlayerBar), findsOneWidget);
+      router.push<void>(AppRoutes.onlineSearch);
+      await tester.pumpAndSettle();
+      tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).onTap!(2);
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, AppRoutes.my);
+      tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).onTap!(1);
+      await tester.pumpAndSettle();
+      expect(tester.element(find.byType(LibraryPage)), same(libraryElement));
+      expect(router.canPop(), isFalse);
+      router.push<void>(AppRoutes.settings);
+      await tester.pumpAndSettle();
+      expect(find.byType(AppBottomNavigationBar), findsNothing);
+      expect(find.byType(MiniPlayerBar), findsNothing);
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryPage), findsOneWidget);
+      expect(find.byType(MiniPlayerBar), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'content opened from full player returns through player to its tab',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildRouterTestApp(initialLocation: AppRoutes.collection),
+      );
+      await tester.pumpAndSettle();
+      final router = GoRouter.of(tester.element(find.byType(LibraryPage)));
+      router.push<void>(AppRoutes.player);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsOneWidget);
+      expect(find.byType(MiniPlayerBar), findsNothing);
+      router.push<void>(AppRoutes.onlineSearch);
+      await tester.pumpAndSettle();
+      expect(find.byType(OnlineSearchPage), findsOneWidget);
+      expect(find.byType(MiniPlayerBar), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, AppRoutes.player);
+      expect(find.byType(PlayerPage), findsOneWidget);
+      router.push<void>(AppRoutes.onlineSearch);
+      await tester.pumpAndSettle();
+      expect(
+        router.state.uri.path,
+        '${AppRoutes.rootBrowsePrefix}${AppRoutes.onlineSearch}',
+      );
+      final detailState = tester.state(find.byType(OnlineSearchPage));
+      final reopening = openFullPlayer(
+        tester.element(find.byType(OnlineSearchPage)),
+      );
+      await tester.pumpAndSettle();
+      await reopening;
+      expect(
+        router.routerDelegate.currentConfiguration.matches.where(
+          (match) =>
+              match.route is GoRoute &&
+              (match.route as GoRoute).path == AppRoutes.player,
+        ),
+        hasLength(1),
+      );
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(OnlineSearchPage)), same(detailState));
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryPage), findsOneWidget);
+      expect(find.byType(MiniPlayerBar), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final endMethod in ['cancelBackGesture', 'commitBackGesture']) {
     testWidgets(
       'Android repeated back start followed by $endMethod keeps taps working',
@@ -600,7 +834,16 @@ Widget _buildRouterTestApp({
     child: Consumer(
       builder: (context, ref, _) {
         final router = ref.watch(appRouterProvider);
-        return MaterialApp.router(theme: theme, routerConfig: router);
+        final style = ref.watch(
+          appConfigProvider.select((state) => state.uiStyle),
+        );
+        final skin = AppSkinRegistry.builtIn(
+          AppConfigState.initial.themeAccent,
+        ).resolve(AppSkinRegistry.classicId);
+        return MaterialApp.router(
+          theme: theme ?? AppTheme.light(skin, uiStyle: style),
+          routerConfig: router,
+        );
       },
     ),
   );
@@ -608,8 +851,9 @@ Widget _buildRouterTestApp({
 
 Widget _buildImmersiveRouterTestApp(
   GoRouter router,
-  AppSkinAssetResolver resolver,
-) {
+  AppSkinAssetResolver resolver, {
+  TargetPlatform platform = TargetPlatform.android,
+}) {
   final skin = AppSkinRegistry.builtIn(
     AppConfigState.initial.themeAccent,
   ).resolve(AppSkinRegistry.citySoundCreatorId);
@@ -628,7 +872,7 @@ Widget _buildImmersiveRouterTestApp(
       ),
     ],
     child: MaterialApp.router(
-      theme: AppTheme.light(skin).copyWith(platform: TargetPlatform.android),
+      theme: AppTheme.light(skin).copyWith(platform: platform),
       routerConfig: router,
       builder: (context, child) => Stack(
         fit: StackFit.expand,
@@ -649,6 +893,10 @@ class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() {
     return AppConfigState.initial.copyWith(localeCode: 'zh');
+  }
+
+  void changeStyle(AppUiStyle style) {
+    state = state.copyWith(uiStyle: style);
   }
 }
 

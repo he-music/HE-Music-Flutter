@@ -107,16 +107,24 @@ abstract final class AppTheme {
                     fontSize: 22,
                     color: colorScheme.onSurface,
                   ),
-              titleLarge: cupertinoTypography.navTitleTextStyle.copyWith(
+              // Content titles use their own hierarchy; navigation keeps the
+              // SDK's navTitleTextStyle in CupertinoNavigationBar.
+              titleLarge: cupertinoTypography.textStyle.copyWith(
                 inherit: true,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
                 color: colorScheme.onSurface,
               ),
-              titleMedium: cupertinoTypography.navTitleTextStyle.copyWith(
+              titleMedium: cupertinoTypography.textStyle.copyWith(
                 inherit: true,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
                 color: colorScheme.onSurface,
               ),
-              titleSmall: cupertinoTypography.navTitleTextStyle.copyWith(
+              titleSmall: cupertinoTypography.textStyle.copyWith(
                 inherit: true,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
                 color: colorScheme.onSurface,
               ),
               bodyLarge: cupertinoTypography.textStyle.copyWith(
@@ -134,6 +142,17 @@ abstract final class AppTheme {
               ),
               labelLarge: cupertinoTypography.actionTextStyle.copyWith(
                 inherit: true,
+              ),
+              labelMedium: cupertinoTypography.textStyle.copyWith(
+                inherit: true,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              labelSmall: cupertinoTypography.textStyle.copyWith(
+                inherit: true,
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           )
@@ -203,6 +222,7 @@ abstract final class AppTheme {
         skinTheme,
       ],
       appBarTheme: AppBarTheme(
+        toolbarHeight: isCupertino ? 44 : kToolbarHeight,
         centerTitle: false,
         elevation: 0,
         backgroundColor: Colors.transparent,

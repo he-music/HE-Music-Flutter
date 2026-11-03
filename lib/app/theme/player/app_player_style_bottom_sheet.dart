@@ -101,9 +101,17 @@ Future<T?> showPlayerStyledBottomSheet<T>({
         useAppAccent: useAppAccent,
         systemOverlayStyle: systemOverlayStyle,
       );
-      return fixedHeightFactor == null
-          ? body
-          : FractionallySizedBox(heightFactor: fixedHeightFactor, child: body);
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: fixedHeightFactor == null
+            ? body
+            : FractionallySizedBox(
+                heightFactor: fixedHeightFactor,
+                child: body,
+              ),
+      );
     },
   );
   if (overlayEntry == null) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/widgets/app_sheet_header.dart';
+import '../../../../shared/widgets/app_cupertino_content_section.dart';
 import '../../domain/entities/player_quality_option.dart';
 
 /// Playback and download share selection feedback and readable quality details.
@@ -66,17 +67,9 @@ class PlayerQualitySelectionSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: cupertino && rows.isNotEmpty
                   ? [
-                      CupertinoListSection.insetGrouped(
+                      AppCupertinoContentSection(
                         margin: EdgeInsets.zero,
                         hasLeading: false,
-                        backgroundColor: Colors.transparent,
-                        decoration: BoxDecoration(
-                          color: Color.alphaBlend(
-                            theme.colorScheme.onSurface.withValues(alpha: 0.04),
-                            theme.colorScheme.surface,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
                         children: rows,
                       ),
                     ]

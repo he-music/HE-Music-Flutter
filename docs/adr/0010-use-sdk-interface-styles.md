@@ -8,9 +8,14 @@
 
 ## 决策
 
-- 新增 `AppUiStyle.material` 与 `AppUiStyle.cupertino`，在“设置 → 外观 → 界面风格”选择，默认 Material。选择保存到 `app_config.ui_style`。未知值回退到 Material；旧玻璃质量配置不映射为设计语言，并在保存时清理。
+- 新增 `AppUiStyle.material` 与 `AppUiStyle.cupertino`，在“设置 → 外观 → 界面风格”选择，未手动选择时，iOS/macOS 默认 Cupertino，其他平台默认 Material；手动选择优先于平台偏好。选择保存到 `app_config.ui_style`。未知值回退到 Material；旧玻璃质量配置不映射为设计语言，并在保存时清理。
 - 界面风格与皮肤、主题色、深浅色、系统平台、应用内皮肤动画开关相互独立。不得修改 `ThemeData.platform` 伪造设备平台。
 - 保留 `MaterialApp.router`、GoRouter 与 Riverpod。`AppUiTheme` 提供主题信息，`AppUiStyleScope` 将用户选择传过播放器等局部主题。切换风格保持 Navigator、当前路由、播放及输入状态。
+- 主导航固定为“发现 / 资料库 / 我的”。资料库聚合本地音乐、下载、播放历史、收藏及已有歌单 provider；原 `/library` 本地音乐、下载及“我的”入口保持兼容。资料库使用 `/collection`，离线可进入；未登录时保留本地入口，并提供登录后返回资料库的云端入口。
+- 固定外层 `ShellRoute` 使用独立 Navigator key，唯一持有 `AppPlayerScaffold` / MiniPlayer；其内保留三分支 `StatefulShellRoute.indexedStack`。普通浏览详情在外层内容 Navigator push，Cupertino 保留共享标签栏，Material 隐藏详情标签栏。播放器、视频、登录、设置和编辑使用 root Navigator 全屏呈现。任何 Navigator key 与 `parentNavigatorKey` 均不随风格变化。
+- root 全屏页面打开普通浏览详情时，统一由路由 redirect 将 push / replace 转为固定 `/browse/...` root 别名，复用相同业务页面与参数；外部普通路径和 go 深链接保持原地址。别名使用固定 root Navigator，避免 GoRouter 在被全屏路由隔开的栈中克隆同一外层 Shell。别名页面保留 Cupertino 标签栏与单一可见播放条，并保留“播放器 → 详情 → 返回播放器”及“详情再次开播放器 → 返回详情 → 返回来源”的返回链；别名沿用原路径的离线启动策略。
+- 外层 Shell 记住最后访问的分支，push 内容页不改变选中标签，标签操作 go 到对应分支；分支滚动和局部状态保留，详情内切风格保持 Navigator、输入焦点与当前浏览状态。
+- iOS 设置分区使用 SDK Cupertino 返回手势处理完成、取消和速度判断；透明壁纸下前后路由同步移动整页，避免转场内容叠画。系统减少动画时停用该位移动画和边缘手势；应用内皮肤动画开关不参与页面转场判断。Android 保留现有返回和设置分区转场策略。
 - 页面共用业务代码。共享导航、搜索、图标按钮、开关、简单确认弹窗及移动操作菜单选择对应 SDK 组件。内容列表、歌词、复杂表单和媒体阅读区域按可读性与已有功能保留布局，不复制业务页面。
 - Cupertino 的设置分组和功能列表使用原生 `CupertinoListSection` / `CupertinoListTile`，列表值在窄屏和大字号时换行；桌面保留键盘激活、焦点提示和禁用语义。常用按钮、筛选和排序方向提供对应的 Cupertino 控件。
 - Cupertino 使用 SDK 字号层级和基础图标。经典皮肤采用系统中性分组背景，壁纸皮肤继续保留其配色与资源。风格切换只改变低频主题信息，不扩大播放进度等高频状态的监听范围。
@@ -20,11 +25,15 @@
 - Cupertino 的底部导航铺满屏幕宽度和底部安全区，迷你播放器保持独立浮动。切换内置皮肤及内容底色开关时，共享内容表面保持组件树稳定，保留局部编辑、展开状态和浏览位置。
 - 新增可选的 Apple 蓝主题色（浅色 `#007AFF`，深色 `#0A84FF`），两种界面风格均可使用。选择 Cupertino 不会自动重置主题色；有自带配色的皮肤仍按其主题色权限处理。
 - Cupertino 滚动采用回弹物理并去掉 Material 边缘拉伸；保留鼠标、触控板和 Shift 横向滚动。页面路由继续遵守现有的平台返回策略。
+- 首页主内容切换使用“推荐 / 浏览”，与主导航“发现”区分；Cupertino 使用整体分段选择，来源保持次级筛选。Material 普通内容继承共享滚动物理，不在页面强制回弹。来源筛选触控区域至少为 Material 48×48、Cupertino 44×44。
+- Cupertino 导航与内容标题使用独立字号层级，普通顶栏为 44、Material 为 56。歌曲标题在窄屏和大字号下允许两行；行内动作保留独立触控区域、键盘及桌面定位菜单。普通内容按压结构在切换风格时保持挂载，仅更新反馈，保留子组件状态和焦点。
 - 底部导航固定显示。Material 使用全宽 M3 `NavigationBar` 及选中指示，MiniPlayer 贴合上方，仅顶部使用较小圆角；Cupertino 使用全宽 `CupertinoTabBar`，MiniPlayer 保留左右 12、上下 8 像素间距和 16 像素圆角。底栏与播放条取消装饰边框、阴影和滚动收起；无歌曲时播放条隐藏。独立播放条的 Material 底色覆盖底部安全区，两种风格在键盘开合时保持安全区高度。
 - 底栏和持续播放控制使用不透明皮肤底色；普通应用弹层使用皮肤控制底色，播放器弹层保留专属明暗色板。Cupertino 普通标题栏在透明壁纸页面使用透明底色并去掉底部分界，在实色页面保留正常底色；显式使用主题明暗设置状态栏文字，关闭导航背景模糊。
 - 复杂底部面板继续通过 SDK 模态底部面板呈现，保持 `PopupRoute`、安全区、拖动关闭、键盘避让及结果返回。简单操作菜单可使用 `CupertinoActionSheet`。不直接用 `CupertinoSheetRoute` 替换所有弹层，避免改变播放器的路由可见性、常亮及频谱采集行为。
 - MiniPlayer 与详情页的队列，以及播放器更多操作、倍速、音量、音质、下载、歌手选择、睡眠定时和歌词相关面板，共用 `showPlayerStyledBottomSheet` 的播放器表面规则。Material 顶部圆角为 24，Cupertino 为 16；嵌套面板保留播放器主题标记与系统栏保护，并随应用明暗变化更新。
 - 播放器面板中的选项行、按钮、开关和滑块使用共享适配控件，Cupertino 队列和样式分类使用原生分段选择；放大字号时支持横向滚动。Cupertino 动作沿用当前主题强调色，滑块补齐键盘方向键、Home/End、RTL 和读屏增减提交，保留原有编辑与提交回调。Material 自定义定时时长使用下拉选择，Cupertino 使用循环滚轮。切换风格保持当前弹层路由、焦点、输入和局部编辑状态。
+- 短队列与歌单选择按内容撑高，长队列使用统一屏幕高度上限并保持懒加载，不逐项测量列表。即时生效面板提供明确关闭；有草稿的表单仅通过确认提交，关闭和取消不提交。
+- Android/iOS 按实际平台采用移动消息：Material 使用浮动 SnackBar，Cupertino 使用轻量 SDK 按钮反馈面板；桌面平台保留定位通知，不按窗口宽度误判。固定播放区不随键盘移动，SnackBar 根据实际底部控制区高度仅补偿键盘超出部分。可操作消息在辅助导航模式下保持，回调仅执行一次；同文去重限于同一 Overlay 宿主。
 - 桌面菜单继续采用定位菜单并在根 Navigator 呈现，锚点使用根 Overlay 坐标，避免嵌套 Navigator 或底部控件遮挡。
 - 删除第三方 shader 预热、质量监测、相关构建开关、设置项、vendored code 与专用 skill；官方 Cupertino 不需要新增 pub 包。
 

@@ -78,12 +78,12 @@ class _MyPageState extends ConsumerState<MyPage> {
           ),
         ),
         if (showQrScanEntry)
-          IconButton(
+          AppIconButton(
             tooltip: AppI18n.t(config, 'common.scan'),
             onPressed: () => context.push(AppRoutes.loginQrScan),
             icon: const AppSkinIcon(role: AppSkinIconRole.scan),
           ),
-        IconButton(
+        AppIconButton(
           tooltip: AppI18n.t(config, 'settings.title'),
           onPressed: () => context.push(AppRoutes.settings),
           icon: const AppSkinIcon(role: AppSkinIconRole.settings),
@@ -182,7 +182,9 @@ class _MyPageState extends ConsumerState<MyPage> {
           child: const _MyBackground(),
         ),
         ListView(
-          physics: const BouncingScrollPhysics(),
+          physics: AppUiTheme.usesCupertino(context)
+              ? const BouncingScrollPhysics()
+              : null,
           padding: EdgeInsets.fromLTRB(
             LayoutTokens.compactPageGutter,
             topInset + 8,
@@ -878,7 +880,12 @@ class _InlineRetryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.72),
+        color: AppSkinContentSurface.backgroundColorOf(
+          context,
+          materialColor: Theme.of(
+            context,
+          ).colorScheme.surface.withValues(alpha: 0.72),
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -903,7 +910,12 @@ class _EmptyShelfCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.72),
+        color: AppSkinContentSurface.backgroundColorOf(
+          context,
+          materialColor: Theme.of(
+            context,
+          ).colorScheme.surface.withValues(alpha: 0.72),
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),

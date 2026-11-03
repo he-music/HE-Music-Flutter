@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/app_navigation_service.dart';
+import 'package:he_music_flutter/app/app_message_service.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/about_page.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_current_app_info.dart';
 import 'package:he_music_flutter/features/update/domain/entities/update_state.dart';
@@ -16,9 +17,7 @@ void main() {
     expect(find.byKey(const ValueKey<String>('about-logo')), findsOneWidget);
   });
 
-  testWidgets('latest update status shows a toastification message', (
-    tester,
-  ) async {
+  testWidgets('latest update status shows an adaptive message', (tester) async {
     await _pumpAboutPage(tester);
 
     _controller(tester).emit(const UpdateState(status: UpdateStatus.latest));
@@ -28,9 +27,7 @@ void main() {
     await _dismissToasts(tester);
   });
 
-  testWidgets('failed update status shows a toastification error', (
-    tester,
-  ) async {
+  testWidgets('failed update status shows an adaptive error', (tester) async {
     await _pumpAboutPage(tester);
 
     _controller(tester).emit(
@@ -58,6 +55,7 @@ Future<void> _pumpAboutPage(WidgetTester tester) async {
       ],
       child: MaterialApp(
         navigatorKey: rootNavigatorKey,
+        scaffoldMessengerKey: AppMessageService.messengerKey,
         home: const AboutPage(),
       ),
     ),
@@ -82,6 +80,7 @@ Future<void> _pumpToast(WidgetTester tester) async {
 
 Future<void> _dismissToasts(WidgetTester tester) async {
   toastification.dismissAll(delayForAnimation: false);
+  AppMessageService.messengerKey.currentState?.removeCurrentSnackBar();
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 700));
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'app_adaptive_controls.dart';
 import '../../app/theme/app_ui_theme.dart';
@@ -34,6 +35,7 @@ class AppBackButton extends StatelessWidget {
     this.backgroundColor,
     this.iconSize,
     this.tooltip,
+    this.previousPageTitle,
     this.style,
     this.visualDensity,
     this.constraints,
@@ -49,6 +51,7 @@ class AppBackButton extends StatelessWidget {
   final Color? backgroundColor;
   final double? iconSize;
   final String? tooltip;
+  final String? previousPageTitle;
   final ButtonStyle? style;
   final VisualDensity? visualDensity;
   final BoxConstraints? constraints;
@@ -62,6 +65,16 @@ class AppBackButton extends StatelessWidget {
         _styleForColors(foregroundColor);
 
     if (AppUiTheme.usesCupertino(context)) {
+      if (previousPageTitle != null && icon == null) {
+        return ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: CupertinoNavigationBarBackButton(
+            previousPageTitle: previousPageTitle,
+            color: foregroundColor,
+            onPressed: onPressed ?? () => context.appPopOrGo(fallbackLocation),
+          ),
+        );
+      }
       return AppIconButton(
         onPressed: onPressed ?? () => context.appPopOrGo(fallbackLocation),
         tooltip: tooltip ?? _resolveBackTooltip(context),

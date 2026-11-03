@@ -19,10 +19,93 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_panel_content.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.dart';
+import 'package:he_music_flutter/shared/widgets/app_sheet_close_button.dart';
 
 import '../../../../helpers/expect_text_height_fits.dart';
 
 void main() {
+  for (final style in AppUiStyle.values) {
+    testWidgets('$style short queue fits content and long queue stays lazy', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      late _QueueTestController controller;
+      var dismissed = false;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(() {
+              controller = _QueueTestController();
+              return controller;
+            }),
+          ],
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppUiTheme(style: style)]),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () async {
+                    await showPlayerStyledBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      fitContent: true,
+                      heightFactor: 0.88,
+                      builder: (_) => const PlayerQueueSheet(),
+                    );
+                    dismissed = true;
+                  },
+                  child: const Text('Open queue'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open queue'));
+      await tester.pumpAndSettle();
+      final surface = find.byKey(const ValueKey('player-sheet-surface'));
+      final shortHeight = tester.getSize(surface).height;
+      expect(shortHeight, lessThan(300));
+      expect(find.byType(AppSheetCloseButton).hitTestable(), findsOneWidget);
+      final route = ModalRoute.of(
+        tester.element(find.byType(PlayerQueueSheet)),
+      );
+      expect(route, isA<PopupRoute<void>>());
+      controller.updateQueue(
+        List.generate(
+          200,
+          (index) => PlayerTrack(
+            id: 'long-$index',
+            title: 'Long song $index',
+            artist: 'Artist',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(surface).height, greaterThan(650));
+      expect(tester.getSize(surface).height, lessThanOrEqualTo(844 * 0.88));
+      expect(find.text('Long song 199'), findsNothing);
+      expect(
+        ModalRoute.of(tester.element(find.byType(PlayerQueueSheet))),
+        same(route),
+      );
+      await tester.fling(
+        find.byKey(const ValueKey('player-sheet-drag-handle')),
+        const Offset(0, 600),
+        1800,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerQueueSheet), findsNothing);
+      expect(dismissed, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final style in AppUiStyle.values) {
     testWidgets('$style queue tabs accommodate large labels and counts', (
       tester,

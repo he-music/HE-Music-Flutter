@@ -11,6 +11,9 @@ import 'package:he_music_flutter/features/download/presentation/widgets/download
 import 'package:he_music_flutter/features/player/domain/entities/player_quality_option.dart';
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_config_state.dart';
 
 void main() {
   for (final playerContext in [false, true]) {
@@ -20,43 +23,46 @@ void main() {
         (tester) async {
           PlayerQualityOption? selected;
           await tester.pumpWidget(
-            MaterialApp(
-              theme: ThemeData(
-                brightness: brightness,
-                extensions: [
-                  const AppUiTheme(style: AppUiStyle.cupertino),
-                  if (playerContext)
-                    AppPlayerStyleTheme(
-                      systemOverlayStyle: SystemUiOverlayStyle.light,
-                      sheetBrightness: brightness,
+            ProviderScope(
+              overrides: [appConfigProvider.overrideWith(_Config.new)],
+              child: MaterialApp(
+                theme: ThemeData(
+                  brightness: brightness,
+                  extensions: [
+                    const AppUiTheme(style: AppUiStyle.cupertino),
+                    if (playerContext)
+                      AppPlayerStyleTheme(
+                        systemOverlayStyle: SystemUiOverlayStyle.light,
+                        sheetBrightness: brightness,
+                      ),
+                  ],
+                ),
+                home: Builder(
+                  builder: (context) => Scaffold(
+                    body: TextButton(
+                      child: const Text('Open'),
+                      onPressed: () async {
+                        selected = await showDownloadQualitySheet(
+                          context: context,
+                          selectedQualityName: 'HQ',
+                          qualities: const [
+                            PlayerQualityOption(
+                              name: 'HQ',
+                              quality: 320,
+                              format: 'mp3',
+                              url: '',
+                              description: 'High quality',
+                            ),
+                            PlayerQualityOption(
+                              name: 'FLAC',
+                              quality: 999,
+                              format: 'flac',
+                              url: '',
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                ],
-              ),
-              home: Builder(
-                builder: (context) => Scaffold(
-                  body: TextButton(
-                    child: const Text('Open'),
-                    onPressed: () async {
-                      selected = await showDownloadQualitySheet(
-                        context: context,
-                        selectedQualityName: 'HQ',
-                        qualities: const [
-                          PlayerQualityOption(
-                            name: 'HQ',
-                            quality: 320,
-                            format: 'mp3',
-                            url: '',
-                            description: 'High quality',
-                          ),
-                          PlayerQualityOption(
-                            name: 'FLAC',
-                            quality: 999,
-                            format: 'flac',
-                            url: '',
-                          ),
-                        ],
-                      );
-                    },
                   ),
                 ),
               ),
@@ -358,6 +364,11 @@ void main() {
 Color? _renderedTextColor(WidgetTester tester, String text) {
   final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
   return paragraph.text.style?.color;
+}
+
+class _Config extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial;
 }
 
 class _BottomSheetRouteObserver extends NavigatorObserver {

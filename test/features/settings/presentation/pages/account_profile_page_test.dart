@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:he_music_flutter/shared/widgets/app_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/app_navigation_service.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
@@ -196,6 +197,7 @@ void main() {
       find.byKey(const ValueKey<String>('account-profile-submit')),
     );
     await _pumpToast(tester);
+    await tester.pumpAndSettle();
 
     expect(client.profileCalls, 1);
     expect(client.nickname, 'New Name');
@@ -259,14 +261,15 @@ Future<ProviderContainer> _pumpPage(
     ],
   );
   addTearDown(container.dispose);
+  final router = GoRouter(
+    navigatorKey: rootNavigatorKey,
+    routes: [GoRoute(path: '/', builder: (_, _) => const AccountProfilePage())],
+  );
+  addTearDown(router.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
-        navigatorKey: rootNavigatorKey,
-        theme: theme,
-        home: const AccountProfilePage(),
-      ),
+      child: MaterialApp.router(routerConfig: router, theme: theme),
     ),
   );
   await tester.pump();
@@ -274,6 +277,10 @@ Future<ProviderContainer> _pumpPage(
 }
 
 Future<void> _dismissToasts(WidgetTester tester) async {
+  final context = rootNavigatorKey.currentContext;
+  if (context != null) {
+    ScaffoldMessenger.maybeOf(context)?.removeCurrentSnackBar();
+  }
   toastification.dismissAll(delayForAnimation: false);
   await tester.pump(const Duration(milliseconds: 700));
 }

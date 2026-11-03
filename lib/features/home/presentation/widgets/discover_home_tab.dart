@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -393,9 +395,6 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
                 },
                 cupertinoRefreshIndicatorTopPadding: _searchHeight,
                 controller: _scrollControllers[page],
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
                 slivers: <Widget>[
                   SliverToBoxAdapter(child: SizedBox(height: _searchHeight)),
                   if (page == HomePageKind.discover)
@@ -687,6 +686,10 @@ class _DiscoverHomeTabState extends ConsumerState<DiscoverHomeTab> {
       return;
     }
     unawaited(ref.read(homePageControllerProvider.notifier).selectPage(page));
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pageController.jumpToPage(index);
+      return;
+    }
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 220),
@@ -1548,6 +1551,56 @@ class _HomePageTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String labelFor(HomePageKind page) => AppI18n.t(
+      config,
+      page == HomePageKind.recommend
+          ? 'home.tab.recommend'
+          : 'home.tab.discover',
+    );
+    if (AppUiTheme.usesCupertino(context)) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          LayoutTokens.compactPageGutter + 4,
+          6,
+          LayoutTokens.compactPageGutter + 4,
+          4,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = MediaQuery.textScalerOf(context).scale(17) / 17;
+            final width = constraints.maxWidth < 240 * scale
+                ? 240 * scale
+                : constraints.maxWidth;
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: width,
+                child: CupertinoSlidingSegmentedControl<HomePageKind>(
+                  groupValue: pages.contains(selectedPage)
+                      ? selectedPage
+                      : pages.first,
+                  onValueChanged: (page) {
+                    if (page != null) onSelected(page);
+                  },
+                  children: {
+                    for (final page in pages)
+                      page: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        child: Center(
+                          child: Text(
+                            labelFor(page),
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ),
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         LayoutTokens.compactPageGutter + 4,
@@ -1561,12 +1614,7 @@ class _HomePageTabs extends StatelessWidget {
               (page) => Flexible(
                 child: UnderlineTab(
                   prominent: true,
-                  label: AppI18n.t(
-                    config,
-                    page == HomePageKind.recommend
-                        ? 'home.tab.recommend'
-                        : 'home.tab.discover',
-                  ),
+                  label: labelFor(page),
                   selected: page == selectedPage,
                   enabled: true,
                   onTap: () => onSelected(page),

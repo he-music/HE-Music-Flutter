@@ -5,6 +5,7 @@ import 'package:he_music_flutter/app/router/platform_route_policy.dart';
 void main() {
   test('local playback and downloads do not require platform metadata', () {
     for (final location in [
+      AppRoutes.collection,
       AppRoutes.library,
       AppRoutes.downloads,
       AppRoutes.downloadedMusic,
@@ -51,6 +52,34 @@ void main() {
         Uri(path: AppRoutes.albumDetail, queryParameters: {'platform': 'qq'}),
       ),
       isFalse,
+    );
+  });
+  test('root browsing aliases keep local and online startup policies', () {
+    expect(
+      canOpenWithoutPlatforms(
+        Uri.parse('${AppRoutes.rootBrowsePrefix}${AppRoutes.library}'),
+      ),
+      isTrue,
+    );
+    expect(
+      canOpenWithoutPlatforms(
+        Uri.parse('${AppRoutes.rootBrowsePrefix}${AppRoutes.downloads}'),
+      ),
+      isTrue,
+    );
+    expect(
+      canOpenWithoutPlatforms(
+        Uri.parse('${AppRoutes.rootBrowsePrefix}${AppRoutes.onlineSearch}'),
+      ),
+      isFalse,
+    );
+    expect(
+      canOpenWithoutPlatforms(
+        Uri.parse(
+          '${AppRoutes.rootBrowsePrefix}${AppRoutes.albumDetail}?platform=local',
+        ),
+      ),
+      isTrue,
     );
   });
 }

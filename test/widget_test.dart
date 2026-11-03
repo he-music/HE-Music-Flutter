@@ -84,7 +84,9 @@ void main() {
     );
   }
 
-  testWidgets('home shell renders with two tabs', (WidgetTester tester) async {
+  testWidgets('home separates navigation and browse tabs', (
+    WidgetTester tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -93,15 +95,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('首页'), findsWidgets);
+    expect(find.text('发现'), findsWidgets);
     expect(find.text('我的'), findsOneWidget);
     expect(find.text('推荐'), findsOneWidget);
-    expect(find.text('发现'), findsOneWidget);
+    expect(find.text('浏览'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byIcon(Icons.search_rounded), findsOneWidget);
     expect(find.text('排行榜'), findsNothing);
 
-    await tester.tap(find.text('发现'));
+    await tester.tap(find.text('浏览'));
     await tester.pumpAndSettle();
 
     expect(find.text('排行榜'), findsOneWidget);
@@ -297,7 +299,7 @@ void main() {
 
     final searchTopLeft = tester.getTopLeft(find.byType(HomeSearchField));
 
-    await tester.tap(find.text('发现'));
+    await tester.tap(find.text('浏览'));
     await tester.pumpAndSettle();
 
     final discoverPage = find.byKey(
@@ -327,7 +329,7 @@ void main() {
     expect(find.byType(HomeSearchField).hitTestable(), findsOneWidget);
     expect(tester.getTopLeft(find.byType(HomeSearchField)), searchTopLeft);
 
-    await tester.tap(find.text('发现'));
+    await tester.tap(find.text('浏览'));
     await tester.pumpAndSettle();
 
     final discoverScrollable = find.descendant(
@@ -389,7 +391,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('推荐'), findsNothing);
-    expect(find.text('发现'), findsNothing);
+    expect(find.text('浏览'), findsNothing);
     expect(find.text('排行榜'), findsOneWidget);
     expect(find.byIcon(Icons.search_rounded), findsOneWidget);
   });

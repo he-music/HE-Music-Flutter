@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/app_button.dart';
 
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
@@ -524,7 +525,10 @@ class _QuickActionTile extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.72),
+            color: AppSkinContentSurface.backgroundColorOf(
+              context,
+              materialColor: theme.colorScheme.surface.withValues(alpha: 0.72),
+            ),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Column(
@@ -558,7 +562,12 @@ class _OnlineMetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
+        color: AppSkinContentSurface.backgroundColorOf(
+          context,
+          materialColor: Theme.of(
+            context,
+          ).colorScheme.surface.withValues(alpha: 0.7),
+        ),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
