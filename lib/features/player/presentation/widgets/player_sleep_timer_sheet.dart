@@ -17,6 +17,7 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../providers/player_audio_provider.dart';
 import '../providers/player_sleep_timer_provider.dart';
 import 'player_more_sheet_widgets.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
 
 const List<int> _sleepTimerPresetMinutes = <int>[10, 30, 60, 90];
 
@@ -112,13 +113,18 @@ class _PlayerSleepTimerSheetState extends ConsumerState<PlayerSleepTimerSheet> {
           shrinkWrap: true,
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
           children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                AppI18n.t(config, 'player.sleep_timer.title'),
-                style: Theme.of(context).textTheme.titleLarge,
+            if (AppUiTheme.usesCupertino(context))
+              AppSheetHeader(
+                title: AppI18n.t(config, 'player.sleep_timer.title'),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  AppI18n.t(config, 'player.sleep_timer.title'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
-            ),
             AppSwitchListTile(
               key: const ValueKey<String>(
                 'player-sleep-timer-after-current-switch',
@@ -294,13 +300,19 @@ class _SleepTimerCustomDurationSheetState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  AppI18n.t(config, 'player.sleep_timer.custom'),
-                  style: theme.textTheme.titleLarge,
+              if (AppUiTheme.usesCupertino(context))
+                AppSheetHeader(
+                  title: AppI18n.t(config, 'player.sleep_timer.custom'),
+                  padding: EdgeInsets.zero,
+                )
+              else
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    AppI18n.t(config, 'player.sleep_timer.custom'),
+                    style: theme.textTheme.titleLarge,
+                  ),
                 ),
-              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 180,

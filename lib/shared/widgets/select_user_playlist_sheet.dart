@@ -14,6 +14,8 @@ import '../../features/online/presentation/widgets/search_playlist_list_item.dar
 
 import 'app_button.dart';
 import 'app_list_tile.dart';
+import '../../app/theme/app_ui_theme.dart';
+import 'app_sheet_header.dart';
 
 class SelectedUserPlaylist {
   const SelectedUserPlaylist({required this.id, required this.isDefault});
@@ -64,28 +66,41 @@ class SelectUserPlaylistSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final localeCode = Localizations.localeOf(context).languageCode;
     final asyncValue = ref.watch(myCreatedPlaylistsProvider);
+    final content = asyncValue.when(
+      data: (items) => _PlaylistListView(
+        items: items,
+        excludedPlaylistId: excludedPlaylistId,
+        localeCode: localeCode,
+        onCreatePlaylist: onCreatePlaylist,
+      ),
+      loading: () =>
+          const Center(child: AppActivityIndicator(size: 36, strokeWidth: 4)),
+      error: (error, stackTrace) => _SheetHint(
+        title: AppI18n.tByLocaleCode(
+          localeCode,
+          'detail.batch.playlist_load_failed',
+        ),
+        actionLabel: AppI18n.tByLocaleCode(localeCode, 'common.retry'),
+        onAction: () => ref.invalidate(myCreatedPlaylistsProvider),
+      ),
+    );
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: asyncValue.when(
-          data: (items) => _PlaylistListView(
-            items: items,
-            excludedPlaylistId: excludedPlaylistId,
-            localeCode: localeCode,
-            onCreatePlaylist: onCreatePlaylist,
-          ),
-          loading: () => const Center(
-            child: AppActivityIndicator(size: 36, strokeWidth: 4),
-          ),
-          error: (error, stackTrace) => _SheetHint(
-            title: AppI18n.tByLocaleCode(
-              localeCode,
-              'detail.batch.playlist_load_failed',
-            ),
-            actionLabel: AppI18n.tByLocaleCode(localeCode, 'common.retry'),
-            onAction: () => ref.invalidate(myCreatedPlaylistsProvider),
-          ),
-        ),
+        child: AppUiTheme.usesCupertino(context)
+            ? Column(
+                children: [
+                  AppSheetHeader(
+                    title: AppI18n.tByLocaleCode(
+                      localeCode,
+                      'detail.batch.select_playlist',
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                  Expanded(child: content),
+                ],
+              )
+            : content,
       ),
     );
   }
@@ -118,15 +133,16 @@ class _PlaylistListView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            AppI18n.tByLocaleCode(localeCode, 'detail.batch.select_playlist'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        if (!AppUiTheme.usesCupertino(context))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              AppI18n.tByLocaleCode(localeCode, 'detail.batch.select_playlist'),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
         Flexible(
           child: ListView.separated(
             shrinkWrap: true,

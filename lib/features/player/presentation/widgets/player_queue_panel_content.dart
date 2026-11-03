@@ -18,6 +18,7 @@ import 'player_queue_list.dart';
 import 'package:flutter/cupertino.dart';
 import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_sheet_close_button.dart';
 
 class PlayerQueuePanelContent extends ConsumerStatefulWidget {
   const PlayerQueuePanelContent({this.onRequestDismiss, super.key});
@@ -126,6 +127,9 @@ class _PlayerQueuePanelContentState
                   size: 22,
                 ),
               ),
+              if (AppUiTheme.usesCupertino(context) &&
+                  widget.onRequestDismiss != null)
+                AppSheetCloseButton(onPressed: widget.onRequestDismiss),
             ],
           ),
         ),

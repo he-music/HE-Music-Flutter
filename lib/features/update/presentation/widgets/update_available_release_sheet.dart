@@ -7,6 +7,8 @@ import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
 
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -83,12 +85,18 @@ Future<void> showUpdateAvailableReleaseSheet({
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    AppI18n.t(config, 'settings.about.available'),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
+                  if (AppUiTheme.usesCupertino(context))
+                    AppSheetHeader(
+                      title: AppI18n.t(config, 'settings.about.available'),
+                      padding: EdgeInsets.zero,
+                    )
+                  else
+                    Text(
+                      AppI18n.t(config, 'settings.about.available'),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 12),
                   AppListTile(
                     contentPadding: EdgeInsets.zero,

@@ -7,6 +7,8 @@ import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/widgets/app_slider.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
 
 String _brightnessLabel(double brightness, String locale) {
   final percentage = '${(brightness * 100).round()}%';
@@ -65,11 +67,14 @@ class LyricPhotoBrightnessControl extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          if (AppUiTheme.usesCupertino(context))
+            AppSheetHeader(title: title, padding: EdgeInsets.zero)
+          else
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           const SizedBox(height: 16),
           Text(
             _brightnessLabel(brightness, locale),

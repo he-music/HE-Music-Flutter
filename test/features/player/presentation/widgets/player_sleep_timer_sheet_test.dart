@@ -9,6 +9,7 @@ import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/shared/widgets/app_button.dart';
+import 'package:he_music_flutter/shared/widgets/app_sheet_close_button.dart';
 import 'package:he_music_flutter/core/audio/audio_sleep_timer.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_audio_provider.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_sleep_timer_provider.dart';
@@ -130,6 +131,15 @@ void main() {
               .toList();
           expect(pickers[0].scrollController!.selectedItem, 0);
           expect(pickers[1].scrollController!.selectedItem, 30);
+          final original = port.currentSleepTimerState;
+          await tester.tap(find.byType(AppSheetCloseButton).last);
+          await tester.pumpAndSettle();
+          expect(find.byType(CupertinoPicker), findsNothing);
+          expect(port.currentSleepTimerState, same(original));
+          expect(
+            find.byKey(const ValueKey('player-sleep-timer-sheet-list')),
+            findsOneWidget,
+          );
         } else {
           final fields = tester
               .widgetList<DropdownButtonFormField<int>>(

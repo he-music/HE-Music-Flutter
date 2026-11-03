@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
@@ -9,6 +8,7 @@ import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/utils/platform_utils.dart';
 import '../../../../shared/widgets/adaptive_action_menu.dart';
+import '../../../../shared/widgets/app_sheet_close_button.dart';
 
 class SettingsChoiceOption<T> {
   const SettingsChoiceOption({
@@ -134,17 +134,7 @@ Future<void> showSettingsSingleChoiceSheet<T>({
                 backgroundColor: Colors.transparent,
                 border: null,
                 middle: Text(title),
-                trailing: CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(44, 44),
-                  onPressed: () => Navigator.of(sheetContext).pop(),
-                  child: Text(
-                    AppI18n.tByLocaleCode(
-                      Localizations.localeOf(sheetContext).languageCode,
-                      'common.done',
-                    ),
-                  ),
-                ),
+                trailing: const AppSheetCloseButton(),
               ),
             ),
           ] else

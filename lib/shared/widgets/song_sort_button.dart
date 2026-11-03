@@ -13,6 +13,7 @@ import '../utils/song_sort.dart';
 import 'package:flutter/cupertino.dart';
 import '../../app/theme/app_ui_theme.dart';
 import 'app_button.dart';
+import 'app_sheet_close_button.dart';
 
 const _defaultSongSortFields = <SongSortField>[
   SongSortField.original,
@@ -220,11 +221,9 @@ class _SongSortSheetState extends State<_SongSortSheet> {
                     ),
                   ),
                 ),
-                IconButton(
+                AppSheetCloseButton(
                   key: const Key('song-sort-close'),
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
                 ),
               ],
             ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
-import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_sheet_close_button.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
@@ -119,10 +119,9 @@ class _SheetMusicReaderState extends State<SheetMusicReader> {
         children: [
           AppListTile(
             title: Text(_label('sheet_music.choose_page')),
-            trailing: AppIconButton(
+            trailing: AppSheetCloseButton(
               tooltip: _label('common.close'),
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
             ),
           ),
           Expanded(

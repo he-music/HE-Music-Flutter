@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../constants/layout_tokens.dart';
+import '../../app/theme/app_ui_theme.dart';
+import 'app_sheet_header.dart';
 
 void showDetailDescriptionSheet(
   BuildContext context, {
@@ -16,12 +18,15 @@ void showDetailDescriptionSheet(
     builder: (context) => ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: <Widget>[
-        Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
-        ),
+        if (AppUiTheme.usesCupertino(context))
+          AppSheetHeader(title: title, padding: EdgeInsets.zero)
+        else
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+          ),
         const SizedBox(height: 10),
         Text(normalized),
       ],

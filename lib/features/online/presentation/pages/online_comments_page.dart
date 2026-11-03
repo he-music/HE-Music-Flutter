@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
@@ -14,6 +15,7 @@ import '../../../../shared/widgets/animated_skeleton.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_refreshable_scroll_view.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_sheet_close_button.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../providers/online_providers.dart';
@@ -144,10 +146,9 @@ class _OnlineCommentsPageState extends ConsumerState<OnlineCommentsPage>
                         : Icons.fullscreen_rounded,
                   ),
                 ),
-                IconButton(
+                AppSheetCloseButton(
                   onPressed:
                       widget.onClose ?? () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
                 ),
               ],
             ),
@@ -1040,6 +1041,8 @@ class _ReplySheetState extends ConsumerState<_ReplySheet> {
                       color: Theme.of(context).hintColor,
                     ),
                   ),
+                  if (AppUiTheme.usesCupertino(context))
+                    const AppSheetCloseButton(),
                 ],
               ),
             ),

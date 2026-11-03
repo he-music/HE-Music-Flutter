@@ -6,6 +6,7 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/shared/widgets/app_button.dart';
+import 'package:he_music_flutter/shared/widgets/app_sheet_close_button.dart';
 import 'package:he_music_flutter/features/lyrics/data/storage/lyric_store.dart';
 import 'package:flutter_lyric/flutter_lyric.dart' as fl;
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
@@ -317,7 +318,7 @@ void main() {
           config.setLocaleCode('zh');
           await tester.pumpAndSettle();
         }
-        await tester.tap(find.text('完成'));
+        await tester.tap(find.byType(AppSheetCloseButton));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('lyric-options-list')), findsNothing);
         expect(tester.takeException(), isNull);

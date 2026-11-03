@@ -7,6 +7,7 @@ import '../../../../shared/widgets/app_alert_dialog.dart';
 import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../shared/widgets/adaptive_action_menu.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 import 'package:flutter/material.dart';
@@ -862,15 +863,25 @@ class _UserPlaylistEditSheetState extends State<_UserPlaylistEditSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              AppI18n.tByLocaleCode(
-                Localizations.localeOf(context).languageCode,
-                'user_playlist.edit',
+            if (widget.useBottomInsetPadding &&
+                AppUiTheme.usesCupertino(context))
+              AppSheetHeader(
+                title: AppI18n.tByLocaleCode(
+                  Localizations.localeOf(context).languageCode,
+                  'user_playlist.edit',
+                ),
+                padding: EdgeInsets.zero,
+              )
+            else
+              Text(
+                AppI18n.tByLocaleCode(
+                  Localizations.localeOf(context).languageCode,
+                  'user_playlist.edit',
+                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
               ),
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
-            ),
             const SizedBox(height: 16),
             AppTextField(
               controller: _nameController,

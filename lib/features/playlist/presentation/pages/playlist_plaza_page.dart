@@ -10,6 +10,7 @@ import '../../../../shared/models/he_music_models.dart';
 import '../../../../shared/layout/adaptive_media_grid_spec.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_sheet_close_button.dart';
 import '../../../../shared/widgets/detail_page_shell.dart';
 import '../../../../shared/widgets/scroll_to_top_overlay.dart';
 import '../../../../shared/widgets/media_grid_card.dart';
@@ -263,7 +264,7 @@ class _AllCategoriesPanel extends StatelessWidget {
                 ),
               ),
               if (onClose != null)
-                IconButton(
+                AppSheetCloseButton(
                   key: const ValueKey<String>(
                     'playlist-plaza-categories-close',
                   ),
@@ -272,7 +273,6 @@ class _AllCategoriesPanel extends StatelessWidget {
                     localeCode,
                     'playlist.plaza.close_categories',
                   ),
-                  icon: const Icon(Icons.close_rounded),
                 ),
             ],
           ),

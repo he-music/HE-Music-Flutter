@@ -12,6 +12,8 @@ import '../providers/lyrics_providers.dart';
 
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
 
 String _offsetLabel(int milliseconds, String locale) {
   String text(String key) => AppI18n.tByLocaleCode(locale, 'player.lyric.$key');
@@ -146,7 +148,13 @@ class _LyricOffsetControlState extends ConsumerState<LyricOffsetControl> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(text('offset'), style: Theme.of(context).textTheme.titleMedium),
+          if (AppUiTheme.usesCupertino(context))
+            AppSheetHeader(title: text('offset'), padding: EdgeInsets.zero)
+          else
+            Text(
+              text('offset'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           const SizedBox(height: 4),
           Semantics(
             liveRegion: true,

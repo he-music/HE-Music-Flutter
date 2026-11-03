@@ -73,7 +73,7 @@ void main() {
             ).brightness,
             brightness,
           );
-          await tester.tap(find.text('Close'));
+          await tester.tap(find.byTooltip('Close'));
           await tester.pumpAndSettle();
           expect(selected, isNull);
           await tester.tap(find.text('Open'));

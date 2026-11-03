@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,6 +78,69 @@ void main() {
       expect(selected?.id, 'playlist-1');
     }
   });
+  for (final state in ['loading', 'empty', 'error', 'data']) {
+    testWidgets(
+      'Cupertino playlist sheet can close during $state without selecting',
+      (tester) async {
+        final playlists = Completer<List<MyFavoriteItem>>();
+        final result = Completer<SelectedUserPlaylist?>();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              myCreatedPlaylistsProvider.overrideWith(
+                (ref) => playlists.future,
+              ),
+            ],
+            child: MaterialApp(
+              theme: ThemeData(
+                extensions: const [AppUiTheme(style: AppUiStyle.cupertino)],
+              ),
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    child: const Text('Open'),
+                    onPressed: () async => result.complete(
+                      await showSelectUserPlaylistSheet(context),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        if (state == 'error') {
+          playlists.completeError(StateError('unavailable'));
+        } else if (state != 'loading') {
+          playlists.complete(
+            state == 'data'
+                ? const [
+                    MyFavoriteItem(
+                      id: 'playlist-1',
+                      platform: 'user',
+                      type: MyFavoriteType.playlists,
+                      title: 'Target playlist',
+                      subtitle: '',
+                      coverUrl: '',
+                    ),
+                  ]
+                : const [],
+          );
+        }
+        await tester.pump();
+        await tester.pump();
+        expect(find.text('Select playlist'), findsOneWidget);
+        expect(find.byTooltip('Close').hitTestable(), findsOneWidget);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(await result.future, isNull);
+        expect(find.byType(SelectUserPlaylistSheet), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Color? _renderedTextColor(WidgetTester tester, String text) {

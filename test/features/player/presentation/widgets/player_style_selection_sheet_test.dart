@@ -97,7 +97,11 @@ void main() {
           cupertino: cupertino,
         );
         expectTextHeightFits(tester, find.byType(PlayerStyleSelectionSheet));
-        expect(find.text('Done').hitTestable(), findsOneWidget);
+        expect(
+          (cupertino ? find.byTooltip('Close') : find.text('Done'))
+              .hitTestable(),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       },
     );

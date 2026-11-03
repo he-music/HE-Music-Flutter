@@ -35,6 +35,7 @@ import '../../../../shared/widgets/adaptive_action_menu.dart';
 import '../../../../shared/widgets/app_slider.dart';
 import '../../../../shared/widgets/song_actions_sheet.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_sheet_close_button.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/utils/favorite_song_key.dart';
 import '../../../../shared/utils/share_link_builder.dart';
@@ -1370,6 +1371,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                             ),
                           ),
                           Text('${value.toStringAsFixed(2)}x'),
+                          if (AppUiTheme.usesCupertino(context))
+                            const AppSheetCloseButton(),
                         ],
                       ),
                       AppSlider(
@@ -1535,6 +1538,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                             ),
                           ),
                           Text('${(value * 100).round()}%'),
+                          if (AppUiTheme.usesCupertino(context))
+                            const AppSheetCloseButton(),
                         ],
                       ),
                       AppSlider(

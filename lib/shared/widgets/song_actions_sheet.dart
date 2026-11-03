@@ -17,7 +17,7 @@ import '../constants/layout_tokens.dart';
 import '../utils/platform_utils.dart';
 import 'adaptive_action_menu.dart';
 import 'app_network_image.dart';
-import 'app_adaptive_controls.dart';
+import 'app_sheet_close_button.dart';
 import 'app_list_tile.dart';
 
 class SongActionsSheetController {
@@ -368,14 +368,9 @@ class _SongActionsSheetBodyState extends State<_SongActionsSheetBody> {
               Expanded(child: widget.header),
               Padding(
                 padding: const EdgeInsetsDirectional.only(end: 8),
-                child: AppIconButton(
+                child: AppSheetCloseButton(
                   key: const ValueKey('song-actions-close'),
                   tooltip: AppI18n.tByLocaleCode(locale, 'common.close'),
-                  icon: Icon(
-                    cupertino
-                        ? CupertinoIcons.xmark_circle_fill
-                        : Icons.close_rounded,
-                  ),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

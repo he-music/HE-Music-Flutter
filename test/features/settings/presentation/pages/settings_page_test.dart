@@ -74,7 +74,7 @@ void main() {
                           'Sky Blue': '天蓝',
                           'Follow system platform': '跟随系统平台',
                           'Auto': '自动',
-                          'Done': '完成',
+                          'Close': '关闭',
                         }[value] ??
                         value;
               final container = _createContainer(
@@ -248,7 +248,7 @@ void main() {
               );
               await tester.pumpAndSettle();
               expect(find.byIcon(CupertinoIcons.check_mark), findsOneWidget);
-              await tester.tap(find.text(localized('Done')));
+              await tester.tap(find.byTooltip(localized('Close')));
               await tester.pumpAndSettle();
               expect(find.byType(BottomSheet), findsNothing);
               await tester.tap(find.text(localized(entry)));
