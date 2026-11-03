@@ -112,6 +112,114 @@ void main() {
     });
   }
 
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'Cupertino track drag and tap respect $direction and divisions',
+      (tester) async {
+        final value = ValueNotifier<double>(.65);
+        addTearDown(value.dispose);
+        final events = <(String, double)>[];
+        await tester.pumpWidget(
+          _app(
+            AppUiStyle.cupertino,
+            Directionality(
+              textDirection: direction,
+              child: ValueListenableBuilder<double>(
+                valueListenable: value,
+                builder: (context, current, child) => AppSlider(
+                  value: current,
+                  min: .5,
+                  max: 2,
+                  divisions: 10,
+                  onChangeStart: (next) => events.add(('start', next)),
+                  onChanged: (next) {
+                    events.add(('change', next));
+                    value.value = next;
+                  },
+                  onChangeEnd: (next) => events.add(('end', next)),
+                ),
+              ),
+            ),
+          ),
+        );
+        final rect = tester.getRect(find.byType(AppSlider));
+        final gesture = await tester.startGesture(
+          Offset(rect.left + rect.width * .75, rect.center.dy),
+        );
+        await gesture.moveBy(const Offset(-30, 0));
+        await tester.pump();
+        await gesture.moveTo(
+          Offset(rect.left + rect.width * .4, rect.center.dy),
+        );
+        await tester.pump();
+        expect(
+          value.value,
+          closeTo(direction == TextDirection.ltr ? 1.1 : 1.4, .001),
+        );
+        expect(events.where((event) => event.$1 == 'end'), isEmpty);
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(events.first, ('start', .65));
+        expect(events.last, ('end', value.value));
+        expect(events.where((event) => event.$1 == 'start'), hasLength(1));
+        expect(events.where((event) => event.$1 == 'end'), hasLength(1));
+        events.clear();
+        final beforeTap = value.value;
+        await tester.tapAt(Offset(rect.left + rect.width * .8, rect.center.dy));
+        await tester.pumpAndSettle();
+        expect(
+          value.value,
+          closeTo(direction == TextDirection.ltr ? 1.7 : .8, .001),
+        );
+        expect(events, [
+          ('start', beforeTap),
+          ('change', value.value),
+          ('end', value.value),
+        ]);
+      },
+    );
+  }
+
+  testWidgets(
+    'disabling Cupertino slider during track drag cancels its commit',
+    (tester) async {
+      var enabled = true;
+      var value = .1;
+      late StateSetter update;
+      final commits = <double>[];
+      await tester.pumpWidget(
+        _app(
+          AppUiStyle.cupertino,
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return AppSlider(
+                value: value,
+                onChanged: enabled
+                    ? (next) => setState(() => value = next)
+                    : null,
+                onChangeEnd: commits.add,
+              );
+            },
+          ),
+        ),
+      );
+      final rect = tester.getRect(find.byType(AppSlider));
+      final gesture = await tester.startGesture(
+        Offset(rect.left + rect.width * .75, rect.center.dy),
+      );
+      await gesture.moveBy(const Offset(-40, 0));
+      await tester.pump();
+      expect(value, greaterThan(.1));
+      update(() => enabled = false);
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(commits, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Cupertino thumb defaults to the theme primary color', (
     tester,
   ) async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -49,4 +51,65 @@ void main() {
       expect(seeks, [const Duration(milliseconds: 70000)]);
     },
   );
+  testWidgets('Cupertino track drag previews and seeks without paging', (
+    tester,
+  ) async {
+    final seeks = <Duration>[];
+    final completion = Completer<void>();
+    final pager = PageController();
+    addTearDown(pager.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          extensions: const [AppUiTheme(style: AppUiStyle.cupertino)],
+        ),
+        home: Scaffold(
+          body: PageView(
+            controller: pager,
+            children: [
+              Align(
+                alignment: Alignment.topCenter,
+                child: PlayerProgressBar(
+                  position: const Duration(seconds: 10),
+                  bufferedPosition: const Duration(seconds: 90),
+                  duration: const Duration(minutes: 3),
+                  onSeek: (position) {
+                    seeks.add(position);
+                    return completion.future;
+                  },
+                ),
+              ),
+              const SizedBox.expand(),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final rect = tester.getRect(find.byType(CupertinoSlider));
+    final gesture = await tester.startGesture(
+      Offset(rect.left + rect.width * .75, rect.center.dy),
+    );
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    await gesture.moveTo(Offset(rect.left + rect.width * .35, rect.center.dy));
+    await tester.pump();
+    final preview = tester
+        .widget<CupertinoSlider>(find.byType(CupertinoSlider))
+        .value;
+    expect(preview, inInclusiveRange(50000, 80000));
+    expect(seeks, isEmpty);
+    expect(pager.page, 0);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(seeks, hasLength(1));
+    expect(seeks.single.inMilliseconds, closeTo(preview, 1));
+    expect(
+      tester.widget<CupertinoSlider>(find.byType(CupertinoSlider)).value,
+      closeTo(preview, 1),
+    );
+    expect(pager.page, 0);
+    completion.complete();
+    await tester.pumpAndSettle();
+  });
 }
