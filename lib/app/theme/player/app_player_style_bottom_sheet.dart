@@ -16,7 +16,8 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   bool useSafeArea = true,
   bool isScrollControlled = false,
   bool showDragHandle = true,
-  bool useAppAccent = false,
+  // Keep action colors consistent when opening playback submenus.
+  bool useAppAccent = true,
   double? fixedHeightFactor,
   double? heightFactor,
   double? maxWidth,

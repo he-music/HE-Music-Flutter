@@ -130,7 +130,7 @@ const _monetFixtureDocument = LyricDocument(
 void main() {
   for (final brightness in Brightness.values) {
     for (final accent in [Colors.deepOrange, Colors.teal]) {
-      testWidgets('Material playback actions follow $accent in $brightness', (
+      testWidgets('Material playback menus retain $accent in $brightness', (
         tester,
       ) async {
         tester.view.devicePixelRatio = 1;
@@ -174,6 +174,51 @@ void main() {
                 IconTheme.of(tester.element(icon)).color,
             theme.colorScheme.primary,
           );
+        }
+        final navigator = Navigator.of(
+          tester.element(find.byType(PlayerPage)),
+          rootNavigator: true,
+        );
+        navigator.pop();
+        await tester.pumpAndSettle();
+        for (final (action, glyphs) in [
+          (
+            'Sleep Timer',
+            [
+              Icons.timer_outlined,
+              Icons.not_interested_rounded,
+              Icons.tune_rounded,
+              Icons.check_rounded,
+            ],
+          ),
+          ('Quality', [Icons.graphic_eq_rounded, Icons.check_rounded]),
+          ('Download', [Icons.graphic_eq_rounded, Icons.check_rounded]),
+        ]) {
+          await tester.tap(
+            action == 'Download'
+                ? find.byIcon(Icons.more_horiz_rounded)
+                : find.byKey(const ValueKey('player-more-button')),
+          );
+          await tester.pumpAndSettle();
+          await _scrollPlayerMoreSheetTo(tester, action);
+          await tester.tap(find.text(action));
+          await tester.pumpAndSettle();
+          for (final glyph in glyphs) {
+            final icons = find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.byIcon(glyph),
+            );
+            expect(icons, findsWidgets);
+            for (final element in icons.evaluate()) {
+              expect(
+                (element.widget as Icon).color ?? IconTheme.of(element).color,
+                theme.colorScheme.primary,
+                reason: '$action $glyph must retain the app action accent',
+              );
+            }
+          }
+          navigator.pop();
+          await tester.pumpAndSettle();
         }
         expect(tester.takeException(), isNull);
       });

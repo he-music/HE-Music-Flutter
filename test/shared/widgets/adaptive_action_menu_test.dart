@@ -1,11 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_theme.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.dart';
 import 'package:he_music_flutter/shared/widgets/adaptive_action_menu.dart';
 
 enum TestAction { edit, delete, share }
 
 void main() {
   for (final brightness in Brightness.values) {
+    for (final widgetMenu in [false, true]) {
+      testWidgets('player $brightness menu accent widget=$widgetMenu', (
+        tester,
+      ) async {
+        final colors = ColorScheme.fromSeed(
+          seedColor: Colors.teal,
+          brightness: brightness,
+        );
+        int? selected;
+        const items = [
+          AdaptiveActionMenuItem(value: 1, label: 'Share', icon: Icons.share),
+        ];
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(colorScheme: colors),
+            home: Theme(
+              data: buildAppPlayerStyleTheme(
+                appPlayerForegroundColors,
+                appPlayerSystemOverlayStyle,
+                sheetBrightness: brightness,
+              ),
+              child: Scaffold(
+                body: Builder(
+                  builder: (context) => widgetMenu
+                      ? AdaptiveActionMenu<int>(
+                          menuKey: const ValueKey('player-menu'),
+                          tooltip: 'Open',
+                          icon: const Icon(Icons.more_vert),
+                          items: items,
+                          onSelected: (value) => selected = value,
+                        )
+                      : TextButton(
+                          onPressed: () async {
+                            selected = await showAdaptiveActionMenu<int>(
+                              context: context,
+                              forceBottomSheet: true,
+                              items: items,
+                            );
+                          },
+                          child: const Text('Open'),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(
+          widgetMenu ? find.byTooltip('Open') : find.text('Open'),
+        );
+        await tester.pumpAndSettle();
+        final share = find.byIcon(Icons.share);
+        expect(tester.widget<Icon>(share).color, colors.primary);
+        expect(find.byType(PlayerSheetSurface), findsOneWidget);
+        expect(
+          Theme.of(tester.element(share)).colorScheme.surface,
+          AppPlayerSheetStyle.forBrightness(brightness).backgroundColor,
+        );
+        expect(
+          ModalRoute.of(tester.element(share)),
+          isA<PopupRoute<dynamic>>(),
+        );
+        await tester.tap(find.text('Share'));
+        await tester.pumpAndSettle();
+        expect(selected, 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
     for (final menu in [
       (
         name: 'desktop',

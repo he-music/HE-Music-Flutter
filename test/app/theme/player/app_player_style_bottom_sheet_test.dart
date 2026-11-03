@@ -34,7 +34,6 @@ void main() {
                   onPressed: () async {
                     result = await showPlayerStyledBottomSheet<int>(
                       context: context,
-                      useAppAccent: true,
                       builder: (context) => TextButton(
                         onPressed: () => Navigator.pop(context, 7),
                         child: const Text('Select solid'),
@@ -267,7 +266,10 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(_playerSheetStyle(tester), AppPlayerSheetStyle.light);
-    expect(_renderedTextColor(tester, 'Close'), const Color(0xFF151515));
+    expect(
+      _renderedTextColor(tester, 'Close'),
+      ThemeData.light().colorScheme.primary,
+    );
     expect(
       _playerSheetHandleColor(tester),
       AppPlayerSheetStyle.light.handleColor,
@@ -277,7 +279,10 @@ void main() {
     themeMode.value = ThemeMode.dark;
     await tester.pumpAndSettle();
     expect(_playerSheetStyle(tester), AppPlayerSheetStyle.dark);
-    expect(_renderedTextColor(tester, 'Close'), const Color(0xFFF5F5F5));
+    expect(
+      _renderedTextColor(tester, 'Close'),
+      ThemeData.dark().colorScheme.primary,
+    );
     expect(
       _playerSheetHandleColor(tester),
       AppPlayerSheetStyle.dark.handleColor,
@@ -293,7 +298,10 @@ void main() {
     themeMode.value = ThemeMode.light;
     await tester.pumpAndSettle();
     expect(_playerSheetStyle(tester), AppPlayerSheetStyle.light);
-    expect(_renderedTextColor(tester, 'Close'), const Color(0xFF151515));
+    expect(
+      _renderedTextColor(tester, 'Close'),
+      ThemeData.light().colorScheme.primary,
+    );
     expect(sheetBuildCount, initialSheetBuildCount);
 
     await tester.tap(find.text('Close'));

@@ -161,10 +161,9 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
     if (AppUiTheme.usesCupertino(context)) {
       return _showCupertinoActions(context, widget.items);
     }
-    return showAppThemedBottomSheet<T>(
+    return _showActionMenuBottomSheet<T>(
       context: context,
       useRootNavigator: true,
-      fitContent: true,
       builder: (bottomSheetContext) => _AdaptiveActionMenuBottomSheetBody<T>(
         items: widget.items,
         onSelected: (value) => Navigator.of(bottomSheetContext).pop(value),
@@ -172,6 +171,27 @@ class _AdaptiveActionMenuState<T> extends State<AdaptiveActionMenu<T>> {
       ),
     );
   }
+}
+
+Future<T?> _showActionMenuBottomSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  required bool useRootNavigator,
+}) {
+  if (Theme.of(context).extension<AppPlayerStyleTheme>() != null) {
+    return showPlayerStyledBottomSheet<T>(
+      context: context,
+      useRootNavigator: useRootNavigator,
+      fitContent: true,
+      builder: builder,
+    );
+  }
+  return showAppThemedBottomSheet<T>(
+    context: context,
+    useRootNavigator: useRootNavigator,
+    fitContent: true,
+    builder: builder,
+  );
 }
 
 RelativeRect _resolveContextMenuPosition(
@@ -262,10 +282,9 @@ Future<T?> showAdaptiveActionMenu<T>({
       useRootNavigator: useRootNavigator,
     );
   }
-  return showAppThemedBottomSheet<T>(
+  return _showActionMenuBottomSheet<T>(
     context: context,
     useRootNavigator: useRootNavigator,
-    fitContent: true,
     builder: (bottomSheetContext) => _AdaptiveActionMenuBottomSheetBody<T>(
       items: items,
       onSelected: (value) => Navigator.of(bottomSheetContext).pop(value),
