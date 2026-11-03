@@ -17,7 +17,6 @@ class PlayerWideLayout extends StatelessWidget {
     required this.localeCode,
     required this.onViewChanged,
     required this.onClose,
-    required this.onOpenPlaybackSettings,
     required this.onOpenMore,
     required this.background,
     required this.stage,
@@ -37,7 +36,6 @@ class PlayerWideLayout extends StatelessWidget {
   final String localeCode;
   final ValueChanged<AppPlayerWideView> onViewChanged;
   final VoidCallback onClose;
-  final VoidCallback onOpenPlaybackSettings;
   final VoidCallback? onOpenMore;
   final Widget background;
   final Widget stage;
@@ -100,17 +98,6 @@ class PlayerWideLayout extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _WideAction(
-                                icon: AppUiTheme.usesCupertino(context)
-                                    ? CupertinoIcons.slider_horizontal_3
-                                    : Icons.tune_rounded,
-                                label: AppI18n.tByLocaleCode(
-                                  localeCode,
-                                  'player.settings.title',
-                                ),
-                                onPressed: onOpenPlaybackSettings,
-                              ),
-                              const SizedBox(width: 12),
                               _WideAction(
                                 icon: Icons.more_horiz_rounded,
                                 label: AppI18n.tByLocaleCode(

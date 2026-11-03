@@ -70,6 +70,75 @@ class _Document extends Notifier<LyricDocument> {
 
 void main() {
   for (final brightness in Brightness.values) {
+    for (final accent in [Colors.deepOrange, Colors.teal]) {
+      testWidgets(
+        'Material lyric actions and nested choices follow $accent in $brightness',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            _app(
+              playerBoundary: true,
+              brightness: brightness,
+              accent: accent,
+              store: _Store(),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final expected = ColorScheme.fromSeed(
+            seedColor: accent,
+            brightness: brightness,
+          ).primary;
+          await tester.tap(find.byKey(const ValueKey('lyric-options-control')));
+          await tester.pumpAndSettle();
+          final list = find.byKey(const ValueKey('lyric-options-list'));
+          for (final glyph in [
+            Icons.search,
+            Icons.style_outlined,
+            Icons.text_fields,
+            Icons.palette_outlined,
+            Icons.lyrics_outlined,
+          ]) {
+            final icon = find.descendant(
+              of: list,
+              matching: find.byIcon(glyph),
+            );
+            await tester.scrollUntilVisible(
+              icon,
+              80,
+              scrollable: find.descendant(
+                of: list,
+                matching: find.byType(Scrollable),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<Icon>(icon).color ??
+                  IconTheme.of(tester.element(icon)).color,
+              expected,
+            );
+          }
+          final colorChoice = find.text('歌词颜色');
+          await tester.ensureVisible(colorChoice);
+          await tester.tap(colorChoice);
+          await tester.pumpAndSettle();
+          final automatic = find.byIcon(Icons.auto_awesome_rounded);
+          expect(
+            tester.widget<Icon>(automatic).color ??
+                IconTheme.of(tester.element(automatic)).color,
+            expected,
+          );
+          expect(
+            tester.widget<Icon>(find.byIcon(Icons.circle).first).color,
+            AppLyricHighlightColor.sky.color,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+  for (final brightness in Brightness.values) {
     testWidgets(
       'Cupertino lyric options use native groups, live background preferences and nested choices in $brightness',
       (tester) async {
@@ -165,12 +234,37 @@ void main() {
         await tester.tap(find.text('歌词大小'));
         await tester.pumpAndSettle();
         expect(find.byType(PlayerSheetSurface), findsNWidgets(2));
+        expect(
+          find.byKey(const ValueKey('settings-lyric-preview')),
+          findsOneWidget,
+        );
+        expect(
+          tester.widget<Text>(find.text('让每一句，都清晰动听')).style?.fontSize,
+          24,
+        );
+        for (final (label, size) in [('小', 20.0), ('中', 24.0), ('大', 28.0)]) {
+          final option = find.descendant(
+            of: find.byType(PlayerSheetSurface).last,
+            matching: find.text(label),
+          );
+          expect(tester.widget<Text>(option).style?.fontSize, size);
+        }
         await tester.tap(find.text('大'));
         await tester.pumpAndSettle();
         expect(
           container.read(appConfigProvider).lyricFontPreset,
           AppLyricFontPreset.large,
         );
+        await tester.tap(find.text('歌词大小'));
+        await tester.pumpAndSettle();
+        final preview = find.byKey(const ValueKey('settings-lyric-preview'));
+        expect(preview, findsOneWidget);
+        expect(
+          tester.widget<Text>(find.text('让每一句，都清晰动听')).style?.fontSize,
+          28,
+        );
+        Navigator.of(tester.element(preview)).pop();
+        await tester.pumpAndSettle();
         expect(find.text('歌词选项'), findsOneWidget);
         final toggle = find.byType(CupertinoSwitch);
         await tester.ensureVisible(toggle);
@@ -823,6 +917,7 @@ Widget _app({
   bool golden = false,
   bool playerBoundary = false,
   Brightness brightness = Brightness.light,
+  Color? accent,
   LyricStore? store,
   LyricRequest? request,
 }) => ProviderScope(
@@ -847,6 +942,12 @@ Widget _app({
     theme:
         (playerBoundary ? ThemeData(brightness: brightness) : ThemeData.dark())
             .copyWith(
+              colorScheme: accent == null
+                  ? null
+                  : ColorScheme.fromSeed(
+                      seedColor: accent,
+                      brightness: playerBoundary ? brightness : Brightness.dark,
+                    ),
               textTheme:
                   (playerBoundary
                           ? ThemeData(brightness: brightness)

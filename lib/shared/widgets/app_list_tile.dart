@@ -78,7 +78,7 @@ class _AppListTileState extends State<AppListTile> {
         // Native additionalInfo is unconstrained. Move values below the title
         // when a small window or accessibility text would crowd the row.
         final stacked =
-            constraints.maxWidth < 360 ||
+            constraints.maxWidth < 320 ||
             MediaQuery.textScalerOf(context).scale(17) > 20;
         final tile = CupertinoListTile(
           padding:
@@ -195,7 +195,21 @@ class AppListSection extends StatelessWidget {
         margin: EdgeInsets.zero,
         backgroundColor: Colors.transparent,
         hasLeading: hasLeading,
-        header: header,
+        header: header == null
+            ? null
+            : Semantics(
+                header: true,
+                child: DefaultTextStyle(
+                  style: CupertinoTheme.of(context).textTheme.textStyle
+                      .copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.25,
+                      ),
+                  child: header!,
+                ),
+              ),
         decoration: BoxDecoration(
           color:
               skin?.contentBackgroundColor ??

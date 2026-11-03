@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
@@ -63,7 +64,9 @@ class SettingsSelectTile extends StatelessWidget {
       enabled: onTap != null,
       leading: AppSkinIcon(role: iconRole),
       title: Text(title),
-      subtitle: subtitle == null ? null : Text(subtitle!),
+      subtitle: AppUiTheme.usesCupertino(context) || subtitle == null
+          ? null
+          : Text(subtitle!),
       additionalInfo: trailingText == null && leadingTrailing == null
           ? null
           : Row(
@@ -218,8 +221,8 @@ class SettingsColorDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 18,
-    height: 18,
+    width: AppUiTheme.usesCupertino(context) ? 24 : 18,
+    height: AppUiTheme.usesCupertino(context) ? 24 : 18,
     decoration: BoxDecoration(
       color: color,
       shape: BoxShape.circle,

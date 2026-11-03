@@ -17,7 +17,6 @@ import '../../../../shared/widgets/app_content_width.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_ui_style.dart';
 import '../../../../app/config/app_config_state.dart';
-import '../../../../app/config/app_lyric_font_preset.dart';
 import '../../../../app/config/app_lyric_highlight_color.dart';
 import '../../../../app/config/app_lyric_highlight_mode.dart';
 import '../../../../app/config/app_online_audio_quality.dart';
@@ -40,6 +39,7 @@ import '../../domain/settings_models.dart';
 import 'settings_item_presentation_registry.dart';
 import 'settings_navigation_registry.dart';
 import '../widgets/settings_single_choice_sheet.dart';
+import '../widgets/lyric_appearance_settings_sheet.dart';
 import '../widgets/settings_tiles.dart';
 import '../widgets/audio_cache_settings_tile.dart';
 import '../../../../core/audio/cache/audio_cache_provider.dart';
@@ -381,7 +381,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         subtitle: settingsItemSubtitle(item.id, config),
         trailingText: _lyricHighlightSummary(config),
         leadingTrailing: SettingsColorDot(
-          color: _lyricHighlightPreviewColor(config),
+          color: lyricSettingsHighlightPreviewColor(config),
         ),
         onTap: _openLyricHighlightColorSheet,
         highlighted: _highlightedItemId == item.id,
@@ -766,15 +766,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       title: AppI18n.t(config, 'settings.ui_style'),
       currentValue: config.uiStylePreference,
+      cupertinoFooter: AppI18n.t(config, 'settings.ui_style.selection_hint'),
       options: [
         for (final preference in AppUiStylePreference.values)
           SettingsChoiceOption(
             value: preference,
             title: AppI18n.t(config, 'settings.ui_style.${preference.name}'),
-            subtitle: AppI18n.t(
-              config,
-              'settings.ui_style.${preference.name}.desc',
-            ),
+            subtitle: AppUiTheme.usesCupertino(context)
+                ? null
+                : AppI18n.t(
+                    config,
+                    'settings.ui_style.${preference.name}.desc',
+                  ),
           ),
       ],
       onSelected: (preference) =>
@@ -866,8 +869,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             (item) => SettingsChoiceOption<AppOnlineAudioQuality>(
               value: item,
               title: settingsOnlineAudioQualityLabel(item, config),
-              subtitle: settingsOnlineAudioQualityDescription(item, config),
-              leading: const Icon(Icons.graphic_eq_rounded),
+              subtitle: item.isAuto && AppUiTheme.usesCupertino(context)
+                  ? AppI18n.t(config, 'settings.audio_quality.auto_hint')
+                  : settingsOnlineAudioQualityDescription(item, config),
+              leading: AppUiTheme.usesCupertino(context)
+                  ? null
+                  : const Icon(Icons.graphic_eq_rounded),
             ),
           )
           .toList(growable: false),
@@ -895,6 +902,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       title: AppI18n.t(config, 'settings.lyric_highlight_color'),
       currentValue: _lyricHighlightChoiceValue(config),
+      cupertinoPreview: LyricSettingsPreview(config: config),
       options: options,
       onSelected: (value) {
         if (value == AppLyricHighlightMode.auto.value) {
@@ -915,21 +923,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _openLyricFontPresetSheet() {
     final config = ref.read(appConfigProvider);
-    return showSettingsSingleChoiceSheet<AppLyricFontPreset>(
+    return showLyricFontPresetSettingsSheet(
       context: context,
-      title: AppI18n.t(config, 'settings.lyric_font_preset'),
-      currentValue: config.lyricFontPreset,
-      options: AppLyricFontPreset.values
-          .map(
-            (item) => SettingsChoiceOption<AppLyricFontPreset>(
-              value: item,
-              title: settingsLyricFontPresetLabel(item, config),
-            ),
-          )
-          .toList(growable: false),
-      onSelected: (value) {
-        ref.read(appConfigProvider.notifier).setLyricFontPreset(value);
-      },
+      config: config,
+      onSelected: ref.read(appConfigProvider.notifier).setLyricFontPreset,
     );
   }
 
@@ -972,17 +969,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         config.lyricHighlightPreset,
         config,
       ),
-    };
-  }
-
-  Color _lyricHighlightPreviewColor(AppConfigState config) {
-    return switch (config.lyricHighlightMode) {
-      AppLyricHighlightMode.custom =>
-        config.lyricHighlightCustomColor == null
-            ? AppLyricHighlightColor.sky.color
-            : Color(config.lyricHighlightCustomColor!),
-      AppLyricHighlightMode.auto => AppLyricHighlightColor.sky.color,
-      AppLyricHighlightMode.preset => config.lyricHighlightPreset.color,
     };
   }
 

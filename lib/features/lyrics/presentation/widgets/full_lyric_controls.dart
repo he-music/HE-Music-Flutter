@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_lyric_auxiliary_mode.dart';
-import '../../../../app/config/app_lyric_font_preset.dart';
 import '../../../../app/config/app_lyric_highlight_color.dart';
 import '../../../../app/config/app_lyric_highlight_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
@@ -19,6 +18,7 @@ import '../../../player/domain/entities/player_track.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../../settings/presentation/pages/settings_item_presentation_registry.dart';
 import '../../../settings/presentation/widgets/settings_single_choice_sheet.dart';
+import '../../../settings/presentation/widgets/lyric_appearance_settings_sheet.dart';
 import '../../domain/entities/lyric_document.dart';
 import '../../domain/entities/lyric_request.dart';
 import 'lyric_photo_brightness_control.dart';
@@ -77,6 +77,7 @@ class FullLyricControls extends ConsumerWidget {
     final action = await showPlayerStyledBottomSheet<_LyricOptionsAction>(
       context: context,
       showDragHandle: true,
+      useAppAccent: true,
       isScrollControlled: true,
       builder: (sheetContext) {
         optionsRoute = ModalRoute.of<_LyricOptionsAction>(sheetContext);
@@ -514,27 +515,12 @@ class _LyricOptionsState extends ConsumerState<_LyricOptions> {
                           config,
                         ),
                       ),
-                      onTap: () =>
-                          showSettingsSingleChoiceSheet<AppLyricFontPreset>(
-                            context: context,
-                            playerStyled: true,
-                            title: AppI18n.t(
-                              config,
-                              'settings.lyric_font_preset',
-                            ),
-                            currentValue: config.lyricFontPreset,
-                            options: [
-                              for (final preset in AppLyricFontPreset.values)
-                                SettingsChoiceOption(
-                                  value: preset,
-                                  title: settingsLyricFontPresetLabel(
-                                    preset,
-                                    config,
-                                  ),
-                                ),
-                            ],
-                            onSelected: controller.setLyricFontPreset,
-                          ),
+                      onTap: () => showLyricFontPresetSettingsSheet(
+                        context: context,
+                        config: config,
+                        playerStyled: true,
+                        onSelected: controller.setLyricFontPreset,
+                      ),
                     ),
                     AppListTile(
                       showChevron: cupertino,

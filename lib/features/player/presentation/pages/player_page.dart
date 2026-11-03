@@ -71,6 +71,8 @@ import '../widgets/player_control_bar.dart';
 import '../widgets/lyric_photo_dimmer.dart';
 import '../widgets/player_lyric_page.dart';
 import '../widgets/player_more_sheet_widgets.dart';
+import '../../../../shared/widgets/app_sheet_header.dart';
+import '../widgets/player_sheet_section.dart';
 import '../widgets/player_quality_selection_sheet.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/player_queue_sheet.dart';
@@ -97,8 +99,6 @@ enum _PlayerOrientationPreference {
   manualLandscape,
   portraitAfterExit,
 }
-
-enum _PlayerMoreAction { openStyleSelection, enterLandscape }
 
 class _PlayerPageState extends ConsumerState<PlayerPage>
     with WidgetsBindingObserver, RouteAware {
@@ -514,7 +514,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 .setPlayerWideView,
             onClose: () =>
                 unawaited(PlayerDismissRegion.close(context, _closePlayer)),
-            onOpenPlaybackSettings: _openPlaybackSettings,
             onOpenMore: presentation.isTrackTransitioning
                 ? null
                 : _openMoreSheet,
@@ -726,7 +725,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           onOpenArtist: onOpenArtist,
                           onOpenQueue: _openQueueSheet,
                           onOpenMore: _openMoreSheet,
-                          onOpenPlaybackSettings: _openPlaybackSettings,
                           onOpenLyrics: () => _animateToPage(1),
                           onOpenQuality: () =>
                               _openCurrentQualitySheet(context, controller),
@@ -1017,7 +1015,37 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   void _openMoreSheet() {
     final track = ref.read(playerControllerProvider).currentTrack;
-    if (track == null) return;
+    if (track == null) {
+      unawaited(
+        showPlayerStyledBottomSheet<void>(
+          context: context,
+          fitContent: true,
+          useAppAccent: true,
+          showDragHandle: true,
+          builder: (sheetContext) => SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppSheetHeader(
+                  title: AppI18n.tByLocaleCode(
+                    Localizations.localeOf(sheetContext).languageCode,
+                    'common.more',
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildPlaybackActions(sheetContext),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     final controller = ref.read(playerControllerProvider.notifier);
     final config = ref.read(appConfigProvider);
     final platforms =
@@ -1061,6 +1089,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       showSongActionsSheet(
         context: context,
         forceBottomSheet: true,
+        leadingActionsBuilder: _buildPlaybackActions,
+        showQueueActions: false,
         coverUrl: track.artworkUrl,
         coverBytes: track.artworkBytes,
         title: track.title,
@@ -1174,126 +1204,114 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     );
   }
 
-  void _openPlaybackSettings() {
+  Widget _buildPlaybackActions(BuildContext sheetContext) {
     final rootContext = context;
-    unawaited(
-      showPlayerStyledBottomSheet<_PlayerMoreAction>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        builder: (sheetContext) => Consumer(
-          builder: (context, ref, child) {
-            final selection = ref.watch(
-              playerControllerProvider.select(
-                (state) => (
-                  track: state.currentTrack,
-                  speed: state.speed,
-                  volume: state.volume,
-                  quality: state.currentSelectedQualityName,
-                  qualities: state.currentAvailableQualities,
-                ),
-              ),
-            );
-            final locale = ref.watch(
-              appConfigProvider.select((config) => config.localeCode),
-            );
-            String label(String key) => AppI18n.tByLocaleCode(locale, key);
-            final controller = ref.read(playerControllerProvider.notifier);
-            final track = selection.track;
-            final platform = (track?.platform ?? '').trim();
-            final online = platform.isNotEmpty && platform != 'local';
-            final platforms = ref.watch(onlinePlatformsProvider).value;
-            final displayQualities = online && track != null
-                ? _buildSongQualityOptions(
-                    ref: ref,
-                    track: track,
-                    platformId: platform,
-                    platforms: platforms,
-                  )
-                : selection.qualities;
-            final quality = _findQualityOptionByName(
-              displayQualities,
-              selection.quality,
-            );
-            return _buildConstrainedPlayerSheetList(
-              context: sheetContext,
-              useGroupedPanel: true,
-              listKey: const ValueKey<String>('player-playback-settings-list'),
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-              children: [
-                if (track != null)
-                  PlayerSheetHero(
-                    coverUrl: track.artworkUrl,
-                    title: track.title,
-                    subtitle: track.artist ?? '-',
-                  ),
-                PlayerSheetGroup(label('player.more.playback')),
-                PlayerSheetActionTile(
-                  icon: Icons.speed_rounded,
-                  title: label('player.action.speed'),
-                  subtitle: '${selection.speed.toStringAsFixed(2)}x',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _openSpeedSheet(rootContext, controller, selection.speed);
-                  },
-                ),
-                PlayerSheetActionTile(
-                  icon: Icons.volume_up_rounded,
-                  title: label('player.action.volume'),
-                  subtitle: '${(selection.volume * 100).round()}%',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _openVolumeSheet(rootContext, controller, selection.volume);
-                  },
-                ),
-                PlayerSleepTimerActionTile(
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _openSleepTimerSheet(rootContext);
-                  },
-                ),
-                PlayerSheetActionTile(
-                  icon: Icons.palette_outlined,
-                  title: label('player.action.style'),
-                  onTap: () => Navigator.of(
-                    sheetContext,
-                  ).pop(_PlayerMoreAction.openStyleSelection),
-                ),
-                if (_usesMobileOrientationControls)
-                  PlayerSheetActionTile(
-                    icon: Icons.stay_current_landscape_rounded,
-                    title: label('player.action.landscape_mode'),
-                    onTap: () => Navigator.of(
-                      sheetContext,
-                    ).pop(_PlayerMoreAction.enterLandscape),
-                  ),
-                PlayerSheetActionTile(
-                  icon: Icons.high_quality_rounded,
-                  title: label('player.action.quality'),
-                  subtitle: online ? quality?.name : track?.audioQualityLabel,
-                  enabled: online && selection.qualities.isNotEmpty,
-                  onTap: online && selection.qualities.isNotEmpty
-                      ? () {
-                          Navigator.of(sheetContext).pop();
-                          unawaited(
-                            _openCurrentQualitySheet(rootContext, controller),
-                          );
-                        }
-                      : null,
-                ),
-              ],
-            );
-          },
-        ),
-      ).then((action) {
-        if (action == null || !mounted || !rootContext.mounted) return;
-        switch (action) {
-          case _PlayerMoreAction.openStyleSelection:
-            _openPlayerStyleSheet(rootContext);
-          case _PlayerMoreAction.enterLandscape:
-            unawaited(_enterManualLandscape());
+    var opening = false;
+    return Consumer(
+      builder: (context, ref, child) {
+        final selection = ref.watch(
+          playerControllerProvider.select(
+            (state) => (
+              track: state.currentTrack,
+              speed: state.speed,
+              volume: state.volume,
+              quality: state.currentSelectedQualityName,
+              qualities: state.currentAvailableQualities,
+            ),
+          ),
+        );
+        final locale = ref.watch(
+          appConfigProvider.select((config) => config.localeCode),
+        );
+        String label(String key) => AppI18n.tByLocaleCode(locale, key);
+        final controller = ref.read(playerControllerProvider.notifier);
+        final track = selection.track;
+        final platform = (track?.platform ?? '').trim();
+        final online = platform.isNotEmpty && platform != 'local';
+        final platforms = ref.watch(onlinePlatformsProvider).value;
+        final displayQualities = online && track != null
+            ? _buildSongQualityOptions(
+                ref: ref,
+                track: track,
+                platformId: platform,
+                platforms: platforms,
+              )
+            : selection.qualities;
+        final quality = _findQualityOptionByName(
+          displayQualities,
+          selection.quality,
+        );
+        Future<void> open(VoidCallback action) async {
+          if (opening) return;
+          opening = true;
+          final route = ModalRoute.of(sheetContext);
+          Navigator.of(sheetContext).pop();
+          await route?.completed;
+          if (mounted && rootContext.mounted) action();
         }
-      }),
+
+        final rows = <Widget>[
+          PlayerSheetActionTile(
+            icon: Icons.speed_rounded,
+            title: label('player.action.speed'),
+            subtitle: '${selection.speed.toStringAsFixed(2)}x',
+            onTap: () => unawaited(
+              open(
+                () => _openSpeedSheet(rootContext, controller, selection.speed),
+              ),
+            ),
+          ),
+          PlayerSheetActionTile(
+            icon: Icons.volume_up_rounded,
+            title: label('player.action.volume'),
+            subtitle: '${(selection.volume * 100).round()}%',
+            onTap: () => unawaited(
+              open(
+                () =>
+                    _openVolumeSheet(rootContext, controller, selection.volume),
+              ),
+            ),
+          ),
+          PlayerSleepTimerActionTile(
+            onTap: () =>
+                unawaited(open(() => _openSleepTimerSheet(rootContext))),
+          ),
+          PlayerSheetActionTile(
+            icon: Icons.palette_outlined,
+            title: label('player.action.style'),
+            onTap: () =>
+                unawaited(open(() => _openPlayerStyleSheet(rootContext))),
+          ),
+          if (_usesMobileOrientationControls)
+            PlayerSheetActionTile(
+              icon: Icons.stay_current_landscape_rounded,
+              title: label('player.action.landscape_mode'),
+              onTap: () =>
+                  unawaited(open(() => unawaited(_enterManualLandscape()))),
+            ),
+          PlayerSheetActionTile(
+            icon: Icons.high_quality_rounded,
+            title: label('player.action.quality'),
+            subtitle: online ? quality?.name : track?.audioQualityLabel,
+            enabled: online && selection.qualities.isNotEmpty,
+            onTap: online && selection.qualities.isNotEmpty
+                ? () => unawaited(
+                    open(
+                      () => unawaited(
+                        _openCurrentQualitySheet(rootContext, controller),
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+        ];
+        return AppUiTheme.usesCupertino(context)
+            ? PlayerSheetSection(
+                title: label('player.more.playback'),
+                children: rows,
+              )
+            : Column(mainAxisSize: MainAxisSize.min, children: rows);
+      },
     );
   }
 
@@ -1773,17 +1791,13 @@ Widget _buildConstrainedPlayerSheetList({
   required List<Widget> children,
   Key? listKey,
   EdgeInsetsGeometry? padding,
-  bool useGroupedPanel = false,
 }) {
-  if (useGroupedPanel && AppUiTheme.usesCupertino(context)) {
-    return PlayerMorePanel(listKey: listKey, children: children);
-  }
   return SafeArea(
     child: ListView(
       key: listKey,
       shrinkWrap: true,
       padding: padding,
-      children: children.where((child) => child is! PlayerSheetGroup).toList(),
+      children: children,
     ),
   );
 }
@@ -2047,7 +2061,6 @@ class _PlayerMetaControlPage extends StatelessWidget {
     required this.onOpenArtist,
     required this.onOpenQueue,
     required this.onOpenMore,
-    required this.onOpenPlaybackSettings,
     required this.onOpenLyrics,
     required this.onOpenQuality,
     required this.onOpenSpeed,
@@ -2063,7 +2076,6 @@ class _PlayerMetaControlPage extends StatelessWidget {
   final VoidCallback? onOpenArtist;
   final VoidCallback onOpenQueue;
   final VoidCallback onOpenMore;
-  final VoidCallback onOpenPlaybackSettings;
   final VoidCallback onOpenLyrics;
   final VoidCallback onOpenQuality;
   final VoidCallback onOpenSpeed;
@@ -2083,10 +2095,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
           : PlayerTrackHeaderLayout.standard,
     );
     final cassetteLabel = usesCassetteLabel ? trackHeader : null;
-    final utilityBar = _PlayerUtilityBar(
-      onOpenMore: onOpenMore,
-      onOpenPlaybackSettings: onOpenPlaybackSettings,
-    );
+    final utilityBar = _PlayerUtilityBar(onOpenMore: onOpenMore);
     final controls = <Widget>[
       utilityBar,
       _PlayerProgressSection(onSeek: onSeek),
@@ -2164,13 +2173,9 @@ class _PlayerMetaControlPage extends StatelessWidget {
 }
 
 class _PlayerUtilityBar extends StatelessWidget {
-  const _PlayerUtilityBar({
-    required this.onOpenMore,
-    required this.onOpenPlaybackSettings,
-  });
+  const _PlayerUtilityBar({required this.onOpenMore});
 
   final VoidCallback onOpenMore;
-  final VoidCallback onOpenPlaybackSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -2180,10 +2185,7 @@ class _PlayerUtilityBar extends StatelessWidget {
         children: <Widget>[
           const _PlayerFavoriteButton(),
           const Spacer(),
-          _PlayerUtilityRow(
-            onOpenMore: onOpenMore,
-            onOpenPlaybackSettings: onOpenPlaybackSettings,
-          ),
+          _PlayerUtilityRow(onOpenMore: onOpenMore),
         ],
       ),
     );
@@ -2191,13 +2193,9 @@ class _PlayerUtilityBar extends StatelessWidget {
 }
 
 class _PlayerUtilityRow extends ConsumerWidget {
-  const _PlayerUtilityRow({
-    required this.onOpenMore,
-    required this.onOpenPlaybackSettings,
-  });
+  const _PlayerUtilityRow({required this.onOpenMore});
 
   final VoidCallback onOpenMore;
-  final VoidCallback onOpenPlaybackSettings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2209,20 +2207,7 @@ class _PlayerUtilityRow extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         _PlayerUtilityButton(
-          key: const ValueKey('player-playback-settings-button'),
-          icon: AppUiTheme.usesCupertino(context)
-              ? CupertinoIcons.slider_horizontal_3
-              : Icons.tune_rounded,
-          color:
-              palette?.foreground.withValues(alpha: 0.88) ??
-              Colors.white.withValues(alpha: 0.82),
-          tooltip: AppI18n.tByLocaleCode(
-            Localizations.localeOf(context).languageCode,
-            'player.settings.title',
-          ),
-          onTap: isTrackTransitioning ? null : onOpenPlaybackSettings,
-        ),
-        _PlayerUtilityButton(
+          key: const ValueKey('player-more-button'),
           tooltip: AppI18n.tByLocaleCode(
             Localizations.localeOf(context).languageCode,
             'common.more',

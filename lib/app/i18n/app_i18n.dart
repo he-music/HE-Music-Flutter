@@ -399,6 +399,7 @@ abstract final class AppI18n {
       'settings.password.new.length': '新密码长度需为 6–18 个字符',
       'settings.password.confirm.mismatch': '两次输入的新密码不一致',
       'settings.audio_quality': '在线播放音质',
+      'settings.audio_quality.auto_hint': '优先使用上次选择的音质，不可用时自动选择',
       'settings.audio_quality.wifi': 'Wi-Fi 播放音质',
       'settings.audio_quality.cellular': '蜂窝网络播放音质',
       'settings.audio_quality.option.auto': '自动',
@@ -422,13 +423,14 @@ abstract final class AppI18n {
       'settings.audio_quality.auto_last_selected':
           '优先使用上次手动选择的 {selected}，否则按 {fallback}',
       'settings.ui_style': '界面风格',
+      'settings.ui_style.selection_hint':
+          '跟随系统平台：Apple 设备使用 Cupertino，其他设备使用 Material。',
       'settings.ui_style.platform': '跟随系统平台',
-      'settings.ui_style.platform.desc':
-          'Apple 使用 Cupertino，Android 使用 Material',
+      'settings.ui_style.platform.desc': '根据设备自动选择界面风格',
       'settings.ui_style.material': 'Material',
-      'settings.ui_style.material.desc': '使用 Material 导航、控件和弹窗，保留当前皮肤',
+      'settings.ui_style.material.desc': '鲜明的层次与富有表现力的控件',
       'settings.ui_style.cupertino': 'Cupertino',
-      'settings.ui_style.cupertino.desc': '使用 Apple 风格的导航、控件和弹窗，保留当前皮肤',
+      'settings.ui_style.cupertino.desc': '简洁分组、熟悉的控件与细腻的交互',
       'settings.theme': '主题',
       'settings.theme_accent': '主题色',
       'settings.theme_accent.current': '当前为 {value}',
@@ -481,6 +483,8 @@ abstract final class AppI18n {
       'settings.skin.custom.error.save': '自定义皮肤保存失败，原皮肤未改变',
       'settings.skin.custom.error.delete': '自定义皮肤删除失败',
       'settings.skin.custom.error.cleanup': '皮肤已删除，残留图片将在下次启动时清理',
+      'settings.lyric.preview': '效果预览',
+      'settings.lyric.preview_line': '让每一句，都清晰动听',
       'settings.lyric_highlight_color': '歌词颜色',
       'settings.lyric_highlight_color.desc': '设置当前高亮歌词的颜色',
       'settings.lyric_highlight_color.option.sky': '天蓝',
@@ -1478,6 +1482,8 @@ abstract final class AppI18n {
       'settings.password.new.length': 'New password must be 6–18 characters',
       'settings.password.confirm.mismatch': 'New passwords do not match',
       'settings.audio_quality': 'Online Audio Quality',
+      'settings.audio_quality.auto_hint':
+          'Prefer your last selection, then choose an available quality',
       'settings.audio_quality.wifi': 'Wi-Fi Audio Quality',
       'settings.audio_quality.cellular': 'Cellular Audio Quality',
       'settings.audio_quality.option.auto': 'Auto',
@@ -1506,15 +1512,17 @@ abstract final class AppI18n {
       'settings.audio_quality.auto_last_selected':
           'Prefer the last manual selection, {selected}; otherwise use {fallback}',
       'settings.ui_style': 'Interface style',
+      'settings.ui_style.selection_hint':
+          'Follow system platform uses Cupertino on Apple devices and Material on other devices.',
       'settings.ui_style.platform': 'Follow system platform',
       'settings.ui_style.platform.desc':
-          'Use Cupertino on Apple platforms and Material on Android',
+          'Choose a style automatically for your device',
       'settings.ui_style.material': 'Material',
       'settings.ui_style.material.desc':
-          'Material navigation, controls and dialogs with your current skin',
+          'Distinct surfaces and expressive controls',
       'settings.ui_style.cupertino': 'Cupertino',
       'settings.ui_style.cupertino.desc':
-          'Apple-style navigation, controls and dialogs with your current skin',
+          'Inset groups, familiar controls and subtle feedback',
       'settings.theme': 'Theme',
       'settings.theme_accent': 'Accent',
       'settings.theme_accent.current': 'Current: {value}',
@@ -1583,6 +1591,8 @@ abstract final class AppI18n {
       'settings.skin.custom.error.delete': 'Could not delete the custom skin.',
       'settings.skin.custom.error.cleanup':
           'The skin was deleted. Remaining images will be cleaned up next launch.',
+      'settings.lyric.preview': 'Preview',
+      'settings.lyric.preview_line': 'Every word, a little clearer',
       'settings.lyric_highlight_color': 'Lyric Highlight Color',
       'settings.lyric_highlight_color.desc':
           'Set the color for highlighted lyric lines',

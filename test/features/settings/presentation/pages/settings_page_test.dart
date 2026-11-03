@@ -1,3 +1,9 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:he_music_flutter/shared/widgets/app_adaptive_controls.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
@@ -29,6 +35,312 @@ import 'package:he_music_flutter/features/settings/presentation/pages/settings_i
 import 'package:toastification/toastification.dart';
 
 void main() {
+  for (final localeCode in ['en', 'zh']) {
+    for (final brightness in Brightness.values) {
+      for (final (size, scale) in [
+        (const Size(390, 844), 1.0),
+        (const Size(320, 568), 1.6),
+        (const Size(844, 390), 1.6),
+      ]) {
+        for (final (section, entry, choice) in [
+          ('Appearance', 'Interface style', 'Cupertino'),
+          ('Playback', 'Wi-Fi Audio Quality', 'flac'),
+          ('Lyrics', 'Lyric Highlight Color', 'Emerald'),
+          ('Lyrics', 'Lyric Size', 'Large'),
+        ]) {
+          testWidgets(
+            'Cupertino $localeCode $entry selects and cancels at $size x$scale $brightness',
+            (tester) async {
+              tester.view.devicePixelRatio = 1;
+              tester.view.physicalSize = size;
+              tester.platformDispatcher.textScaleFactorTestValue = scale;
+              addTearDown(tester.view.reset);
+              addTearDown(
+                tester.platformDispatcher.clearTextScaleFactorTestValue,
+              );
+              String localized(String value) => localeCode == 'en'
+                  ? value
+                  : const {
+                          'Appearance': '外观',
+                          'Interface style': '界面风格',
+                          'Playback': '播放',
+                          'Wi-Fi Audio Quality': 'Wi-Fi 播放音质',
+                          'Lyrics': '歌词',
+                          'Lyric Highlight Color': '歌词颜色',
+                          'Lyric Size': '歌词大小',
+                          'Medium': '中',
+                          'Large': '大',
+                          'Emerald': '翠绿',
+                          'Sky Blue': '天蓝',
+                          'Follow system platform': '跟随系统平台',
+                          'Auto': '自动',
+                          'Done': '完成',
+                        }[value] ??
+                        value;
+              final container = _createContainer(
+                authToken: null,
+                localeCode: localeCode,
+              );
+              addTearDown(container.dispose);
+              final skin = AppSkinRegistry.builtIn(
+                AppThemeAccent.appleBlue,
+              ).resolve(AppSkinRegistry.classicId);
+              var theme = brightness == Brightness.light
+                  ? AppTheme.light(
+                      skin,
+                      uiStyle: AppUiStyle.cupertino,
+                      showContentBackground: true,
+                    )
+                  : AppTheme.dark(
+                      skin,
+                      uiStyle: AppUiStyle.cupertino,
+                      showContentBackground: true,
+                    );
+              const capture = ValueKey('settings-interface-preview');
+              const export = bool.fromEnvironment(
+                'GENERATE_SETTINGS_INTERFACE_PREVIEWS',
+              );
+              if (export) {
+                await tester.runAsync(() async {
+                  for (final family in [
+                    'Roboto',
+                    'CupertinoSystemText',
+                    'CupertinoSystemDisplay',
+                  ]) {
+                    await (FontLoader(family)..addFont(
+                          File(
+                            'test/assets/fonts/Roboto-Regular.ttf',
+                          ).readAsBytes().then(ByteData.sublistView),
+                        ))
+                        .load();
+                  }
+                  if (localeCode == 'zh') {
+                    const cjkFontPath = String.fromEnvironment(
+                      'SETTINGS_PREVIEW_CJK_FONT',
+                    );
+                    if (cjkFontPath.isEmpty) {
+                      throw StateError(
+                        'Set SETTINGS_PREVIEW_CJK_FONT to a full Chinese font for previews.',
+                      );
+                    }
+                    await (FontLoader('SettingsPreviewCjk')..addFont(
+                          File(
+                            cjkFontPath,
+                          ).readAsBytes().then(ByteData.sublistView),
+                        ))
+                        .load();
+                  }
+                  await (FontLoader('MaterialIcons')..addFont(
+                        rootBundle.load('fonts/MaterialIcons-Regular.otf'),
+                      ))
+                      .load();
+                  await (FontLoader(
+                        'packages/cupertino_icons/CupertinoIcons',
+                      )..addFont(
+                        rootBundle.load(
+                          'packages/cupertino_icons/assets/CupertinoIcons.ttf',
+                        ),
+                      ))
+                      .load();
+                });
+                final previewText = theme.textTheme.apply(
+                  fontFamily: 'Roboto',
+                  fontFamilyFallback: const ['SettingsPreviewCjk'],
+                );
+                theme = theme.copyWith(
+                  textTheme: previewText,
+                  cupertinoOverrideTheme: theme.cupertinoOverrideTheme!
+                      .copyWith(
+                        textTheme: CupertinoTextThemeData(
+                          primaryColor: theme.colorScheme.primary,
+                          textStyle: previewText.bodyMedium,
+                          navTitleTextStyle: previewText.titleMedium,
+                          actionTextStyle: previewText.labelLarge,
+                          navActionTextStyle: previewText.labelLarge,
+                        ),
+                      ),
+                );
+              }
+              await tester.pumpWidget(
+                RepaintBoundary(
+                  key: capture,
+                  child: _buildSettingsApp(
+                    container: container,
+                    theme: theme,
+                    locale: Locale(localeCode),
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+              await tester.ensureVisible(find.text(localized(section)));
+              await tester.tap(find.text(localized(section)));
+              await tester.pumpAndSettle();
+              await tester.ensureVisible(find.text(localized(entry)));
+              if (entry == 'Interface style' && scale == 1) {
+                final heading = find.text(
+                  localeCode == 'zh' ? '主题与配色' : 'Theme & Color',
+                );
+                final style = DefaultTextStyle.of(
+                  tester.element(heading),
+                ).style;
+                expect(style.fontSize, 13);
+                expect(style.fontWeight, FontWeight.w400);
+              }
+              if (entry == 'Lyric Size' && scale == 1) {
+                final titleRect = tester.getRect(find.text(localized(entry)));
+                final valueRect = tester.getRect(
+                  find.text(localized('Medium')),
+                );
+                expect(
+                  (titleRect.center.dy - valueRect.center.dy).abs(),
+                  lessThan(4),
+                );
+                expect(valueRect.left, greaterThan(titleRect.right));
+              }
+              await tester.tap(find.text(localized(entry)));
+              await tester.pumpAndSettle();
+              expect(find.byType(CupertinoActionSheet), findsNothing);
+              if (entry == 'Interface style' && scale == 1) {
+                final sheet = find.byType(BottomSheet);
+                final heading = find.descendant(
+                  of: sheet,
+                  matching: find.text(localized(entry)),
+                );
+                if (localeCode == 'zh') {
+                  expect(
+                    tester.getCenter(heading).dx,
+                    closeTo(tester.getCenter(sheet).dx, 1),
+                  );
+                }
+                final rows = find.descendant(
+                  of: sheet,
+                  matching: find.byType(CupertinoListTile),
+                );
+                expect(rows, findsNWidgets(3));
+                for (final row in rows.evaluate()) {
+                  final tile = row.widget as CupertinoListTile;
+                  expect(tile.leading, isNull);
+                  expect(tile.subtitle, isNull);
+                  expect(
+                    tester.getSize(find.byWidget(tile)).height,
+                    lessThan(60),
+                  );
+                }
+              }
+              final selectedLabel = switch (entry) {
+                'Interface style' => 'Follow system platform',
+                'Wi-Fi Audio Quality' => 'Auto',
+                'Lyric Highlight Color' => 'Sky Blue',
+                _ => 'Medium',
+              };
+              await tester.scrollUntilVisible(
+                find.descendant(
+                  of: find.byType(BottomSheet),
+                  matching: find.text(localized(selectedLabel)),
+                ),
+                80,
+                scrollable: find
+                    .descendant(
+                      of: find.byType(BottomSheet),
+                      matching: find.byType(Scrollable),
+                    )
+                    .last,
+              );
+              await tester.pumpAndSettle();
+              expect(find.byIcon(CupertinoIcons.check_mark), findsOneWidget);
+              await tester.tap(find.text(localized('Done')));
+              await tester.pumpAndSettle();
+              expect(find.byType(BottomSheet), findsNothing);
+              await tester.tap(find.text(localized(entry)));
+              await tester.pumpAndSettle();
+              if (entry.startsWith('Lyric')) {
+                expect(
+                  find.byKey(const ValueKey('settings-lyric-preview')),
+                  findsOneWidget,
+                );
+              }
+              if (export && scale == 1) {
+                final boundary = tester.renderObject<RenderRepaintBoundary>(
+                  find.byKey(capture),
+                );
+                await tester.runAsync(() async {
+                  final image = await boundary.toImage();
+                  try {
+                    final bytes = await image.toByteData(
+                      format: ui.ImageByteFormat.png,
+                    );
+                    final file = File(
+                      'build/ui-previews/cupertino-$localeCode-${brightness.name}-${entry.toLowerCase().replaceAll(' ', '-')}.png',
+                    );
+                    await file.parent.create(recursive: true);
+                    await file.writeAsBytes(bytes!.buffer.asUint8List());
+                  } finally {
+                    image.dispose();
+                  }
+                });
+              }
+              final target = find.descendant(
+                of: find.byType(BottomSheet),
+                matching: find.text(localized(choice)),
+              );
+              await tester.scrollUntilVisible(
+                target,
+                80,
+                scrollable: find
+                    .descendant(
+                      of: find.byType(BottomSheet),
+                      matching: find.byType(Scrollable),
+                    )
+                    .last,
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(target);
+              await tester.pumpAndSettle();
+              final config = container.read(appConfigProvider);
+              switch (entry) {
+                case 'Interface style':
+                  expect(
+                    config.uiStylePreference,
+                    AppUiStylePreference.cupertino,
+                  );
+                case 'Wi-Fi Audio Quality':
+                  expect(
+                    config.wifiOnlineAudioQualityPreference,
+                    AppOnlineAudioQuality.flac,
+                  );
+                case 'Lyric Highlight Color':
+                  expect(
+                    config.lyricHighlightPreset,
+                    AppLyricHighlightColor.emerald,
+                  );
+                case 'Lyric Size':
+                  expect(config.lyricFontPreset, AppLyricFontPreset.large);
+              }
+              expect(find.byType(BottomSheet), findsNothing);
+              if (entry == 'Interface style' &&
+                  localeCode == 'zh' &&
+                  scale == 1) {
+                await tester.tap(find.text(localized(entry)));
+                await tester.pumpAndSettle();
+                final surface = tester.getRect(find.byType(BottomSheet));
+                await tester.dragFrom(
+                  Offset(surface.center.dx, surface.top + 12),
+                  const Offset(0, 400),
+                );
+                await tester.pumpAndSettle();
+                expect(find.byType(BottomSheet), findsNothing);
+                expect(
+                  container.read(appConfigProvider).uiStylePreference,
+                  config.uiStylePreference,
+                );
+              }
+              expect(tester.takeException(), isNull);
+            },
+          );
+        }
+      }
+    }
+  }
   testWidgets('settings reserves navigation space and opens sections', (
     tester,
   ) async {
@@ -790,9 +1102,14 @@ void main() {
   });
 }
 
-Widget _buildSettingsApp({ProviderContainer? container, ThemeData? theme}) {
+Widget _buildSettingsApp({
+  ProviderContainer? container,
+  ThemeData? theme,
+  Locale? locale,
+}) {
   final scopeChild = _SettingsTestApp(
     theme: theme ?? ThemeData(platform: TargetPlatform.android),
+    locale: locale,
   );
   if (container == null) {
     return ProviderScope(child: scopeChild);
@@ -801,9 +1118,10 @@ Widget _buildSettingsApp({ProviderContainer? container, ThemeData? theme}) {
 }
 
 class _SettingsTestApp extends StatefulWidget {
-  const _SettingsTestApp({required this.theme});
+  const _SettingsTestApp({required this.theme, this.locale});
 
   final ThemeData theme;
+  final Locale? locale;
 
   @override
   State<_SettingsTestApp> createState() => _SettingsTestAppState();
@@ -839,7 +1157,14 @@ class _SettingsTestAppState extends State<_SettingsTestApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(theme: widget.theme, routerConfig: _router);
+    return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+      theme: widget.theme,
+      locale: widget.locale,
+      supportedLocales: const [Locale('en'), Locale('zh')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      routerConfig: _router,
+    );
   }
 }
 

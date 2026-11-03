@@ -75,6 +75,8 @@ Future<void> showSongActionsSheet({
   Offset? anchorPosition,
   bool forceBottomSheet = false,
   bool useRootNavigator = true,
+  bool showQueueActions = true,
+  WidgetBuilder? leadingActionsBuilder,
   required String? coverUrl,
   Uint8List? coverBytes,
   required String title,
@@ -115,16 +117,18 @@ Future<void> showSongActionsSheet({
           label: resolvedPlayActionLabel,
           iconRole: AppSkinIconRole.songPlay,
         ),
-      AdaptiveActionMenuItem(
-        value: onPlayNext,
-        label: AppI18n.tByLocaleCode(localeCode, 'song.action.play_next'),
-        iconRole: AppSkinIconRole.songPlayNext,
-      ),
-      AdaptiveActionMenuItem(
-        value: onAddToPlaylist,
-        label: AppI18n.tByLocaleCode(localeCode, 'song.action.add_to_queue'),
-        iconRole: AppSkinIconRole.songAddToQueue,
-      ),
+      if (showQueueActions)
+        AdaptiveActionMenuItem(
+          value: onPlayNext,
+          label: AppI18n.tByLocaleCode(localeCode, 'song.action.play_next'),
+          iconRole: AppSkinIconRole.songPlayNext,
+        ),
+      if (showQueueActions)
+        AdaptiveActionMenuItem(
+          value: onAddToPlaylist,
+          label: AppI18n.tByLocaleCode(localeCode, 'song.action.add_to_queue'),
+          iconRole: AppSkinIconRole.songAddToQueue,
+        ),
       if (onAddToUserPlaylist != null)
         AdaptiveActionMenuItem(
           value: onAddToUserPlaylist,
@@ -258,6 +262,7 @@ Future<void> showSongActionsSheet({
         duration: duration,
       ),
       sourceLabel: sourceLabel,
+      leadingActionsBuilder: leadingActionsBuilder,
     ),
   );
   if (Theme.of(context).extension<AppPlayerStyleTheme>() != null) {
@@ -323,11 +328,13 @@ class _SongActionsSheetBody extends StatefulWidget {
     required this.groups,
     required this.header,
     required this.sourceLabel,
+    this.leadingActionsBuilder,
   });
 
   final List<List<AdaptiveActionMenuItem<VoidCallback>>> groups;
   final Widget header;
   final String sourceLabel;
+  final WidgetBuilder? leadingActionsBuilder;
 
   @override
   State<_SongActionsSheetBody> createState() => _SongActionsSheetBodyState();
@@ -386,10 +393,12 @@ class _SongActionsSheetBodyState extends State<_SongActionsSheetBody> {
             child: cupertino
                 ? _CupertinoSongActions(
                     groups: widget.groups,
+                    leadingActionsBuilder: widget.leadingActionsBuilder,
                     onSelected: (action) => unawaited(_select(action)),
                   )
                 : _MaterialSongActions(
                     groups: widget.groups,
+                    leadingActionsBuilder: widget.leadingActionsBuilder,
                     onSelected: (action) => unawaited(_select(action)),
                   ),
           ),
@@ -407,10 +416,15 @@ Widget _songActionIcon(
     : AppSkinIcon(role: action.iconRole!, color: color);
 
 class _CupertinoSongActions extends ConsumerWidget {
-  const _CupertinoSongActions({required this.groups, required this.onSelected});
+  const _CupertinoSongActions({
+    required this.groups,
+    required this.onSelected,
+    this.leadingActionsBuilder,
+  });
 
   final List<List<AdaptiveActionMenuItem<VoidCallback>>> groups;
   final ValueChanged<AdaptiveActionMenuItem<VoidCallback>> onSelected;
+  final WidgetBuilder? leadingActionsBuilder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -423,6 +437,7 @@ class _CupertinoSongActions extends ConsumerWidget {
       shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       children: [
+        if (leadingActionsBuilder != null) leadingActionsBuilder!(context),
         for (final group in groups)
           CupertinoListSection.insetGrouped(
             margin: const EdgeInsets.only(bottom: 12),
@@ -460,10 +475,15 @@ class _CupertinoSongActions extends ConsumerWidget {
 }
 
 class _MaterialSongActions extends StatelessWidget {
-  const _MaterialSongActions({required this.groups, required this.onSelected});
+  const _MaterialSongActions({
+    required this.groups,
+    required this.onSelected,
+    this.leadingActionsBuilder,
+  });
 
   final List<List<AdaptiveActionMenuItem<VoidCallback>>> groups;
   final ValueChanged<AdaptiveActionMenuItem<VoidCallback>> onSelected;
+  final WidgetBuilder? leadingActionsBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -473,6 +493,10 @@ class _MaterialSongActions extends StatelessWidget {
       shrinkWrap: true,
       padding: const EdgeInsets.only(bottom: 8),
       children: [
+        if (leadingActionsBuilder != null) ...[
+          leadingActionsBuilder!(context),
+          const Divider(height: 17, indent: 16, endIndent: 16),
+        ],
         for (var index = 0; index < groups.length; index++) ...[
           if (index > 0) const Divider(height: 17, indent: 16, endIndent: 16),
           for (final action in groups[index])

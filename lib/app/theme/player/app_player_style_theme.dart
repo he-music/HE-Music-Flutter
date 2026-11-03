@@ -186,7 +186,7 @@ ThemeData buildAppPlayerSheetTheme(
     dividerColor: style.dividerColor,
     iconTheme: IconThemeData(color: style.foregroundColor),
     listTileTheme: ListTileThemeData(
-      iconColor: style.foregroundColor,
+      iconColor: scheme.primary,
       textColor: style.foregroundColor,
     ),
     sliderTheme: base.sliderTheme.copyWith(
