@@ -711,7 +711,7 @@ class _UserPlaylistDetailPageState
                 initialName: content.title,
                 initialCover: content.coverUrl,
                 initialDescription: content.description,
-                useBottomInsetPadding: false,
+                isBottomSheet: false,
               ),
             ),
           );
@@ -728,7 +728,7 @@ class _UserPlaylistDetailPageState
           initialName: content.title,
           initialCover: content.coverUrl,
           initialDescription: content.description,
-          useBottomInsetPadding: true,
+          isBottomSheet: true,
         );
       },
     );
@@ -816,13 +816,13 @@ class _UserPlaylistEditSheet extends StatefulWidget {
     required this.initialName,
     required this.initialCover,
     required this.initialDescription,
-    required this.useBottomInsetPadding,
+    required this.isBottomSheet,
   });
 
   final String initialName;
   final String initialCover;
   final String initialDescription;
-  final bool useBottomInsetPadding;
+  final bool isBottomSheet;
 
   @override
   State<_UserPlaylistEditSheet> createState() => _UserPlaylistEditSheetState();
@@ -853,18 +853,15 @@ class _UserPlaylistEditSheetState extends State<_UserPlaylistEditSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = widget.useBottomInsetPadding
-        ? MediaQuery.viewInsetsOf(context).bottom
-        : 0.0;
+    // The bottom-sheet route and desktop dialog already avoid the keyboard.
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 16),
+      padding: const EdgeInsets.all(16),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            if (widget.useBottomInsetPadding &&
-                AppUiTheme.usesCupertino(context))
+            if (widget.isBottomSheet && AppUiTheme.usesCupertino(context))
               AppSheetHeader(
                 title: AppI18n.tByLocaleCode(
                   Localizations.localeOf(context).languageCode,

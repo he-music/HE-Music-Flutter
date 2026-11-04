@@ -27,6 +27,7 @@ import 'package:he_music_flutter/shared/widgets/animated_skeleton.dart';
 import 'package:he_music_flutter/shared/widgets/detail_page_shell.dart';
 import 'package:he_music_flutter/shared/widgets/song_info_list_section.dart';
 import 'package:he_music_flutter/shared/widgets/song_sort_button.dart';
+import 'package:he_music_flutter/shared/widgets/app_text_field.dart';
 
 void main() {
   testWidgets(
@@ -178,6 +179,113 @@ void main() {
   });
 
   for (final style in AppUiStyle.values) {
+    for (final size in [const Size(390, 844), const Size(360, 640)]) {
+      testWidgets('playlist edit avoids keyboard once ($style, $size)', (
+        tester,
+      ) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = size;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetViewInsets);
+        final repository = _FakeUserPlaylistDetailRepository();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWith(_TestAppConfigController.new),
+              playerControllerProvider.overrideWith(_TestPlayerController.new),
+              onlinePlatformsProvider.overrideWith(
+                _TestOnlinePlatformsController.new,
+              ),
+              favoriteSongStatusProvider.overrideWith(
+                _TestFavoriteSongStatusController.new,
+              ),
+              userPlaylistDetailRepositoryProvider.overrideWithValue(
+                repository,
+              ),
+            ],
+            child: MaterialApp(
+              theme: ThemeData(extensions: [AppUiTheme(style: style)]),
+              home: const UserPlaylistDetailPage(
+                id: 'playlist-1',
+                title: '测试歌单',
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        await tester.tap(find.byTooltip('更多操作'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('编辑歌单'));
+        await tester.pumpAndSettle();
+
+        final sheet = find.byType(BottomSheet);
+        final fields = find.descendant(
+          of: sheet,
+          matching: find.byType(EditableText),
+        );
+        final formFields = find.descendant(
+          of: sheet,
+          matching: find.byType(AppTextField),
+        );
+        final scrollView = find.descendant(
+          of: sheet,
+          matching: find.byType(SingleChildScrollView),
+        );
+        final route = ModalRoute.of(tester.element(fields.first));
+        expect(route, isA<PopupRoute<Object?>>());
+        await tester.enterText(fields.first, '未保存的歌单名称');
+        tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        final viewport = tester.getRect(scrollView);
+        expect(viewport.bottom, lessThanOrEqualTo(size.height - 320));
+        // Keep enough space to edit multiple fields instead of collapsing
+        // the form by reserving the keyboard height a second time.
+        expect(
+          viewport.height,
+          greaterThan(
+            tester.getSize(formFields.at(0)).height +
+                tester.getSize(formFields.at(1)).height,
+          ),
+        );
+        expect(
+          tester.widget<EditableText>(fields.first).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(
+          tester.widget<EditableText>(fields.first).controller.text,
+          '未保存的歌单名称',
+        );
+
+        await tester.ensureVisible(fields.last);
+        await tester.pumpAndSettle();
+        await tester.enterText(fields.last, '键盘弹出后继续编辑描述');
+        await tester.pumpAndSettle();
+        final descriptionRect = tester.getRect(fields.last);
+        expect(descriptionRect.top, greaterThanOrEqualTo(viewport.top));
+        expect(descriptionRect.bottom, lessThanOrEqualTo(viewport.bottom));
+
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.pumpAndSettle();
+        expect(ModalRoute.of(tester.element(fields.last)), same(route));
+        expect(
+          tester.widget<EditableText>(fields.first).controller.text,
+          '未保存的歌单名称',
+        );
+        expect(
+          tester.widget<EditableText>(fields.last).controller.text,
+          '键盘弹出后继续编辑描述',
+        );
+        expect(tester.takeException(), isNull);
+        Navigator.of(tester.element(fields.last)).pop();
+        await tester.pumpAndSettle();
+      });
+    }
+
     testWidgets('default user playlist disables delete action ($style)', (
       tester,
     ) async {
