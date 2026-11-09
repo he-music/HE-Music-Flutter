@@ -1,4 +1,7 @@
+import 'audio_cache_format.dart';
 import 'audio_cache_key.dart';
+
+export 'audio_cache_format.dart' show audioCacheFormats;
 
 enum AudioCacheReadHealth { initializing, ready, unavailable }
 
@@ -90,8 +93,11 @@ final class AudioCacheMetadata {
       requestedFormat: rawKey['requested_format'] as String,
     );
     if (key == null ||
-        format != key.requestedFormat ||
-        !audioCacheFormats.contains(format) ||
+        !audioCacheFormatsCompatible(
+          platform: key.platform,
+          requestedFormat: key.requestedFormat,
+          resolvedFormat: format,
+        ) ||
         !RegExp(
           '^${key.digest}\\.[a-zA-Z0-9_-]+\\.${RegExp.escape(format)}\$',
         ).hasMatch(name)) {
@@ -106,18 +112,6 @@ final class AudioCacheMetadata {
     );
   }
 }
-
-const audioCacheFormats = <String>{
-  'mp3',
-  'flac',
-  'm4a',
-  'aac',
-  'ogg',
-  'opus',
-  'wav',
-  'aiff',
-  'alac',
-};
 
 enum AudioCacheMimeValidation { matches, conflict, unverified }
 

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/audio/song_audio_source.dart';
 import '../../../../app/app_navigation_service.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/router/app_routes.dart';
@@ -16,10 +17,15 @@ import '../../domain/entities/online_feature_state.dart';
 import '../providers/online_providers.dart';
 
 class SongUrlResolution {
-  const SongUrlResolution({required this.url, required this.format});
+  const SongUrlResolution({
+    required this.url,
+    required this.format,
+    this.audioParams,
+  });
 
   final String url;
   final String format;
+  final String? audioParams;
 }
 
 class OnlineController extends Notifier<OnlineFeatureState> {
@@ -173,19 +179,14 @@ class OnlineController extends Notifier<OnlineFeatureState> {
       quality: quality,
       format: format,
     );
-    final url = '${payload['url'] ?? ''}'.trim();
-    if (url.isEmpty) {
-      throw const AppException(
-        NetworkFailure('Invalid /v1/song/url response: missing url'),
-      );
-    }
-    final requestedFormat = (format ?? '').trim();
-    final resolvedFormat = '${payload['format'] ?? ''}'.trim();
+    final source = SongAudioSource.fromPayload(
+      payload,
+      requestedFormat: format ?? 'mp3',
+    );
     return SongUrlResolution(
-      url: url,
-      format: resolvedFormat.isNotEmpty
-          ? resolvedFormat
-          : (requestedFormat.isNotEmpty ? requestedFormat : 'mp3'),
+      url: source.url,
+      format: source.format,
+      audioParams: source.audioParams,
     );
   }
 

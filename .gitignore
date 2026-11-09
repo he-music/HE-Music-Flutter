@@ -70,3 +70,4 @@ app.*.map.json
 !/docs/sheet-music.md
 !/docs/song-list-pagination.md
 !/docs/chapter-sort.md
+!/docs/local-audio-decryption.md

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'dart:typed_data';
@@ -8,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/music_library/data/providers/local_library_providers.dart';
 import 'package:he_music_flutter/features/music_library/domain/repositories/local_music_repository.dart';
 import 'package:he_music_flutter/features/download/data/services/download_lyric_resolver.dart';
+import 'package:he_music_flutter/features/download/data/services/download_audio_decryptor.dart';
 import 'package:he_music_flutter/features/download/data/services/download_metadata_writer.dart';
 import 'package:he_music_flutter/features/download/domain/entities/download_task.dart';
 import 'package:he_music_flutter/features/download/domain/repositories/download_repository.dart';
@@ -17,6 +19,757 @@ import 'package:he_music_flutter/features/online/presentation/controllers/online
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 
 void main() {
+  test(
+    'encrypted source enqueues CDN ciphertext with backend extension',
+    () async {
+      final repository = _FakeDownloadRepository();
+      final parameters = base64Url
+          .encode(
+            utf8.encode(
+              jsonEncode({
+                'v': 1,
+                'kind': 1,
+                'key': 'AQ==',
+                'user_agent': 'Download-Test-Agent',
+              }),
+            ),
+          )
+          .replaceAll('=', '');
+      final online = _FakeOnlineController(
+        resolvedFormat: 'flac',
+        audioParams: parameters,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          onlineControllerProvider.overrideWith(() => online),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container
+          .read(downloadControllerProvider.notifier)
+          .enqueue(title: 'Encrypted', songId: 's', platform: 'qq');
+      final task = container.read(downloadControllerProvider).tasks.single;
+      final request = repository.enqueueTaskRequests.single;
+      expect(request.url, 'https://example.com/song.flac');
+      expect(request.savePath, task.encryptedFilePath);
+      expect(request.savePath, endsWith('.encrypted'));
+      expect(task.filePath, endsWith('.flac'));
+      expect(task.audioParams, parameters);
+      expect(request.headers, {'User-Agent': 'Download-Test-Agent'});
+      expect(task.status, DownloadTaskStatus.preparing);
+    },
+  );
+
+  test(
+    'restored download uses the real worker before publishing clear audio',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_real_decrypt_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final ciphertext = await File(
+        '${directory.path}/source.encrypted',
+      ).writeAsBytes([9, 8, 7]);
+      final parameters = base64Url
+          .encode(
+            utf8.encode(
+              jsonEncode({
+                'v': 1,
+                'kind': 1,
+                'key': base64.encode([1]),
+              }),
+            ),
+          )
+          .replaceAll('=', '');
+      final task =
+          DownloadTask.queued(
+            id: 'real-worker',
+            title: 'Song',
+            url: 'https://cdn.example/audio',
+          ).copyWith(
+            status: DownloadTaskStatus.tagging,
+            processingStage: DownloadProcessingStage.decrypting,
+            audioParams: parameters,
+            encryptedFilePath: ciphertext.path,
+            decryptedFilePath: '${directory.path}/clear.mp3',
+            filePath: '${directory.path}/Song.mp3',
+          );
+      final repository = _FakeDownloadRepository(initialTasks: [task]);
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(downloadControllerProvider);
+      await _waitForCondition(
+        () => [
+          DownloadTaskStatus.completed,
+          DownloadTaskStatus.failed,
+        ].contains(repository.savedTasks.single.status),
+        timeout: const Duration(seconds: 10),
+      );
+      expect(
+        repository.savedTasks.single.status,
+        DownloadTaskStatus.completed,
+        reason: repository.savedTasks.single.errorMessage,
+      );
+      await _waitForCondition(
+        () => repository.deleteDownloadedArtifactsCalls.any(
+          (call) => call.filePath == ciphertext.path,
+        ),
+      );
+      expect(await File(task.filePath!).readAsBytes(), [8, 7, 6]);
+      expect(
+        repository.savedTasks.single.processingStage,
+        DownloadProcessingStage.transfer,
+      );
+      expect(repository.savedTasks.single.audioParams, isNull);
+      expect(repository.enqueueTaskRequests, isEmpty);
+    },
+  );
+  test(
+    'deletion waits for publication and removes the returned public path',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_delete_publish_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final clear = await File('${directory.path}/clear.mp3').writeAsBytes([1]);
+      final task =
+          DownloadTask.queued(
+            id: 'delete-publish',
+            title: 'Song',
+            url: 'https://cdn.example/audio',
+          ).copyWith(
+            status: DownloadTaskStatus.tagging,
+            processingStage: DownloadProcessingStage.decrypted,
+            audioParams: 'secret',
+            encryptedFilePath: '${directory.path}/cipher',
+            decryptedFilePath: clear.path,
+            filePath: '${directory.path}/Song.mp3',
+          );
+      final started = Completer<void>();
+      final finish = Completer<void>();
+      final repository =
+          _FakeDownloadRepository(
+              initialTasks: [task],
+              isAndroid: true,
+              moveToPublicDownloadsResult: '/public/Song.mp3',
+            )
+            ..onMoveToPublicDownloads = () async {
+              started.complete();
+              await finish.future;
+            };
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(downloadControllerProvider.notifier);
+      await started.future;
+      final removal = controller.removeTaskAndFile(task.id);
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.deletedTaskIds, isEmpty);
+      finish.complete();
+      await removal;
+      expect(
+        repository.deleteDownloadedArtifactsCalls.any(
+          (call) => call.filePath == '/public/Song.mp3',
+        ),
+        isTrue,
+      );
+      expect(
+        repository.deleteDownloadedArtifactsCalls.any(
+          (call) => call.filePath == task.filePath,
+        ),
+        isTrue,
+      );
+      expect(container.read(downloadControllerProvider).tasks, isEmpty);
+    },
+  );
+  test('empty decrypted output fails before tags or publication', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'download_empty_clear_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final clear = await File('${directory.path}/clear.mp3').writeAsBytes([]);
+    final task =
+        DownloadTask.queued(
+          id: 'empty-clear',
+          title: 'Song',
+          url: 'https://cdn.example/audio',
+        ).copyWith(
+          status: DownloadTaskStatus.tagging,
+          processingStage: DownloadProcessingStage.decrypted,
+          audioParams: 'secret',
+          encryptedFilePath: '${directory.path}/cipher',
+          decryptedFilePath: clear.path,
+          filePath: '${directory.path}/Song.mp3',
+        );
+    final repository = _FakeDownloadRepository(
+      initialTasks: [task],
+      isAndroid: true,
+    );
+    final container = ProviderContainer(
+      overrides: [downloadRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    container.read(downloadControllerProvider);
+    await _waitForCondition(
+      () => repository.savedTasks.single.status == DownloadTaskStatus.failed,
+    );
+    expect(repository.moveToPublicDownloadsCalls, isEmpty);
+    expect(await File(task.filePath!).exists(), isFalse);
+  });
+  for (final stage in [
+    DownloadProcessingStage.decrypting,
+    DownloadProcessingStage.decrypted,
+  ]) {
+    test(
+      'restored $stage completes locally without downloading or double decrypt',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'download_decrypt_',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final encrypted = await File(
+          '${directory.path}/cipher',
+        ).writeAsBytes([9, 8]);
+        final clear = File('${directory.path}/clear.flac');
+        if (stage == DownloadProcessingStage.decrypted) {
+          await clear.writeAsBytes([1, 2]);
+        }
+        final task =
+            DownloadTask.queued(
+              id: 'recover',
+              title: 'Song',
+              url: 'https://cdn.test/a',
+            ).copyWith(
+              status: DownloadTaskStatus.tagging,
+              processingStage: stage,
+              audioParams: 'secret',
+              encryptedFilePath: encrypted.path,
+              decryptedFilePath: clear.path,
+              filePath: '${directory.path}/Song.flac',
+              resolvedFileExtension: 'flac',
+            );
+        final repository = _FakeDownloadRepository(initialTasks: [task]);
+        var decryptions = 0;
+        final container = ProviderContainer(
+          overrides: [
+            downloadRepositoryProvider.overrideWithValue(repository),
+            localMusicRepositoryProvider.overrideWithValue(
+              _RecordingLocalMusicRepository(),
+            ),
+            downloadAudioDecryptorProvider.overrideWithValue(({
+              required input,
+              required output,
+              required encodedParameters,
+            }) async {
+              decryptions++;
+              expect(encodedParameters, 'secret');
+              expect(await input.readAsBytes(), [9, 8]);
+              await output.writeAsBytes([1, 2]);
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.read(downloadControllerProvider);
+        await _waitForCondition(
+          () =>
+              repository.savedTasks.single.status ==
+              DownloadTaskStatus.completed,
+        );
+        expect(
+          decryptions,
+          stage == DownloadProcessingStage.decrypting ? 1 : 0,
+        );
+        expect(repository.enqueueTaskRequests, isEmpty);
+        expect(await File(task.filePath!).readAsBytes(), [1, 2]);
+        expect(repository.savedTasks.single.audioParams, isNull);
+      },
+    );
+  }
+
+  test(
+    'decrypt failure retains ciphertext and retry never tags ciphertext',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_decrypt_retry_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final encrypted = await File(
+        '${directory.path}/cipher',
+      ).writeAsBytes([9]);
+      final task =
+          DownloadTask.queued(
+            id: 'retry',
+            title: 'Song',
+            url: 'https://cdn.test/a',
+            songId: 's',
+            platform: 'qq',
+            artist: 'Artist',
+            album: 'Album',
+          ).copyWith(
+            status: DownloadTaskStatus.tagging,
+            processingStage: DownloadProcessingStage.decrypting,
+            audioParams: 'secret',
+            encryptedFilePath: encrypted.path,
+            decryptedFilePath: '${directory.path}/clear.mp3',
+            filePath: '${directory.path}/Song.mp3',
+          );
+      final repository = _FakeDownloadRepository(initialTasks: [task]);
+      final writer = _FakeDownloadMetadataWriter();
+      var attempts = 0;
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          downloadMetadataWriterProvider.overrideWithValue(writer),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+          downloadAudioDecryptorProvider.overrideWithValue(({
+            required input,
+            required output,
+            required encodedParameters,
+          }) async {
+            if (++attempts == 1) throw StateError('secret');
+            await output.writeAsBytes([1]);
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(downloadControllerProvider.notifier);
+      await _waitForCondition(
+        () => repository.savedTasks.single.status == DownloadTaskStatus.failed,
+      );
+      expect(writer.requests, isEmpty);
+      expect(await encrypted.readAsBytes(), [9]);
+      expect(await File(task.filePath!).exists(), isFalse);
+      expect(
+        repository.savedTasks.single.errorMessage,
+        isNot(contains('secret')),
+      );
+      await controller.retry(task.id);
+      await _waitForCondition(
+        () =>
+            repository.savedTasks.single.status == DownloadTaskStatus.completed,
+      );
+      expect(attempts, 2);
+      expect(writer.requests.single.filePath, task.decryptedFilePath);
+      expect(repository.enqueueTaskRequests, isEmpty);
+    },
+  );
+
+  test(
+    'pause during decrypt keeps a reusable clear stage and defers publication',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_decrypt_pause_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final encrypted = await File(
+        '${directory.path}/cipher',
+      ).writeAsBytes([9]);
+      final task =
+          DownloadTask.queued(
+            id: 'pause',
+            title: 'Song',
+            url: 'https://cdn.test/a',
+          ).copyWith(
+            status: DownloadTaskStatus.tagging,
+            processingStage: DownloadProcessingStage.decrypting,
+            audioParams: 'secret',
+            encryptedFilePath: encrypted.path,
+            decryptedFilePath: '${directory.path}/clear.mp3',
+            filePath: '${directory.path}/Song.mp3',
+          );
+      final gate = Completer<void>();
+      var started = false;
+      var attempts = 0;
+      final repository = _FakeDownloadRepository(initialTasks: [task]);
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+          downloadAudioDecryptorProvider.overrideWithValue(({
+            required input,
+            required output,
+            required encodedParameters,
+          }) async {
+            attempts++;
+            started = true;
+            await gate.future;
+            await output.writeAsBytes([1]);
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(downloadControllerProvider.notifier);
+      await _waitForCondition(() => started);
+      await controller.pause(task.id);
+      gate.complete();
+      await _waitForCondition(
+        () =>
+            repository.savedTasks.single.processingStage ==
+            DownloadProcessingStage.decrypted,
+      );
+      expect(repository.savedTasks.single.status, DownloadTaskStatus.paused);
+      expect(await File(task.filePath!).exists(), isFalse);
+      await controller.resume(task.id);
+      await _waitForCondition(
+        () =>
+            repository.savedTasks.single.status == DownloadTaskStatus.completed,
+      );
+      expect(attempts, 1);
+    },
+  );
+
+  test(
+    'native completion waits for clear audio before tags and final publication',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_complete_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final encrypted = await File(
+        '${directory.path}/cipher',
+      ).writeAsBytes([9]);
+      final clear = File('${directory.path}/clear.flac');
+      final task =
+          DownloadTask.queued(
+            id: 'native',
+            title: 'Song',
+            url: 'https://cdn.test/a',
+            songId: 's',
+            platform: 'qq',
+            artist: 'Artist',
+            album: 'Album',
+          ).copyWith(
+            status: DownloadTaskStatus.downloading,
+            audioParams: 'secret',
+            encryptedFilePath: encrypted.path,
+            decryptedFilePath: clear.path,
+            filePath: '${directory.path}/Song.flac',
+            resolvedFileExtension: 'flac',
+          );
+      final repository = _FakeDownloadRepository(initialTasks: [task]);
+      final gate = Completer<void>();
+      var decryptions = 0;
+      final writer = _FakeDownloadMetadataWriter();
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          downloadMetadataWriterProvider.overrideWithValue(writer),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+          downloadAudioDecryptorProvider.overrideWithValue(({
+            required input,
+            required output,
+            required encodedParameters,
+          }) async {
+            decryptions++;
+            await gate.future;
+            await output.writeAsBytes([1]);
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(downloadControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      repository.emit(
+        DownloadRunnerEvent(
+          pluginTaskId: task.id,
+          status: DownloadRunnerStatus.complete,
+          filePath: encrypted.path,
+        ),
+      );
+      await _waitForCondition(() => decryptions == 1);
+      expect(
+        repository.savedTasks.single.processingStage,
+        DownloadProcessingStage.decrypting,
+      );
+      expect(writer.requests, isEmpty);
+      expect(await File(task.filePath!).exists(), isFalse);
+      repository.emit(
+        DownloadRunnerEvent(
+          pluginTaskId: task.id,
+          status: DownloadRunnerStatus.complete,
+          filePath: encrypted.path,
+        ),
+      );
+      gate.complete();
+      await _waitForCondition(
+        () =>
+            repository.savedTasks.single.status == DownloadTaskStatus.completed,
+      );
+      expect(decryptions, 1);
+      expect(writer.requests.single.filePath, clear.path);
+      expect(await File(task.filePath!).readAsBytes(), [1]);
+    },
+  );
+
+  test(
+    'existing atomic clear output recovers before decrypt journal save',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_atomic_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final clear = await File(
+        '${directory.path}/clear.flac',
+      ).writeAsBytes([1]);
+      final task =
+          DownloadTask.queued(
+            id: 'atomic',
+            title: 'Song',
+            url: 'https://cdn.test/a',
+          ).copyWith(
+            status: DownloadTaskStatus.tagging,
+            processingStage: DownloadProcessingStage.decrypting,
+            audioParams: 'secret',
+            encryptedFilePath: '${directory.path}/cipher',
+            decryptedFilePath: clear.path,
+            filePath: '${directory.path}/Song.flac',
+          );
+      final repository = _FakeDownloadRepository(initialTasks: [task]);
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+          downloadAudioDecryptorProvider.overrideWithValue(({
+            required input,
+            required output,
+            required encodedParameters,
+          }) async {
+            fail('published clear output must not be decrypted again');
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(downloadControllerProvider);
+      await _waitForCondition(
+        () =>
+            repository.savedTasks.single.status == DownloadTaskStatus.completed,
+      );
+      expect(await File(task.filePath!).readAsBytes(), [1]);
+    },
+  );
+
+  test(
+    'public move failure retries from clear journal with final filename',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_publish_retry_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final clear = await File(
+        '${directory.path}/clear.flac',
+      ).writeAsBytes([1]);
+      final task =
+          DownloadTask.queued(
+            id: 'publish',
+            title: 'Song',
+            url: 'https://cdn.test/a',
+          ).copyWith(
+            status: DownloadTaskStatus.tagging,
+            processingStage: DownloadProcessingStage.decrypted,
+            audioParams: 'secret',
+            encryptedFilePath: '${directory.path}/cipher',
+            decryptedFilePath: clear.path,
+            filePath: '${directory.path}/Song.flac',
+          );
+      final repository = _FakeDownloadRepository(
+        initialTasks: [task],
+        isAndroid: true,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+          downloadAudioDecryptorProvider.overrideWithValue(({
+            required input,
+            required output,
+            required encodedParameters,
+          }) async {
+            fail('publication retry must not decrypt clear audio');
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(downloadControllerProvider.notifier);
+      await _waitForCondition(
+        () => repository.savedTasks.single.status == DownloadTaskStatus.failed,
+      );
+      expect(
+        repository.savedTasks.single.processingStage,
+        DownloadProcessingStage.publishing,
+      );
+      expect(await File(task.filePath!).readAsBytes(), [1]);
+      expect(
+        repository.moveToPublicDownloadsCalls.single.filePath,
+        endsWith('/Song.flac'),
+      );
+      repository.moveToPublicDownloadsResult = '/public/Song.flac';
+      await controller.retry(task.id);
+      await _waitForCondition(
+        () =>
+            repository.savedTasks.single.status == DownloadTaskStatus.completed,
+      );
+      expect(repository.savedTasks.single.filePath, '/public/Song.flac');
+      expect(repository.enqueueTaskRequests, isEmpty);
+    },
+  );
+
+  test(
+    'disposed controller leaves a journal that recovers completed decryption',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_restart_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final encrypted = await File(
+        '${directory.path}/cipher',
+      ).writeAsBytes([9]);
+      final clear = File('${directory.path}/clear.flac');
+      final task =
+          DownloadTask.queued(
+            id: 'restart',
+            title: 'Song',
+            url: 'https://cdn.test/a',
+          ).copyWith(
+            status: DownloadTaskStatus.tagging,
+            processingStage: DownloadProcessingStage.decrypting,
+            audioParams: 'secret',
+            encryptedFilePath: encrypted.path,
+            decryptedFilePath: clear.path,
+            filePath: '${directory.path}/Song.flac',
+          );
+      final repository = _FakeDownloadRepository(initialTasks: [task]);
+      final gate = Completer<void>();
+      var started = false;
+      final oldContainer = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          downloadAudioDecryptorProvider.overrideWithValue(({
+            required input,
+            required output,
+            required encodedParameters,
+          }) async {
+            started = true;
+            await gate.future;
+            await output.writeAsBytes([1]);
+          }),
+        ],
+      );
+      oldContainer.read(downloadControllerProvider);
+      await _waitForCondition(() => started);
+      oldContainer.dispose();
+      gate.complete();
+      await _waitForCondition(() => clear.existsSync());
+      final restored = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+          downloadAudioDecryptorProvider.overrideWithValue(({
+            required input,
+            required output,
+            required encodedParameters,
+          }) async {
+            fail('restart must reuse atomic clear output');
+          }),
+        ],
+      );
+      addTearDown(restored.dispose);
+      restored.read(downloadControllerProvider);
+      await _waitForCondition(
+        () =>
+            repository.savedTasks.single.status == DownloadTaskStatus.completed,
+      );
+      expect(await File(task.filePath!).readAsBytes(), [1]);
+      expect(repository.enqueueTaskRequests, isEmpty);
+    },
+  );
+
+  test(
+    'published audio resumes lyric publication without moving audio again',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'download_resume_lyrics_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final lyric = await File(
+        '${directory.path}/Song.lrc',
+      ).writeAsString('[00:01]line');
+      final task =
+          DownloadTask.queued(
+            id: 'lyrics',
+            title: 'Song',
+            url: 'https://cdn.test/a',
+          ).copyWith(
+            status: DownloadTaskStatus.tagging,
+            processingStage: DownloadProcessingStage.published,
+            audioParams: 'secret',
+            encryptedFilePath: '${directory.path}/cipher',
+            decryptedFilePath: '${directory.path}/.publish-lyrics/Song.flac',
+            publicationSourcePath: '${directory.path}/Song.flac',
+            filePath: '/public/Song.flac',
+            lyricPath: lyric.path,
+            tagWriteStatus: DownloadTagWriteStatus.success,
+            lyricFormat: DownloadLyricFormat.timed,
+          );
+      final repository = _FakeDownloadRepository(
+        initialTasks: [task],
+        isAndroid: true,
+        moveLyricToPublicDownloadsResult: '/public/Song.lrc',
+      );
+      final container = ProviderContainer(
+        overrides: [
+          downloadRepositoryProvider.overrideWithValue(repository),
+          localMusicRepositoryProvider.overrideWithValue(
+            _RecordingLocalMusicRepository(),
+          ),
+          downloadAudioDecryptorProvider.overrideWithValue(({
+            required input,
+            required output,
+            required encodedParameters,
+          }) async {
+            fail('published audio cannot be decrypted again');
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(downloadControllerProvider);
+      await _waitForCondition(
+        () =>
+            repository.savedTasks.single.status == DownloadTaskStatus.completed,
+      );
+      expect(
+        repository.moveToPublicDownloadsCalls.single.filePath,
+        endsWith('/Song.lrc'),
+      );
+      expect(repository.savedTasks.single.filePath, '/public/Song.flac');
+      expect(repository.savedTasks.single.lyricPath, '/public/Song.lrc');
+    },
+  );
   for (final writeTags in [false, true]) {
     test(
       'completed download imports its final path after tagging=$writeTags',
@@ -1091,10 +1844,11 @@ class _FakeDownloadRepository implements DownloadRepository {
        );
 
   Future<void> Function()? onDeleteArtifacts;
+  Future<void> Function()? onMoveToPublicDownloads;
   int resolveSavePathCalls = 0;
   int downloadFileCalls = 0;
   final bool isAndroid;
-  final String? moveToPublicDownloadsResult;
+  String? moveToPublicDownloadsResult;
   final String? moveLyricToPublicDownloadsResult;
   final List<String> pauseTaskCalls = <String>[];
   final List<String> resumeTaskCalls = <String>[];
@@ -1201,6 +1955,7 @@ class _FakeDownloadRepository implements DownloadRepository {
     String? mimeType,
   }) async {
     moveToPublicDownloadsCalls.add((filePath: filePath, mimeType: mimeType));
+    await onMoveToPublicDownloads?.call();
     if (filePath.endsWith('.lrc')) {
       return moveLyricToPublicDownloadsResult;
     }
@@ -1265,10 +2020,11 @@ class _FakeDownloadMetadataWriter extends DownloadMetadataWriter {
 }
 
 class _FakeOnlineController extends OnlineController {
-  _FakeOnlineController({this.resolvedFormat});
+  _FakeOnlineController({this.resolvedFormat, this.audioParams});
 
   int fetchSongUrlCalls = 0;
   final String? resolvedFormat;
+  final String? audioParams;
 
   @override
   OnlineFeatureState build() {
@@ -1289,6 +2045,7 @@ class _FakeOnlineController extends OnlineController {
     return SongUrlResolution(
       url: 'https://example.com/song.$finalFormat',
       format: finalFormat,
+      audioParams: audioParams,
     );
   }
 }

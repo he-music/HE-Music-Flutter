@@ -324,6 +324,27 @@ void main() {
         expect(result['url'], 'https://a.com/song.mp3');
         expect(result['quality'], 320);
       });
+      test('原生歌曲请求协商客户端解密参数 v1', () async {
+        RequestOptions? captured;
+        final client = _createClient({
+          'url': 'https://cdn.example/audio',
+          'format': 'm4a',
+        }, captureRequest: (request) => captured = request);
+        await client.fetchSongUrl(
+          songId: 's1',
+          platform: 'soda',
+          quality: 999,
+          format: 'flac',
+        );
+        expect(captured?.queryParameters, {
+          'id': 's1',
+          'platform': 'soda',
+          'quality': 999,
+          'format': 'flac',
+          'client_decrypt': true,
+          'audio_params_version': 1,
+        });
+      });
     });
 
     group('fetchSongLyric', () {

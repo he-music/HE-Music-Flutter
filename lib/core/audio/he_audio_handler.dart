@@ -7,6 +7,7 @@ import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -51,6 +52,8 @@ import 'audio_player_factory.dart';
 import 'audio_spectrum_frame.dart';
 import 'audio_spectrum_projector.dart';
 import 'audio_track.dart';
+import 'decrypting_audio_source.dart';
+import 'song_audio_source.dart';
 import 'cache/audio_cache_entry.dart';
 import 'cache/audio_cache_key.dart';
 import 'cache/audio_cache_policy.dart';
@@ -123,6 +126,7 @@ typedef HeAudioHandlerCreateCachingSource =
       required Uri uri,
       required File cacheFile,
       required MediaItem tag,
+      StreamAudioSource? streamSource,
     });
 typedef HeAudioHandlerReleaseAudioSource =
     Future<void> Function(AudioSource source, AudioPlayer player);
@@ -2352,114 +2356,131 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       format: payload.resolvedFormat,
       bitrate: payload.requestedQuality,
     );
-    LockCachingAudioSource? cachingSource;
-    Future<_CacheSourceCompletion>? cacheCompletion;
-    if (!disableCacheWrite &&
-        runtime != null &&
-        requestedKey != null &&
-        payload.expectedBytes != null &&
-        payload.expectedBytes! > 0) {
-      final owned = await runtime.createCachingSource(
-        key: requestedKey,
-        resolvedFormat: payload.resolvedFormat,
-        expectedBytes: payload.expectedBytes,
-        frozenPolicy: request.policy,
-        frozenNetwork: request.network,
-        factory: (cacheLease) {
-          try {
-            cachingSource = _createCachingAudioSource(
-              uri: Uri.parse(payload.url),
-              cacheFile: File(cacheLease.path),
-              tag: _toMediaItem(resolved),
-            );
-          } catch (error) {
-            if (error is SocketException) {
-              runtime.markWriteUnavailable();
+    final decryption = payload.audioParams == null
+        ? null
+        : DecryptingAudioSource(
+            url: payload.url,
+            audioParams: payload.audioParams!,
+            format: payload.resolvedFormat,
+            tag: _toMediaItem(resolved),
+          );
+    final mediaUri = Uri.parse(payload.url);
+    try {
+      LockCachingAudioSource? cachingSource;
+      Future<_CacheSourceCompletion>? cacheCompletion;
+      if (!disableCacheWrite &&
+          runtime != null &&
+          requestedKey != null &&
+          payload.expectedBytes != null &&
+          payload.expectedBytes! > 0) {
+        final owned = await runtime.createCachingSource(
+          key: requestedKey,
+          resolvedFormat: payload.resolvedFormat,
+          expectedBytes: payload.expectedBytes,
+          frozenPolicy: request.policy,
+          frozenNetwork: request.network,
+          factory: (cacheLease) {
+            try {
+              cachingSource = _createCachingAudioSource(
+                uri: mediaUri,
+                streamSource: decryption,
+                cacheFile: File(cacheLease.path),
+                tag: _toMediaItem(resolved),
+              );
+            } catch (error) {
+              if (error is SocketException) {
+                runtime.markWriteUnavailable();
+              }
+              rethrow;
             }
-            rethrow;
-          }
-          final completedFile = cachingSource!.completedFile;
-          final failure = completedFile.then<LockCachingAudioSourceFailure?>(
-            (_) => null,
-            onError: (Object error, StackTrace stackTrace) =>
-                error is LockCachingAudioSourceException
-                ? error.failure
-                : LockCachingAudioSourceFailure.originStream,
-          );
-          final publication = runtime.observeWriteCompletion(
-            cacheLease,
-            completedFile,
-          );
-          cacheCompletion = () async {
-            return _CacheSourceCompletion(
-              publication: await publication,
-              failure: await failure,
+            final completedFile = cachingSource!.completedFile;
+            final failure = completedFile.then<LockCachingAudioSourceFailure?>(
+              (_) => null,
+              onError: (Object error, StackTrace stackTrace) =>
+                  error is LockCachingAudioSourceException
+                  ? error.failure
+                  : LockCachingAudioSourceFailure.originStream,
             );
-          }();
-          return _ownPlaybackSource(
-            cachingSource!,
-            cacheLease: cacheLease,
+            final publication = runtime.observeWriteCompletion(
+              cacheLease,
+              completedFile,
+            );
+            cacheCompletion = () async {
+              return _CacheSourceCompletion(
+                publication: await publication,
+                failure: await failure,
+              );
+            }();
+            return _ownPlaybackSource(
+              cachingSource!,
+              cacheLease: cacheLease,
+              cachingSource: cachingSource,
+              decryption: decryption,
+            );
+          },
+        );
+        if (owned != null && cachingSource != null && cacheCompletion != null) {
+          _logCacheDecision('cache.write.started', key: requestedKey);
+          return _PreparedPlaybackSource(
+            request: payloadRequest,
+            resolvedTrack: resolved,
+            remotePayload: payload,
             cachingSource: cachingSource,
+            cacheCompletion: cacheCompletion,
+            plan: ResolvedAudioSourcePlan(
+              cacheKey: requestedKey,
+              requestedQuality: payload.requestedQuality,
+              requestedFormat: payload.requestedFormat,
+              resolvedFormat: payload.resolvedFormat,
+              expectedBytes: payload.expectedBytes,
+              kind: AudioSourceKind.cachingRemote,
+              requiresNetwork: true,
+              sourceLease: owned,
+            ),
           );
-        },
-      );
-      if (owned != null && cachingSource != null && cacheCompletion != null) {
-        _logCacheDecision('cache.write.started', key: requestedKey);
-        return _PreparedPlaybackSource(
-          request: payloadRequest,
-          resolvedTrack: resolved,
-          remotePayload: payload,
-          cachingSource: cachingSource,
-          cacheCompletion: cacheCompletion,
-          plan: ResolvedAudioSourcePlan(
-            cacheKey: requestedKey,
-            requestedQuality: payload.requestedQuality,
-            requestedFormat: payload.requestedFormat,
-            resolvedFormat: payload.resolvedFormat,
-            expectedBytes: payload.expectedBytes,
-            kind: AudioSourceKind.cachingRemote,
-            requiresNetwork: true,
-            sourceLease: owned,
-          ),
+        }
+        final rejectionReason = !runtime.capabilityEnabled
+            ? 'capability_disabled'
+            : !request.policy.allowsWrite(request.network)
+            ? 'policy_disallowed'
+            : runtime.writeHealth != AudioCacheWriteHealth.ready
+            ? runtime.writeHealth.name
+            : 'admission_rejected';
+        _logCacheDecision(
+          'cache.write.rejected',
+          key: requestedKey,
+          reason: rejectionReason,
+        );
+      } else if (requestedKey != null && !disableCacheWrite) {
+        final reason = runtime == null
+            ? 'runtime_absent'
+            : payload.expectedBytes == null || payload.expectedBytes! <= 0
+            ? 'invalid_size'
+            : 'disabled';
+        _logCacheDecision(
+          'cache.write.skipped',
+          key: requestedKey,
+          reason: reason,
         );
       }
-      final rejectionReason = !runtime.capabilityEnabled
-          ? 'capability_disabled'
-          : !request.policy.allowsWrite(request.network)
-          ? 'policy_disallowed'
-          : runtime.writeHealth != AudioCacheWriteHealth.ready
-          ? runtime.writeHealth.name
-          : 'admission_rejected';
       _logCacheDecision(
-        'cache.write.rejected',
+        'cache.source.plain',
         key: requestedKey,
-        reason: rejectionReason,
+        reason: disableCacheWrite ? 'write_bypassed' : 'write_unavailable',
       );
-    } else if (requestedKey != null && !disableCacheWrite) {
-      final reason = runtime == null
-          ? 'runtime_absent'
-          : payload.expectedBytes == null || payload.expectedBytes! <= 0
-          ? 'invalid_size'
-          : 'disabled';
-      _logCacheDecision(
-        'cache.write.skipped',
-        key: requestedKey,
-        reason: reason,
+      return _plainPreparedSource(
+        payloadRequest,
+        resolved,
+        kind: AudioSourceKind.plainRemote,
+        requiresNetwork: true,
+        uri: mediaUri,
+        remotePayload: payload,
+        decryption: decryption,
       );
+    } catch (_) {
+      await decryption?.dispose();
+      rethrow;
     }
-    _logCacheDecision(
-      'cache.source.plain',
-      key: requestedKey,
-      reason: disableCacheWrite ? 'write_bypassed' : 'write_unavailable',
-    );
-    return _plainPreparedSource(
-      payloadRequest,
-      resolved,
-      kind: AudioSourceKind.plainRemote,
-      requiresNetwork: true,
-      uri: Uri.parse(payload.url),
-      remotePayload: payload,
-    );
   }
 
   _PreparedPlaybackSource _plainPreparedSource(
@@ -2469,8 +2490,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     required bool requiresNetwork,
     required Uri uri,
     _ResolvedPlaybackUrl? remotePayload,
+    DecryptingAudioSource? decryption,
   }) {
-    final source = AudioSource.uri(uri, tag: _toMediaItem(resolved));
+    final source =
+        decryption ?? AudioSource.uri(uri, tag: _toMediaItem(resolved));
     return _PreparedPlaybackSource(
       request: request,
       resolvedTrack: resolved,
@@ -2484,7 +2507,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         expectedBytes: remotePayload?.expectedBytes ?? request.expectedBytes,
         kind: kind,
         requiresNetwork: requiresNetwork,
-        sourceLease: _ownPlaybackSource(source),
+        sourceLease: _ownPlaybackSource(source, decryption: decryption),
       ),
     );
   }
@@ -2493,6 +2516,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     AudioSource source, {
     AudioCacheSourceLease? cacheLease,
     LockCachingAudioSource? cachingSource,
+    DecryptingAudioSource? decryption,
   }) {
     final nativeFence = _AudioSourceNativeFence(source);
     _sourceNativeFences[source] = nativeFence;
@@ -2500,7 +2524,13 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       source: source,
       cacheLease: cacheLease,
       releaseNative: () => nativeFence.release(_player),
-      cancelTransport: () => cachingSource?.cancelDownload() ?? Future.value(),
+      cancelTransport: () async {
+        try {
+          await cachingSource?.cancelDownload();
+        } finally {
+          await decryption?.dispose();
+        }
+      },
       releaseSourceRegistration: () async {
         try {
           await _releaseAudioSource(source);
@@ -2524,11 +2554,22 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     required Uri uri,
     required File cacheFile,
     required MediaItem tag,
+    StreamAudioSource? streamSource,
   }) {
     final override = _createCachingSourceOverride;
     return override == null
-        ? LockCachingAudioSource(uri, cacheFile: cacheFile, tag: tag)
-        : override(uri: uri, cacheFile: cacheFile, tag: tag);
+        ? LockCachingAudioSource(
+            uri,
+            cacheFile: cacheFile,
+            tag: tag,
+            streamSource: streamSource,
+          )
+        : override(
+            uri: uri,
+            cacheFile: cacheFile,
+            tag: tag,
+            streamSource: streamSource,
+          );
   }
 
   AudioTrack _copyResolvedTrack(
@@ -2677,18 +2718,18 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           if (url.isEmpty) {
             throw _TrackUnavailableException(request.track.id);
           }
-          final payloadFormat = '${payload['format'] ?? ''}'
-              .trim()
-              .toLowerCase();
+          final source = SongAudioSource.fromPayload(
+            payload,
+            requestedFormat: request.requestedFormat,
+          );
           final resolved = _ResolvedPlaybackUrl(
             url: url,
             requestedKey: request.cacheKey,
             requestCacheKey: cacheKey,
             requestedQuality: request.requestedQuality,
             requestedFormat: request.requestedFormat,
-            resolvedFormat: payloadFormat.isEmpty
-                ? request.requestedFormat
-                : payloadFormat,
+            resolvedFormat: source.format,
+            audioParams: source.audioParams,
             expectedBytes: request.expectedBytes,
             resolvedAt: _now(),
             version: version,
@@ -2901,6 +2942,7 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           'platform': platform,
           'quality': quality ?? 320,
           'format': (format == null || format.trim().isEmpty) ? 'mp3' : format,
+          if (!kIsWeb) ...{'client_decrypt': true, 'audio_params_version': 1},
         },
       );
       final data = response.data;
@@ -4253,9 +4295,11 @@ class _ResolvedPlaybackUrl {
     required this.expectedBytes,
     required this.resolvedAt,
     required this.version,
+    this.audioParams,
   });
 
   final String url;
+  final String? audioParams;
   final AudioCacheKey? requestedKey;
   final String requestCacheKey;
   final int requestedQuality;

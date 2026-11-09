@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/features/download/data/datasources/download_task_store_data_source.dart';
+import 'package:he_music_flutter/features/download/data/datasources/downloaded_music_data_source.dart';
 import 'package:he_music_flutter/features/download/domain/entities/download_task.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,6 +33,41 @@ void main() {
   });
 
   group('DownloadTaskStoreDataSource', () {
+    test(
+      'persists local recovery journal and publishes only finalized clear audio',
+      () async {
+        final store = DownloadTaskStoreDataSource();
+        final library = DownloadedMusicDataSource();
+        final task = _task('encrypted', status: DownloadTaskStatus.tagging)
+            .copyWith(
+              processingStage: DownloadProcessingStage.decrypting,
+              audioParams: 'encoded-secret',
+              encryptedFilePath: '/private/cipher',
+              decryptedFilePath: '/private/clear.flac',
+              filePath: '/downloads/song.flac',
+            );
+        await store.saveTask(task);
+        final restored = (await store.loadTasks()).single;
+        expect(restored.audioParams, 'encoded-secret');
+        expect(restored.processingStage, DownloadProcessingStage.decrypting);
+        expect(restored.encryptedFilePath, '/private/cipher');
+        expect(restored.decryptedFilePath, '/private/clear.flac');
+        expect(await library.watchTasks().first, isEmpty);
+        await store.saveTask(
+          task.copyWith(status: DownloadTaskStatus.completed),
+        );
+        expect(await library.watchTasks().first, isEmpty);
+        await store.saveTask(
+          task.copyWith(
+            status: DownloadTaskStatus.completed,
+            clearProcessing: true,
+          ),
+        );
+        final published = (await library.watchTasks().first).single;
+        expect(published.filePath, '/downloads/song.flac');
+        expect(published.audioParams, isNull);
+      },
+    );
     test('旧下载任务迁移后并发保存不丢失其他任务', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('download.tasks.v2', [

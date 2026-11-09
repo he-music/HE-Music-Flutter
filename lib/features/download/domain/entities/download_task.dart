@@ -10,6 +10,16 @@ enum DownloadTaskStatus {
 
 enum DownloadTagWriteStatus { pending, success, failed }
 
+// Local processing is journaled separately so paused or failed transfers can
+// resume without decrypting an already prepared plaintext file a second time.
+enum DownloadProcessingStage {
+  transfer,
+  decrypting,
+  decrypted,
+  publishing,
+  published,
+}
+
 enum DownloadLyricFormat { none, plain, timed }
 
 class DownloadTaskQuality {
@@ -93,6 +103,11 @@ class DownloadTask {
     this.lyricPath,
     this.errorMessage,
     this.attempts = 0,
+    this.audioParams,
+    this.encryptedFilePath,
+    this.decryptedFilePath,
+    this.publicationSourcePath,
+    this.processingStage = DownloadProcessingStage.transfer,
   });
 
   final String id;
@@ -120,6 +135,11 @@ class DownloadTask {
   final String? lyricPath;
   final String? errorMessage;
   final int attempts;
+  final String? audioParams;
+  final String? encryptedFilePath;
+  final String? decryptedFilePath;
+  final String? publicationSourcePath;
+  final DownloadProcessingStage processingStage;
 
   String get effectiveFileExtension {
     final resolved = (resolvedFileExtension ?? '').trim();
@@ -153,6 +173,12 @@ class DownloadTask {
     String? lyricPath,
     String? errorMessage,
     int? attempts,
+    String? audioParams,
+    String? encryptedFilePath,
+    String? decryptedFilePath,
+    String? publicationSourcePath,
+    DownloadProcessingStage? processingStage,
+    bool clearProcessing = false,
     bool clearStartedAt = false,
     bool clearFinishedAt = false,
     bool clearMetadataPath = false,
@@ -189,6 +215,19 @@ class DownloadTask {
       lyricPath: clearLyricPath ? null : lyricPath ?? this.lyricPath,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       attempts: attempts ?? this.attempts,
+      audioParams: clearProcessing ? null : audioParams ?? this.audioParams,
+      encryptedFilePath: clearProcessing
+          ? null
+          : encryptedFilePath ?? this.encryptedFilePath,
+      decryptedFilePath: clearProcessing
+          ? null
+          : decryptedFilePath ?? this.decryptedFilePath,
+      publicationSourcePath: clearProcessing
+          ? null
+          : publicationSourcePath ?? this.publicationSourcePath,
+      processingStage: clearProcessing
+          ? DownloadProcessingStage.transfer
+          : processingStage ?? this.processingStage,
     );
   }
 
@@ -219,6 +258,11 @@ class DownloadTask {
       'lyric_path': lyricPath,
       'error_message': errorMessage,
       'attempts': attempts,
+      'audio_params': audioParams,
+      'encrypted_file_path': encryptedFilePath,
+      'decrypted_file_path': decryptedFilePath,
+      'publication_source_path': publicationSourcePath,
+      'processing_stage': processingStage.name,
     };
   }
 
@@ -261,6 +305,13 @@ class DownloadTask {
       lyricPath: _nullableString(json['lyric_path']),
       errorMessage: _nullableString(json['error_message']),
       attempts: _toInt(json['attempts']),
+      audioParams: _nullableString(json['audio_params']),
+      encryptedFilePath: _nullableString(json['encrypted_file_path']),
+      decryptedFilePath: _nullableString(json['decrypted_file_path']),
+      publicationSourcePath: _nullableString(json['publication_source_path']),
+      processingStage: DownloadProcessingStage.values.byName(
+        '${json['processing_stage'] ?? 'transfer'}',
+      ),
     );
   }
 

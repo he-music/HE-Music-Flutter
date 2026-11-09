@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import 'audio_cache_disk_capacity_port.dart';
 import 'audio_cache_entry.dart';
+import 'audio_cache_format.dart';
 import 'audio_cache_key.dart';
 import 'audio_cache_policy.dart';
 import 'audio_cache_store.dart';
@@ -426,8 +427,11 @@ final class FileAudioCacheStore implements AudioCacheStore {
             ? AudioCachePublication.suppressed
             : AudioCachePublication.rejected;
         if (!suppressed &&
-            owned.resolvedFormat == owned.key.requestedFormat &&
-            audioCacheFormats.contains(owned.resolvedFormat) &&
+            audioCacheFormatsCompatible(
+              platform: owned.key.platform,
+              requestedFormat: owned.key.requestedFormat,
+              resolvedFormat: owned.resolvedFormat,
+            ) &&
             mimeValidation != AudioCacheMimeValidation.conflict &&
             stat.size <= _limitBytes) {
           final now = _clock();

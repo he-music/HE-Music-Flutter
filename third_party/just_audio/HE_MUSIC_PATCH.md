@@ -3,7 +3,7 @@
 This directory contains the runtime sources from the official `just_audio`
 repository at commit `fcba2a37d63bd1bf0a933621d60f8e870310aa67`.
 
-HE Music carries ten fixes on top of that commit:
+HE Music carries eleven changes on top of that commit:
 
 1. `stopVisualizer()` awaits the platform stop request so application-level
    start/stop convergence remains serialized.
@@ -76,6 +76,17 @@ HE Music carries ten fixes on top of that commit:
     Run `cd android && ./gradlew :just_audio:testDebugUnitTest` from the app root
     for the native clock regression tests. Cold-start listening still needs
     verification on a physical device.
+11. `LockCachingAudioSource.streamSource` optionally reads an upstream
+    `StreamAudioSource` directly through `request(start, end)`. Only the caching
+    source attaches to the player's proxy, so local decryption and caching do
+    not introduce an additional HTTP hop. Direct responses retain positive full
+    length, range offset/total, terminal byte-count and staging validation.
+    Cancellation owns pending responses even before their streams are consumed;
+    auxiliary range transfers propagate pause/resume and cancel upstream reads.
+    The application owns disposal of the upstream source after native detach.
+    Run `flutter test test/core/audio/decrypting_audio_source_test.dart
+    test/core/audio/cache/stream_audio_cache_transport_test.dart` from the app
+    root in addition to the existing vendored cache and lifecycle tests.
 
 The platform interface and web packages remain pinned to the same upstream
 commit. Rebases must preserve the Dart-side source registry, proxy registration,

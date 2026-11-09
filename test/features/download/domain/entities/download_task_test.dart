@@ -3,6 +3,40 @@ import 'package:he_music_flutter/features/download/domain/entities/download_stat
 import 'package:he_music_flutter/features/download/domain/entities/download_task.dart';
 
 void main() {
+  test(
+    'local processing journal survives serialization and clears for redownload',
+    () {
+      final task =
+          DownloadTask.queued(
+            id: 'encrypted',
+            title: 'Song',
+            url: 'https://cdn.test/a',
+          ).copyWith(
+            processingStage: DownloadProcessingStage.decrypting,
+            audioParams: 'encoded',
+            encryptedFilePath: '/private/cipher',
+            decryptedFilePath: '/private/clear.flac',
+            publicationSourcePath: '/private/song.flac',
+          );
+      final restored = DownloadTask.fromJson(task.toJson());
+      expect(restored.processingStage, DownloadProcessingStage.decrypting);
+      expect(restored.audioParams, 'encoded');
+      expect(restored.encryptedFilePath, '/private/cipher');
+      expect(restored.decryptedFilePath, '/private/clear.flac');
+      expect(restored.publicationSourcePath, '/private/song.flac');
+      final reset = restored.copyWith(clearProcessing: true);
+      expect(reset.processingStage, DownloadProcessingStage.transfer);
+      expect(reset.audioParams, isNull);
+      expect(reset.encryptedFilePath, isNull);
+      expect(reset.decryptedFilePath, isNull);
+      expect(reset.publicationSourcePath, isNull);
+      final legacy = task.toJson()..remove('processing_stage');
+      expect(
+        DownloadTask.fromJson(legacy).processingStage,
+        DownloadProcessingStage.transfer,
+      );
+    },
+  );
   group('DownloadTaskQuality', () {
     test('copyWith keeps quality fields coherent', () {
       final quality = DownloadTaskQuality(

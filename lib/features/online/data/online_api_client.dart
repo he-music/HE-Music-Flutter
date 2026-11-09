@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../lyrics/domain/entities/lyric_candidate.dart';
 import '../../lyrics/domain/entities/raw_lyric_bundle.dart';
@@ -641,6 +642,7 @@ class OnlineApiClient {
         'platform': platform,
         'quality': quality ?? 320,
         'format': (format == null || format.trim().isEmpty) ? 'mp3' : format,
+        if (!kIsWeb) ...{'client_decrypt': true, 'audio_params_version': 1},
       },
     );
     return _asMap(response.data);

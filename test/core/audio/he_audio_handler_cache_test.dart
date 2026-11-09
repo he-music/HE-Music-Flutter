@@ -1,6 +1,7 @@
 // ignore_for_file: experimental_member_use
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
@@ -24,6 +25,7 @@ import 'package:he_music_flutter/core/audio/cache/audio_cache_source_plan.dart';
 import 'package:he_music_flutter/core/audio/cache/audio_cache_store.dart';
 import 'package:he_music_flutter/core/audio/cache/file_audio_cache_store.dart';
 import 'package:he_music_flutter/core/audio/he_audio_handler.dart';
+import 'package:he_music_flutter/core/audio/decrypting_audio_source.dart';
 import 'package:he_music_flutter/core/network/network_status_port.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:just_audio/just_audio.dart';
@@ -35,6 +37,74 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  for (final (name, policy, connection, writes) in [
+    (
+      'cache disabled',
+      const AudioCachePolicy(enabled: false),
+      NetworkConnectionType.wifi,
+      false,
+    ),
+    (
+      'cache enabled',
+      const AudioCachePolicy(),
+      NetworkConnectionType.wifi,
+      true,
+    ),
+    (
+      'cellular writes disabled',
+      const AudioCachePolicy(),
+      NetworkConnectionType.cellular,
+      false,
+    ),
+  ]) {
+    test('encrypted playback uses local plaintext source with $name', () async {
+      final fixture = await _CacheFixture.create(policy: policy);
+      addTearDown(fixture.dispose);
+      final network = _FakeNetworkStatusPort(connection);
+      addTearDown(network.dispose);
+      final loaded = <AudioSource>[];
+      final caching = <_ControlledCachingSource>[];
+      final parameters = base64Url
+          .encode(
+            utf8.encode(
+              jsonEncode({
+                'v': 1,
+                'kind': 1,
+                'key': base64.encode([1, 2, 3]),
+              }),
+            ),
+          )
+          .replaceAll('=', '');
+      final handler = _handler(
+        fixture: fixture,
+        network: network,
+        loaded: loaded,
+        cachingSources: caching,
+        fetch: ({required songId, required platform, quality, format}) async =>
+            {
+              'url': 'https://cdn.example/encrypted',
+              'format': 'mp3',
+              'audio_params': parameters,
+            },
+      );
+      addTearDown(handler.disposeHandler);
+      await _syncConfig(handler);
+      await handler.setQueueData([_track()]);
+      expect(loaded, hasLength(1));
+      expect(caching, hasLength(writes ? 1 : 0));
+      if (writes) {
+        expect(loaded.single, same(caching.single));
+        expect(caching.single.streamSource, isA<DecryptingAudioSource>());
+        expect(caching.single.uri.host, 'cdn.example');
+      } else {
+        expect(loaded.single, isA<DecryptingAudioSource>());
+      }
+      expect(
+        handler.mediaItem.value?.extras?.toString(),
+        isNot(contains(parameters)),
+      );
+    });
+  }
   test('playing cached remote source can stop and switch queues', () async {
     _installNativePlatform();
     final fixture = await _CacheFixture.create();
@@ -469,7 +539,7 @@ void main() {
         player: AudioPlayer(handleAudioSessionActivation: false),
         realNative: true,
         realCachingBuilder:
-            ({required uri, required cacheFile, required tag}) =>
+            ({required uri, required cacheFile, required tag, streamSource}) =>
                 source = LockCachingAudioSource(
                   uri,
                   cacheFile: cacheFile,
@@ -1933,10 +2003,15 @@ HeAudioHandler _handler({
         },
     createCachingSourceOverride:
         realCachingBuilder ??
-        ({required uri, required cacheFile, required tag}) {
+        ({required uri, required cacheFile, required tag, streamSource}) {
           final source =
               cachingSourceBuilder?.call(uri, cacheFile, tag) ??
-              _ControlledCachingSource(uri, targetFile: cacheFile, tag: tag);
+              _ControlledCachingSource(
+                uri,
+                targetFile: cacheFile,
+                tag: tag,
+                streamSource: streamSource,
+              );
           cachingSources?.add(source);
           return source;
         },
@@ -2191,6 +2266,7 @@ final class _ControlledCachingSource extends LockCachingAudioSource {
     super.uri, {
     required this.targetFile,
     required super.tag,
+    super.streamSource,
     this.settleOnCancel = true,
   }) : super(cacheFile: targetFile);
 

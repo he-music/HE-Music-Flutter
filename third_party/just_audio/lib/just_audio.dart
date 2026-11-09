@@ -3746,6 +3746,11 @@ class LockCachingAudioSourceException implements Exception {
 class LockCachingAudioSource extends StreamAudioSource {
   final Uri uri;
   final Map<String, String>? headers;
+
+  /// Optional byte source consumed directly, without an intermediate HTTP
+  /// request or attaching that source to the player's proxy. The caller owns
+  /// its lifetime and must dispose it after this caching source is detached.
+  final StreamAudioSource? streamSource;
   final Future<File> cacheFile;
   final IOSink Function(File)? _sinkFactory;
   final _terminalLock = Lock();
@@ -3761,6 +3766,7 @@ class LockCachingAudioSource extends StreamAudioSource {
   LockCachingAudioSourceState _state = LockCachingAudioSourceState.active;
   HttpClient? _originClient;
   StreamIterator<List<int>>? _originIterator;
+  Stream<List<int>>? _pendingOriginStream;
   IOSink? _sink;
   int _progress = 0;
   bool _downloading = false;
@@ -3771,6 +3777,7 @@ class LockCachingAudioSource extends StreamAudioSource {
   LockCachingAudioSource(
     this.uri, {
     this.headers,
+    this.streamSource,
     File? cacheFile,
     dynamic tag,
     @visibleForTesting IOSink Function(File)? sinkFactory,
@@ -3796,6 +3803,7 @@ class LockCachingAudioSource extends StreamAudioSource {
   int get debugActiveResourceCount =>
       (_originClient == null ? 0 : 1) +
       (_originIterator == null ? 0 : 1) +
+      (_pendingOriginStream == null ? 0 : 1) +
       (_sink == null ? 0 : 1) +
       _requests.length +
       _inProgressResponses.length +
@@ -3891,6 +3899,10 @@ class LockCachingAudioSource extends StreamAudioSource {
   Future<void> _startDownload() async {
     try {
       await _initialization;
+      if (streamSource != null) {
+        await _startStreamDownload();
+        return;
+      }
       late HttpClient client;
       await _terminalLock.synchronized(() async {
         _ensureActive();
@@ -3936,6 +3948,44 @@ class LockCachingAudioSource extends StreamAudioSource {
         LockCachingAudioSourceFailure.originStream,
       );
     }
+  }
+
+  Future<void> _startStreamDownload() async {
+    await _terminalLock.synchronized(() async {
+      _ensureActive();
+      _downloading = true;
+      final partialFile = await _partialCacheFile;
+      await partialFile.create(recursive: true);
+      _ensureActive();
+      _sink = _sinkFactory?.call(partialFile) ?? partialFile.openWrite();
+    });
+    final response = await streamSource!.request();
+    // Take ownership immediately, including cancellation while request() awaited.
+    if (_state != LockCachingAudioSourceState.active) {
+      await response.stream.listen((_) {}).cancel();
+      _ensureActive();
+    }
+    _pendingOriginStream = response.stream;
+    final length = response.contentLength;
+    if (length == null ||
+        length <= 0 ||
+        (response.offset != null && response.offset != 0) ||
+        (response.sourceLength != null && response.sourceLength != length)) {
+      throw const LockCachingAudioSourceException(
+        LockCachingAudioSourceFailure.invalidHttpResponse,
+      );
+    }
+    await (await _mimeFile).writeAsString(response.contentType, flush: true);
+    _ensureActive();
+    final iterator = StreamIterator<List<int>>(_pendingOriginStream!);
+    _pendingOriginStream = null;
+    _originIterator = iterator;
+    unawaited(_consumeOrigin(
+      iterator,
+      sourceLength: length,
+      mimeType: response.contentType,
+      supportsRanges: response.rangeRequestsSupported,
+    ));
   }
 
   Future<void> _finishStartupFailure(
@@ -4158,7 +4208,9 @@ class LockCachingAudioSource extends StreamAudioSource {
     required String mimeType,
     required bool supportsRanges,
   }) async {
-    final client = _createHttpClient(userAgent: _player?._userAgent);
+    final client = streamSource == null
+        ? _createHttpClient(userAgent: _player?._userAgent)
+        : null;
     late final _LockCachingRangeTransfer transfer;
     transfer = _LockCachingRangeTransfer(
       client,
@@ -4179,8 +4231,33 @@ class LockCachingAudioSource extends StreamAudioSource {
           LockCachingAudioSourceFailure.invalidHttpResponse,
         );
       }
+      if (streamSource != null) {
+        final response = await streamSource!.request(start, end);
+        final stream = response.stream;
+        if (_state != LockCachingAudioSourceState.active ||
+            !response.rangeRequestsSupported ||
+            response.offset != start ||
+            response.sourceLength != sourceLength ||
+            response.contentLength != end - start) {
+          // Rejecting a response still owns cancellation of its producer.
+          await stream.listen((_) {}).cancel();
+          throw const LockCachingAudioSourceException(
+            LockCachingAudioSourceFailure.invalidHttpResponse,
+          );
+        }
+        transfer.bind(stream, expectedLength: end - start);
+        request.complete(StreamAudioResponse(
+          rangeRequestsSupported: true,
+          sourceLength: sourceLength,
+          contentLength: end - start,
+          offset: start,
+          contentType: mimeType,
+          stream: transfer.stream,
+        ));
+        return;
+      }
       final range = _HttpRangeRequest(start, end);
-      final originRequest = await _getUrl(client, uri, headers: {
+      final originRequest = await _getUrl(client!, uri, headers: {
         if (headers != null) ...headers!,
         HttpHeaders.rangeHeader: range.header,
       });
@@ -4328,6 +4405,11 @@ class LockCachingAudioSource extends StreamAudioSource {
   }
 
   Future<void> _closeTransport() async {
+    final pending = _pendingOriginStream;
+    _pendingOriginStream = null;
+    if (pending != null) {
+      await pending.listen((_) {}).cancel();
+    }
     final iterator = _originIterator;
     _originIterator = null;
     final client = _originClient;
@@ -4444,10 +4526,10 @@ class _InProgressCacheResponse {
 }
 
 class _LockCachingRangeTransfer {
-  final HttpClient client;
+  final HttpClient? client;
   final void Function() onClosed;
   late final StreamController<List<int>> _controller;
-  HttpClientResponse? _response;
+  Stream<List<int>>? _response;
   StreamSubscription<List<int>>? _subscription;
   int? _expectedLength;
   int _received = 0;
@@ -4457,12 +4539,14 @@ class _LockCachingRangeTransfer {
     _controller = StreamController<List<int>>(
       onListen: _listen,
       onCancel: close,
+      onPause: () => _subscription?.pause(),
+      onResume: () => _subscription?.resume(),
     );
   }
 
   Stream<List<int>> get stream => _controller.stream;
 
-  void bind(HttpClientResponse response, {required int expectedLength}) {
+  void bind(Stream<List<int>> response, {required int expectedLength}) {
     _response = response;
     _expectedLength = expectedLength;
   }
@@ -4530,9 +4614,10 @@ class _LockCachingRangeTransfer {
         hasTruncatedBody ? StackTrace.current : stackTrace;
     _closed = true;
     try {
-      await _subscription?.cancel();
+      final subscription = _subscription ?? _response?.listen((_) {});
+      await subscription?.cancel();
     } catch (_) {}
-    client.close(force: true);
+    client?.close(force: true);
     if (terminalError != null && !_controller.isClosed) {
       _controller.addError(terminalError, terminalStackTrace);
     }

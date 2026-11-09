@@ -15,6 +15,8 @@ class DownloadedMusicDataSource {
 
   Future<void> register(DownloadTask task, {bool overwrite = true}) async {
     if (task.status != DownloadTaskStatus.completed ||
+        task.audioParams != null ||
+        task.processingStage != DownloadProcessingStage.transfer ||
         (task.filePath?.trim().isEmpty ?? true)) {
       return;
     }

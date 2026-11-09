@@ -14,27 +14,38 @@ class DownloadRunnerDataSource {
   bool _started = false;
 
   Stream<DownloadRunnerEvent> watchEvents() async* {
-    await _ensureStarted();
-    await for (final update in _downloader.updates) {
-      switch (update) {
-        case bd.TaskProgressUpdate():
-          yield DownloadRunnerEvent(
-            pluginTaskId: update.task.taskId,
-            status: DownloadRunnerStatus.running,
-            progress: update.progress,
-            expectedFileSize: update.hasExpectedFileSize
-                ? update.expectedFileSize
-                : null,
-          );
-        case bd.TaskStatusUpdate():
-          yield DownloadRunnerEvent(
-            pluginTaskId: update.task.taskId,
-            status: _mapStatus(update.status),
-            progress: _progressForStatus(update.status),
-            filePath: await update.task.filePath(),
-            errorMessage: update.exception?.description,
-          );
+    // Subscribe before start replays updates produced while the app was closed.
+    final updates = StreamController<bd.TaskUpdate>();
+    final subscription = _downloader.updates.listen(
+      updates.add,
+      onError: updates.addError,
+    );
+    try {
+      await _ensureStarted();
+      await for (final update in updates.stream) {
+        switch (update) {
+          case bd.TaskProgressUpdate():
+            yield DownloadRunnerEvent(
+              pluginTaskId: update.task.taskId,
+              status: DownloadRunnerStatus.running,
+              progress: update.progress,
+              expectedFileSize: update.hasExpectedFileSize
+                  ? update.expectedFileSize
+                  : null,
+            );
+          case bd.TaskStatusUpdate():
+            yield DownloadRunnerEvent(
+              pluginTaskId: update.task.taskId,
+              status: _mapStatus(update.status),
+              progress: _progressForStatus(update.status),
+              filePath: await update.task.filePath(),
+              errorMessage: update.exception?.description,
+            );
+        }
       }
+    } finally {
+      await subscription.cancel();
+      await updates.close();
     }
   }
 
@@ -46,6 +57,7 @@ class DownloadRunnerDataSource {
     final task = bd.DownloadTask(
       taskId: request.pluginTaskId,
       url: request.url,
+      headers: request.headers,
       filename: filename,
       directory: directory,
       baseDirectory: baseDirectory,

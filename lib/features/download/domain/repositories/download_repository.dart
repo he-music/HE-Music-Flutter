@@ -11,6 +11,7 @@ class DownloadEnqueueRequest {
     required this.url,
     required this.savePath,
     this.metadata,
+    this.headers = const {},
   });
 
   final String taskId;
@@ -18,6 +19,7 @@ class DownloadEnqueueRequest {
   final String url;
   final String savePath;
   final String? metadata;
+  final Map<String, String> headers;
 }
 
 enum DownloadRunnerStatus {
