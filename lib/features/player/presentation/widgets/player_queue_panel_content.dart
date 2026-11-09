@@ -35,18 +35,10 @@ class _PlayerQueuePanelContentState
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  int _activeTab = 0;
-
-  void _handleTabChange() {
-    if (_activeTab == _tabController.index) return;
-    setState(() => _activeTab = _tabController.index);
-  }
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this, initialIndex: 0);
-    _tabController.addListener(_handleTabChange);
   }
 
   @override
@@ -101,9 +93,6 @@ class _PlayerQueuePanelContentState
             : null,
       ),
     ];
-    final visibleCount = _activeTab == 0
-        ? queue.length
-        : previousSnapshot?.queue.length ?? 0;
     // Estimate the two text lines and controls; the lists remain lazy and use
     // their existing prototype item instead of measuring every queue entry.
     final itemHeight = math.max(
@@ -112,12 +101,16 @@ class _PlayerQueuePanelContentState
           textScaler.scale(theme.textTheme.bodySmall?.fontSize ?? 12) * 1.5 +
           16,
     );
+    double listHeight(int count) =>
+        count == 0 ? math.max(80.0, itemHeight) : count * itemHeight;
     final headerHeight = math.max(48.0, tabHeight + 16) + 14;
+    // Reserve room for both tabs so switching never resizes the sheet.
     final contentHeight =
         headerHeight +
-        (visibleCount == 0
-            ? math.max(80.0, itemHeight)
-            : visibleCount * itemHeight) +
+        math.max(
+          listHeight(queue.length),
+          listHeight(previousSnapshot?.queue.length ?? 0),
+        ) +
         12;
     return LayoutBuilder(
       builder: (context, constraints) => SizedBox(
@@ -204,10 +197,13 @@ class _PlayerQueuePanelContentState
   }
 
   Widget _buildCupertinoTabs(List<Widget> tabs) => AnimatedBuilder(
-    animation: _tabController,
+    animation: Listenable.merge([_tabController, _tabController.animation!]),
     builder: (context, _) {
       final control = CupertinoSlidingSegmentedControl<int>(
-        groupValue: _tabController.index,
+        // Taps select immediately; swipes select when crossing the midpoint.
+        groupValue: _tabController.indexIsChanging
+            ? _tabController.index
+            : _tabController.animation!.value.round(),
         proportionalWidth: true,
         children: {
           for (var index = 0; index < tabs.length; index++)

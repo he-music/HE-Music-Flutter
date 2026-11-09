@@ -107,6 +107,100 @@ void main() {
     });
   }
   for (final style in AppUiStyle.values) {
+    for (final counts in [
+      (current: 1, history: 8),
+      (current: 8, history: 1),
+      (current: 0, history: 1),
+      (current: 1, history: 0),
+      (current: 1, history: 200),
+    ]) {
+      testWidgets(
+        '$style queue sheet keeps its height across tabs with $counts tracks',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(390, 844));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          await tester.pumpWidget(
+            _buildTestApp(
+              theme: AppTheme.light(citySoundCreatorSkin(), uiStyle: style),
+              controllerFactory: () => _QueueWithHistoryTestController(
+                currentCount: counts.current,
+                historyCount: counts.history,
+              ),
+              showSheet: true,
+            ),
+          );
+          await tester.tap(find.text('Open queue'));
+          await tester.pumpAndSettle();
+
+          final surface = find.byKey(const ValueKey('player-sheet-surface'));
+          final initialSize = tester.getSize(surface);
+          final initialTop = tester.getTopLeft(surface);
+          await tester.tap(find.text('History'));
+          await tester.pumpAndSettle();
+          expect(tester.getSize(surface), initialSize);
+          expect(tester.getTopLeft(surface), initialTop);
+
+          await tester.fling(
+            find.byType(TabBarView),
+            const Offset(600, 0),
+            1000,
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getSize(surface), initialSize);
+          expect(tester.getTopLeft(surface), initialTop);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('Cupertino queue tabs update during an unfinished swipe', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _buildTestApp(
+        theme: AppTheme.light(
+          citySoundCreatorSkin(),
+          uiStyle: AppUiStyle.cupertino,
+        ),
+        controllerFactory: _QueueWithHistoryTestController.new,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    int? selectedTab() => tester
+        .widget<CupertinoSlidingSegmentedControl<int>>(
+          find.byType(CupertinoSlidingSegmentedControl<int>),
+        )
+        .groupValue;
+    final tabView = find.byType(TabBarView);
+    final initialTabView = tester.widget<TabBarView>(tabView);
+    final controller = initialTabView.controller!;
+    final gesture = await tester.startGesture(tester.getCenter(tabView));
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-220, 0));
+    await tester.pump();
+
+    expect(controller.animation!.value, greaterThan(0.5));
+    expect(controller.animation!.value, lessThan(1));
+    expect(controller.index, 0);
+    expect(selectedTab(), 1);
+    expect(tester.widget<TabBarView>(tabView), same(initialTabView));
+
+    // Reversing the drag also updates the header before the gesture ends.
+    await gesture.moveBy(const Offset(150, 0));
+    await tester.pump();
+    expect(controller.animation!.value, lessThan(0.5));
+    expect(selectedTab(), 0);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(selectedTab(), 0);
+    expect(tester.takeException(), isNull);
+  });
+  for (final style in AppUiStyle.values) {
     testWidgets('$style queue tabs accommodate large labels and counts', (
       tester,
     ) async {
@@ -332,6 +426,7 @@ Widget _buildTestApp({
   double textScale = 1,
   required ThemeData theme,
   required PlayerController Function() controllerFactory,
+  bool showSheet = false,
 }) {
   return ProviderScope(
     overrides: [
@@ -346,7 +441,22 @@ Widget _buildTestApp({
         child: child!,
       ),
       theme: theme,
-      home: const Scaffold(body: PlayerQueuePanelContent()),
+      home: showSheet
+          ? Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showPlayerStyledBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    fitContent: true,
+                    heightFactor: 0.88,
+                    builder: (_) => const PlayerQueueSheet(),
+                  ),
+                  child: const Text('Open queue'),
+                ),
+              ),
+            )
+          : const Scaffold(body: PlayerQueuePanelContent()),
     ),
   );
 }
@@ -417,23 +527,35 @@ class _MissingArtistQueueTestController extends PlayerController {
 }
 
 class _QueueWithHistoryTestController extends PlayerController {
+  _QueueWithHistoryTestController({
+    this.currentCount = 1,
+    this.historyCount = 1,
+  });
+
+  final int currentCount;
+  final int historyCount;
+
   @override
   PlayerPlaybackState build() {
-    return PlayerPlaybackState.initial(const <PlayerTrack>[
-      PlayerTrack(
-        id: 'current-song',
-        title: 'Current Song',
-        artist: 'Current Artist',
+    return PlayerPlaybackState.initial(
+      List.generate(
+        currentCount,
+        (index) => PlayerTrack(
+          id: 'current-song-$index',
+          title: index == 0 ? 'Current Song' : 'Current Song $index',
+          artist: 'Current Artist',
+        ),
       ),
-    ]).copyWith(
-      previousQueueSnapshot: const PlayerQueueSnapshot(
-        queue: <PlayerTrack>[
-          PlayerTrack(
-            id: 'previous-song',
-            title: 'Previous Song',
+    ).copyWith(
+      previousQueueSnapshot: PlayerQueueSnapshot(
+        queue: List.generate(
+          historyCount,
+          (index) => PlayerTrack(
+            id: 'previous-song-$index',
+            title: index == 0 ? 'Previous Song' : 'Previous Song $index',
             artist: 'Previous Artist',
           ),
-        ],
+        ),
         currentIndex: 0,
         playMode: PlayerPlayMode.sequence,
         isRadioMode: false,
