@@ -17,6 +17,13 @@ import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.da
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
 import 'package:he_music_flutter/features/my/presentation/pages/library_page.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_playlist_shelf_providers.dart';
+import 'package:he_music_flutter/features/my/presentation/pages/my_page.dart';
+import 'package:he_music_flutter/features/my/presentation/controllers/my_overview_controller.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/my_overview_providers.dart';
+import 'package:he_music_flutter/features/my/domain/entities/my_overview_state.dart';
+import 'package:he_music_flutter/features/my/domain/entities/my_overview.dart';
+import 'package:he_music_flutter/features/my/domain/entities/my_profile.dart';
+import 'package:he_music_flutter/features/my/domain/entities/my_summary.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
 import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
@@ -53,71 +60,77 @@ void main() {
 
   for (final style in AppUiStyle.values) {
     for (final brightness in Brightness.values) {
-      testWidgets('$style $brightness library navigation preview', (
-        tester,
-      ) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
-        tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
-        addTearDown(tester.view.reset);
-        final router = createAppRouter(AppRoutes.collection);
-        addTearDown(router.dispose);
-        final capture = GlobalKey();
-        final skin = AppSkinRegistry.builtIn(
-          AppConfigState.initial.themeAccent,
-        ).resolve(AppSkinRegistry.classicId);
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              appConfigProvider.overrideWith(() => _Config(style)),
-              playerControllerProvider.overrideWith(_Player.new),
-              myCreatedPlaylistsProvider.overrideWith(
-                (_) async => const [_playlist],
-              ),
-              myFavoritePlaylistsProvider.overrideWith(
-                (_) => const AsyncData([]),
-              ),
-            ],
-            child: RepaintBoundary(
-              key: capture,
-              child: MaterialApp.router(
-                debugShowCheckedModeBanner: false,
-                theme: AppTheme.light(skin, uiStyle: style),
-                darkTheme: AppTheme.dark(skin, uiStyle: style),
-                themeMode: brightness == Brightness.dark
-                    ? ThemeMode.dark
-                    : ThemeMode.light,
-                routerConfig: router,
+      for (final page in [AppRoutes.collection, AppRoutes.my]) {
+        testWidgets('$style $brightness $page navigation preview', (
+          tester,
+        ) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+          tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+          addTearDown(tester.view.reset);
+          final router = createAppRouter(page);
+          addTearDown(router.dispose);
+          final capture = GlobalKey();
+          final skin = AppSkinRegistry.builtIn(
+            AppConfigState.initial.themeAccent,
+          ).resolve(AppSkinRegistry.classicId);
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                appConfigProvider.overrideWith(() => _Config(style)),
+                playerControllerProvider.overrideWith(_Player.new),
+                myOverviewControllerProvider.overrideWith(_Overview.new),
+                myCreatedPlaylistsProvider.overrideWith(
+                  (_) async => const [_playlist],
+                ),
+                myFavoritePlaylistsProvider.overrideWith(
+                  (_) => const AsyncData([]),
+                ),
+              ],
+              child: RepaintBoundary(
+                key: capture,
+                child: MaterialApp.router(
+                  debugShowCheckedModeBanner: false,
+                  theme: AppTheme.light(skin, uiStyle: style),
+                  darkTheme: AppTheme.dark(skin, uiStyle: style),
+                  themeMode: brightness == Brightness.dark
+                      ? ThemeMode.dark
+                      : ThemeMode.light,
+                  routerConfig: router,
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.byType(LibraryPage), findsOneWidget);
-        expect(find.byType(AppBottomNavigationBar), findsOneWidget);
-        expect(find.byType(MiniPlayerBar), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        if (_previewDirectory.isNotEmpty) {
-          final boundary = tester.renderObject<RenderRepaintBoundary>(
-            find.byKey(capture),
           );
-          await tester.runAsync(() async {
-            final image = await boundary.toImage(pixelRatio: 2);
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
+          await tester.pumpAndSettle();
+          expect(
+            find.byType(page == AppRoutes.collection ? LibraryPage : MyPage),
+            findsOneWidget,
+          );
+          expect(find.byType(AppBottomNavigationBar), findsOneWidget);
+          expect(find.byType(MiniPlayerBar), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          if (_previewDirectory.isNotEmpty) {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(capture),
             );
-            final file = File(
-              '$_previewDirectory/library_${style.name}_${brightness.name}.png',
-            );
-            await file.parent.create(recursive: true);
-            await file.writeAsBytes(bytes!.buffer.asUint8List());
-            image.dispose();
-            expect(await file.length(), greaterThan(0));
-          });
-        }
-        await tester.pumpWidget(const SizedBox.shrink());
-      });
+            await tester.runAsync(() async {
+              final image = await boundary.toImage(pixelRatio: 2);
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              final file = File(
+                '$_previewDirectory/${page == AppRoutes.collection ? 'library' : 'my'}_${style.name}_${brightness.name}.png',
+              );
+              await file.parent.create(recursive: true);
+              await file.writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+              expect(await file.length(), greaterThan(0));
+            });
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+        });
+      }
     }
   }
 }
@@ -146,6 +159,30 @@ class _Player extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _Overview extends MyOverviewController {
+  @override
+  MyOverviewState build() => const MyOverviewState(
+    loading: false,
+    overview: MyOverview(
+      profile: MyProfile(
+        id: 'preview-user',
+        username: 'listener',
+        nickname: 'Music lover',
+        email: '',
+        status: 1,
+        avatarUrl: '',
+      ),
+      summary: MySummary(
+        favoriteSongCount: 0,
+        favoritePlaylistCount: 0,
+        favoriteArtistCount: 0,
+        favoriteAlbumCount: 0,
+        createdPlaylistCount: 1,
+      ),
+    ),
+  );
 }
 
 const _playlist = MyFavoriteItem(

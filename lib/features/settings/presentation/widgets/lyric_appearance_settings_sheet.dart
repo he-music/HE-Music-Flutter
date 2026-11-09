@@ -32,46 +32,6 @@ Future<void> showLyricFontPresetSettingsSheet({
   onSelected: onSelected,
 );
 
-/// Preview for lyric highlight color choices.
-class LyricSettingsPreview extends StatelessWidget {
-  const LyricSettingsPreview({required this.config, super.key});
-
-  final AppConfigState config;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 20),
-    child: Container(
-      key: const ValueKey('settings-lyric-preview'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      decoration: BoxDecoration(
-        color: const Color(0xff1c1c1e),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            AppI18n.t(config, 'settings.lyric.preview'),
-            style: const TextStyle(color: Color(0xffaeaeb2), fontSize: 13),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            AppI18n.t(config, 'settings.lyric.preview_line'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: lyricSettingsHighlightPreviewColor(config),
-              fontSize: _previewFontSize(config.lyricFontPreset),
-              fontWeight: FontWeight.w600,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 Color lyricSettingsHighlightPreviewColor(AppConfigState config) =>
     switch (config.lyricHighlightMode) {
       AppLyricHighlightMode.custom =>

@@ -1,20 +1,13 @@
-import 'dart:async';
-
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
+import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
-import 'package:he_music_flutter/app/theme/skin/app_skin_icon.dart';
-import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skins/city_sound_creator_skin.dart';
-import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.dart';
-import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
-import 'package:he_music_flutter/features/my/domain/repositories/my_collection_repository.dart';
-import 'package:he_music_flutter/features/my/presentation/providers/my_collection_providers.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_overview.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_overview_state.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_profile.dart';
@@ -23,547 +16,253 @@ import 'package:he_music_flutter/features/my/presentation/controllers/my_overvie
 import 'package:he_music_flutter/features/my/presentation/pages/my_page.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_overview_providers.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_playlist_shelf_providers.dart';
-import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
-import 'package:he_music_flutter/features/player/domain/entities/player_playback_state.dart';
-import 'package:he_music_flutter/features/player/domain/entities/player_track.dart';
-import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
-import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
-
-import 'package:he_music_flutter/core/audio/cache/audio_cache_provider.dart';
-import '../../../../core/audio/cache/cache_surface_test_support.dart';
 
 void main() {
   for (final style in AppUiStyle.values) {
-    for (final brightness in Brightness.values) {
-      for (final error in [false, true]) {
-        testWidgets(
-          '$style $brightness shelf error=$error follows content background',
-          (tester) async {
-            tester.view.physicalSize = const Size(430, 1000);
-            tester.view.devicePixelRatio = 1;
-            addTearDown(tester.view.reset);
-            final pending = error ? Completer<List<MyFavoriteItem>>() : null;
-            State? pageState;
-            for (final enabled in [false, true, false]) {
-              final skin = citySoundCreatorSkin();
-              final theme = brightness == Brightness.light
-                  ? AppTheme.light(
-                      skin,
-                      uiStyle: style,
-                      showContentBackground: enabled,
-                    )
-                  : AppTheme.dark(
-                      skin,
-                      uiStyle: style,
-                      showContentBackground: enabled,
-                    );
-              await tester.pumpWidget(
-                _buildTestApp(
-                  localeCode: 'en',
-                  themeOverride: theme,
-                  playlistsFuture: pending?.future,
-                ),
-              );
-              if (pending != null && !pending.isCompleted) {
-                pending.completeError(StateError('Offline'));
-              }
-              await tester.pumpAndSettle();
-              pageState ??= tester.state(find.byType(MyPage));
-              expect(tester.state(find.byType(MyPage)), same(pageState));
-              final message = find.text(
-                error ? 'Failed to load playlists' : 'No playlists yet',
-              );
-              expect(message, findsOneWidget);
-              final card = tester.widget<Container>(
-                find
-                    .ancestor(of: message, matching: find.byType(Container))
-                    .first,
-              );
-              final fill = (card.decoration as BoxDecoration).color!;
-              expect(
-                fill.a,
-                style == AppUiStyle.cupertino && !enabled ? 0 : greaterThan(0),
-              );
-              expect(tester.takeException(), isNull);
-            }
-          },
-        );
+    testWidgets('$style my page owns account and settings navigation', (
+      tester,
+    ) async {
+      final router = GoRouter(
+        initialLocation: AppRoutes.my,
+        routes: [
+          GoRoute(
+            path: AppRoutes.my,
+            builder: (_, _) => const Scaffold(body: MyPage()),
+          ),
+          for (final path in [
+            AppRoutes.settingsProfile,
+            AppRoutes.settingsDevice,
+            AppRoutes.settings,
+            AppRoutes.about,
+          ])
+            GoRoute(
+              path: path,
+              builder: (_, _) => const Scaffold(body: Text('Destination')),
+            ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(_app(style: style, router: router));
+      await tester.pumpAndSettle();
+      expect(find.text('Tester'), findsOneWidget);
+      expect(find.text('@tester'), findsOneWidget);
+      for (final label in [
+        'Play History',
+        'Local Songs',
+        'Downloads',
+        'Collections',
+        'Created',
+        'Favorites',
+      ]) {
+        expect(find.text(label), findsNothing);
       }
-    }
+      expect(find.byTooltip('New Playlist'), findsNothing);
+      for (final entry in [
+        ('Profile', AppRoutes.settingsProfile),
+        ('Device Management', AppRoutes.settingsDevice),
+        ('Settings', AppRoutes.settings),
+        ('About', AppRoutes.about),
+      ]) {
+        await tester.ensureVisible(find.text(entry.$1));
+        await tester.tap(find.text(entry.$1));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.path, entry.$2);
+        router.pop();
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('$style guest keeps sign in and hides account management', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(style: style, signedIn: false));
+      await tester.pumpAndSettle();
+      expect(find.text('Sign In'), findsOneWidget);
+      expect(find.text('Profile'), findsNothing);
+      expect(find.text('Device Management'), findsNothing);
+      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('About'), findsOneWidget);
+    });
   }
+
+  testWidgets('my page responds to locale and authentication changes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(locale: 'zh'));
+    await tester.pumpAndSettle();
+    expect(find.text('我的'), findsOneWidget);
+    expect(find.text('个人资料'), findsOneWidget);
+    expect(find.text('设备管理'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MyPage)),
+    );
+    final controller = container.read(appConfigProvider.notifier) as _Config;
+    controller.update(
+      container.read(appConfigProvider).copyWith(localeCode: 'en'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('个人资料'), findsNothing);
+    controller.update(
+      container.read(appConfigProvider).copyWith(clearToken: true),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Profile'), findsNothing);
+    expect(find.text('Tester'), findsNothing);
+    expect(find.text('Sign In'), findsOneWidget);
+  });
 
   testWidgets('photo brightness changes do not rebuild my page content', (
     tester,
   ) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
+    await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     final list = find
         .descendant(of: find.byType(MyPage), matching: find.byType(ListView))
         .first;
-    final initialList = tester.widget(list);
+    final original = tester.widget(list);
     final container = ProviderScope.containerOf(
       tester.element(find.byType(MyPage)),
     );
-    for (var index = 0; index < 10; index++) {
+    for (var i = 0; i < 10; i++) {
       container
           .read(appConfigProvider.notifier)
-          .setLyricPhotoBrightness(0.9 - index * 0.01, persist: false);
+          .setLyricPhotoBrightness(0.9 - i * 0.01, persist: false);
       await tester.pump();
-      expect(tester.widget(list), same(initialList));
+      expect(tester.widget(list), same(original));
     }
-  });
-
-  testWidgets('my page still responds to locale and authentication changes', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
-    await tester.pumpAndSettle();
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(MyPage)),
-    );
-    final controller =
-        container.read(appConfigProvider.notifier) as _TestAppConfigController;
-    controller.updateConfig(
-      container.read(appConfigProvider).copyWith(localeCode: 'en'),
-    );
-    await tester.pump();
-    expect(find.text('Collections'), findsOneWidget);
-    expect(find.text('我的收藏'), findsNothing);
-    controller.updateConfig(
-      container.read(appConfigProvider).copyWith(clearToken: true),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('Collections'), findsNothing);
-    expect(find.text('Tester'), findsNothing);
   });
 
   for (final locale in ['zh', 'en']) {
     testWidgets('my page fits large text in $locale on a narrow screen', (
       tester,
     ) async {
-      await tester.binding.setSurfaceSize(const Size(320, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
-        _buildTestApp(
-          localeCode: locale,
-          textScaler: const TextScaler.linear(2),
-        ),
+        _app(locale: locale, textScaler: const TextScaler.linear(2)),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
   }
-  testWidgets('published cache creates no library navigation entry', (
+
+  testWidgets('my page shows only the account skeleton while loading', (
     tester,
   ) async {
-    final cache = CacheSurfaceFixture();
-    addTearDown(cache.store.dispose);
-    await tester.binding.setSurfaceSize(const Size(430, 1200));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(_buildTestApp(localeCode: 'en', cache: cache));
+    await tester.pumpWidget(_app(loading: true));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('my-account-loading-skeleton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('my-playlist-shelf-loading-skeleton')),
+      findsNothing,
+    );
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Tester'), findsNothing);
+  });
+
+  testWidgets('account identity and title keep their typography constraints', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
-    for (final label in [
-      'Play History',
-      'Local Songs',
-      'Downloads',
-      'Collections',
-    ]) {
-      expect(find.text(label), findsOneWidget);
+    for (final label in ['Tester', '@tester']) {
+      final text = tester.widget<Text>(find.text(label));
+      expect(text.maxLines, 1);
+      expect(text.overflow, TextOverflow.ellipsis);
     }
-    final before = visibleCacheSurface(tester);
-    cache.publish();
-    await tester.pumpAndSettle();
-    expect(cache.runtime.snapshot.entryCount, 2);
-    expect(visibleCacheSurface(tester), before);
     expect(
-      find.textContaining(RegExp('cache|缓存', caseSensitive: false)),
-      findsNothing,
+      tester.widget<Text>(find.text('My')).style?.fontWeight,
+      FontWeight.w500,
     );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('my page shows chinese labels when locale is zh', (tester) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
-    await tester.pump();
-
-    expect(find.text('我的'), findsOneWidget);
-    expect(find.byTooltip('扫描'), findsOneWidget);
-    expect(find.byTooltip('设置'), findsOneWidget);
-    expect(find.text('播放历史'), findsOneWidget);
-    expect(find.text('本地歌曲'), findsOneWidget);
-    expect(find.text('下载管理'), findsOneWidget);
-    expect(find.text('我的收藏'), findsOneWidget);
-    expect(find.text('Tester'), findsOneWidget);
-    expect(find.text('@tester'), findsOneWidget);
-    expect(find.text('已登录'), findsNothing);
-    expect(find.text('退出帐号'), findsNothing);
-    expect(find.text('自建'), findsOneWidget);
-    expect(find.text('收藏'), findsOneWidget);
-    expect(find.text('当前没有歌单内容'), findsOneWidget);
-    expect(find.byTooltip('新建歌单'), findsOneWidget);
-  });
-
-  testWidgets(
-    'favorites tab refreshes the shared collection after remote changes',
-    (tester) async {
-      final repository = _TestCollectionRepository();
-      await tester.binding.setSurfaceSize(const Size(430, 1200));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        _buildTestApp(localeCode: 'zh', collectionRepository: repository),
-      );
-      await tester.pumpAndSettle();
-      expect(repository.playlistFetches, 1);
-
-      const playlist = MyFavoriteItem(
-        id: 'remote',
-        platform: 'qq',
-        type: MyFavoriteType.playlists,
-        title: '远端收藏歌单',
-        subtitle: '',
-        coverUrl: '',
-      );
-      repository.playlists = const [playlist];
-      await tester.tap(find.text('收藏'));
-      await tester.pumpAndSettle();
-      expect(find.text('远端收藏歌单'), findsOneWidget);
-      expect(repository.playlistFetches, 2);
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(MyPage)),
-      );
-      expect(container.read(myCollectionControllerProvider).playlists, [
-        playlist,
-      ]);
-
-      repository.playlists = const [];
-      await container
-          .read(myCollectionControllerProvider.notifier)
-          .refreshAll();
-      await tester.pumpAndSettle();
-      expect(find.text('远端收藏歌单'), findsNothing);
-      expect(find.text('当前没有歌单内容'), findsOneWidget);
-      expect(repository.playlistFetches, 3);
-    },
-  );
-
-  testWidgets('my collection entry does not show favorite song count', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
-    await tester.pump();
-
-    expect(find.text('我的收藏'), findsOneWidget);
-    expect(find.text('8'), findsNothing);
-  });
-
-  testWidgets('my page actions request skin icon roles', (tester) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh', useCitySkin: true));
-    await tester.pump();
-
-    expect(_findSkinIcon(AppSkinIconRole.scan), findsOneWidget);
-    expect(_findSkinIcon(AppSkinIconRole.settings), findsOneWidget);
-    expect(_findSkinIcon(AppSkinIconRole.myPlaylistCreate), findsOneWidget);
-  });
-
-  testWidgets('my page title does not use bold font weight', (tester) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
-    await tester.pump();
-
-    final title = tester.widget<Text>(find.text('我的'));
-
-    expect(
-      title.style?.fontWeight,
-      isNot(anyOf(FontWeight.w600, FontWeight.w700, FontWeight.w800)),
-    );
-  });
-
-  testWidgets('my page shows english labels when locale is en', (tester) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'en'));
-    await tester.pump();
-
-    expect(find.text('My'), findsOneWidget);
-    expect(find.byTooltip('Scan'), findsOneWidget);
-    expect(find.byTooltip('Settings'), findsOneWidget);
-    expect(find.text('Play History'), findsOneWidget);
-    expect(find.text('Local Songs'), findsOneWidget);
-    expect(find.text('Downloads'), findsOneWidget);
-    expect(find.text('Collections'), findsOneWidget);
-    expect(find.text('Tester'), findsOneWidget);
-    expect(find.text('@tester'), findsOneWidget);
-    expect(find.text('Signed In'), findsNothing);
-    expect(find.text('Sign Out'), findsNothing);
-    expect(find.text('Created'), findsOneWidget);
-    expect(find.text('Favorites'), findsOneWidget);
-    expect(find.text('No playlists yet'), findsOneWidget);
-    expect(find.byTooltip('New Playlist'), findsOneWidget);
-  });
-
-  testWidgets('my page keeps mobile single-column layout on wide width', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1280, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(_buildTestApp(localeCode: 'en'));
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey<String>('my-page-primary-column')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('my-page-secondary-column')),
-      findsNothing,
-    );
-    expect(find.text('Play History'), findsOneWidget);
-    expect(find.text('No playlists yet'), findsOneWidget);
-  });
-
-  testWidgets('signed out account card keeps sign in action', (tester) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh', authToken: null));
-    await tester.pump();
-
-    expect(find.text('立即登录'), findsOneWidget);
-    expect(find.text('个人资料'), findsNothing);
-  });
-
-  testWidgets('my page shows account and playlist skeletons while loading', (
-    tester,
-  ) async {
-    final playlistsCompleter = Completer<List<MyFavoriteItem>>();
-
-    await tester.pumpWidget(
-      _buildTestApp(
-        localeCode: 'zh',
-        overviewLoading: true,
-        playlistsFuture: playlistsCompleter.future,
-      ),
-    );
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey<String>('my-account-loading-skeleton')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('my-playlist-shelf-loading-skeleton')),
-      findsOneWidget,
-    );
-    expect(find.text('访客'), findsNothing);
-    expect(find.text('播放历史'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-
-    playlistsCompleter.complete(const <MyFavoriteItem>[]);
-    await tester.pump();
-  });
-
-  testWidgets('account identity text is constrained to one line', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
-    await tester.pump();
-
-    final nickname = tester.widget<Text>(find.text('Tester'));
-    final username = tester.widget<Text>(find.text('@tester'));
-    expect(nickname.maxLines, 1);
-    expect(nickname.overflow, TextOverflow.ellipsis);
-    expect(username.maxLines, 1);
-    expect(username.overflow, TextOverflow.ellipsis);
-  });
-
-  testWidgets('创建歌单弹窗点击取消后应无异常', (tester) async {
-    await tester.pumpWidget(_buildTestApp(localeCode: 'zh'));
-    await tester.pump();
-
-    await tester.tap(find.byTooltip('新建歌单'));
-    await tester.pumpAndSettle();
-    final textField = tester.widget<TextField>(find.byType(TextField));
-    expect(textField.autofocus, isTrue);
-    expect(
-      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
-      isTrue,
-    );
-    expect(tester.testTextInput.isVisible, isTrue);
-    await tester.tap(find.widgetWithText(TextButton, '取消'));
-    await tester.pumpAndSettle();
-
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('创建歌单弹窗点击确定后应提交名称且无异常', (tester) async {
-    final apiClient = _TestOnlineApiClient();
-    await tester.pumpWidget(
-      _buildTestApp(localeCode: 'zh', onlineApiClient: apiClient),
-    );
-    await tester.pump();
-
-    await tester.tap(find.byTooltip('新建歌单'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '旅行');
-    await tester.tap(find.widgetWithText(FilledButton, '创建'));
-    await tester.pumpAndSettle();
-
-    expect(apiClient.createdPlaylistNames, <String>['旅行']);
-    expect(tester.takeException(), isNull);
   });
 }
 
-Widget _buildTestApp({
-  required String localeCode,
-  String? authToken = 'token',
-  OnlineApiClient? onlineApiClient,
-  bool overviewLoading = false,
-  Future<List<MyFavoriteItem>>? playlistsFuture,
-  bool useCitySkin = false,
+Widget _app({
+  AppUiStyle style = AppUiStyle.material,
+  bool signedIn = true,
+  bool loading = false,
+  String locale = 'en',
   TextScaler textScaler = TextScaler.noScaling,
-  CacheSurfaceFixture? cache,
-  MyCollectionRepository? collectionRepository,
-  ThemeData? themeOverride,
+  GoRouter? router,
 }) {
+  final theme = AppTheme.light(citySoundCreatorSkin(), uiStyle: style);
+  Widget builder(BuildContext context, Widget? child) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+    child: child!,
+  );
   return ProviderScope(
     overrides: [
-      if (cache != null)
-        audioCacheRuntimeProvider.overrideWithValue(cache.runtime),
-      appConfigProvider.overrideWith(
-        () => _TestAppConfigController(
-          localeCode: localeCode,
-          authToken: authToken,
-        ),
-      ),
-      myOverviewControllerProvider.overrideWith(
-        overviewLoading
-            ? _LoadingMyOverviewController.new
-            : _TestMyOverviewController.new,
-      ),
-      playerControllerProvider.overrideWith(_TestPlayerController.new),
+      appConfigProvider.overrideWith(() => _Config(locale, signedIn)),
+      myOverviewControllerProvider.overrideWith(() => _Overview(loading)),
       myCreatedPlaylistsProvider.overrideWith(
-        (ref) => playlistsFuture ?? Future.value(const <MyFavoriteItem>[]),
+        (_) => throw StateError('My must not load playlists'),
       ),
-      if (collectionRepository != null)
-        myCollectionRepositoryProvider.overrideWithValue(collectionRepository)
-      else
-        myFavoritePlaylistsProvider.overrideWith(
-          (ref) => playlistsFuture == null
-              ? const AsyncData(<MyFavoriteItem>[])
-              : const AsyncLoading<List<MyFavoriteItem>>(),
-        ),
-      if (onlineApiClient != null)
-        onlineApiClientProvider.overrideWithValue(onlineApiClient),
+      myFavoritePlaylistsProvider.overrideWith(
+        (_) => throw StateError('My must not load favorites'),
+      ),
     ],
-    child: MaterialApp(
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-        child: child!,
-      ),
-      theme:
-          themeOverride ??
-          (useCitySkin
-              ? AppTheme.light(citySoundCreatorSkin())
-              : ThemeData(platform: TargetPlatform.android)),
-      home: const Scaffold(body: MyPage()),
-    ),
+    child: router == null
+        ? MaterialApp(
+            theme: theme,
+            builder: builder,
+            home: const Scaffold(body: MyPage()),
+          )
+        : MaterialApp.router(
+            theme: theme,
+            builder: builder,
+            routerConfig: router,
+          ),
   );
 }
 
-Finder _findSkinIcon(AppSkinIconRole role) {
-  return find.byWidgetPredicate(
-    (widget) => widget is AppSkinIcon && widget.role == role,
+class _Config extends AppConfigController {
+  _Config(this.locale, this.signedIn);
+  final String locale;
+  final bool signedIn;
+
+  @override
+  AppConfigState build() => AppConfigState.initial.copyWith(
+    localeCode: locale,
+    authToken: signedIn ? 'token' : '',
   );
+
+  void update(AppConfigState config) => state = config;
 }
 
-class _TestCollectionRepository implements MyCollectionRepository {
-  List<MyFavoriteItem> playlists = const [];
-  int playlistFetches = 0;
+class _Overview extends MyOverviewController {
+  _Overview(this.loading);
+  final bool loading;
 
   @override
-  Future<List<MyFavoriteItem>> fetchFavorites(MyFavoriteType type) async {
-    if (type == MyFavoriteType.playlists) {
-      playlistFetches++;
-      return playlists;
-    }
-    return const [];
-  }
-
-  @override
-  Future<void> removeFavorite({
-    required MyFavoriteType type,
-    required String id,
-    required String platform,
-  }) async {}
-}
-
-class _TestOnlineApiClient extends OnlineApiClient {
-  _TestOnlineApiClient() : super(Dio());
-
-  final List<String> createdPlaylistNames = <String>[];
-
-  @override
-  Future<Map<String, dynamic>> createPlaylist(String name) async {
-    createdPlaylistNames.add(name);
-    return const <String, dynamic>{};
-  }
-}
-
-class _TestAppConfigController extends AppConfigController {
-  _TestAppConfigController({required this.localeCode, required this.authToken});
-
-  final String localeCode;
-  final String? authToken;
-
-  @override
-  AppConfigState build() {
-    return AppConfigState.initial.copyWith(
-      localeCode: localeCode,
-      authToken: authToken,
-      clearToken: authToken == null,
-    );
-  }
-
-  void updateConfig(AppConfigState config) => state = config;
-}
-
-class _TestMyOverviewController extends MyOverviewController {
-  @override
-  MyOverviewState build() {
-    return const MyOverviewState(
-      loading: false,
-      overview: MyOverview(
-        profile: MyProfile(
-          id: '1',
-          username: 'tester',
-          nickname: 'Tester',
-          email: '',
-          status: 1,
-          avatarUrl: '',
-        ),
-        summary: MySummary(
-          favoriteSongCount: 8,
-          favoritePlaylistCount: 3,
-          favoriteArtistCount: 2,
-          favoriteAlbumCount: 1,
-          createdPlaylistCount: 4,
-        ),
-      ),
-    );
-  }
-}
-
-class _LoadingMyOverviewController extends MyOverviewController {
-  @override
-  MyOverviewState build() {
-    return MyOverviewState.initial;
-  }
+  MyOverviewState build() => loading
+      ? MyOverviewState.initial
+      : const MyOverviewState(
+          loading: false,
+          overview: MyOverview(
+            profile: MyProfile(
+              id: '1',
+              username: 'tester',
+              nickname: 'Tester',
+              email: '',
+              status: 1,
+              avatarUrl: '',
+            ),
+            summary: MySummary(
+              favoriteSongCount: 8,
+              favoritePlaylistCount: 3,
+              favoriteArtistCount: 2,
+              favoriteAlbumCount: 1,
+              createdPlaylistCount: 4,
+            ),
+          ),
+        );
 
   @override
   Future<void> refresh() async {}
-}
-
-class _TestPlayerController extends PlayerController {
-  @override
-  PlayerPlaybackState build() {
-    return PlayerPlaybackState.initial(
-      const <PlayerTrack>[],
-    ).copyWith(historyCount: 12);
-  }
 }

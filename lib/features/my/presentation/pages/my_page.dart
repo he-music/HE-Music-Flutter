@@ -1,37 +1,24 @@
-import '../../../../shared/widgets/app_alert_dialog.dart';
-import '../../../../shared/widgets/app_adaptive_controls.dart';
-import '../../../../shared/widgets/app_list_tile.dart';
-import '../../../../shared/widgets/app_button.dart';
-import '../../../../shared/widgets/app_text_field.dart';
-import '../../../../shared/widgets/app_dialog.dart';
-import '../../../../app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/app_message_service.dart';
-import '../../../../core/network/network_error_message.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/skin/app_skin_background.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/constants/layout_tokens.dart';
-import '../../../../shared/utils/playlist_song_count_text.dart';
 import '../../../../shared/widgets/animated_skeleton.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/widgets/app_network_image.dart';
-import '../../../../shared/widgets/underline_tab.dart';
-import '../../../online/presentation/providers/online_providers.dart';
-import '../../../online/presentation/widgets/search_playlist_list_item.dart';
-import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/my_overview_state.dart';
-import '../../domain/entities/my_favorite_item.dart';
-import '../providers/my_collection_providers.dart';
 import '../providers/my_overview_providers.dart';
-import '../providers/my_playlist_shelf_providers.dart';
 
 class MyPage extends ConsumerStatefulWidget {
   const MyPage({super.key});
@@ -41,9 +28,6 @@ class MyPage extends ConsumerStatefulWidget {
 }
 
 class _MyPageState extends ConsumerState<MyPage> {
-  int _playlistTabIndex = 0;
-  final Set<int> _expandedPlaylistTabs = <int>{};
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -55,11 +39,6 @@ class _MyPageState extends ConsumerState<MyPage> {
     );
     final config = ref.read(appConfigProvider);
     final state = ref.watch(myOverviewControllerProvider);
-    final historyCount = ref.watch(
-      playerControllerProvider.select(
-        (playerState) => playerState.historyCount,
-      ),
-    );
     final tokenSet = config.authToken != null && config.authToken!.isNotEmpty;
     final overview = state.overview;
     final profileLoading =
@@ -111,66 +90,32 @@ class _MyPageState extends ConsumerState<MyPage> {
                 : () => _openLogin(context),
           );
     final quickEntryCards = <Widget>[
-      _EntryCard(
-        iconRole: AppSkinIconRole.myHistory,
-        title: AppI18n.t(config, 'my.entry.history'),
-        subtitle: historyCount > 0
-            ? AppI18n.format(config, 'playlist.track_count', <String, String>{
-                'count': '$historyCount',
-              })
-            : null,
-        onTap: () => context.push(AppRoutes.myHistory),
-      ),
-      const SizedBox(height: 10),
-      _EntryCard(
-        iconRole: AppSkinIconRole.myLocalMusic,
-        title: AppI18n.t(config, 'local.title'),
-        onTap: () => context.push(AppRoutes.library),
-      ),
-      const SizedBox(height: 10),
-      _EntryCard(
-        iconRole: AppSkinIconRole.myDownloads,
-        title: AppI18n.t(config, 'my.download'),
-        onTap: () => context.push(AppRoutes.downloads),
-      ),
-      if (tokenSet) ...<Widget>[
+      if (tokenSet) ...[
+        _EntryCard(
+          iconRole: AppSkinIconRole.settingsAccountProfile,
+          title: AppI18n.t(config, 'settings.account.profile'),
+          onTap: () => context.push(AppRoutes.settingsProfile),
+        ),
         const SizedBox(height: 10),
         _EntryCard(
-          iconRole: AppSkinIconRole.myCollection,
-          title: AppI18n.t(config, 'my.collection'),
-          onTap: () => context.push(AppRoutes.myCollection),
+          iconRole: AppSkinIconRole.settingsDevices,
+          title: AppI18n.t(config, 'settings.device_management'),
+          onTap: () => context.push(AppRoutes.settingsDevice),
         ),
+        const SizedBox(height: 10),
       ],
+      _EntryCard(
+        iconRole: AppSkinIconRole.settings,
+        title: AppI18n.t(config, 'settings.title'),
+        onTap: () => context.push(AppRoutes.settings),
+      ),
+      const SizedBox(height: 10),
+      _EntryCard(
+        iconRole: AppSkinIconRole.settingsAbout,
+        title: AppI18n.t(config, 'settings.about'),
+        onTap: () => context.push(AppRoutes.about),
+      ),
     ];
-    final playlistSection = tokenSet
-        ? _PlaylistShelfSection(
-            configLocaleCode: config.localeCode,
-            selectedIndex: _playlistTabIndex,
-            onTabSelected: (index) {
-              if (index == _playlistTabIndex) {
-                return;
-              }
-              if (index == 1) {
-                ref.read(myCollectionControllerProvider.notifier).refreshAll();
-              }
-              setState(() {
-                _playlistTabIndex = index;
-              });
-            },
-            onCreatePlaylist: _createPlaylist,
-            isExpanded: _expandedPlaylistTabs.contains(_playlistTabIndex),
-            onToggleExpanded: () {
-              setState(() {
-                if (_expandedPlaylistTabs.contains(_playlistTabIndex)) {
-                  _expandedPlaylistTabs.remove(_playlistTabIndex);
-                } else {
-                  _expandedPlaylistTabs.add(_playlistTabIndex);
-                }
-              });
-            },
-          )
-        : null;
-
     final topInset = MediaQuery.paddingOf(context).top;
     return Stack(
       children: <Widget>[
@@ -201,10 +146,6 @@ class _MyPageState extends ConsumerState<MyPage> {
             ],
             const SizedBox(height: 18),
             ...quickEntryCards,
-            if (playlistSection != null) ...<Widget>[
-              const SizedBox(height: 18),
-              playlistSection,
-            ],
           ],
         ),
       ],
@@ -238,65 +179,6 @@ class _MyPageState extends ConsumerState<MyPage> {
         queryParameters: const <String, String>{'redirect': AppRoutes.my},
       ).toString(),
     );
-  }
-
-  Future<void> _createPlaylist() async {
-    final config = ref.read(appConfigProvider);
-    var playlistName = '';
-    final name = await showAppDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AppAlertDialog(
-          title: Text(AppI18n.t(config, 'my.playlist.create.title')),
-          content: AppTextField(
-            autofocus: true,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              hintText: AppI18n.t(config, 'my.playlist.create.hint'),
-            ),
-            onChanged: (value) {
-              playlistName = value;
-            },
-            onSubmitted: (value) {
-              Navigator.of(dialogContext).pop(value.trim());
-            },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(AppI18n.t(config, 'common.cancel')),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(playlistName.trim()),
-              child: Text(AppI18n.t(config, 'my.playlist.create.submit')),
-            ),
-          ],
-        );
-      },
-    );
-    final normalized = (name ?? '').trim();
-    if (normalized.isEmpty) {
-      return;
-    }
-    try {
-      await ref
-          .read(onlineControllerProvider.notifier)
-          .createPlaylist(normalized);
-      ref.invalidate(myCreatedPlaylistsProvider);
-      ref.invalidate(myOverviewControllerProvider);
-      if (!mounted) {
-        return;
-      }
-      AppMessageService.showSuccess(
-        AppI18n.t(config, 'my.playlist.create.done'),
-      );
-    } catch (error) {
-      AppMessageService.showError(
-        NetworkErrorMessage.resolve(error) ??
-            AppI18n.t(config, 'my.playlist.create.failed'),
-      );
-    }
   }
 }
 
@@ -450,12 +332,10 @@ class _EntryCard extends StatelessWidget {
     required this.iconRole,
     required this.title,
     required this.onTap,
-    this.subtitle,
   });
 
   final AppSkinIconRole iconRole;
   final String title;
-  final String? subtitle;
   final VoidCallback onTap;
 
   @override
@@ -468,7 +348,6 @@ class _EntryCard extends StatelessWidget {
           AppListTile(
             leading: AppSkinIcon(role: iconRole),
             title: Text(title),
-            subtitle: subtitle == null ? null : Text(subtitle!),
             showChevron: true,
             onTap: onTap,
           ),
@@ -501,26 +380,11 @@ class _EntryCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      if ((subtitle ?? '').trim().isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle!.trim(),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -570,360 +434,6 @@ class _ErrorCard extends StatelessWidget {
           const SizedBox(width: 10),
           AppButton.text(onPressed: onRetry, child: Text(retryLabel)),
         ],
-      ),
-    );
-  }
-}
-
-class _PlaylistShelfSection extends ConsumerWidget {
-  const _PlaylistShelfSection({
-    required this.configLocaleCode,
-    required this.selectedIndex,
-    required this.onTabSelected,
-    required this.onCreatePlaylist,
-    required this.isExpanded,
-    required this.onToggleExpanded,
-  });
-
-  final String configLocaleCode;
-  final int selectedIndex;
-  final ValueChanged<int> onTabSelected;
-  final Future<void> Function() onCreatePlaylist;
-  final bool isExpanded;
-  final VoidCallback onToggleExpanded;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final createdState = ref.watch(myCreatedPlaylistsProvider);
-    final favoriteState = ref.watch(myFavoritePlaylistsProvider);
-    final activeState = selectedIndex == 0 ? createdState : favoriteState;
-    final items = activeState.value ?? const <MyFavoriteItem>[];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _PlaylistTabs(
-                  localeCode: configLocaleCode,
-                  selectedIndex: selectedIndex,
-                  onSelected: onTabSelected,
-                ),
-              ),
-            ),
-            if (selectedIndex == 0)
-              _PlaylistActionButton(
-                onPressed: onCreatePlaylist,
-                iconRole: AppSkinIconRole.myPlaylistCreate,
-                tooltip: AppI18n.tByLocaleCode(
-                  configLocaleCode,
-                  'my.playlist.create.title',
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (activeState.isLoading && items.isEmpty)
-          const _PlaylistShelfLoadingSkeleton()
-        else if (activeState.hasError && items.isEmpty)
-          _InlineRetryCard(
-            message: AppI18n.tByLocaleCode(
-              configLocaleCode,
-              'my.playlist.load_failed',
-            ),
-            retryLabel: AppI18n.tByLocaleCode(configLocaleCode, 'common.retry'),
-            onRetry: () {
-              if (selectedIndex == 0) {
-                ref.invalidate(myCreatedPlaylistsProvider);
-              } else {
-                ref.read(myCollectionControllerProvider.notifier).refreshAll();
-              }
-            },
-          )
-        else if (items.isEmpty)
-          _EmptyShelfCard(
-            message: AppI18n.tByLocaleCode(
-              configLocaleCode,
-              'my.playlist.empty',
-            ),
-          )
-        else
-          _PlaylistList(
-            items: items,
-            isCreatedList: selectedIndex == 0,
-            localeCode: configLocaleCode,
-            expanded: isExpanded,
-            onToggleExpanded: onToggleExpanded,
-          ),
-      ],
-    );
-  }
-}
-
-class _PlaylistShelfLoadingSkeleton extends StatelessWidget {
-  const _PlaylistShelfLoadingSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      key: ValueKey<String>('my-playlist-shelf-loading-skeleton'),
-      height: 180,
-      child: Column(
-        children: <Widget>[
-          _PlaylistShelfRowSkeleton(),
-          SizedBox(height: 8),
-          _PlaylistShelfRowSkeleton(),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlaylistShelfRowSkeleton extends StatelessWidget {
-  const _PlaylistShelfRowSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: <Widget>[
-          SkeletonBox(width: 64, height: 64, radius: 14),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                SkeletonBox(width: double.infinity, height: 15, radius: 7),
-                SizedBox(height: 9),
-                SkeletonBox(width: 132, height: 12, radius: 6),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlaylistTabs extends StatelessWidget {
-  const _PlaylistTabs({
-    required this.localeCode,
-    required this.selectedIndex,
-    required this.onSelected,
-  });
-
-  final String localeCode;
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 4,
-      children: <Widget>[
-        UnderlineTab(
-          enabled: true,
-          label: AppI18n.tByLocaleCode(localeCode, 'my.playlist.tab.created'),
-          selected: selectedIndex == 0,
-          onTap: () => onSelected(0),
-        ),
-        UnderlineTab(
-          enabled: true,
-          label: AppI18n.tByLocaleCode(localeCode, 'my.playlist.tab.favorites'),
-          selected: selectedIndex == 1,
-          onTap: () => onSelected(1),
-        ),
-      ],
-    );
-  }
-}
-
-class _PlaylistActionButton extends StatelessWidget {
-  const _PlaylistActionButton({
-    required this.onPressed,
-    required this.iconRole,
-    required this.tooltip,
-  });
-
-  final Future<void> Function() onPressed;
-  final AppSkinIconRole iconRole;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(left: 8),
-      child: AppIconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: AppSkinIcon(
-          role: iconRole,
-          size: 20,
-          color: colorScheme.onSurface,
-        ),
-      ),
-    );
-  }
-}
-
-class _PlaylistList extends StatelessWidget {
-  const _PlaylistList({
-    required this.items,
-    required this.isCreatedList,
-    required this.localeCode,
-    required this.expanded,
-    required this.onToggleExpanded,
-  });
-
-  final List<MyFavoriteItem> items;
-  final bool isCreatedList;
-  final String localeCode;
-  final bool expanded;
-  final VoidCallback onToggleExpanded;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleItems = expanded
-        ? items
-        : items.take(5).toList(growable: false);
-    return Column(
-      children: <Widget>[
-        for (var index = 0; index < visibleItems.length; index++) ...<Widget>[
-          SearchPlaylistListItem(
-            title: visibleItems[index].title,
-            subtitle: visibleItems[index].subtitle,
-            coverUrl: visibleItems[index].coverUrl,
-            songCountText: buildPlaylistSongCountText(
-              count: visibleItems[index].songCount,
-              localeCode: localeCode,
-            ),
-            onTap: () {
-              if (isCreatedList) {
-                context.push(
-                  Uri(
-                    path: AppRoutes.userPlaylistDetail,
-                    queryParameters: <String, String>{
-                      'id': visibleItems[index].id,
-                      'title': visibleItems[index].title,
-                    },
-                  ).toString(),
-                );
-                return;
-              }
-              context.push(
-                Uri(
-                  path: AppRoutes.playlistDetail,
-                  queryParameters: <String, String>{
-                    'id': visibleItems[index].id,
-                    'platform': visibleItems[index].platform,
-                    'title': visibleItems[index].title,
-                  },
-                ).toString(),
-              );
-            },
-          ),
-          if (index != visibleItems.length - 1) const SizedBox(height: 10),
-        ],
-        if (items.length > 5) ...<Widget>[
-          const SizedBox(height: 12),
-          AppButton.text(
-            onPressed: onToggleExpanded,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  expanded
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    expanded
-                        ? AppI18n.tByLocaleCode(
-                            localeCode,
-                            'my.playlist.collapse',
-                          )
-                        : AppI18n.tByLocaleCode(
-                            localeCode,
-                            'my.playlist.expand',
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _InlineRetryCard extends StatelessWidget {
-  const _InlineRetryCard({
-    required this.message,
-    required this.retryLabel,
-    required this.onRetry,
-  });
-
-  final String message;
-  final String retryLabel;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppSkinContentSurface.backgroundColorOf(
-          context,
-          materialColor: Theme.of(
-            context,
-          ).colorScheme.surface.withValues(alpha: 0.72),
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Row(
-        children: <Widget>[
-          Expanded(child: Text(message)),
-          const SizedBox(width: 8),
-          AppButton.text(onPressed: onRetry, child: Text(retryLabel)),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyShelfCard extends StatelessWidget {
-  const _EmptyShelfCard({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppSkinContentSurface.backgroundColorOf(
-          context,
-          materialColor: Theme.of(
-            context,
-          ).colorScheme.surface.withValues(alpha: 0.72),
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
       ),
     );
   }

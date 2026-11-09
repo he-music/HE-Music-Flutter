@@ -126,8 +126,19 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
                 return;
             }
 
+            // Dart extrapolates between native playback events. Cold-start output
+            // can begin after STATE_READY, so re-anchor to ExoPlayer's audio
+            // clock when that estimate drifts instead of waiting for a seek.
+            boolean positionChanged = false;
+            if (player.isPlaying() && processingState == ProcessingState.ready && seekPos == null) {
+                if (positionClockDrifted(getCurrentPosition(), updatePosition,
+                        System.currentTimeMillis() - updateTime, player.getPlaybackParameters().speed)) {
+                    updatePosition();
+                    positionChanged = true;
+                }
+            }
             long newBufferedPosition = player.getBufferedPosition();
-            if (newBufferedPosition != bufferedPosition) {
+            if (positionChanged || newBufferedPosition != bufferedPosition) {
                 // This method updates bufferedPosition.
                 broadcastImmediatePlaybackEvent();
             }
@@ -283,6 +294,11 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
         }
     }
 
+    static boolean positionClockDrifted(long position, long anchorPosition, long elapsedMs, float speed) {
+        long expectedPosition = anchorPosition + (long) (elapsedMs * speed);
+        return Math.abs(position - expectedPosition) > 80;
+    }
+
     private boolean updatePositionIfChanged() {
         if (player == null) return false;
         if (!player.getPlayWhenReady() || processingState != ProcessingState.ready) {
@@ -296,6 +312,14 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
     private void updatePosition() {
         updatePosition = getCurrentPosition();
         updateTime = System.currentTimeMillis();
+    }
+
+    @Override
+    public void onIsPlayingChanged(boolean isPlaying) {
+        if (player == null) return;
+        updatePosition();
+        broadcastImmediatePlaybackEvent();
+        if (isPlaying) startWatchingBuffer();
     }
 
     @Override

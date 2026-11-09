@@ -9,10 +9,7 @@ import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../shared/widgets/app_adaptive_controls.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
-import '../../../../shared/widgets/app_loading_indicator.dart';
-import '../../domain/entities/my_favorite_item.dart';
-import '../providers/my_collection_providers.dart';
-import '../providers/my_playlist_shelf_providers.dart';
+import '../widgets/library_playlist_shelf.dart';
 
 /// A tab that links to the existing local, download and collection workflows.
 class LibraryPage extends ConsumerWidget {
@@ -89,9 +86,7 @@ class LibraryPage extends ConsumerWidget {
           ),
           if (signedIn) ...[
             const SizedBox(height: 24),
-            _LibraryPlaylists(locale: locale, created: true),
-            const SizedBox(height: 24),
-            _LibraryPlaylists(locale: locale, created: false),
+            const LibraryPlaylistShelf(),
           ],
         ],
       ),
@@ -113,66 +108,5 @@ class LibraryPage extends ConsumerWidget {
     title: Text(title),
     showChevron: true,
     onTap: () => context.push(location),
-  );
-}
-
-/// Playlist changes rebuild only their own section; playback is not observed.
-class _LibraryPlaylists extends ConsumerWidget {
-  const _LibraryPlaylists({required this.locale, required this.created});
-
-  final String locale;
-  final bool created;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final playlists = created
-        ? ref.watch(myCreatedPlaylistsProvider)
-        : ref.watch(myFavoritePlaylistsProvider);
-    String text(String key) => AppI18n.tByLocaleCode(locale, key);
-    return AppListSection(
-      header: Text(
-        text(
-          created ? 'library.created_playlists' : 'library.favorite_playlists',
-        ),
-      ),
-      children: playlists.when(
-        data: (items) => items.isEmpty
-            ? [AppListTile(title: Text(text('my.playlist.empty')))]
-            : [for (final item in items) _playlist(context, item)],
-        loading: () => [
-          AppListTile(title: AppLoadingIndicator(label: text('home.loading'))),
-        ],
-        error: (_, _) => [
-          AppListTile(
-            title: Text(text('my.playlist.load_failed')),
-            subtitle: Text(text('common.retry')),
-            onTap: () {
-              if (created) {
-                ref.invalidate(myCreatedPlaylistsProvider);
-              } else {
-                ref.read(myCollectionControllerProvider.notifier).refreshAll();
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _playlist(BuildContext context, MyFavoriteItem item) => AppListTile(
-    leading: const AppSkinIcon(role: AppSkinIconRole.myPlaylist),
-    title: Text(item.title),
-    subtitle: item.subtitle.isEmpty ? null : Text(item.subtitle),
-    showChevron: true,
-    onTap: () => context.push(
-      Uri(
-        path: created ? AppRoutes.userPlaylistDetail : AppRoutes.playlistDetail,
-        queryParameters: {
-          'id': item.id,
-          'title': item.title,
-          if (!created) 'platform': item.platform,
-        },
-      ).toString(),
-    ),
   );
 }

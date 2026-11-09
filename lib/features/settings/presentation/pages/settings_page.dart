@@ -902,7 +902,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       title: AppI18n.t(config, 'settings.lyric_highlight_color'),
       currentValue: _lyricHighlightChoiceValue(config),
-      cupertinoPreview: LyricSettingsPreview(config: config),
       options: options,
       onSelected: (value) {
         if (value == AppLyricHighlightMode.auto.value) {

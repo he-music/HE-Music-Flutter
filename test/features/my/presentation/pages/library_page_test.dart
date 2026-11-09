@@ -12,6 +12,8 @@ import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.da
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
 import 'package:he_music_flutter/features/my/presentation/pages/library_page.dart';
 import 'package:he_music_flutter/features/my/presentation/providers/my_playlist_shelf_providers.dart';
+import 'package:he_music_flutter/features/my/domain/repositories/my_collection_repository.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/my_collection_providers.dart';
 
 void main() {
   for (final style in AppUiStyle.values) {
@@ -59,6 +61,11 @@ void main() {
           ('Weekend mix', AppRoutes.userPlaylistDetail),
           ('Saved mix', AppRoutes.playlistDetail),
         ]) {
+          if (entry.$2 == AppRoutes.playlistDetail) {
+            await tester.ensureVisible(find.text('Favorites'));
+            await tester.tap(find.text('Favorites'));
+            await tester.pumpAndSettle();
+          }
           await tester.ensureVisible(find.text(entry.$1));
           await tester.tap(find.text(entry.$1));
           await tester.pumpAndSettle();
@@ -104,6 +111,9 @@ Widget _app(GoRouter router, AppUiStyle style, {bool signedIn = false}) =>
     ProviderScope(
       overrides: [
         appConfigProvider.overrideWith(() => _Config(signedIn)),
+        myCollectionRepositoryProvider.overrideWithValue(
+          _CollectionRepository(),
+        ),
         myCreatedPlaylistsProvider.overrideWith((_) async => const [_created]),
         myFavoritePlaylistsProvider.overrideWith(
           (_) => const AsyncData([_favorite]),
@@ -129,6 +139,19 @@ class _Config extends AppConfigController {
     localeCode: 'en',
     authToken: signedIn ? 'test-token' : '',
   );
+}
+
+class _CollectionRepository implements MyCollectionRepository {
+  @override
+  Future<List<MyFavoriteItem>> fetchFavorites(MyFavoriteType type) async =>
+      const [];
+
+  @override
+  Future<void> removeFavorite({
+    required MyFavoriteType type,
+    required String id,
+    required String platform,
+  }) async {}
 }
 
 const _created = MyFavoriteItem(

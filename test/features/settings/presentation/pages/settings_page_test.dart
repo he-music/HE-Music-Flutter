@@ -256,7 +256,7 @@ void main() {
               if (entry.startsWith('Lyric')) {
                 expect(
                   find.byKey(const ValueKey('settings-lyric-preview')),
-                  entry == 'Lyric Size' ? findsNothing : findsOneWidget,
+                  findsNothing,
                 );
               }
               if (export && scale == 1) {

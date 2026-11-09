@@ -3,7 +3,7 @@
 This directory contains the runtime sources from the official `just_audio`
 repository at commit `fcba2a37d63bd1bf0a933621d60f8e870310aa67`.
 
-HE Music carries eight fixes on top of that commit:
+HE Music carries ten fixes on top of that commit:
 
 1. `stopVisualizer()` awaits the platform stop request so application-level
    start/stop convergence remains serialized.
@@ -67,6 +67,15 @@ HE Music carries eight fixes on top of that commit:
    cache leases. The native Release rapid-replacement regression in
    `integration_test/audio_cache_native_release_harness.dart` reproduces this
    failure; post-fix device verification is recorded in the audio-cache task.
+10. Android re-anchors playback position when ExoPlayer's actual playing state
+    changes. The existing buffer watcher also compares the audio clock with the
+    position extrapolated at the current speed and publishes a fresh sample when
+    drift exceeds 80 ms. This corrects cold-start output delays without requiring
+    a user seek or a fixed lyric offset. Checks run only while playing and ready,
+    outside a pending seek; the existing watcher controls scheduling and disposal.
+    Run `cd android && ./gradlew :just_audio:testDebugUnitTest` from the app root
+    for the native clock regression tests. Cold-start listening still needs
+    verification on a physical device.
 
 The platform interface and web packages remain pinned to the same upstream
 commit. Rebases must preserve the Dart-side source registry, proxy registration,
