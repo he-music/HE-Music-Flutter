@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/skin/app_skin_surface.dart';
+import 'app_artwork_frame.dart';
 import 'app_network_image.dart';
 import '../utils/compact_number_formatter.dart';
 
@@ -66,7 +67,9 @@ class MediaGridCard extends StatelessWidget {
     final selectedBorder = theme.colorScheme.primary.withValues(alpha: 0.4);
     return AppSkinContentSurface(
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(
@@ -91,21 +94,21 @@ class MediaGridCard extends StatelessWidget {
                   final textScaler = MediaQuery.textScalerOf(context);
                   final textDirection = Directionality.of(context);
                   final titleStyle = theme.textTheme.titleSmall?.copyWith(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    height: 1.0,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                     color: selected ? theme.colorScheme.primary : null,
                   );
                   final subtitleStyle = theme.textTheme.bodySmall?.copyWith(
                     fontSize: 12,
                     color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.0,
+                    height: 1.2,
                   );
                   final captionStyle = theme.textTheme.labelSmall?.copyWith(
                     fontSize: 11,
                     color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
-                    height: 1.0,
+                    height: 1.2,
                   );
                   final textHeight = overlayText
                       ? 0.0
@@ -117,7 +120,7 @@ class MediaGridCard extends StatelessWidget {
                               maxWidth: constraints.maxWidth,
                             ) +
                             (showSubtitle
-                                ? 1.0 +
+                                ? 3.0 +
                                       _singleLineTextHeight(
                                         text: subtitle,
                                         style: subtitleStyle,
@@ -127,7 +130,7 @@ class MediaGridCard extends StatelessWidget {
                                       )
                                 : 0.0) +
                             (showCaption
-                                ? 2.0 +
+                                ? 3.0 +
                                       _singleLineTextHeight(
                                         text: caption!,
                                         style: captionStyle,
@@ -136,7 +139,7 @@ class MediaGridCard extends StatelessWidget {
                                         maxWidth: constraints.maxWidth,
                                       )
                                 : 0.0) +
-                            3.0;
+                            6.0;
                   final coverSide = constraints.maxHeight.isFinite
                       ? (constraints.maxHeight - textHeight).clamp(
                           0.0,
@@ -152,7 +155,7 @@ class MediaGridCard extends StatelessWidget {
                         child: Stack(
                           children: <Widget>[
                             Positioned.fill(
-                              child: ClipRRect(
+                              child: AppArtworkFrame(
                                 borderRadius: BorderRadius.circular(
                                   _mediaGridCardRadius,
                                 ),
@@ -293,7 +296,7 @@ class MediaGridCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (!overlayText) const SizedBox(height: 3),
+                      if (!overlayText) const SizedBox(height: 6),
                       if (!overlayText)
                         Text(
                           title,
@@ -302,7 +305,7 @@ class MediaGridCard extends StatelessWidget {
                           style: titleStyle,
                         ),
                       if (!overlayText && showSubtitle) ...<Widget>[
-                        const SizedBox(height: 1),
+                        const SizedBox(height: 3),
                         Text(
                           subtitle,
                           maxLines: 1,
@@ -311,7 +314,7 @@ class MediaGridCard extends StatelessWidget {
                         ),
                       ],
                       if (!overlayText && showCaption) ...<Widget>[
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           caption!,
                           maxLines: 1,

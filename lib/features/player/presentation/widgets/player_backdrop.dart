@@ -800,7 +800,10 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
 }
 
 Future<List<Color>> _loadPalette(ImageProvider<Object>? imageProvider) async {
-  final colors = await colorsFromImageProvider(imageProvider);
+  final colors = await colorsFromImageProvider(
+    imageProvider,
+    prioritizeSaturation: false,
+  );
   return _resolveClassicColors(colors);
 }
 
@@ -849,9 +852,9 @@ enum _ClassicTone { base, highlight, anchor }
 Color _normalizeClassicColor(Color color, {required _ClassicTone tone}) {
   final hsl = HSLColor.fromColor(color);
   final saturation = switch (tone) {
-    _ClassicTone.highlight => hsl.saturation.clamp(0.16, 0.42),
-    _ClassicTone.anchor => hsl.saturation.clamp(0.12, 0.32),
-    _ClassicTone.base => hsl.saturation.clamp(0.14, 0.38),
+    _ClassicTone.highlight => hsl.saturation.clamp(0.0, 0.42),
+    _ClassicTone.anchor => hsl.saturation.clamp(0.0, 0.32),
+    _ClassicTone.base => hsl.saturation.clamp(0.0, 0.38),
   };
   final lightness = switch (tone) {
     _ClassicTone.highlight => hsl.lightness.clamp(0.30, 0.48),
@@ -870,7 +873,6 @@ Color _deriveClassicColor(
   final hue = (hsl.hue + shiftDegrees) % 360;
   return hsl
       .withHue(hue)
-      .withSaturation((hsl.saturation + 0.01).clamp(0.0, 1.0))
       .withLightness((hsl.lightness + lightnessDelta).clamp(0.0, 1.0))
       .toColor();
 }

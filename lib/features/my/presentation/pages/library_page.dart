@@ -37,8 +37,12 @@ class LibraryPage extends ConsumerWidget {
       ),
       body: ListView(
         key: const PageStorageKey<String>('library-scroll'),
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
+          if (signedIn) ...[
+            const LibraryPlaylistShelf(),
+            const SizedBox(height: 32),
+          ],
           AppListSection(
             header: Text(text('library.on_device')),
             children: [
@@ -84,10 +88,6 @@ class LibraryPage extends ConsumerWidget {
                 ),
             ],
           ),
-          if (signedIn) ...[
-            const SizedBox(height: 24),
-            const LibraryPlaylistShelf(),
-          ],
         ],
       ),
     );

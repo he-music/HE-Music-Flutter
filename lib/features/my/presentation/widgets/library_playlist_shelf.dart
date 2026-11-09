@@ -17,9 +17,9 @@ import '../../../../shared/widgets/app_alert_dialog.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/media_grid_card.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../../../online/presentation/providers/online_providers.dart';
-import '../../../online/presentation/widgets/search_playlist_list_item.dart';
 import '../../domain/entities/my_favorite_item.dart';
 import '../providers/my_collection_providers.dart';
 import '../providers/my_overview_providers.dart';
@@ -153,6 +153,7 @@ class _PlaylistShelfSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Expanded(
               child: Align(
@@ -175,7 +176,7 @@ class _PlaylistShelfSection extends ConsumerWidget {
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (activeState.isLoading && items.isEmpty)
           const _PlaylistShelfLoadingSkeleton()
         else if (activeState.hasError && items.isEmpty)
@@ -344,44 +345,59 @@ class _PlaylistList extends StatelessWidget {
         : items.take(5).toList(growable: false);
     return Column(
       children: <Widget>[
-        for (var index = 0; index < visibleItems.length; index++) ...<Widget>[
-          SearchPlaylistListItem(
-            title: visibleItems[index].title,
-            subtitle: visibleItems[index].subtitle,
-            coverUrl: visibleItems[index].coverUrl,
-            songCountText: buildPlaylistSongCountText(
-              count: visibleItems[index].songCount,
-              localeCode: localeCode,
-            ),
-            onTap: () {
-              if (isCreatedList) {
-                context.push(
-                  Uri(
-                    path: AppRoutes.userPlaylistDetail,
-                    queryParameters: <String, String>{
-                      'id': visibleItems[index].id,
-                      'title': visibleItems[index].title,
-                    },
-                  ).toString(),
-                );
-                return;
-              }
-              context.push(
-                Uri(
-                  path: AppRoutes.playlistDetail,
-                  queryParameters: <String, String>{
-                    'id': visibleItems[index].id,
-                    'platform': visibleItems[index].platform,
-                    'title': visibleItems[index].title,
-                  },
-                ).toString(),
-              );
-            },
-          ),
-          if (index != visibleItems.length - 1) const SizedBox(height: 10),
-        ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Keep covers prominent; extra text space comes from natural height.
+            final columns = (constraints.maxWidth / 160).floor().clamp(1, 6);
+            final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 16,
+              children: [
+                for (final item in visibleItems)
+                  SizedBox(
+                    width: width,
+                    child: MediaGridCard(
+                      kind: MediaGridCardKind.playlist,
+                      title: item.title,
+                      subtitle: item.subtitle,
+                      coverUrl: item.coverUrl,
+                      caption: buildPlaylistSongCountText(
+                        count: item.songCount,
+                        localeCode: localeCode,
+                      ),
+                      onTap: () {
+                        if (isCreatedList) {
+                          context.push(
+                            Uri(
+                              path: AppRoutes.userPlaylistDetail,
+                              queryParameters: <String, String>{
+                                'id': item.id,
+                                'title': item.title,
+                              },
+                            ).toString(),
+                          );
+                          return;
+                        }
+                        context.push(
+                          Uri(
+                            path: AppRoutes.playlistDetail,
+                            queryParameters: <String, String>{
+                              'id': item.id,
+                              'platform': item.platform,
+                              'title': item.title,
+                            },
+                          ).toString(),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
         if (items.length > 5) ...<Widget>[
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           AppButton.text(
             onPressed: onToggleExpanded,
             child: Row(

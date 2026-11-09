@@ -129,18 +129,19 @@ The replacement dark derivative was inspected at full frame and local detail on 
 - Material fallback icons: loaded from the Material Icons font already declared by Flutter's `uses-material-design` contract.
 - Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
 - Approval history: the user approved the original real-UI preview stage on 2026-07-17 and the light/dark preview pair with the replacement dark wallpaper on 2026-07-27. The current screenshots reflect the SDK interface-style migration; these historical approvals do not describe a new visual acceptance.
+- Current surface revision: disabling content backgrounds removes decorative outlines as well as fills and shadows. Enabled wallpaper content uses a soft tonal gradient at the skin's configured opacity, with lighter Material edges and shadows; Cupertino retains its undecorated content surface. The bundled preview pair shows the disabled setting; additional enabled-state renders cover both interface styles in the preview test.
 
 ### Light real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `351579e98c867f4599d66de3ffc76823f5014ca89d7c059bad82170370ea07a8`.
+- SHA-256: `1c030654fc70acec34c9d0f8fa25f2babb5f0d1c072b7908b0fcd6e7b94ce203`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `c3284114f6ee7e939555baf90bcc26066f5f779065baa1a5021f736afeb0ca15`.
+- SHA-256: `34e4769cec9d99f1b06be96d3fce968635efbc1499e569d530595f307daa9380`.
 
 ## Rive ambient animation
 

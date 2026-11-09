@@ -13,6 +13,7 @@ import 'package:he_music_flutter/app/router/app_router.dart';
 import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.dart';
 import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
 import 'package:he_music_flutter/features/my/presentation/pages/library_page.dart';
@@ -31,8 +32,16 @@ import 'package:he_music_flutter/features/player/presentation/providers/player_p
 import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
 import 'package:he_music_flutter/shared/widgets/app_bottom_navigation_bar.dart';
 
+import '../../helpers/artwork_http_client.dart';
+
 // Explicit artifact export; no binary goldens are read or updated.
 const _previewDirectory = String.fromEnvironment('NAVIGATION_PREVIEW_DIR');
+const _previewSkinId = String.fromEnvironment(
+  'NAVIGATION_PREVIEW_SKIN',
+  defaultValue: AppSkinRegistry.classicId,
+);
+const _previewCover = 'https://artwork.test/library-preview.png';
+Uint8List? _previewArtwork;
 
 void main() {
   setUpAll(() async {
@@ -56,6 +65,9 @@ void main() {
           rootBundle.load('packages/cupertino_icons/assets/CupertinoIcons.ttf'),
         ))
         .load();
+    _previewArtwork = await File(
+      'test/assets/player/artist_photo.png',
+    ).readAsBytes();
   });
 
   for (final style in AppUiStyle.values) {
@@ -69,12 +81,17 @@ void main() {
           tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
           tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
           addTearDown(tester.view.reset);
+          if (_previewDirectory.isNotEmpty) {
+            final client = ArtworkHttpClient((_) => _previewArtwork!);
+            debugNetworkImageHttpClientProvider = () => client;
+            addTearDown(() => debugNetworkImageHttpClientProvider = null);
+          }
           final router = createAppRouter(page);
           addTearDown(router.dispose);
           final capture = GlobalKey();
           final skin = AppSkinRegistry.builtIn(
             AppConfigState.initial.themeAccent,
-          ).resolve(AppSkinRegistry.classicId);
+          ).resolve(_previewSkinId);
           await tester.pumpWidget(
             ProviderScope(
               overrides: [
@@ -92,12 +109,32 @@ void main() {
                 key: capture,
                 child: MaterialApp.router(
                   debugShowCheckedModeBanner: false,
-                  theme: AppTheme.light(skin, uiStyle: style),
-                  darkTheme: AppTheme.dark(skin, uiStyle: style),
+                  theme: AppTheme.light(
+                    skin,
+                    uiStyle: style,
+                    showContentBackground:
+                        _previewSkinId != AppSkinRegistry.classicId,
+                  ),
+                  darkTheme: AppTheme.dark(
+                    skin,
+                    uiStyle: style,
+                    showContentBackground:
+                        _previewSkinId != AppSkinRegistry.classicId,
+                  ),
                   themeMode: brightness == Brightness.dark
                       ? ThemeMode.dark
                       : ThemeMode.light,
                   routerConfig: router,
+                  builder: (context, child) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      AppSkinBackgroundLayer(
+                        skin: skin,
+                        enableAnimation: false,
+                      ),
+                      child!,
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -111,6 +148,20 @@ void main() {
           expect(find.byType(MiniPlayerBar), findsOneWidget);
           expect(tester.takeException(), isNull);
           if (_previewDirectory.isNotEmpty) {
+            await tester.runAsync(
+              () => precacheImage(
+                const NetworkImage(_previewCover),
+                tester.element(
+                  find.byType(
+                    page == AppRoutes.collection ? LibraryPage : MyPage,
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            if (_previewSkinId != AppSkinRegistry.classicId) {
+              await _waitForWallpaper(tester);
+            }
             final boundary = tester.renderObject<RenderRepaintBoundary>(
               find.byKey(capture),
             );
@@ -129,6 +180,7 @@ void main() {
             });
           }
           await tester.pumpWidget(const SizedBox.shrink());
+          debugNetworkImageHttpClientProvider = null;
         });
       }
     }
@@ -144,6 +196,8 @@ class _Config extends AppConfigController {
     localeCode: 'en',
     authToken: 'preview-token',
     uiStyle: style,
+    skinId: _previewSkinId,
+    showContentBackground: _previewSkinId != AppSkinRegistry.classicId,
   );
 }
 
@@ -191,5 +245,24 @@ const _playlist = MyFavoriteItem(
   type: MyFavoriteType.playlists,
   title: 'Weekend mix',
   subtitle: 'My playlist',
-  coverUrl: '',
+  coverUrl: _previewDirectory == '' ? '' : _previewCover,
 );
+
+Future<void> _waitForWallpaper(WidgetTester tester) async {
+  final wallpaper = find.byKey(const ValueKey('app-skin-wallpaper'));
+  for (var attempt = 0; attempt < 100; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump(const Duration(milliseconds: 16));
+    final images = find.descendant(
+      of: wallpaper,
+      matching: find.byType(RawImage),
+    );
+    if (images.evaluate().isNotEmpty &&
+        tester.widget<RawImage>(images).image != null) {
+      return;
+    }
+  }
+  throw TestFailure('Wallpaper did not decode before the navigation capture.');
+}

@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import '../app_player_scene_palette.dart';
 
 const PlayerScenePalette classicPlayerScenePaletteFallback = PlayerScenePalette(
-  surface: Color(0xFF1E2E29),
-  surfaceDeep: Color(0xFF09100D),
-  surfaceRaised: Color(0xFF2B4038),
-  edge: Color(0xFFA7E2C5),
-  accent: Color(0xFFD8C38F),
-  foreground: Color(0xFFF7FAF8),
-  secondaryForeground: Color(0xC7D9E4DE),
-  onAccent: Color(0xFF13201B),
+  surface: Color(0xFF3B3B44),
+  surfaceDeep: Color(0xFF1C1C24),
+  surfaceRaised: Color(0xFF555560),
+  edge: Color(0xFFD4D4DE),
+  accent: Color(0xFFD7D4E8),
+  foreground: Color(0xFFF5F5F8),
+  secondaryForeground: Color(0xFFC1C1CC),
+  onAccent: Color(0xFF23232B),
 );
 
 /// 将共享背景解析出的封面色映射为经典播放器场景色。
@@ -22,24 +22,36 @@ PlayerScenePalette classicPlayerScenePaletteFromBackdrop(List<Color> colors) {
   final anchor = colors.length > 3 ? colors[3] : colors.last;
   final edge = _classicSignalColor(
     dominant,
-    saturationRange: const (0.28, 0.60),
-    lightness: 0.72,
+    saturationRange: const (0.0, 0.24),
+    lightness: 0.82,
   );
   final accent = _classicSignalColor(
     highlight,
-    saturationRange: const (0.38, 0.68),
-    lightness: 0.68,
+    saturationRange: const (0.0, 0.36),
+    lightness: 0.78,
   );
-  final surface = Color.lerp(const Color(0xFF18231F), dominant, 0.32)!;
-  final surfaceDeep = Color.lerp(const Color(0xFF060A08), anchor, 0.16)!;
-  final surfaceRaised = Color.lerp(const Color(0xFF293932), dominant, 0.22)!;
-  final foreground = Color.lerp(const Color(0xFFF7FAF8), edge, 0.05)!;
-  final secondaryForeground = Color.lerp(
-    const Color(0xFFD9E4DE),
-    edge,
-    0.12,
-  )!.withValues(alpha: 0.78);
-
+  // Keep every surface in the artwork's hue family, including neutral covers.
+  final surface = _classicSignalColor(
+    dominant,
+    saturationRange: const (0.0, 0.22),
+    lightness: 0.23,
+  );
+  final surfaceDeep = _classicSignalColor(
+    anchor,
+    saturationRange: const (0.0, 0.20),
+    lightness: 0.12,
+  );
+  final surfaceRaised = _classicSignalColor(
+    dominant,
+    saturationRange: const (0.0, 0.20),
+    lightness: 0.32,
+  );
+  final foreground = Color.lerp(const Color(0xFFF6F6F8), edge, 0.06)!;
+  final secondaryForeground = _classicSignalColor(
+    dominant,
+    saturationRange: const (0.0, 0.12),
+    lightness: 0.78,
+  );
   return PlayerScenePalette(
     surface: surface,
     surfaceDeep: surfaceDeep,

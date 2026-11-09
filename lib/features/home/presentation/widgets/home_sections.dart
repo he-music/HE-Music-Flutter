@@ -151,7 +151,7 @@ List<Widget> buildHomeSectionSlivers({
             LayoutTokens.compactPageGutter + 2,
             0,
             LayoutTokens.compactPageGutter + 2,
-            10,
+            14,
           ),
           sliver: SliverToBoxAdapter(
             child: _SectionTitle(title: section.title, action: sectionAction),
@@ -185,7 +185,7 @@ List<Widget> buildHomeSectionSlivers({
         resolveRadioCover: resolveRadioCover,
       ),
     );
-    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 18)));
+    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 28)));
   }
   return slivers;
 }
@@ -432,26 +432,46 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+    final heading = Semantics(
+      header: true,
+      child: Text(
+        title,
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.3,
         ),
-        if (action != null)
-          AppButton.textIcon(
-            onPressed: action!.onTap,
-            iconAlignment: IconAlignment.end,
-            icon: const Icon(Icons.chevron_right_rounded, size: 18),
-            label: Text(action!.label),
-          ),
-      ],
+      ),
+    );
+    final sectionAction = action;
+    if (sectionAction == null) return heading;
+    final button = AppButton.textIcon(
+      onPressed: sectionAction.onTap,
+      iconAlignment: IconAlignment.end,
+      icon: const Icon(Icons.chevron_right_rounded, size: 18),
+      label: Text(sectionAction.label),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 300 ||
+            MediaQuery.textScalerOf(context).scale(16) > 20) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [heading, const SizedBox(height: 4), button],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: heading),
+            const SizedBox(width: 12),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth * 0.45,
+              ),
+              child: button,
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -82,16 +82,55 @@ class AppSkinSurface extends StatelessWidget {
       AppSkinSurfaceRole.scrollingContent ||
       AppSkinSurfaceRole.bottomSheet => 0.0,
     };
+    final hasWallpaper = config.background.wallpaper.descriptor != null;
+    final layeredContent =
+        role == AppSkinSurfaceRole.scrollingContent &&
+        hasWallpaper &&
+        opacity > 0;
+    final isDark = config.colorScheme.brightness == Brightness.dark;
+    final contentColor = role == AppSkinSurfaceRole.scrollingContent
+        ? skinTheme.contentBackgroundColor
+        : baseColor.withValues(alpha: 1);
     final content = DecoratedBox(
       decoration: BoxDecoration(
-        color: role == AppSkinSurfaceRole.scrollingContent
-            ? skinTheme.contentBackgroundColor
-            : baseColor.withValues(alpha: 1),
+        color: contentColor,
         borderRadius: radius,
-        border: !showDecoration || usesCupertino || geometry.borderWidth == 0
+        // BoxDecoration modulates its shader by color.a; keep stops opaque so
+        // the skin's configured content opacity is applied exactly once.
+        gradient: layeredContent
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  Color.lerp(
+                    contentColor,
+                    Colors.white,
+                    isDark ? 0.08 : 0.16,
+                  )!.withValues(alpha: 1),
+                  contentColor.withValues(alpha: 1),
+                  Color.lerp(
+                    contentColor,
+                    Colors.black,
+                    isDark ? 0.04 : 0.02,
+                  )!.withValues(alpha: 1),
+                ],
+                stops: const <double>[0, 0.45, 1],
+              )
+            : null,
+        border:
+            !showDecoration ||
+                usesCupertino ||
+                opacity == 0 ||
+                geometry.borderWidth == 0
             ? null
             : Border.all(
-                color: config.colors.border,
+                color: layeredContent
+                    ? Color.lerp(
+                        config.colors.border,
+                        Colors.white,
+                        isDark ? 0.65 : 0.75,
+                      )!.withValues(alpha: isDark ? 0.24 : 0.55)
+                    : config.colors.border,
                 width: geometry.borderWidth,
               ),
         boxShadow:
@@ -103,7 +142,9 @@ class AppSkinSurface extends StatelessWidget {
             : <BoxShadow>[
                 BoxShadow(
                   color: config.colors.shadow.withValues(
-                    alpha: geometry.shadowOpacity,
+                    alpha: layeredContent
+                        ? geometry.shadowOpacity * 0.45
+                        : geometry.shadowOpacity,
                   ),
                   blurRadius: geometry.shadowBlurRadius,
                   offset: geometry.shadowOffset,

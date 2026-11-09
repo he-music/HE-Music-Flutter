@@ -6,6 +6,7 @@ import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/skin/app_skin_surface.dart';
 import 'adaptive_action_menu.dart';
 import 'app_network_image.dart';
+import 'app_artwork_frame.dart';
 import 'app_adaptive_controls.dart';
 import '../constants/layout_tokens.dart';
 import '../models/he_music_models.dart';
@@ -240,8 +241,8 @@ class SongListItem extends StatelessWidget {
                                     ? 2
                                     : 1,
                                 style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.12,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
                                   color: isCurrent
                                       ? theme.colorScheme.primary
                                       : theme.textTheme.titleSmall?.color,
@@ -558,7 +559,7 @@ class _ArtistAlbumLine extends StatelessWidget {
               color: isCurrent
                   ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.9)
                   : Theme.of(context).colorScheme.onSurfaceVariant,
-              height: 1.12,
+              height: 1.2,
             ),
           ),
         ),
@@ -590,7 +591,7 @@ class _BottomMetaLine extends StatelessWidget {
         style: theme.textTheme.bodySmall?.copyWith(
           color: isCurrent
               ? theme.colorScheme.primary.withValues(alpha: 0.7)
-              : theme.hintColor,
+              : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
           height: 1.1,
         ),
       ),
@@ -717,7 +718,7 @@ class _SongCover extends StatelessWidget {
     );
     Widget child;
     if (bytes != null && bytes!.isNotEmpty) {
-      child = ClipRRect(
+      child = AppArtworkFrame(
         borderRadius: BorderRadius.circular(9),
         child: Image.memory(
           bytes!,
@@ -729,7 +730,7 @@ class _SongCover extends StatelessWidget {
         ),
       );
     } else {
-      child = ClipRRect(
+      child = AppArtworkFrame(
         borderRadius: BorderRadius.circular(9),
         child: AppNetworkImage(
           url: url ?? '',
@@ -768,46 +769,24 @@ class _TagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _tagStyle(label);
     final theme = Theme.of(context);
+    final tone = theme.colorScheme.onSurfaceVariant;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: style.$1.withValues(alpha: 0.10),
-        border: Border.all(color: style.$1.withValues(alpha: 0.16)),
+        borderRadius: BorderRadius.circular(4),
+        color: tone.withValues(alpha: 0.045),
+        border: Border.all(color: tone.withValues(alpha: 0.20), width: 0.6),
       ),
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
           fontSize: 8.2,
           height: 1.0,
-          color: style.$2,
+          color: tone,
           fontWeight: FontWeight.w500,
         ),
       ),
     );
-  }
-
-  (Color, Color) _tagStyle(String value) {
-    final normalized = value.toUpperCase();
-    if (value == '原唱' || normalized == 'ORIGINAL') {
-      return (const Color(0xFF64748B), const Color(0xFF475569));
-    }
-    if (normalized == 'HQ') {
-      return (const Color(0xFF16A34A), const Color(0xFF16A34A));
-    }
-    if (normalized == 'SQ') {
-      return (const Color(0xFFD97706), const Color(0xFFD97706));
-    }
-    if (normalized == 'MASTER' ||
-        normalized == 'HIRES' ||
-        normalized == 'HI-RES' ||
-        normalized.contains('FLAC') ||
-        normalized.contains('LOSS') ||
-        normalized.contains('HIRES')) {
-      return (const Color(0xFFBE123C), const Color(0xFFBE123C));
-    }
-    return (const Color(0xFF6B7280), const Color(0xFF6B7280));
   }
 }

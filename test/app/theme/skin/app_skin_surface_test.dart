@@ -1,3 +1,7 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart';
+import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
@@ -26,6 +30,60 @@ void main() {
 
     expect(find.byType(BackdropFilter), findsNothing);
   });
+
+  for (final style in AppUiStyle.values) {
+    testWidgets('wallpaper content retains its reading surface in $style', (
+      tester,
+    ) async {
+      final skin = AppSkinRegistry.builtIn(
+        AppThemeAccent.forest,
+      ).resolve(AppSkinRegistry.citySoundCreatorId);
+      const capture = ValueKey('reading-surface-capture');
+      for (final enabled in [true, false]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(
+              skin,
+              uiStyle: style,
+              showContentBackground: enabled,
+            ),
+            home: const Center(
+              child: RepaintBoundary(
+                key: capture,
+                child: SizedBox(
+                  width: 100,
+                  height: 40,
+                  child: ColoredBox(
+                    color: Colors.black,
+                    child: AppSkinSurface(
+                      role: AppSkinSurfaceRole.scrollingContent,
+                      child: SizedBox.expand(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(capture),
+        );
+        await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          try {
+            final pixels = await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            );
+            final red = pixels!.getUint8(4 * (20 * 100 + 50));
+            expect(red, enabled ? greaterThan(140) : 0);
+          } finally {
+            image.dispose();
+          }
+        });
+      }
+    });
+  }
 
   testWidgets('immersive fixed controls stay opaque without background blur', (
     tester,
@@ -165,6 +223,8 @@ void main() {
           .first,
     );
     expect((decoratedBox.decoration as BoxDecoration).boxShadow, isEmpty);
+    expect((decoratedBox.decoration as BoxDecoration).border, isNull);
+    expect((decoratedBox.decoration as BoxDecoration).gradient, isNull);
   });
 
   testWidgets('content surface follows preference for classic and immersive', (

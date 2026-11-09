@@ -692,7 +692,7 @@ class _PlayerMetadataBadge extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color:
-                  palette?.edge.withValues(alpha: 0.46) ??
+                  palette?.foreground.withValues(alpha: 0.22) ??
                   Colors.white.withValues(alpha: 0.22),
               width: 0.7,
             ),
@@ -701,7 +701,7 @@ class _PlayerMetadataBadge extends StatelessWidget {
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color:
-                  palette?.foreground.withValues(alpha: 0.92) ??
+                  palette?.secondaryForeground ??
                   Colors.white.withValues(alpha: 0.92),
               fontWeight: FontWeight.w500,
               letterSpacing: 0,

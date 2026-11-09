@@ -72,6 +72,7 @@ import 'package:he_music_flutter/features/player/presentation/widgets/claddagh_l
 import 'package:he_music_flutter/features/player/presentation/widgets/player_queue_sheet.dart';
 import 'package:he_music_flutter/features/player/presentation/widgets/player_style_live_preview.dart';
 import 'package:he_music_flutter/shared/constants/layout_tokens.dart';
+import 'package:he_music_flutter/shared/image/image_color_extractor.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 import 'package:he_music_flutter/core/audio/cache/audio_cache_provider.dart';
@@ -1945,7 +1946,15 @@ void main() {
               ),
             ))
             .load();
-        return File('test/assets/player/artist_photo.png').readAsBytes();
+        final bytes = await File(
+          'test/assets/player/artist_photo.png',
+        ).readAsBytes();
+        final colors = await colorsFromImageProvider(
+          MemoryImage(bytes),
+          prioritizeSaturation: false,
+        );
+        expect(colors, isNotEmpty);
+        return bytes;
       });
       const capture = ValueKey('player-interface-preview');
       for (final style in AppUiStyle.values) {
@@ -1984,6 +1993,13 @@ void main() {
               ),
             ),
           );
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            await precacheImage(
+              MemoryImage(artwork!),
+              tester.element(find.byType(PlayerPage)),
+            );
+          });
           await tester.pumpAndSettle();
           await _saveInterfacePreview(
             tester,

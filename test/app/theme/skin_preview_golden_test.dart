@@ -127,6 +127,40 @@ void main() {
       },
       skip: Platform.isLinux,
     );
+    if (previewCase.hasWallpaper) {
+      testWidgets('${previewCase.name} content surfaces render in both styles', (
+        tester,
+      ) async {
+        await tester.runAsync(_loadPreviewFonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        for (final style in AppUiStyle.values) {
+          for (final brightness in Brightness.values) {
+            final router = createAppRouter(AppRoutes.home);
+            await tester.pumpWidget(
+              _buildPreviewApp(
+                router,
+                brightness,
+                previewCase.skinId,
+                uiStyle: style,
+                showContentBackground: true,
+              ),
+            );
+            await tester.pumpAndSettle();
+            await _pumpUntilWallpaperDecoded(tester);
+            expect(tester.takeException(), isNull);
+            expect(find.byType(BackdropFilter), findsNothing);
+            await _saveCupertinoPreview(
+              tester,
+              '${previewCase.skinId}-${style.name}-${brightness.name}-content',
+            );
+            await tester.pumpWidget(const SizedBox.shrink());
+            router.dispose();
+          }
+        }
+      });
+    }
     testWidgets(
       '${previewCase.name} Cupertino home and settings remain readable',
       (tester) async {
@@ -233,13 +267,22 @@ Widget _buildPreviewApp(
   Brightness brightness,
   String skinId, {
   AppUiStyle uiStyle = AppUiStyle.material,
+  bool showContentBackground = false,
 }) {
   final skin = AppSkinRegistry.builtIn(
     AppConfigState.initial.themeAccent,
   ).resolve(skinId);
   final baseTheme = brightness == Brightness.light
-      ? AppTheme.light(skin, uiStyle: uiStyle)
-      : AppTheme.dark(skin, uiStyle: uiStyle);
+      ? AppTheme.light(
+          skin,
+          uiStyle: uiStyle,
+          showContentBackground: showContentBackground,
+        )
+      : AppTheme.dark(
+          skin,
+          uiStyle: uiStyle,
+          showContentBackground: showContentBackground,
+        );
   final textTheme = baseTheme.textTheme.apply(
     fontFamily: _previewFontFamily,
     fontFamilyFallback: _previewFontFallback,
@@ -288,7 +331,12 @@ Widget _buildPreviewApp(
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(
-        () => _PreviewAppConfigController(brightness, skinId, uiStyle),
+        () => _PreviewAppConfigController(
+          brightness,
+          skinId,
+          uiStyle,
+          showContentBackground,
+        ),
       ),
       appRouterProvider.overrideWithValue(router),
       playerControllerProvider.overrideWith(_PreviewPlayerController.new),
@@ -353,11 +401,17 @@ Future<ByteData> _fontData(String path) async {
 }
 
 class _PreviewAppConfigController extends AppConfigController {
-  _PreviewAppConfigController(this.brightness, this.skinId, this.uiStyle);
+  _PreviewAppConfigController(
+    this.brightness,
+    this.skinId,
+    this.uiStyle,
+    this.showContentBackground,
+  );
 
   final Brightness brightness;
   final String skinId;
   final AppUiStyle uiStyle;
+  final bool showContentBackground;
 
   @override
   AppConfigState build() {
@@ -367,6 +421,7 @@ class _PreviewAppConfigController extends AppConfigController {
           : AppThemeMode.dark,
       skinId: skinId,
       uiStyle: uiStyle,
+      showContentBackground: showContentBackground,
       enableSkinAnimation: false,
       // The bundled CJK subset covers the home fixture, not all settings labels.
       localeCode: uiStyle == AppUiStyle.cupertino ? 'en' : 'zh',
