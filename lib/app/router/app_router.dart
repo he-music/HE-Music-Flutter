@@ -582,6 +582,7 @@ GoRouter createAppRouter([String? initialLocation]) {
     routes: <RouteBase>[
       ShellRoute(
         navigatorKey: _contentNavigatorKey,
+        observers: <NavigatorObserver>[appContentRouteObserver],
         builder: (context, state, child) =>
             AppShell(location: state.uri.path, child: child),
         routes: <RouteBase>[
@@ -589,6 +590,7 @@ GoRouter createAppRouter([String? initialLocation]) {
             builder: (context, state, navigationShell) => navigationShell,
             branches: <StatefulShellBranch>[
               StatefulShellBranch(
+                observers: <NavigatorObserver>[appHomeRouteObserver],
                 navigatorKey: _homeNavigatorKey,
                 routes: <RouteBase>[
                   GoRoute(
@@ -598,6 +600,7 @@ GoRouter createAppRouter([String? initialLocation]) {
                 ],
               ),
               StatefulShellBranch(
+                observers: <NavigatorObserver>[appLibraryRouteObserver],
                 navigatorKey: _libraryNavigatorKey,
                 routes: <RouteBase>[
                   GoRoute(
@@ -607,6 +610,7 @@ GoRouter createAppRouter([String? initialLocation]) {
                 ],
               ),
               StatefulShellBranch(
+                observers: <NavigatorObserver>[appMyRouteObserver],
                 navigatorKey: _myNavigatorKey,
                 routes: <RouteBase>[
                   GoRoute(

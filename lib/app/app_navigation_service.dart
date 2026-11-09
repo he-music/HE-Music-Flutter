@@ -9,8 +9,15 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final _openingPlayer = Expando<bool>();
 
+/// Clears the active text input before a navigation or modal transition.
+void dismissActiveInputFocus() {
+  FocusManager.instance.primaryFocus?.unfocus();
+}
+
 /// 播放器只占一个返回位置；再次打开时保留普通页面，将播放器放到栈顶。
 Future<void> openFullPlayer(BuildContext context) async {
+  // 离开当前页面前清理输入焦点，避免返回时路由恢复输入法。
+  dismissActiveInputFocus();
   final router = GoRouter.of(context);
   if (_openingPlayer[router] == true) return;
   final current = router.routerDelegate.currentConfiguration;

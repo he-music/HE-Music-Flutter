@@ -101,6 +101,32 @@ void main() {
     expect(find.byType(OnlineSearchPage), findsOneWidget);
     expect(find.byType(LoginPage), findsNothing);
   });
+  testWidgets('opening the full player clears the previous input focus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildRouterTestApp(
+        initialLocation: AppRoutes.onlineSearch,
+        authenticated: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchPage = find.byType(OnlineSearchPage);
+    final focusNode = tester.widget<TextField>(find.byType(TextField)).focusNode!;
+    expect(focusNode.hasFocus, isTrue);
+
+    final context = tester.element(searchPage);
+    final router = GoRouter.of(context);
+    final opening = openFullPlayer(context);
+    await tester.pumpAndSettle();
+    await opening;
+    expect(find.byType(PlayerPage), findsOneWidget);
+
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(focusNode.hasFocus, isFalse);
+  });
   for (final complete in [false, true]) {
     testWidgets(
       'iOS settings edge back ${complete ? 'completes' : 'cancels'} without overlap',

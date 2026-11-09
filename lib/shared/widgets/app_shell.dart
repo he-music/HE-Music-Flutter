@@ -78,6 +78,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         backgroundColor: Colors.transparent,
         maintainBottomViewPadding: true,
         onDestinationSelected: (index) {
+          dismissActiveInputFocus();
           if (navigationShell != null) {
             navigationShell.goBranch(index);
           } else {
