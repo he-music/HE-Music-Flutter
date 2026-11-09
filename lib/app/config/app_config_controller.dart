@@ -21,6 +21,21 @@ import 'app_theme_mode.dart';
 import '../theme/player/app_player_style_registry.dart';
 import '../theme/skin/app_skin_registry.dart';
 
+/// Changes only when an account session starts or ends, never on token refresh.
+final authSessionRevisionProvider = NotifierProvider<AuthSessionRevision, int>(
+  AuthSessionRevision.new,
+);
+
+class AuthSessionRevision extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void advance() {
+    globalTokenHolder.sessionRevision++;
+    state++;
+  }
+}
+
 class AppConfigController extends Notifier<AppConfigState> {
   late final Future<void> _hydrationFuture;
   Future<void> _persistenceQueue = Future<void>.value();
@@ -269,6 +284,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       ..refreshToken = null
       ..expiresAt = null;
     _update(state.copyWith(authToken: accessToken, clearRefreshToken: true));
+    ref.read(authSessionRevisionProvider.notifier).advance();
   }
 
   /// 一次性设置 access_token、refresh_token 和过期时间。
@@ -286,6 +302,7 @@ class AppConfigController extends Notifier<AppConfigState> {
         tokenExpiresAt: expiresAt,
       ),
     );
+    ref.read(authSessionRevisionProvider.notifier).advance();
   }
 
   void clearAuthToken() {
@@ -294,6 +311,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       ..refreshToken = null
       ..expiresAt = null;
     _update(state.copyWith(clearToken: true, clearRefreshToken: true));
+    ref.read(authSessionRevisionProvider.notifier).advance();
   }
 
   /// refresh 后同步内存状态并定向持久化，不触发 apiDioProvider 重建。

@@ -38,8 +38,13 @@ class SearchHotKeywordsCacheController
   final Map<String, Future<List<String>>> _pendingRequests =
       <String, Future<List<String>>>{};
 
+  int _generation = 0;
   @override
   Map<String, SearchHotKeywordsCacheEntry> build() {
+    ref.watch(authSessionRevisionProvider);
+    ref.watch(appConfigProvider.select((config) => config.apiBaseUrl));
+    _generation++;
+    _pendingRequests.clear();
     return const <String, SearchHotKeywordsCacheEntry>{};
   }
 
@@ -79,15 +84,19 @@ class SearchHotKeywordsCacheController
     final future = _doRefresh(normalized);
     _pendingRequests[normalized] = future;
     future.whenComplete(() {
-      _pendingRequests.remove(normalized);
+      if (identical(_pendingRequests[normalized], future)) {
+        _pendingRequests.remove(normalized);
+      }
     });
     return future;
   }
 
   Future<List<String>> _doRefresh(String platformId) async {
+    final generation = _generation;
     final next = await ref
         .read(onlineSearchRepositoryProvider)
         .fetchHotKeywords(platform: platformId);
+    if (!ref.mounted || generation != _generation) return const <String>[];
     state = <String, SearchHotKeywordsCacheEntry>{
       ...state,
       platformId: SearchHotKeywordsCacheEntry(
@@ -136,9 +145,15 @@ class SearchDefaultPlaceholderController
   bool _initialized = false;
   late AppLifecycleState _lifecycleState;
   AppLifecycleListener? _lifecycleListener;
+  int _generation = 0;
 
   @override
   SearchDefaultPlaceholderState build() {
+    ref.watch(authSessionRevisionProvider);
+    ref.watch(appConfigProvider.select((config) => config.apiBaseUrl));
+    _generation++;
+    _initialized = false;
+    _stopTimers();
     _lifecycleState =
         WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
     _lifecycleListener ??= AppLifecycleListener(
@@ -192,12 +207,17 @@ class SearchDefaultPlaceholderController
   }
 
   Future<void> refresh() async {
+    final generation = _generation;
     if (_lifecycleState != AppLifecycleState.resumed) {
       return;
     }
     try {
       final platforms = await ref.read(onlinePlatformsProvider.future);
-      if (!ref.mounted || _lifecycleState != AppLifecycleState.resumed) return;
+      if (!ref.mounted ||
+          generation != _generation ||
+          _lifecycleState != AppLifecycleState.resumed) {
+        return;
+      }
       final platform = platforms
           .where(
             (item) =>
@@ -212,7 +232,7 @@ class SearchDefaultPlaceholderController
             platform: platform.id,
             silentErrorMessage: true,
           );
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _generation) return;
       if (next.isEmpty) {
         return;
       }
@@ -277,6 +297,7 @@ class OnlinePlatformsController extends AsyncNotifier<List<OnlinePlatform>> {
   @override
   Future<List<OnlinePlatform>> build() {
     final generation = ++_generation;
+    ref.watch(authSessionRevisionProvider);
     ref.onDispose(() {
       _generation++;
       _requestInFlight = null;

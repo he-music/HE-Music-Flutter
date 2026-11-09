@@ -42,6 +42,7 @@ import '../../shared/utils/audio_quality_selector.dart';
 import '../../shared/utils/link_info_size_parser.dart';
 import '../device/device_info_provider.dart';
 import '../network/auth_token_interceptor.dart';
+import '../network/client_instance_interceptor.dart';
 import '../network/network_status_port.dart';
 import '../network/token_refresh_interceptor.dart';
 import 'audio_sleep_timer.dart';
@@ -434,6 +435,24 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   String _apiBaseUrl = AppEnvironment.apiBaseUrl;
   String? _authToken = AppConfigState.initial.authToken;
+  int _apiSessionRevision = globalTokenHolder.sessionRevision;
+  int _apiPermissionRevision = 0;
+
+  void _invalidateApiSession() {
+    _apiPermissionRevision++;
+    for (final key in {
+      ..._resolvedPlaybackUrls.keys,
+      ..._inFlightPlaybackUrls.keys,
+    }) {
+      _invalidatePlaybackUrl(key);
+    }
+    _inFlightPlaybackUrls.clear();
+    if (_apiSessionRevision != globalTokenHolder.sessionRevision) {
+      _authToken = globalTokenHolder.accessToken;
+    }
+    _apiSessionRevision = globalTokenHolder.sessionRevision;
+  }
+
   AppOnlineAudioQuality _wifiQualityPreference = AppOnlineAudioQuality.auto;
   AppOnlineAudioQuality _cellularQualityPreference =
       AppOnlineAudioQuality.mp3320;
@@ -481,6 +500,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         (nextActiveQuality.isAuto &&
             previousLastSelectedQualityName !=
                 normalizedLastSelectedQualityName);
+    if (_apiSessionRevision != globalTokenHolder.sessionRevision ||
+        _apiBaseUrl != apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '')) {
+      _invalidateApiSession();
+    }
     _apiBaseUrl = apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     _authToken = authToken?.trim();
     _wifiQualityPreference = wifiQualityPreference;
@@ -513,6 +536,18 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<void> syncCoverPlatforms(List<OnlinePlatform> platforms) async {
+    final previousIds = _coverPlatforms
+        .where((item) => item.available)
+        .map((item) => item.id)
+        .toSet();
+    final nextIds = platforms
+        .where((item) => item.available)
+        .map((item) => item.id)
+        .toSet();
+    if (previousIds.length != nextIds.length ||
+        !previousIds.containsAll(nextIds)) {
+      _invalidateApiSession();
+    }
     _coverPlatforms = List<OnlinePlatform>.unmodifiable(
       platforms
           .map(
@@ -2601,6 +2636,11 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _FrozenPlaybackRequest request, {
     bool forceRefresh = false,
   }) async {
+    if (_apiSessionRevision != globalTokenHolder.sessionRevision) {
+      _invalidateApiSession();
+    }
+    final session = globalTokenHolder.sessionRevision;
+    final permission = _apiPermissionRevision;
     final cacheKey = request.urlCacheKey;
     if (forceRefresh) {
       _invalidatePlaybackUrl(cacheKey);
@@ -2629,6 +2669,10 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           quality: request.requestedQuality,
           format: request.requestedFormat,
         ).then((payload) {
+          if (session != globalTokenHolder.sessionRevision ||
+              permission != _apiPermissionRevision) {
+            throw StateError('Playback session changed');
+          }
           final url = '${payload['url'] ?? ''}'.trim();
           if (url.isEmpty) {
             throw _TrackUnavailableException(request.track.id);
@@ -3927,9 +3971,14 @@ class HeAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         headers: const <String, String>{'User-Agent': heAudioUserAgent},
       ),
     );
+    dio.interceptors.add(ClientInstanceInterceptor(baseUrl: _apiBaseUrl));
     dio.interceptors.add(
       AuthTokenInterceptor(
-        () => globalTokenHolder.accessToken ?? _authToken,
+        () =>
+            globalTokenHolder.accessToken ??
+            (_apiSessionRevision == globalTokenHolder.sessionRevision
+                ? _authToken
+                : null),
         () => '',
       ),
     );

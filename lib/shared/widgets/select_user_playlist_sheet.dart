@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'app_activity_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/config/app_config_controller.dart';
+import '../../app/app_navigation_service.dart';
+import '../../app/router/app_router.dart';
+import '../../app/router/app_routes.dart';
 import '../../app/i18n/app_i18n.dart';
 import '../../app/theme/skin/app_skin_bottom_sheet.dart';
 import '../constants/layout_tokens.dart';
@@ -29,6 +33,15 @@ Future<SelectedUserPlaylist?> showSelectUserPlaylistSheet(
   String? excludedPlaylistId,
   Future<SelectedUserPlaylist?> Function()? onCreatePlaylist,
 }) {
+  final container = ProviderScope.containerOf(context, listen: false);
+  if (container.read(appConfigProvider).authToken?.isNotEmpty != true) {
+    final router = container.read(appRouterProvider);
+    final location = router.state.uri.toString();
+    if (Uri.parse(location).path != AppRoutes.login) {
+      router.push<void>(buildLoginLocation(location));
+    }
+    return Future<SelectedUserPlaylist?>.value();
+  }
   Widget buildSheet(BuildContext sheetContext) {
     return SelectUserPlaylistSheet(
       excludedPlaylistId: excludedPlaylistId,

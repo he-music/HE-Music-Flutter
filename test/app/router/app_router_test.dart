@@ -58,6 +58,49 @@ import 'package:he_music_flutter/shared/widgets/app_player_scaffold.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final location in [
+    AppRoutes.settingsProfile,
+    AppRoutes.settingsPassword,
+    AppRoutes.settingsDevice,
+    '${AppRoutes.userPlaylistDetail}?id=private',
+    '${AppRoutes.rootBrowsePrefix}${AppRoutes.userPlaylistDetail}?id=private',
+    AppRoutes.myCollection,
+    AppRoutes.loginQrConfirm,
+  ]) {
+    testWidgets(
+      'anonymous private deep link $location opens login with return path',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildRouterTestApp(initialLocation: location, authenticated: false),
+        );
+        await tester.pumpAndSettle();
+        final context = tester.element(find.byType(LoginPage));
+        final router = ProviderScope.containerOf(
+          context,
+        ).read(appRouterProvider);
+        expect(router.state.uri.path, AppRoutes.login);
+        expect(
+          router.state.uri.queryParameters['redirect'],
+          Uri.parse(buildLoginLocation(location)).queryParameters['redirect'],
+        );
+        expect(find.byType(MiniPlayerBar), findsNothing);
+      },
+    );
+  }
+
+  testWidgets('anonymous users can open public search without login', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildRouterTestApp(
+        initialLocation: AppRoutes.onlineSearch,
+        authenticated: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(OnlineSearchPage), findsOneWidget);
+    expect(find.byType(LoginPage), findsNothing);
+  });
   for (final complete in [false, true]) {
     testWidgets(
       'iOS settings edge back ${complete ? 'completes' : 'cancels'} without overlap',
@@ -805,6 +848,7 @@ void main() {
 
 Widget _buildRouterTestApp({
   required String initialLocation,
+  bool authenticated = true,
   PlayerController Function()? playerControllerFactory,
   ScreenWakeLockPort? screenWakeLockPort,
   HomePageApiClient? homePageApiClient,
@@ -812,8 +856,12 @@ Widget _buildRouterTestApp({
 }) {
   return ProviderScope(
     overrides: [
-      appConfigProvider.overrideWith(_TestAppConfigController.new),
-      apiDioProvider.overrideWithValue(Dio()),
+      appConfigProvider.overrideWith(
+        authenticated
+            ? _TestAppConfigController.new
+            : _AnonymousAppConfigController.new,
+      ),
+      apiDioProvider.overrideWithValue(_emptyApiDio()),
       if (homePageApiClient != null)
         homePageApiClientProvider.overrideWithValue(homePageApiClient),
       playerControllerProvider.overrideWith(
@@ -860,7 +908,7 @@ Widget _buildImmersiveRouterTestApp(
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_ImmersiveTestAppConfigController.new),
-      apiDioProvider.overrideWithValue(Dio()),
+      apiDioProvider.overrideWithValue(_emptyApiDio()),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
       onlineControllerProvider.overrideWith(_TestOnlineController.new),
       onlinePlatformsProvider.overrideWith(_TestOnlinePlatformsController.new),
@@ -889,15 +937,47 @@ Widget _buildImmersiveRouterTestApp(
   );
 }
 
+Dio _emptyApiDio() => Dio()
+  ..interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        if (options.path == '/v1/mv') {
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.connectionError,
+            ),
+          );
+          return;
+        }
+        handler.resolve(
+          Response(
+            requestOptions: options,
+            statusCode: 200,
+            data: <String, dynamic>{},
+          ),
+        );
+      },
+    ),
+  );
+
 class _TestAppConfigController extends AppConfigController {
   @override
   AppConfigState build() {
-    return AppConfigState.initial.copyWith(localeCode: 'zh');
+    return AppConfigState.initial.copyWith(
+      localeCode: 'zh',
+      authToken: 'token',
+    );
   }
 
   void changeStyle(AppUiStyle style) {
     state = state.copyWith(uiStyle: style);
   }
+}
+
+class _AnonymousAppConfigController extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial.copyWith(localeCode: 'zh');
 }
 
 class _TestHomePageApiClient extends HomePageApiClient {
@@ -922,6 +1002,7 @@ class _ImmersiveTestAppConfigController extends AppConfigController {
   AppConfigState build() {
     return AppConfigState.initial.copyWith(
       localeCode: 'zh',
+      authToken: 'token',
       skinId: AppSkinRegistry.citySoundCreatorId,
     );
   }

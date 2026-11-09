@@ -40,6 +40,73 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  for (final currentAllowed in [true, false]) {
+    test(
+      'permission switch preserves offline tracks and ${currentAllowed ? 'playing source' : 'stops revoked source'}',
+      () async {
+        final audioPlayer = _SourceReorderAudioPlayerPort();
+        final container = ProviderContainer(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            audioPlayerPortProvider.overrideWithValue(audioPlayer),
+          ],
+        );
+        addTearDown(container.dispose);
+        addTearDown(audioPlayer.dispose);
+        final controller = container.read(playerControllerProvider.notifier);
+        await controller.replaceQueue(
+          const [
+            PlayerTrack(
+              id: 'revoked',
+              title: 'Revoked',
+              platform: 'private',
+              url: 'https://cdn.example/private.mp3',
+            ),
+            PlayerTrack(
+              id: 'allowed',
+              title: 'Allowed',
+              platform: 'public',
+              duration: Duration(minutes: 3),
+              url: 'https://cdn.example/public.mp3',
+            ),
+            PlayerTrack(
+              id: 'download',
+              title: 'Download',
+              platform: 'private',
+              path: '/tmp/download.mp3',
+            ),
+            PlayerTrack(
+              id: 'local',
+              title: 'Local',
+              platform: 'local',
+              url: '/tmp/local.mp3',
+            ),
+          ],
+          startIndex: currentAllowed ? 1 : 0,
+          autoplay: false,
+        );
+        audioPlayer.emitPlaying(true);
+        audioPlayer.emitPosition(Duration.zero);
+        audioPlayer.emitPosition(const Duration(seconds: 23));
+        await Future<void>.delayed(Duration.zero);
+        final plays = audioPlayer.playCallCount;
+        await controller.retainAvailablePlatforms({'public'});
+        final after = container.read(playerControllerProvider);
+        expect(after.queue.map((track) => track.id), [
+          'allowed',
+          'download',
+          'local',
+        ]);
+        expect(after.currentTrack?.id, 'allowed');
+        expect(after.isPlaying, currentAllowed);
+        expect(audioPlayer.playCallCount, plays);
+        if (currentAllowed) {
+          expect(after.position, const Duration(seconds: 23));
+          expect(audioPlayer.lastSetQueueForceReloadCurrent, isFalse);
+        }
+      },
+    );
+  }
   for (final initialDuration in [null, const Duration(seconds: 272)]) {
     test(
       'parsed duration backfills history only when seconds differ from $initialDuration',

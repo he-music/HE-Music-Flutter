@@ -2,9 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
+import '../../../../core/network/client_instance_interceptor.dart';
 import '../../../online/data/online_api_client.dart';
 
-final playerPlaybackApiClientProvider = Provider<OnlineApiClient>((ref) {
+final playerPlaybackDioProvider = Provider<Dio>((ref) {
   final (apiBaseUrl, authToken) = ref.watch(
     appConfigProvider.select((config) => (config.apiBaseUrl, config.authToken)),
   );
@@ -26,8 +27,13 @@ final playerPlaybackApiClientProvider = Provider<OnlineApiClient>((ref) {
       },
     ),
   );
+  dio.interceptors.add(ClientInstanceInterceptor(baseUrl: baseUrl));
   ref.onDispose(() {
     dio.close(force: true);
   });
-  return OnlineApiClient(dio);
+  return dio;
+});
+
+final playerPlaybackApiClientProvider = Provider<OnlineApiClient>((ref) {
+  return OnlineApiClient(ref.watch(playerPlaybackDioProvider));
 });

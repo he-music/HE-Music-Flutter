@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:he_music_flutter/core/network/api_dio_provider.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/router/app_router.dart';
@@ -978,6 +979,20 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWith(_TestAppConfigController.new),
+          onlineApiClientProvider.overrideWithValue(_emptyCommentsClient()),
+          apiDioProvider.overrideWithValue(
+            Dio()
+              ..interceptors.add(
+                InterceptorsWrapper(
+                  onRequest: (options, handler) => handler.reject(
+                    DioException(
+                      requestOptions: options,
+                      type: DioExceptionType.connectionError,
+                    ),
+                  ),
+                ),
+              ),
+          ),
           playerControllerProvider.overrideWith(_TestPlayerController.new),
           favoriteSongStatusProvider.overrideWith(
             _TestFavoriteSongStatusController.new,
@@ -1045,6 +1060,7 @@ Widget _buildTestApp({
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
+      onlineApiClientProvider.overrideWithValue(_emptyCommentsClient()),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
       onlinePlatformsProvider.overrideWith(
         () => _TestOnlinePlatformsController(feedPlatforms ?? const []),
@@ -1071,6 +1087,7 @@ Widget _buildRouterTestApp({
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWith(_TestAppConfigController.new),
+      onlineApiClientProvider.overrideWithValue(_emptyCommentsClient()),
       playerControllerProvider.overrideWith(_TestPlayerController.new),
       onlinePlatformsProvider.overrideWith(
         () => _TestOnlinePlatformsController(const []),
@@ -1158,6 +1175,22 @@ VideoDetailContent _buildDetail({
           ),
         ],
   );
+}
+
+OnlineApiClient _emptyCommentsClient() {
+  final dio = Dio()
+    ..interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) => handler.resolve(
+          Response(
+            requestOptions: options,
+            statusCode: 200,
+            data: <String, dynamic>{'list': <dynamic>[]},
+          ),
+        ),
+      ),
+    );
+  return OnlineApiClient(dio);
 }
 
 class _TestAppConfigController extends AppConfigController {

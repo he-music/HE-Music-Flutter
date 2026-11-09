@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_page_result.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_page_section.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_page_state.dart';
@@ -12,6 +14,51 @@ import 'package:he_music_flutter/features/online/presentation/providers/online_p
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
 
 void main() {
+  test(
+    'session changes discard cached recommendations and reload the same platform',
+    () async {
+      final api = _ImmediateHomePageApiClient();
+      final container = _container(
+        api: api,
+        platforms: [_platform('qq', recommend: true)],
+      );
+      addTearDown(container.dispose);
+      await container.read(onlinePlatformsProvider.future);
+      final controller = container.read(homePageControllerProvider.notifier);
+      await controller.initialize();
+      container.read(authSessionRevisionProvider.notifier).advance();
+      await container.pump();
+      expect(
+        container.read(homePageControllerProvider).recommend.sections,
+        isEmpty,
+      );
+      await controller.initialize();
+      expect(api.calls, ['recommend|qq|1', 'recommend|qq|1']);
+    },
+  );
+
+  test(
+    'a delayed recommendation response cannot refill a new session',
+    () async {
+      final api = _ControlledHomePageApiClient();
+      final container = _container(
+        api: api,
+        platforms: [_platform('qq', recommend: true)],
+      );
+      addTearDown(container.dispose);
+      await container.read(onlinePlatformsProvider.future);
+      final controller = container.read(homePageControllerProvider.notifier);
+      final pending = controller.initialize();
+      await api.started('recommend|qq|1');
+      container.read(authSessionRevisionProvider.notifier).advance();
+      await container.pump();
+      api.complete('recommend|qq|1', _result('old-account'));
+      await pending;
+      final state = container.read(homePageControllerProvider);
+      expect(state.recommend.sections, isEmpty);
+      expect(state.platforms, isEmpty);
+    },
+  );
   test('默认只加载推荐，首次切入发现后切回不重载', () async {
     final api = _ImmediateHomePageApiClient();
     final container = _container(
@@ -334,12 +381,18 @@ ProviderContainer _container({
 }) {
   return ProviderContainer(
     overrides: [
+      appConfigProvider.overrideWith(_Config.new),
       homePageApiClientProvider.overrideWithValue(api),
       onlinePlatformsProvider.overrideWith(
         () => _FakeOnlinePlatformsController(platforms),
       ),
     ],
   );
+}
+
+class _Config extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial;
 }
 
 class _FakeOnlinePlatformsController extends OnlinePlatformsController {

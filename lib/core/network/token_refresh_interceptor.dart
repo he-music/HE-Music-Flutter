@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import 'client_instance_interceptor.dart';
+
 /// 可变的 token 引用持有者。
 /// TokenRefreshInterceptor 和 apiDioProvider 共享同一个实例，
 /// 保证闭包读到的始终是最新值。
@@ -11,6 +13,7 @@ class TokenHolder {
   String? accessToken;
   String? refreshToken;
   int? expiresAt;
+  int sessionRevision = 0;
 }
 
 typedef TokensRefreshedCallback =
@@ -86,6 +89,7 @@ class TokenRefreshCoordinator {
       ),
     );
 
+    refreshDio.interceptors.add(ClientInstanceInterceptor(baseUrl: baseUrl));
     try {
       final deviceInfo = await getDeviceInfo();
       final requestData = <String, dynamic>{
@@ -180,6 +184,12 @@ class TokenRefreshInterceptor extends Interceptor {
   );
 
   @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.extra['authSessionRevision'] = tokenHolder.sessionRevision;
+    handler.next(options);
+  }
+
+  @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (err.response?.statusCode != 401) {
       return handler.next(err);
@@ -195,6 +205,17 @@ class TokenRefreshInterceptor extends Interceptor {
       return handler.next(err);
     }
 
+    // An anonymous or superseded request must never refresh the new session.
+    final requestToken = err.requestOptions.headers['Authorization'];
+    final revision = err.requestOptions.extra['authSessionRevision'];
+    if ((revision != null && revision != tokenHolder.sessionRevision) ||
+        (requestToken != null &&
+            requestToken != 'Bearer ${tokenHolder.accessToken}') ||
+        (requestToken == null && tokenHolder.accessToken?.isNotEmpty == true)) {
+      err.requestOptions.extra['skipUnauthorizedRedirect'] = true;
+      return handler.next(err);
+    }
+    if (requestToken == null) return handler.next(err);
     if (tokenHolder.refreshToken?.isNotEmpty != true) {
       return handler.next(err);
     }

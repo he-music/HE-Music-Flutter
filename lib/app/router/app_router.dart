@@ -557,6 +557,28 @@ GoRouter createAppRouter([String? initialLocation]) {
     navigatorKey: rootNavigatorKey,
     observers: <NavigatorObserver>[appPageRouteObserver],
     initialLocation: initialLocation ?? AppRoutes.home,
+    redirect: (context, state) {
+      final path = state.uri.path.startsWith('${AppRoutes.rootBrowsePrefix}/')
+          ? state.uri.path.substring(AppRoutes.rootBrowsePrefix.length)
+          : state.uri.path;
+      if (const <String>{
+            AppRoutes.userPlaylistDetail,
+            AppRoutes.myCollection,
+            AppRoutes.settingsProfile,
+            AppRoutes.settingsPassword,
+            AppRoutes.settingsDevice,
+            AppRoutes.loginQrScan,
+            AppRoutes.loginQrConfirm,
+          }.contains(path) &&
+          ProviderScope.containerOf(
+                context,
+                listen: false,
+              ).read(appConfigProvider).authToken?.isNotEmpty !=
+              true) {
+        return buildLoginLocation(state.uri.toString());
+      }
+      return null;
+    },
     routes: <RouteBase>[
       ShellRoute(
         navigatorKey: _contentNavigatorKey,

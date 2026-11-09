@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/config/app_config_controller.dart';
 import '../../../../shared/utils/in_flight_request_cache.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../online/presentation/providers/online_providers.dart';
@@ -12,7 +13,7 @@ import '../../domain/entities/home_page_state.dart';
 import '../providers/home_page_providers.dart';
 
 class HomePageController extends Notifier<HomePageState> {
-  final InFlightRequestCache<String, HomePageResult> _requests =
+  InFlightRequestCache<String, HomePageResult> _requests =
       InFlightRequestCache<String, HomePageResult>();
   final Map<HomePageKind, int> _requestVersions = <HomePageKind, int>{
     HomePageKind.recommend: 0,
@@ -26,9 +27,20 @@ class HomePageController extends Notifier<HomePageState> {
       };
   Future<void>? _initializing;
   bool _initialized = false;
+  int _generation = 0;
 
   @override
   HomePageState build() {
+    ref.watch(authSessionRevisionProvider);
+    ref.watch(appConfigProvider.select((config) => config.apiBaseUrl));
+    _generation++;
+    _initialized = false;
+    _initializing = null;
+    _requests = InFlightRequestCache<String, HomePageResult>();
+    for (final page in HomePageKind.values) {
+      _platformContents[page]?.clear();
+      _nextRequestVersion(page);
+    }
     ref.listen(onlinePlatformsProvider, (previous, next) {
       final platforms = next.value;
       if (platforms == null || platforms.isEmpty) return;
@@ -58,10 +70,12 @@ class HomePageController extends Notifier<HomePageState> {
   }
 
   Future<void> _initialize({required bool forceRefreshPlatforms}) async {
+    final generation = _generation;
     try {
       final platforms = await _resolvePlatforms(
         forceRefresh: forceRefreshPlatforms,
       );
+      if (!ref.mounted || generation != _generation) return;
       state = state.copyWith(platforms: platforms, clearPlatformError: true);
       final availablePages = state.availablePages;
       if (availablePages.isEmpty) {
@@ -73,12 +87,16 @@ class HomePageController extends Notifier<HomePageState> {
       final platformId = state.platformsFor(page).first.id;
       state = state.copyWith(selectedPage: page);
       await _loadFirstPage(page, platformId, clearContent: true);
+      if (!ref.mounted || generation != _generation) return;
       _initialized = state.platformErrorMessage == null;
     } catch (error) {
+      if (!ref.mounted || generation != _generation) return;
       state = state.copyWith(platformErrorMessage: '$error');
     } finally {
-      _initializing = null;
-      if (ref.mounted && _initialized) unawaited(_reconcilePlatformSelection());
+      if (ref.mounted && generation == _generation) {
+        _initializing = null;
+        if (_initialized) unawaited(_reconcilePlatformSelection());
+      }
     }
   }
 

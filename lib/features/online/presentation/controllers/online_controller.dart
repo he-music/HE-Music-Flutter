@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/app_navigation_service.dart';
+import '../../../../app/router/app_router.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../core/device/device_info_provider.dart';
 import '../../../../core/error/app_exception.dart';
@@ -20,8 +23,12 @@ class SongUrlResolution {
 }
 
 class OnlineController extends Notifier<OnlineFeatureState> {
+  int _generation = 0;
   @override
   OnlineFeatureState build() {
+    ref.watch(authSessionRevisionProvider);
+    ref.watch(appConfigProvider.select((config) => config.apiBaseUrl));
+    _generation++;
     return OnlineFeatureState.initial;
   }
 
@@ -68,11 +75,15 @@ class OnlineController extends Notifier<OnlineFeatureState> {
 
   /// 登出：通知后端清除当前设备的 refresh_token，然后清除本地 token 和相关状态。
   Future<void> logout() async {
+    final session = ref.read(authSessionRevisionProvider);
     try {
       final client = ref.read(onlineApiClientProvider);
       await client.logout();
     } catch (_) {
       // 登出接口失败不影响本地清理
+    }
+    if (!ref.mounted || ref.read(authSessionRevisionProvider) != session) {
+      return;
     }
     ref.read(appConfigProvider.notifier).clearAuthToken();
     ref.invalidate(onlinePlatformsProvider);
@@ -84,13 +95,16 @@ class OnlineController extends Notifier<OnlineFeatureState> {
   }
 
   Future<void> fetchProfile() async {
+    _requireLogin();
     await _runAction(() async {
+      final generation = _generation;
       final client = ref.read(onlineApiClientProvider);
       final profile = await client.fetchProfile();
       await Future.wait<void>(<Future<void>>[
         ref.read(favoriteSongStatusProvider.notifier).refresh(),
         ref.read(favoriteCollectionStatusProvider.notifier).refresh(),
       ]);
+      if (!ref.mounted || generation != _generation) return;
       state = state.copyWith(
         profile: profile,
         message: 'Profile fetched.',
@@ -107,6 +121,7 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     _validateNotEmpty(keyword, 'Keyword is required.');
     _validateNotEmpty(platform, 'Platform is required.');
     await _runAction(() async {
+      final generation = _generation;
       final client = ref.read(onlineApiClientProvider);
       final normalizedType = type.trim().toLowerCase();
       final results = normalizedType == 'song'
@@ -119,6 +134,7 @@ class OnlineController extends Notifier<OnlineFeatureState> {
               platform: platform,
               type: type,
             )).items;
+      if (!ref.mounted || generation != _generation) return;
       state = state.copyWith(
         searchResults: results,
         message: 'Search completed: ${results.length} items.',
@@ -174,10 +190,15 @@ class OnlineController extends Notifier<OnlineFeatureState> {
   }
 
   Future<String> createPlaylist(String name) async {
+    _requireLogin();
     _validateNotEmpty(name, 'Playlist name is required.');
     return _runAction<String>(() async {
+      final generation = _generation;
       final client = ref.read(onlineApiClientProvider);
       final response = await client.createPlaylist(name);
+      if (!ref.mounted || generation != _generation) {
+        throw StateError('Account session changed');
+      }
       final id = '${response['id'] ?? ''}'.trim();
       if (id.isEmpty) {
         throw const FormatException('Created playlist response is missing id.');
@@ -195,9 +216,11 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     String? cover,
     String? creator,
   }) async {
+    _requireLogin();
     _validateNotEmpty(playlistId, 'Playlist id is required.');
     _validateNotEmpty(platform, 'Platform is required.');
     await _runAction(() async {
+      final generation = _generation;
       final client = ref.read(onlineApiClientProvider);
       await client.togglePlaylistFavorite(
         playlistId: playlistId,
@@ -207,6 +230,7 @@ class OnlineController extends Notifier<OnlineFeatureState> {
         cover: cover,
         creator: creator,
       );
+      if (!ref.mounted || generation != _generation) return;
       final status = ref.read(favoriteCollectionStatusProvider.notifier);
       if (like) {
         status.add(
@@ -231,15 +255,18 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     required String platform,
     required bool like,
   }) async {
+    _requireLogin();
     _validateNotEmpty(songId, 'Song id is required.');
     _validateNotEmpty(platform, 'Platform is required.');
     await _runAction(() async {
+      final generation = _generation;
       final client = ref.read(onlineApiClientProvider);
       await client.toggleSongFavorite(
         songId: songId,
         platform: platform,
         like: like,
       );
+      if (!ref.mounted || generation != _generation) return;
       final status = ref.read(favoriteSongStatusProvider.notifier);
       if (like) {
         status.addSong(songId: songId, platform: platform);
@@ -261,9 +288,11 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     String? cover,
     List<Map<String, dynamic>>? artists,
   }) async {
+    _requireLogin();
     _validateNotEmpty(albumId, 'Album id is required.');
     _validateNotEmpty(platform, 'Platform is required.');
     await _runAction(() async {
+      final generation = _generation;
       final client = ref.read(onlineApiClientProvider);
       await client.toggleAlbumFavorite(
         albumId: albumId,
@@ -273,6 +302,7 @@ class OnlineController extends Notifier<OnlineFeatureState> {
         cover: cover,
         artists: artists,
       );
+      if (!ref.mounted || generation != _generation) return;
       final status = ref.read(favoriteCollectionStatusProvider.notifier);
       if (like) {
         status.add(
@@ -299,9 +329,11 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     String? name,
     String? cover,
   }) async {
+    _requireLogin();
     _validateNotEmpty(artistId, 'Artist id is required.');
     _validateNotEmpty(platform, 'Platform is required.');
     await _runAction(() async {
+      final generation = _generation;
       final client = ref.read(onlineApiClientProvider);
       await client.toggleArtistFavorite(
         artistId: artistId,
@@ -310,6 +342,7 @@ class OnlineController extends Notifier<OnlineFeatureState> {
         name: name,
         cover: cover,
       );
+      if (!ref.mounted || generation != _generation) return;
       final status = ref.read(favoriteCollectionStatusProvider.notifier);
       if (like) {
         status.add(
@@ -338,12 +371,14 @@ class OnlineController extends Notifier<OnlineFeatureState> {
     _validateNotEmpty(resourceType, 'Resource type is required.');
     _validateNotEmpty(platform, 'Platform is required.');
     await _runAction(() async {
+      final generation = _generation;
       final client = ref.read(onlineApiClientProvider);
       final comments = await client.fetchComments(
         resourceId: resourceId,
         resourceType: resourceType,
         platform: platform,
       );
+      if (!ref.mounted || generation != _generation) return;
       state = state.copyWith(
         comments: comments,
         message: 'Comments loaded: ${comments.length} items.',
@@ -353,14 +388,19 @@ class OnlineController extends Notifier<OnlineFeatureState> {
   }
 
   Future<T> _runAction<T>(Future<T> Function() action) async {
+    final generation = _generation;
     state = state.copyWith(loading: true, clearMessage: true, clearError: true);
     try {
       return await action();
     } catch (error) {
-      state = state.copyWith(error: error.toString());
+      if (ref.mounted && generation == _generation) {
+        state = state.copyWith(error: error.toString());
+      }
       rethrow;
     } finally {
-      state = state.copyWith(loading: false);
+      if (ref.mounted && generation == _generation) {
+        state = state.copyWith(loading: false);
+      }
     }
   }
 
@@ -418,6 +458,16 @@ class OnlineController extends Notifier<OnlineFeatureState> {
       ref.read(favoriteSongStatusProvider.notifier).refresh(),
       ref.read(favoriteCollectionStatusProvider.notifier).refresh(),
     ]);
+  }
+
+  void _requireLogin() {
+    if (ref.read(appConfigProvider).authToken?.isNotEmpty == true) return;
+    final router = ref.read(appRouterProvider);
+    final location = router.routeInformationProvider.value.uri.toString();
+    if (Uri.parse(location).path != AppRoutes.login) {
+      router.push<void>(buildLoginLocation(location));
+    }
+    throw const AppException(ValidationFailure('请先登录'));
   }
 
   void _validateNotEmpty(String input, String message) {

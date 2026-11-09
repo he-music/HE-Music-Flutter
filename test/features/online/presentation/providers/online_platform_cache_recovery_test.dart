@@ -83,7 +83,7 @@ void main() {
           'renewed',
         );
         if (accountChanged) {
-          container.invalidate(onlinePlatformsProvider);
+          container.read(authSessionRevisionProvider.notifier).advance();
           await container.read(onlinePlatformsProvider.future);
           await Future<void>.delayed(Duration.zero);
         }

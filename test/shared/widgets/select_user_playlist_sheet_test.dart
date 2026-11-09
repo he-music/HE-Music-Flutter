@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:go_router/go_router.dart';
+import 'package:he_music_flutter/app/config/app_config_controller.dart';
+import 'package:he_music_flutter/app/config/app_config_state.dart';
+import 'package:he_music_flutter/app/router/app_router.dart';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +18,46 @@ import 'package:he_music_flutter/features/my/presentation/providers/my_playlist_
 import 'package:he_music_flutter/shared/widgets/select_user_playlist_sheet.dart';
 
 void main() {
+  testWidgets(
+    'anonymous add to playlist opens login before loading user playlists',
+    (tester) async {
+      var loads = 0;
+      final router = GoRouter(
+        initialLocation: '/player',
+        routes: [
+          GoRoute(
+            path: '/player',
+            builder: (context, _) => Scaffold(
+              body: TextButton(
+                onPressed: () => showSelectUserPlaylistSheet(context),
+                child: const Text('Add to playlist'),
+              ),
+            ),
+          ),
+          GoRoute(path: '/login', builder: (_, _) => const Text('Login')),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_AnonymousConfig.new),
+            appRouterProvider.overrideWithValue(router),
+            myCreatedPlaylistsProvider.overrideWith((ref) async {
+              loads++;
+              return [];
+            }),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.tap(find.text('Add to playlist'));
+      await tester.pumpAndSettle();
+      expect(find.text('Login'), findsOneWidget);
+      expect(loads, 0);
+      expect(find.byType(SelectUserPlaylistSheet), findsNothing);
+    },
+  );
   testWidgets('playlist selection sheet follows player sheet brightness', (
     tester,
   ) async {
@@ -27,6 +71,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appConfigProvider.overrideWith(_SignedInConfig.new),
             myCreatedPlaylistsProvider.overrideWith(
               (ref) async => const <MyFavoriteItem>[
                 MyFavoriteItem(
@@ -91,6 +136,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              appConfigProvider.overrideWith(_SignedInConfig.new),
               myCreatedPlaylistsProvider.overrideWith(
                 (ref) => playlists.future,
               ),
@@ -154,4 +200,14 @@ void main() {
 Color? _renderedTextColor(WidgetTester tester, String text) {
   final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
   return paragraph.text.style?.color;
+}
+
+class _SignedInConfig extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial.copyWith(authToken: 'token');
+}
+
+class _AnonymousConfig extends AppConfigController {
+  @override
+  AppConfigState build() => AppConfigState.initial;
 }

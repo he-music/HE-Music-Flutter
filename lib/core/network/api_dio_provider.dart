@@ -11,6 +11,7 @@ import '../captcha/captcha_coordinator.dart';
 import '../device/device_info_provider.dart';
 import 'auth_token_interceptor.dart';
 import 'captcha_challenge_interceptor.dart';
+import 'client_instance_interceptor.dart';
 import 'error_message_interceptor.dart';
 import 'token_refresh_interceptor.dart';
 import 'unauthorized_redirect_interceptor.dart';
@@ -35,6 +36,8 @@ final apiDioProvider = Provider<Dio>((ref) {
       responseType: ResponseType.json,
     ),
   );
+
+  dio.interceptors.add(ClientInstanceInterceptor(baseUrl: baseUrl));
 
   final tokenHolder = globalTokenHolder;
   final initialConfig = ref.read(appConfigProvider);
@@ -76,6 +79,12 @@ final apiDioProvider = Provider<Dio>((ref) {
   );
   dio.interceptors.add(
     UnauthorizedRedirectInterceptor(
+      isCurrentRequest: (request) =>
+          request.extra['authSessionRevision'] == tokenHolder.sessionRevision &&
+          request.headers['Authorization'] ==
+              (tokenHolder.accessToken?.isNotEmpty == true
+                  ? 'Bearer ${tokenHolder.accessToken}'
+                  : null),
       readCurrentLocation: () {
         try {
           return router.state.uri.toString();
@@ -84,7 +93,10 @@ final apiDioProvider = Provider<Dio>((ref) {
         }
       },
       onUnauthorized: (redirectLocation) {
-        configController.clearAuthToken();
+        if (ref.read(appConfigProvider).authToken?.isNotEmpty == true) {
+          configController.clearAuthToken();
+        }
+        final revision = tokenHolder.sessionRevision;
         final currentLocation = _safeCurrentRoute(router);
         if (_isAuthRelatedRoute(currentLocation) ||
             canOpenWithoutPlatforms(Uri.parse(currentLocation))) {
@@ -96,6 +108,7 @@ final apiDioProvider = Provider<Dio>((ref) {
         }
         final loginLocation = buildLoginLocation(redirectLocation);
         Future.microtask(() {
+          if (tokenHolder.sessionRevision != revision) return;
           final latestLocation = _safeCurrentRoute(router);
           if (_isAuthRelatedRoute(latestLocation) ||
               canOpenWithoutPlatforms(Uri.parse(latestLocation)) ||

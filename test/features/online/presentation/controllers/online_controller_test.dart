@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:he_music_flutter/app/router/app_router.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +23,41 @@ import 'package:he_music_flutter/shared/models/he_music_models.dart';
 import 'package:he_music_flutter/shared/utils/id_platform_key.dart';
 
 void main() {
+  testWidgets(
+    'anonymous favorite from player opens login before calling user API',
+    (tester) async {
+      final client = _FakeOnlineApiClient();
+      final router = GoRouter(
+        initialLocation: '/player',
+        routes: [
+          GoRoute(path: '/player', builder: (_, _) => const SizedBox()),
+          GoRoute(path: '/login', builder: (_, _) => const Text('Login')),
+        ],
+      );
+      addTearDown(router.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+          onlineApiClientProvider.overrideWithValue(client),
+          appRouterProvider.overrideWithValue(router),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(appConfigProvider.notifier).clearAuthToken();
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await container
+          .read(onlineControllerProvider.notifier)
+          .toggleSongFavorite(songId: 'song', platform: 'public', like: true)
+          .then<void>(
+            (_) => fail('anonymous mutation must be rejected'),
+            onError: (Object _) {},
+          );
+      await tester.pumpAndSettle();
+      expect(find.text('Login'), findsOneWidget);
+      expect(client.favoriteSongCalls, 0);
+      expect(router.state.uri.queryParameters['redirect'], '/');
+    },
+  );
   test(
     'togglePlaylistFavorite adds playlist key and success message',
     () async {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/config/app_config_controller.dart';
@@ -12,6 +13,7 @@ import '../../../../core/audio/audio_player_port.dart';
 import '../../../../core/audio/audio_track.dart';
 import '../../../../core/network/network_error_message.dart';
 import '../../../../core/network/network_status_port.dart';
+import '../../../../core/network/unauthorized_redirect_interceptor.dart';
 import '../../../online/domain/entities/online_platform.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../lyrics_overlay/data/overlay_message.dart';
@@ -64,6 +66,7 @@ class PlayerController extends Notifier<PlayerPlaybackState>
   int? _protectedPlaybackSessionTransitionId;
   int _latestPlaybackFailureTransitionId = -1;
   Future<void>? _retryCurrentPlaybackFuture;
+  int _permissionChangeId = 0;
 
   @override
   PlayerPlaybackState get currentState => state;
@@ -133,6 +136,17 @@ class PlayerController extends Notifier<PlayerPlaybackState>
       previous,
       next,
     ) {
+      if (!next.isLoading && next.hasValue) {
+        unawaited(
+          retainAvailablePlatforms({
+            for (final platform in next.requireValue)
+              if (platform.available) platform.id,
+          }),
+        );
+      } else if (next.error case final DioException error
+          when shouldRedirectUnauthorized(error)) {
+        unawaited(retainAvailablePlatforms(const <String>{}));
+      }
       if (_audioPlayer case final AudioHandlerPlayerAdapter adapter) {
         final platforms = next.value;
         if (platforms != null) {
@@ -738,6 +752,52 @@ class PlayerController extends Notifier<PlayerPlaybackState>
         clearPlaybackFailure: true,
       );
     });
+    await _queueManager.persistQueueState(this);
+  }
+
+  /// Keep offline tracks and the current authorized source without restarting it.
+  Future<void> retainAvailablePlatforms(Set<String> platforms) async {
+    final changeId = ++_permissionChangeId;
+    if (state.queue.isEmpty) return;
+    await _ensureInitialized();
+    while (_trackSwitchCompletion != null) {
+      await _trackSwitchCompletion!.future;
+    }
+    if (!ref.mounted || changeId != _permissionChangeId) return;
+    bool allowed(PlayerTrack track) =>
+        (track.path?.isNotEmpty ?? false) ||
+        track.platform == null ||
+        track.platform == 'local' ||
+        (track.url.isNotEmpty && !track.url.startsWith('http')) ||
+        platforms.contains(track.platform);
+    if (state.previousQueueSnapshot?.queue.any((track) => !allowed(track)) ==
+        true) {
+      state = state.copyWith(clearPreviousQueueSnapshot: true);
+    }
+    final queue = state.queue.where(allowed).toList(growable: false);
+    if (queue.length == state.queue.length) return;
+    final current = state.currentTrack;
+    final currentIndex = current == null ? -1 : queue.indexOf(current);
+    if (queue.isEmpty) {
+      await clearQueue();
+      return;
+    }
+    if (currentIndex < 0) {
+      await _audioPlayer.stop();
+      await replaceQueue(queue, autoplay: false);
+      return;
+    }
+    state = state.copyWith(
+      queue: queue,
+      currentIndex: currentIndex,
+      clearQueueSource: true,
+    );
+    _streamManager.suppressNextCurrentIndexEvent(currentIndex);
+    await _audioPlayer.setQueue(
+      queue.map(_toAudioTrack).toList(growable: false),
+      initialIndex: currentIndex,
+      forceReloadCurrent: false,
+    );
     await _queueManager.persistQueueState(this);
   }
 

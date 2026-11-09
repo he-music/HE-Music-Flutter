@@ -17,14 +17,17 @@ class UnauthorizedRedirectInterceptor extends Interceptor {
   UnauthorizedRedirectInterceptor({
     required this.readCurrentLocation,
     required this.onUnauthorized,
+    this.isCurrentRequest,
   });
 
   final String Function() readCurrentLocation;
   final void Function(String redirectLocation) onUnauthorized;
+  final bool Function(RequestOptions request)? isCurrentRequest;
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    if (shouldRedirectUnauthorized(err)) {
+    if (shouldRedirectUnauthorized(err) &&
+        (isCurrentRequest?.call(err.requestOptions) ?? true)) {
       onUnauthorized(readCurrentLocation());
     }
     handler.next(err);
