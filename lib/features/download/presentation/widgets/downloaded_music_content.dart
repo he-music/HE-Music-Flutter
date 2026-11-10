@@ -22,6 +22,7 @@ import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/downloaded_song.dart';
 import '../providers/download_providers.dart';
 import '../providers/downloaded_music_providers.dart';
+import 'download_action_menu.dart';
 
 class DownloadedMusicContent extends ConsumerStatefulWidget {
   const DownloadedMusicContent({
@@ -215,10 +216,9 @@ class _DownloadedMusicContentState extends ConsumerState<DownloadedMusicContent>
       platformId: platform,
       platforms: platforms,
     );
-    final action = await showAdaptiveActionMenu<String>(
+    final action = await showDownloadActionMenu<String>(
       context: context,
-      title: Text(song.task.title),
-      mobileDensity: AdaptiveActionMenuMobileDensity.regular,
+      title: song.task.title,
       items: [
         if (song.isAvailable)
           AdaptiveActionMenuItem(

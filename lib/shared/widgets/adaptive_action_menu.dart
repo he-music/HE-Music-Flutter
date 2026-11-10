@@ -371,10 +371,15 @@ Future<T?> _showCupertinoActions<T>(
 }
 
 class _ActionMenuLabel<T> extends StatelessWidget {
-  const _ActionMenuLabel({required this.item, required this.compact});
+  const _ActionMenuLabel({
+    required this.item,
+    required this.compact,
+    this.showIcon = true,
+  });
 
   final AdaptiveActionMenuItem<T> item;
   final bool compact;
+  final bool showIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -389,7 +394,7 @@ class _ActionMenuLabel<T> extends StatelessWidget {
           ? foregroundColor
           : colorScheme.onSurface.withValues(alpha: 0.38),
     );
-    if (compact || (item.icon == null && item.iconRole == null)) {
+    if (!showIcon || compact || (item.icon == null && item.iconRole == null)) {
       return Text(item.label, style: textStyle);
     }
     return Row(
@@ -511,7 +516,11 @@ class _AdaptiveActionMenuBottomSheetBody<T> extends StatelessWidget {
               SizedBox(width: isCompact ? 12 : 14),
             ],
             Expanded(
-              child: _ActionMenuLabel(item: item, compact: isCompact),
+              child: _ActionMenuLabel(
+                item: item,
+                compact: isCompact,
+                showIcon: false,
+              ),
             ),
           ],
         ),

@@ -164,7 +164,7 @@ void main() {
           ),
         ]) {
           final icons = tester.widgetList<Icon>(find.byIcon(action.icon));
-          expect(icons, isNotEmpty);
+          expect(icons, hasLength(1));
           for (final icon in icons) {
             expect(icon.color, action.iconColor);
           }

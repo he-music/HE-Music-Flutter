@@ -209,6 +209,21 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
     await tester.pumpAndSettle();
+    final sheet = find.byType(BottomSheet);
+    expect(tester.widget<BottomSheet>(sheet).showDragHandle, isTrue);
+    expect(find.byType(ListTile), findsNWidgets(3));
+    expect(
+      tester.getSize(find.byType(ListTile).first).width,
+      tester.getSize(sheet).width,
+    );
+    final removeTile = tester.widget<ListTile>(find.byType(ListTile).last);
+    expect(
+      (removeTile.title! as Text).style?.color,
+      Theme.of(tester.element(sheet)).colorScheme.error,
+    );
+    expect(find.byIcon(Icons.queue_music_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.download_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.remove_circle_outline_rounded), findsOneWidget);
     await tester.tap(find.text('加入播放队列'));
     await tester.pumpAndSettle();
     expect(player.appended?.id, 'song-1');

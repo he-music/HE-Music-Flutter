@@ -1,6 +1,4 @@
 import '../../../../shared/widgets/app_button.dart';
-import '../../../../app/theme/skin/app_skin_bottom_sheet.dart';
-import '../../../../app/theme/app_ui_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +17,7 @@ import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/widgets/underline_tab.dart';
 import '../providers/downloaded_music_providers.dart';
 import '../widgets/downloaded_music_content.dart';
+import '../widgets/download_action_menu.dart';
 
 enum DownloadPageTab { downloaded, tasks }
 
@@ -603,61 +602,10 @@ class _MoreButton extends StatelessWidget {
     String localeCode,
     TargetPlatform platform,
   ) async {
-    if (AppUiTheme.usesCupertino(context)) {
-      final selected = await showAdaptiveActionMenu<String>(
-        context: context,
-        items: _buildActions(localeCode, platform),
-        title: Text(task.title),
-      );
-      if (selected != null && context.mounted) {
-        await _handleAction(context, selected);
-      }
-      return;
-    }
-    final selected = await showAppThemedBottomSheet<String>(
+    final selected = await showDownloadActionMenu<String>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        final maxHeight =
-            MediaQuery.of(sheetContext).size.height *
-            LayoutTokens.actionSheetMaxHeightFactor;
-        final items = _buildActions(localeCode, platform);
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: 8),
-              children: <Widget>[
-                for (final item in items)
-                  ListTile(
-                    key: item.key,
-                    leading: item.icon == null
-                        ? null
-                        : Icon(
-                            item.icon,
-                            color: item.destructive
-                                ? Theme.of(sheetContext).colorScheme.error
-                                : null,
-                          ),
-                    enabled: item.enabled,
-                    title: Text(
-                      item.label,
-                      style: item.destructive
-                          ? TextStyle(
-                              color: Theme.of(sheetContext).colorScheme.error,
-                            )
-                          : null,
-                    ),
-                    onTap: item.enabled
-                        ? () => Navigator.of(sheetContext).pop(item.value)
-                        : null,
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+      items: _buildActions(localeCode, platform),
+      title: task.title,
     );
     if (!context.mounted) {
       return;
