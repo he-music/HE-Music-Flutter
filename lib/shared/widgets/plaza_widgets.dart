@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,27 +22,27 @@ class PlazaPlatformsErrorView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 28),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              AppI18n.t(config, i18nKey),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
+    final theme = Theme.of(context);
+    return OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      overflowAlignment: OverflowBarAlignment.end,
+      spacing: 12,
+      overflowSpacing: 4,
+      children: <Widget>[
+        Text(
+          AppI18n.tByLocaleCode(localeCode, i18nKey),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.error,
           ),
-          AppButton.text(
-            onPressed: onRetry,
-            child: Text(AppI18n.t(config, 'common.retry')),
-          ),
-        ],
-      ),
+        ),
+        AppButton.text(
+          onPressed: onRetry,
+          child: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),
+        ),
+      ],
     );
   }
 }
@@ -59,33 +60,23 @@ class PlazaErrorView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).hintColor,
-              ),
-            ),
-            const SizedBox(height: 12),
-            AppButton.tonal(
-              onPressed: onRetry,
-              child: Text(AppI18n.t(config, 'common.retry')),
-            ),
-          ],
-        ),
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
+    );
+    return _PlazaStatusView(
+      icon: AppUiTheme.usesCupertino(context)
+          ? CupertinoIcons.exclamationmark_circle
+          : Icons.error_outline_rounded,
+      message: message,
+      action: AppButton.tonal(
+        onPressed: onRetry,
+        child: Text(AppI18n.tByLocaleCode(localeCode, 'common.retry')),
       ),
     );
   }
 }
 
-/// 居中空状态文本。
+/// 居中空状态提示。
 class PlazaEmptyState extends StatelessWidget {
   const PlazaEmptyState({required this.label, super.key});
 
@@ -93,12 +84,51 @@ class PlazaEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _PlazaStatusView(
+      icon: AppUiTheme.usesCupertino(context)
+          ? CupertinoIcons.music_albums
+          : Icons.library_music_outlined,
+      message: label,
+    );
+  }
+}
+
+/// Bounded line length on desktop, with scrolling when text outgrows the viewport.
+class _PlazaStatusView extends StatelessWidget {
+  const _PlazaStatusView({
+    required this.icon,
+    required this.message,
+    this.action,
+  });
+
+  final IconData icon;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = theme.colorScheme.onSurfaceVariant;
     return Center(
-      child: Text(
-        label,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).hintColor),
+      child: SingleChildScrollView(
+        primary: false,
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ExcludeSemantics(child: Icon(icon, size: 40, color: foreground)),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: foreground),
+              ),
+              if (action != null) ...[const SizedBox(height: 16), action!],
+            ],
+          ),
+        ),
       ),
     );
   }

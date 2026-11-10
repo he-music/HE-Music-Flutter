@@ -80,7 +80,7 @@ class _RadioPlazaPageState extends ConsumerState<RadioPlazaPage> {
                 data: (platforms) {
                   final supportedPlatforms = _supportedPlatforms(platforms);
                   if (supportedPlatforms.isEmpty) {
-                    return _EmptyState(
+                    return PlazaEmptyState(
                       label: AppI18n.t(config, 'radio.plaza.empty'),
                     );
                   }
@@ -177,12 +177,12 @@ class _RadioPlazaBody extends ConsumerWidget {
     final groups = state.availableGroups;
     if (groups.isEmpty) {
       final config = ref.read(appConfigProvider);
-      return _EmptyState(label: AppI18n.t(config, 'radio.empty'));
+      return PlazaEmptyState(label: AppI18n.t(config, 'radio.empty'));
     }
     final selectedGroup = state.selectedGroup;
     if (selectedGroup == null) {
       final config = ref.read(appConfigProvider);
-      return _EmptyState(label: AppI18n.t(config, 'radio.empty'));
+      return PlazaEmptyState(label: AppI18n.t(config, 'radio.empty'));
     }
     return Column(
       children: <Widget>[
@@ -323,7 +323,7 @@ class _RadioGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (radios.isEmpty) {
       final config = ref.read(appConfigProvider);
-      return _EmptyState(label: AppI18n.t(config, 'radio.empty'));
+      return PlazaEmptyState(label: AppI18n.t(config, 'radio.empty'));
     }
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -386,26 +386,6 @@ class _RadioPlazaLoadingView extends StatelessWidget {
         Divider(height: 1, indent: 12, endIndent: 12),
         Expanded(child: PlazaGridSkeleton()),
       ],
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ),
     );
   }
 }
