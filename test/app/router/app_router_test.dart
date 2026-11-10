@@ -113,7 +113,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final searchPage = find.byType(OnlineSearchPage);
-    final focusNode = tester.widget<TextField>(find.byType(TextField)).focusNode!;
+    final focusNode = tester
+        .widget<TextField>(find.byType(TextField))
+        .focusNode!;
     expect(focusNode.hasFocus, isTrue);
 
     final context = tester.element(searchPage);
