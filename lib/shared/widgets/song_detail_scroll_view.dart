@@ -110,7 +110,7 @@ class _SongDetailScrollViewState extends State<SongDetailScrollView> {
         ),
         Positioned(
           right: padding.right + 16,
-          // The page shell keeps playback chrome outside the content viewport.
+          // The shell exposes playback clearance through the body padding.
           bottom: padding.bottom + 16,
           child: ValueListenableBuilder<bool>(
             valueListenable: _showButton,

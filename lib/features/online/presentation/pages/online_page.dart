@@ -42,9 +42,15 @@ class _OnlinePageState extends ConsumerState<OnlinePage> {
         title: Text(AppI18n.t(config, 'online.center.title')),
       ),
       body: SafeArea(
+        bottom: false,
         child: ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            4,
+            12,
+            24 + MediaQuery.paddingOf(context).bottom,
+          ),
           children: <Widget>[
             OnlineHeroCard(
               title: AppI18n.t(config, 'online.hero.title'),

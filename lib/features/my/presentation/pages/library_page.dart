@@ -37,7 +37,12 @@ class LibraryPage extends ConsumerWidget {
       ),
       body: ListView(
         key: const PageStorageKey<String>('library-scroll'),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          32 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           if (signedIn) ...[
             const LibraryPlaylistShelf(),

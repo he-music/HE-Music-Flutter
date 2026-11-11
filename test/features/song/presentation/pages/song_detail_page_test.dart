@@ -155,11 +155,8 @@ void main() {
             final lastItem = find.widgetWithText(ListTile, '曲谱 13');
             final lastRect = tester.getRect(lastItem);
             expect(viewport, referenceViewport);
-            expect(
-              viewport.bottom,
-              hasTrack ? tester.getTopLeft(find.byType(MiniPlayerBar)).dy : 800,
-            );
-            // Keep the existing 18px section spacing, then the same safe area
+            expect(viewport.bottom, 800);
+            // Keep the existing 18px section spacing, then the same playback clearance
             // used by the album/playlist song list. No extra page spacer.
             expect(
               viewport.bottom - lastRect.bottom,

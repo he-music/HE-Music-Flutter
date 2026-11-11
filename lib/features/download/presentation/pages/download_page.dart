@@ -92,6 +92,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
         ),
         body: SafeArea(
           top: false,
+          bottom: false,
           child: Column(
             children: [
               Padding(
@@ -133,7 +134,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
                     else
                       const SizedBox.shrink(),
                     if (_visitedTabs.contains(DownloadPageTab.tasks))
-                      const _DownloadTasksContent()
+                      const SafeArea(top: false, child: _DownloadTasksContent())
                     else
                       const SizedBox.shrink(),
                   ],

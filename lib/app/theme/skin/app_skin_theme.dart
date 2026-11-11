@@ -14,6 +14,25 @@ class AppSkinTheme extends ThemeExtension<AppSkinTheme> {
   final AppSkinIconCatalog icons;
   final bool showContentBackground;
 
+  /// Wallpaper playback controls share tint and opacity across UI styles.
+  bool get usesTranslucentPlaybackSurfaces =>
+      config.background.wallpaper.descriptor != null &&
+      config.colors.scaffoldBackground.a == 0;
+
+  Color get miniPlayerBackgroundColor =>
+      config.colors.fixedControlSurface.withValues(
+        alpha: usesTranslucentPlaybackSurfaces
+            ? config.surfaces.miniPlayerOpacity
+            : 1,
+      );
+
+  Color get navigationBackgroundColor =>
+      config.colors.fixedControlSurface.withValues(
+        alpha: usesTranslucentPlaybackSurfaces
+            ? config.surfaces.navigationOpacity
+            : 1,
+      );
+
   /// All page content cards use the same preference and skin opacity.
   Color get contentBackgroundColor {
     final surface = config.colors.scrollingContentSurface;

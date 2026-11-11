@@ -21,10 +21,10 @@ const _darkEvaluationHash =
     '704ad67cc9b98dfe86d25b7a35d289a2d4bb0ff7ba9763cb7fac68638176650a';
 const _lightPreviewPath = 'assets/skins/starlit_melody/preview_light.png';
 const _lightPreviewHash =
-    '5cb4b31d292577af9c94cfdb0f881fa6d67fad2e8413f6a3c6c063f11d5f5e27';
+    'b21cee34c58bf5c00f2e294b5faefd754ded680a497980af6208a0625fe3f1c6';
 const _darkPreviewPath = 'assets/skins/starlit_melody/preview_dark.png';
 const _darkPreviewHash =
-    'f2debd5008d0f75e24d5558b42caec0c48365962b81b70a7e771630f17fbb1bb';
+    '39de21ec2077454f193a7dd6be359d55fd0e5b6d96cf5ef0f3ff68f7ead78561';
 
 void main() {
   test('evaluation assets match their recorded provenance', () async {

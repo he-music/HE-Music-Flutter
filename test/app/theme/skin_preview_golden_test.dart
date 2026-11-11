@@ -49,6 +49,7 @@ final _previewHomePageFeatures =
     PlatformFeatureSupportFlag.getRecommendPage |
     PlatformFeatureSupportFlag.getDiscoverPage;
 
+const _previewLongList = bool.fromEnvironment('MINI_PLAYER_PREVIEW_LONG_LIST');
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
   const miniPlayerPreviewDirectory = String.fromEnvironment(
@@ -107,6 +108,19 @@ void main() {
                 '$skinId-${style.name}-${brightness.name}-$page',
                 directory: miniPlayerPreviewDirectory,
               );
+              if (_previewLongList) {
+                final list = page == 'home'
+                    ? find.byType(CustomScrollView).first
+                    : find.byType(ListView).first;
+                expect(tester.getRect(list).bottom, 844);
+                await tester.drag(list, const Offset(0, -320));
+                await tester.pumpAndSettle();
+                await _saveCupertinoPreview(
+                  tester,
+                  '$skinId-${style.name}-${brightness.name}-$page-scroll',
+                  directory: miniPlayerPreviewDirectory,
+                );
+              }
             }
             await tester.pumpWidget(const SizedBox.shrink());
             router.dispose();
@@ -225,7 +239,7 @@ void main() {
             await tester.pumpAndSettle();
             await _pumpUntilWallpaperDecoded(tester);
             expect(tester.takeException(), isNull);
-            expect(find.byType(BackdropFilter), findsNothing);
+            expect(find.byType(BackdropFilter), findsNWidgets(2));
             await _saveCupertinoPreview(
               tester,
               '${previewCase.skinId}-${style.name}-${brightness.name}-content',
@@ -264,7 +278,7 @@ void main() {
             find.byWidgetPredicate(
               (widget) => widget is BackdropFilter && widget.enabled,
             ),
-            findsNothing,
+            previewCase.hasWallpaper ? findsNWidgets(2) : findsNothing,
           );
           await _saveCupertinoPreview(
             tester,
@@ -540,11 +554,7 @@ class _PreviewRecommendSongListController extends RecommendSongListController {
       title: '新歌速递',
       cover: '',
       description: '城市回声',
-      songs: [
-        _song('track-1', '城市回声', '林诺', '信号房间'),
-        _song('track-2', '玻璃天台', '周河', '城市碎片'),
-        _song('track-3', '低频大厅', '森', '凌晨之后'),
-      ],
+      songs: _previewSongs(),
     ),
   );
 
@@ -587,11 +597,7 @@ class _PreviewHomePageController extends HomePageController {
             sectionType: HomeSectionType.newSongs,
             resourceType: HomeResourceType.song,
             title: '新歌速递',
-            songs: <SongInfo>[
-              _song('track-1', '城市回声', '林诺', '信号房间'),
-              _song('track-2', '玻璃天台', '周河', '城市碎片'),
-              _song('track-3', '低频大厅', '森', '凌晨之后'),
-            ],
+            songs: _previewSongs(),
           ),
         ],
       ),
@@ -631,6 +637,18 @@ class _PreviewSearchPlaceholderController
   SearchDefaultPlaceholderState build() {
     return const SearchDefaultPlaceholderState();
   }
+}
+
+List<SongInfo> _previewSongs() {
+  const tracks = [
+    ('城市回声', '林诺', '信号房间'),
+    ('玻璃天台', '周河', '城市碎片'),
+    ('低频大厅', '森', '凌晨之后'),
+  ];
+  return List.generate(_previewLongList ? 24 : 3, (index) {
+    final track = tracks[index % tracks.length];
+    return _song('track-${index + 1}', track.$1, track.$2, track.$3);
+  });
 }
 
 SongInfo _song(String id, String title, String artist, String album) {

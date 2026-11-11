@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_ui_theme.dart';
 import '../../app/theme/skin/app_skin_surface.dart';
+import '../../app/theme/skin/app_skin_theme.dart';
 
 class AppBottomNavigationBar extends StatelessWidget {
   const AppBottomNavigationBar({required this.child, super.key});
@@ -20,12 +21,13 @@ class AppBottomNavigationBar extends StatelessWidget {
       );
     }
     final colors = Theme.of(context).colorScheme;
+    final skinTheme = Theme.of(context).extension<AppSkinTheme>();
     return CupertinoTabBar(
       currentIndex: child.selectedIndex,
       onTap: child.onDestinationSelected,
-      backgroundColor: CupertinoTheme.of(
-        context,
-      ).barBackgroundColor.withValues(alpha: 1),
+      backgroundColor:
+          skinTheme?.navigationBackgroundColor ??
+          CupertinoTheme.of(context).barBackgroundColor.withValues(alpha: 1),
       activeColor: colors.primary,
       inactiveColor: colors.onSurfaceVariant,
       items: [

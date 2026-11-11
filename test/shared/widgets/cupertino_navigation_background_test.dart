@@ -7,6 +7,7 @@ import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_theme.dart';
 import 'package:he_music_flutter/shared/widgets/app_adaptive_controls.dart';
 import 'package:he_music_flutter/shared/widgets/app_bottom_navigation_bar.dart';
 
@@ -88,12 +89,13 @@ void main() {
                   : Brightness.light,
             );
           }
+          final skinTheme = theme.extension<AppSkinTheme>()!;
           expect(
             tester
                 .widget<CupertinoTabBar>(find.byType(CupertinoTabBar))
                 .backgroundColor!
                 .a,
-            1,
+            skinTheme.navigationBackgroundColor.a,
           );
           final mini =
               tester
@@ -107,12 +109,14 @@ void main() {
                       )
                       .decoration
                   as BoxDecoration;
-          expect(mini.color!.a, 1);
+          expect(mini.color!.a, skinTheme.miniPlayerBackgroundColor.a);
           expect(
             find.byWidgetPredicate(
               (widget) => widget is BackdropFilter && widget.enabled,
             ),
-            findsNothing,
+            skinId == AppSkinRegistry.classicId
+                ? findsNothing
+                : findsNWidgets(2),
           );
           expect(tester.takeException(), isNull);
         }

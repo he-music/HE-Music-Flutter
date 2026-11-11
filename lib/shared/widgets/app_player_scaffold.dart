@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Fixed playback chrome shared by both design languages.
+/// Fixed playback chrome overlays the body in both design languages.
 class AppPlayerScaffold extends StatefulWidget {
   const AppPlayerScaffold({
     required this.body,
@@ -52,6 +52,7 @@ class _AppPlayerScaffoldState extends State<AppPlayerScaffold> {
       ),
       child: Scaffold(
         resizeToAvoidBottomInset: false,
+        extendBody: true,
         body: widget.body,
         bottomNavigationBar:
             NotificationListener<SizeChangedLayoutNotification>(

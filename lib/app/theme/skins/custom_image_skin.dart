@@ -82,8 +82,8 @@ AppSkinBrightnessConfig _brightnessConfig({
     ),
     surfaces: AppSkinSurfaces(
       searchOpacity: searchOpacity,
-      miniPlayerOpacity: isDark ? 0.86 : 0.9,
-      navigationOpacity: isDark ? 0.9 : 0.94,
+      miniPlayerOpacity: isDark ? 0.68 : 0.72,
+      navigationOpacity: isDark ? 0.48 : 0.52,
       scrollingContentOpacity: isDark ? 0.62 : 0.6,
       bottomSheetOpacity: 0.96,
     ),

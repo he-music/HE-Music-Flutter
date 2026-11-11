@@ -27,6 +27,9 @@ flutter run --profile -d <device-id> --dart-define-from-file=.env
 | iOS 设置分区边缘返回 | 慢拖取消保留分区；拖过半屏完成回到设置；前后透明页面相邻移动，无叠画，连续返回及点击可用；系统减少动画时无位移动画，Android 返回策略不变 |
 | 发现/资料库/我的切换、宽屏缩放 | 分支浏览状态保留，底栏固定，迷你播放器与内容不互相遮挡 |
 | Material 底部控制区 | 全宽 M3 导航内容区高 64、图标 24，额外覆盖底部系统安全区，保留选中指示与完整点击区域，播放条使用独立卡片，与导航间隔 8、左右留白 12、四角圆角 16，间隙延续页面背景；无歌曲时卡片及间距隐藏，导航仍可用 |
+| 壁纸下的 MiniPlayer 与底部导航 | 两种风格共享皮肤半透明底色，播放卡片比导航更浓，壁纸延伸至底部安全区；模糊仅在各自边界内，卡片间隙保持清晰，每个区域只有一层有效背景滤镜。纯色皮肤不透明且禁用滤镜；搜索、列表、普通顶栏和弹窗保持原有表面规则 |
+| 切换皮肤及内容底色 | 播放卡片内部状态、滑动与队列操作保留；内容底色开关不改变底部控制材质，播放进度不重建底部材质组件 |
+| 列表从底部控制后方滚动 | 首页、资料库、我的、搜索和歌曲详情等滚动视口延伸至屏幕底部；滚动时可看到歌曲经过半透明控件后方。列表末尾留足实际控制区高度，最后一项可完整显示并点击；点击播放或导航不触发后方歌曲，回到顶部与批量操作不被遮挡 |
 | Cupertino 底栏与安全区 | 导航背景贴合屏幕左右及底部边缘，迷你播放器独立浮动；键盘开合后位置稳定 |
 | 独立播放条与横向安全区 | 两种风格均将安全区放在卡片外，避开左右缺口，底部保留安全区加 8 的间距；宽屏卡片外层最大宽度 640 并居中。键盘出现后两者高度与位置保持稳定 |
 | Cupertino 各内容页面与底色开关 | 歌曲、搜索结果、歌单／专辑／歌手／视频、排行榜、评论、下载、乐谱等共享表面不绘制装饰外框或阴影；关闭底色后仅保留必要分隔和选中反馈 |
@@ -61,6 +64,6 @@ flutter run --profile -d <device-id> --dart-define-from-file=.env
 
 执行 `make analyze`、`make test` 检查共享组件、路由生命周期和交互回归。`make skin-previews` 更新内置皮肤首页基线，并导出 Cupertino 首页与设置预览；更改基线后同步资源 provenance 与 SHA-256。
 
-执行 `flutter test --dart-define=MINI_PLAYER_PREVIEW_DIR=/tmp/he-mini-player-previews --plain-name "export floating mini player previews" test/app/theme/skin_preview_golden_test.dart` 导出经典与星轨旋律皮肤下，两种界面风格、浅深色的首页和推荐歌单详情共 16 张真实组件预览。预览使用固定数据；可通过 `MINI_PLAYER_PREVIEW_CJK_FONT` 指定完整中文字体文件以覆盖详情页文字，默认仍使用现有首页字体子集，不改变内置皮肤基线。
+执行 `flutter test --dart-define=MINI_PLAYER_PREVIEW_DIR=/tmp/he-mini-player-previews --plain-name "export floating mini player previews" test/app/theme/skin_preview_golden_test.dart` 导出经典与星轨旋律皮肤下，两种界面风格、浅深色的首页和推荐歌单详情共 16 张真实组件预览。预览使用固定数据；增加 `--dart-define=MINI_PLAYER_PREVIEW_LONG_LIST=true` 时改用长列表，并额外导出首页与详情的滚动中画面，共 32 张；可通过 `MINI_PLAYER_PREVIEW_CJK_FONT` 指定完整中文字体文件以覆盖详情页文字，默认仍使用现有首页字体子集，不改变内置皮肤基线。
 
 执行 `make player-interface-previews` 将两种风格、浅深色的更多操作、倍速、睡眠定时、样式选择和队列共 20 张真实组件截图导出至 `/tmp/he-player-interface-previews/`。该入口使用固定测试歌曲与图片，不读取用户资料。

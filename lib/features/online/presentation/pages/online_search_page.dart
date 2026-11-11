@@ -208,7 +208,7 @@ class _OnlineSearchPageState extends ConsumerState<OnlineSearchPage> {
       child: SafeArea(
         // Reserve the player clearance inside scrollable content, not outside
         // the viewport, so results can pass behind the floating player.
-        bottom: true,
+        bottom: false,
         child: Column(
           children: <Widget>[
             Padding(

@@ -155,8 +155,8 @@ void main() {
     expect(skin.dark.colors.inputBackground, const Color(0xC2294A61));
     expect(skin.dark.colors.navigationBackground, const Color(0xD1294A61));
     expect(skin.dark.surfaces.searchOpacity, 0.76);
-    expect(skin.dark.surfaces.miniPlayerOpacity, 0.78);
-    expect(skin.dark.surfaces.navigationOpacity, 0.82);
+    expect(skin.dark.surfaces.miniPlayerOpacity, 0.68);
+    expect(skin.dark.surfaces.navigationOpacity, 0.48);
     expect(skin.dark.surfaces.scrollingContentOpacity, 0.62);
     expect(skin.dark.colors.cardBackground.a, 0.62);
     expect(

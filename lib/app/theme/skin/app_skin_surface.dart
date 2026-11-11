@@ -27,7 +27,7 @@ class AppSkinSurface extends StatelessWidget {
   final Widget child;
   final BorderRadius? borderRadius;
 
-  /// Flat navigation/playback regions retain their fill without a skin frame.
+  /// Disables decorative frames while retaining the surface tint.
   final bool showDecoration;
 
   @override
@@ -64,7 +64,6 @@ class AppSkinSurface extends StatelessWidget {
         config.colors.scrollingContentSurface,
       AppSkinSurfaceRole.bottomSheet => config.colors.bottomSheetBackground,
     };
-    final forceOpaque = role != AppSkinSurfaceRole.scrollingContent;
     final opacity = switch (role) {
       AppSkinSurfaceRole.search => config.surfaces.searchOpacity,
       AppSkinSurfaceRole.miniPlayer => config.surfaces.miniPlayerOpacity,
@@ -75,22 +74,25 @@ class AppSkinSurface extends StatelessWidget {
             : 0,
       AppSkinSurfaceRole.bottomSheet => config.surfaces.bottomSheetOpacity,
     };
-    final blurSigma = switch (role) {
-      AppSkinSurfaceRole.search ||
-      AppSkinSurfaceRole.miniPlayer ||
-      AppSkinSurfaceRole.navigation => geometry.blurSigma,
-      AppSkinSurfaceRole.scrollingContent ||
-      AppSkinSurfaceRole.bottomSheet => 0.0,
-    };
+    final isPlaybackSurface =
+        role == AppSkinSurfaceRole.miniPlayer ||
+        role == AppSkinSurfaceRole.navigation;
+    final blurSigma =
+        isPlaybackSurface && skinTheme.usesTranslucentPlaybackSurfaces
+        ? geometry.blurSigma
+        : 0.0;
     final hasWallpaper = config.background.wallpaper.descriptor != null;
     final layeredContent =
         role == AppSkinSurfaceRole.scrollingContent &&
         hasWallpaper &&
         opacity > 0;
     final isDark = config.colorScheme.brightness == Brightness.dark;
-    final contentColor = role == AppSkinSurfaceRole.scrollingContent
-        ? skinTheme.contentBackgroundColor
-        : baseColor.withValues(alpha: 1);
+    final contentColor = switch (role) {
+      AppSkinSurfaceRole.miniPlayer => skinTheme.miniPlayerBackgroundColor,
+      AppSkinSurfaceRole.navigation => skinTheme.navigationBackgroundColor,
+      AppSkinSurfaceRole.scrollingContent => skinTheme.contentBackgroundColor,
+      _ => baseColor.withValues(alpha: 1),
+    };
     final content = DecoratedBox(
       decoration: BoxDecoration(
         color: contentColor,
@@ -153,12 +155,14 @@ class AppSkinSurface extends StatelessWidget {
       ),
       child: child,
     );
-    if (forceOpaque || blurSigma == 0) {
+    if (!isPlaybackSurface) {
       return ClipRRect(borderRadius: radius, child: content);
     }
+    // Keep the child mounted when switching between solid and wallpaper skins.
     return ClipRRect(
       borderRadius: radius,
       child: BackdropFilter(
+        enabled: contentColor.a < 1 && blurSigma > 0,
         filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
         child: content,
       ),

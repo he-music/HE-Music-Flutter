@@ -11,9 +11,7 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
 
 void main() {
-  testWidgets('classic surface skips BackdropFilter when blur is zero', (
-    tester,
-  ) async {
+  testWidgets('classic surface disables background filtering', (tester) async {
     final classic = AppSkinRegistry.builtIn(
       AppThemeAccent.forest,
     ).resolve(AppSkinRegistry.classicId);
@@ -28,7 +26,10 @@ void main() {
       ),
     );
 
-    expect(find.byType(BackdropFilter), findsNothing);
+    expect(
+      tester.widget<BackdropFilter>(find.byType(BackdropFilter)).enabled,
+      isFalse,
+    );
   });
 
   for (final style in AppUiStyle.values) {
@@ -85,26 +86,125 @@ void main() {
     });
   }
 
-  testWidgets('immersive fixed controls stay opaque without background blur', (
+  testWidgets('wallpaper playback surfaces use tint and one clipped blur', (
     tester,
   ) async {
-    final skin = AppSkinRegistry.builtIn(
-      AppThemeAccent.forest,
-    ).resolve(AppSkinRegistry.citySoundCreatorId);
+    final registry = AppSkinRegistry.builtIn(AppThemeAccent.forest);
+    for (final skinId in [
+      AppSkinRegistry.citySoundCreatorId,
+      AppSkinRegistry.starlitMelodyId,
+    ]) {
+      final skin = registry.resolve(skinId);
+      for (final style in AppUiStyle.values) {
+        for (final brightness in Brightness.values) {
+          for (final role in [
+            AppSkinSurfaceRole.miniPlayer,
+            AppSkinSurfaceRole.navigation,
+            AppSkinSurfaceRole.search,
+            AppSkinSurfaceRole.bottomSheet,
+          ]) {
+            for (final showContentBackground in [false, true]) {
+              final config = brightness == Brightness.light
+                  ? skin.light
+                  : skin.dark;
+              final theme = brightness == Brightness.light
+                  ? AppTheme.light(
+                      skin,
+                      uiStyle: style,
+                      showContentBackground: showContentBackground,
+                    )
+                  : AppTheme.dark(
+                      skin,
+                      uiStyle: style,
+                      showContentBackground: showContentBackground,
+                    );
+              await tester.pumpWidget(
+                MaterialApp(
+                  theme: theme,
+                  home: AppSkinSurface(
+                    role: role,
+                    showDecoration: false,
+                    child: const SizedBox(width: 100, height: 40),
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+              final expectedOpacity = switch (role) {
+                AppSkinSurfaceRole.miniPlayer =>
+                  config.surfaces.miniPlayerOpacity,
+                AppSkinSurfaceRole.navigation =>
+                  config.surfaces.navigationOpacity,
+                _ => 1.0,
+              };
+              final decorated = tester.widget<DecoratedBox>(
+                find
+                    .descendant(
+                      of: find.byType(AppSkinSurface),
+                      matching: find.byType(DecoratedBox),
+                    )
+                    .first,
+              );
+              expect(
+                (decorated.decoration as BoxDecoration).color!.a,
+                closeTo(expectedOpacity, 0.001),
+              );
+              final filters = find.byType(BackdropFilter);
+              expect(
+                filters,
+                expectedOpacity < 1 ? findsOneWidget : findsNothing,
+              );
+              if (expectedOpacity < 1) {
+                expect(
+                  find.ancestor(of: filters, matching: find.byType(ClipRRect)),
+                  findsOneWidget,
+                );
+              }
+              expect(tester.takeException(), isNull);
+            }
+          }
+        }
+      }
+    }
+  });
 
+  testWidgets('playback skin changes preserve child state and focus', (
+    tester,
+  ) async {
+    final registry = AppSkinRegistry.builtIn(AppThemeAccent.forest);
+    final skinId = ValueNotifier(AppSkinRegistry.classicId);
+    addTearDown(skinId.dispose);
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(skin),
-        home: const AppSkinSurface(
-          role: AppSkinSurfaceRole.navigation,
-          child: SizedBox(width: 100, height: 40),
+      ValueListenableBuilder(
+        valueListenable: skinId,
+        builder: (context, value, _) => MaterialApp(
+          theme: AppTheme.light(registry.resolve(value)),
+          home: const Scaffold(
+            body: AppSkinSurface(
+              role: AppSkinSurfaceRole.miniPlayer,
+              child: TextField(),
+            ),
+          ),
         ),
       ),
     );
-
-    expect(find.byType(BackdropFilter), findsNothing);
-    final surface = tester.widget<DecoratedBox>(find.byType(DecoratedBox));
-    expect((surface.decoration as BoxDecoration).color!.a, 1);
+    await tester.enterText(find.byType(TextField), 'keep playback child');
+    final element = tester.element(find.byType(TextField));
+    final editable = tester.widget<EditableText>(find.byType(EditableText));
+    for (final value in [
+      AppSkinRegistry.starlitMelodyId,
+      AppSkinRegistry.classicId,
+    ]) {
+      skinId.value = value;
+      await tester.pumpAndSettle();
+      expect(tester.element(find.byType(TextField)), same(element));
+      expect(editable.controller.text, 'keep playback child');
+      expect(editable.focusNode.hasFocus, isTrue);
+      expect(
+        tester.widget<BackdropFilter>(find.byType(BackdropFilter)).enabled,
+        value != AppSkinRegistry.classicId,
+      );
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('scrolling surface never creates a BackdropFilter', (
