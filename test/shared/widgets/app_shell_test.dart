@@ -26,10 +26,8 @@ void main() {
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
-        if (style == AppUiStyle.cupertino) {
-          tester.view.padding = const FakeViewPadding(bottom: 24);
-          tester.view.viewPadding = const FakeViewPadding(bottom: 24);
-        }
+        tester.view.padding = const FakeViewPadding(bottom: 24);
+        tester.view.viewPadding = const FakeViewPadding(bottom: 24);
         addTearDown(tester.view.reset);
         final scroll = ScrollController();
         addTearDown(scroll.dispose);
@@ -84,17 +82,15 @@ void main() {
           matching: find.byType(AppSkinSurface),
         );
         final miniRect = tester.getRect(miniSurface);
-        expect(miniRect.left, style == AppUiStyle.cupertino ? 12 : 0);
-        expect(miniRect.right, style == AppUiStyle.cupertino ? 378 : 390);
-        expect(
-          miniRect.bottom,
-          bar.top - (style == AppUiStyle.cupertino ? 8 : 0),
-        );
+        expect(miniRect.left, 12);
+        expect(miniRect.right, 378);
+        expect(miniRect.bottom, bar.top - 8);
         expect(
           tester.widget<AppSkinSurface>(miniSurface).showDecoration,
           isFalse,
         );
         if (style == AppUiStyle.material) {
+          expect(bar.height, 64 + 24);
           expect(
             Theme.of(
               tester.element(barFinder),
@@ -138,12 +134,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.getRect(mini), before);
         tester.view.viewInsets = const FakeViewPadding();
-        if (style == AppUiStyle.cupertino) {
-          tester.view.padding = const FakeViewPadding(bottom: 24);
-        }
+        tester.view.padding = const FakeViewPadding(bottom: 24);
         tester.view.physicalSize = const Size(1400, 900);
         await tester.pumpAndSettle();
         expect(scroll.offset, closeTo(500, .1));
+        final wideMiniRect = tester.getRect(miniSurface);
+        expect(wideMiniRect.width, 616);
+        expect(wideMiniRect.center.dx, 700);
         expect(find.text('Test song'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
@@ -223,15 +220,9 @@ void main() {
           matching: find.byType(AppSkinSurface),
         );
         final before = tester.getRect(surface);
-        if (style == AppUiStyle.material) {
-          expect(before.left, 0);
-          expect(before.right, 390);
-          expect(before.bottom, 844);
-        } else {
-          expect(before.left, 30);
-          expect(before.right, 354);
-          expect(before.bottom, 812);
-        }
+        expect(before.left, 30);
+        expect(before.right, 354);
+        expect(before.bottom, 812);
         tester.view.padding = const FakeViewPadding(left: 18, right: 24);
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.pumpAndSettle();

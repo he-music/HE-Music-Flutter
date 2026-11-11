@@ -14,7 +14,6 @@ import '../../../../shared/widgets/music_detail_slivers.dart';
 import '../../../../shared/widgets/song_list_item.dart';
 import '../../domain/entities/local_song.dart';
 import '../providers/local_library_providers.dart';
-import '../widgets/artwork_enricher.dart';
 
 /// 本地专辑详情页
 ///
@@ -41,107 +40,90 @@ class LocalAlbumDetailPage extends ConsumerWidget {
           localeCode: config.localeCode,
           emptyText: AppI18n.t(config, 'local.empty.album'),
           builder: (context, songs) {
-            return ArtworkEnricher(
-              songs: songs,
-              builder: (context, songs) {
-                final artistNames = songs
-                    .map((s) => s.artist)
-                    .where((a) => a.isNotEmpty)
-                    .toSet();
-                final totalDuration = songs.fold<int>(
-                  0,
-                  (sum, s) => sum + s.duration.inMilliseconds,
-                );
-                final durationText = _formatDuration(totalDuration);
-                final year = songs
-                    .firstWhere(
-                      (s) => s.year != null,
-                      orElse: () => songs.first,
-                    )
-                    .year;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    // 顶部专辑信息
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            albumName,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            artistNames.join(' / '),
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            [
-                              if (year != null) '$year',
-                              '${songs.length} 首',
-                              durationText,
-                            ].join(' · '),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
+            final artistNames = songs
+                .map((s) => s.artist)
+                .where((a) => a.isNotEmpty)
+                .toSet();
+            final totalDuration = songs.fold<int>(
+              0,
+              (sum, s) => sum + s.duration.inMilliseconds,
+            );
+            final durationText = _formatDuration(totalDuration);
+            final year = songs
+                .firstWhere((s) => s.year != null, orElse: () => songs.first)
+                .year;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // 顶部专辑信息
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        albumName,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
-                    ),
-                    MusicDetailPlayAllHeaderBox(
-                      countText: AppI18n.format(
-                        config,
-                        'detail.play_all_count',
-                        {'count': '${songs.length}'},
+                      const SizedBox(height: 4),
+                      Text(
+                        artistNames.join(' / '),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                      onPlayAll: () => _playAll(ref, songs),
-                    ),
-                    // 曲目列表
-                    Expanded(
-                      child: SongListComponent(
-                        itemCount: songs.length,
-                        enablePaging: false,
-                        itemBuilder: (context, index) {
-                          final song = songs[index];
-                          final trackNum = song.trackNumber;
-                          return LocalSongListItem(
-                            song: song,
-                            data: SongListItemData(
-                              title: song.title,
-                              artistAlbumText: '${song.artist} - ${song.album}',
-                              subtitleText: trackNum != null
-                                  ? '$trackNum. ${song.title}'
-                                  : song.filePath,
-                              coverBytes: song.artworkBytes,
-                              tags: <String>[
-                                AppI18n.tByLocaleCode(
-                                  config.localeCode,
-                                  'local.tag.local',
-                                ),
-                                if (song.formatLabel.isNotEmpty)
-                                  song.formatLabel,
-                              ],
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          if (year != null) '$year',
+                          '${songs.length} 首',
+                          durationText,
+                        ].join(' · '),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                MusicDetailPlayAllHeaderBox(
+                  countText: AppI18n.format(config, 'detail.play_all_count', {
+                    'count': '${songs.length}',
+                  }),
+                  onPlayAll: () => _playAll(ref, songs),
+                ),
+                // 曲目列表
+                Expanded(
+                  child: SongListComponent(
+                    itemCount: songs.length,
+                    enablePaging: false,
+                    itemBuilder: (context, index) {
+                      final song = songs[index];
+                      final trackNum = song.trackNumber;
+                      return LocalSongListItem(
+                        song: song,
+                        data: SongListItemData(
+                          title: song.title,
+                          artistAlbumText: '${song.artist} - ${song.album}',
+                          subtitleText: trackNum != null
+                              ? '$trackNum. ${song.title}'
+                              : song.filePath,
+                          coverBytes: song.artworkBytes,
+                          tags: <String>[
+                            AppI18n.tByLocaleCode(
+                              config.localeCode,
+                              'local.tag.local',
                             ),
-                            onTap: () => _playSong(ref, songs, index),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
+                            if (song.formatLabel.isNotEmpty) song.formatLabel,
+                          ],
+                        ),
+                        onTap: () => _playSong(ref, songs, index),
+                      );
+                    },
+                  ),
+                ),
+              ],
             );
           },
         ),

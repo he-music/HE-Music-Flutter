@@ -12,7 +12,6 @@ import '../../../../shared/widgets/song_list_component.dart';
 import '../../../../shared/widgets/song_list_item.dart';
 import '../../domain/entities/local_song.dart';
 import '../providers/local_library_providers.dart';
-import '../widgets/artwork_enricher.dart';
 
 /// 本地流派详情页
 ///
@@ -37,54 +36,49 @@ class GenrePage extends ConsumerWidget {
         localeCode: config.localeCode,
         emptyText: AppI18n.t(config, 'local.empty.genre'),
         builder: (context, genreSongs) {
-          return ArtworkEnricher(
-            songs: genreSongs,
-            builder: (context, genreSongs) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Text(
-                      AppI18n.formatByLocaleCode(
-                        config.localeCode,
-                        'local.group.genre_subtitle',
-                        {'songs': '${genreSongs.length}'},
-                      ),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Text(
+                  AppI18n.formatByLocaleCode(
+                    config.localeCode,
+                    'local.group.genre_subtitle',
+                    {'songs': '${genreSongs.length}'},
                   ),
-                  Expanded(
-                    child: SongListComponent(
-                      itemCount: genreSongs.length,
-                      enablePaging: false,
-                      itemBuilder: (context, index) {
-                        final song = genreSongs[index];
-                        return LocalSongListItem(
-                          song: song,
-                          data: SongListItemData(
-                            title: song.title,
-                            artistAlbumText: '${song.artist} - ${song.album}',
-                            subtitleText: song.filePath,
-                            coverBytes: song.artworkBytes,
-                            tags: <String>[
-                              AppI18n.tByLocaleCode(
-                                config.localeCode,
-                                'local.tag.local',
-                              ),
-                              if (song.formatLabel.isNotEmpty) song.formatLabel,
-                            ],
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SongListComponent(
+                  itemCount: genreSongs.length,
+                  enablePaging: false,
+                  itemBuilder: (context, index) {
+                    final song = genreSongs[index];
+                    return LocalSongListItem(
+                      song: song,
+                      data: SongListItemData(
+                        title: song.title,
+                        artistAlbumText: '${song.artist} - ${song.album}',
+                        subtitleText: song.filePath,
+                        coverBytes: song.artworkBytes,
+                        tags: <String>[
+                          AppI18n.tByLocaleCode(
+                            config.localeCode,
+                            'local.tag.local',
                           ),
-                          onTap: () => _playSong(ref, genreSongs, index),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
+                          if (song.formatLabel.isNotEmpty) song.formatLabel,
+                        ],
+                      ),
+                      onTap: () => _playSong(ref, genreSongs, index),
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),

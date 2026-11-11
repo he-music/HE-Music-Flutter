@@ -18,6 +18,12 @@ import 'package:he_music_flutter/app/router/app_routes.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
+import 'package:he_music_flutter/features/home/domain/entities/recommend_song_list_info.dart';
+import 'package:he_music_flutter/features/home/domain/entities/recommend_song_list_request.dart';
+import 'package:he_music_flutter/features/home/domain/entities/recommend_song_list_state.dart';
+import 'package:he_music_flutter/features/home/presentation/controllers/recommend_song_list_controller.dart';
+import 'package:he_music_flutter/features/player/presentation/widgets/mini_player_bar.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_surface.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_page_section.dart';
 import 'package:he_music_flutter/features/home/domain/entities/home_page_state.dart';
 import 'package:he_music_flutter/features/home/presentation/controllers/home_page_controller.dart';
@@ -35,12 +41,81 @@ const _previewKey = ValueKey<String>('skin-preview-golden-root');
 const _previewFontFamily = 'PreviewRoboto';
 const _previewCjkFontFamily = 'PreviewCjk';
 const _previewFontFallback = <String>[_previewCjkFontFamily];
+const _previewCjkFontPath = String.fromEnvironment(
+  'MINI_PLAYER_PREVIEW_CJK_FONT',
+  defaultValue: 'test/assets/fonts/DroidSansFallback-PreviewSubset.ttf',
+);
 final _previewHomePageFeatures =
     PlatformFeatureSupportFlag.getRecommendPage |
     PlatformFeatureSupportFlag.getDiscoverPage;
 
 // 预览基准图在 macOS 生成；Linux 渲染存在稳定像素差异，不做逐像素比较。
 void main() {
+  const miniPlayerPreviewDirectory = String.fromEnvironment(
+    'MINI_PLAYER_PREVIEW_DIR',
+  );
+  testWidgets(
+    'export floating mini player previews',
+    (tester) async {
+      await tester.runAsync(_loadPreviewFonts);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+      addTearDown(tester.view.reset);
+      for (final skinId in [
+        AppSkinRegistry.classicId,
+        AppSkinRegistry.starlitMelodyId,
+      ]) {
+        for (final style in AppUiStyle.values) {
+          for (final brightness in Brightness.values) {
+            final router = createAppRouter(AppRoutes.home);
+            await tester.pumpWidget(
+              _buildPreviewApp(router, brightness, skinId, uiStyle: style),
+            );
+            await tester.pumpAndSettle();
+            if (skinId != AppSkinRegistry.classicId) {
+              await _pumpUntilWallpaperDecoded(tester);
+            }
+            for (final page in ['home', 'detail']) {
+              if (page == 'detail') {
+                router.push(
+                  '${AppRoutes.recommendSongList}?id=preview&platform=platform-1',
+                );
+                await tester.pumpAndSettle();
+              }
+              final surface = find.descendant(
+                of: find.byType(MiniPlayerBar),
+                matching: find.byType(AppSkinSurface),
+              );
+              final rect = tester.getRect(surface);
+              expect(rect.left, 12);
+              expect(rect.right, 378);
+              final navigation = find.byType(
+                style == AppUiStyle.material ? NavigationBar : CupertinoTabBar,
+              );
+              if (page == 'detail' && style == AppUiStyle.material) {
+                expect(navigation, findsNothing);
+                expect(rect.bottom, 812);
+              } else {
+                expect(navigation, findsOneWidget);
+                expect(rect.bottom, tester.getTopLeft(navigation).dy - 8);
+              }
+              expect(tester.takeException(), isNull);
+              await _saveCupertinoPreview(
+                tester,
+                '$skinId-${style.name}-${brightness.name}-$page',
+                directory: miniPlayerPreviewDirectory,
+              );
+            }
+            await tester.pumpWidget(const SizedBox.shrink());
+            router.dispose();
+          }
+        }
+      }
+    },
+    skip: miniPlayerPreviewDirectory.isEmpty,
+  );
   testWidgets(
     'wide home keeps bottom navigation and full width music',
     (tester) async {
@@ -217,7 +292,11 @@ void main() {
   }
 }
 
-Future<void> _saveCupertinoPreview(WidgetTester tester, String name) async {
+Future<void> _saveCupertinoPreview(
+  WidgetTester tester,
+  String name, {
+  String? directory,
+}) async {
   final boundary = tester.renderObject<RenderRepaintBoundary>(
     find.byKey(_previewKey),
   );
@@ -226,7 +305,7 @@ Future<void> _saveCupertinoPreview(WidgetTester tester, String name) async {
     try {
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
       final file = File(
-        '${Directory.systemTemp.path}/he-music-cupertino-skin-previews/$name.png',
+        '${directory ?? '${Directory.systemTemp.path}/he-music-cupertino-skin-previews'}/$name.png',
       );
       await file.parent.create(recursive: true);
       await file.writeAsBytes(bytes!.buffer.asUint8List());
@@ -341,6 +420,9 @@ Widget _buildPreviewApp(
       appRouterProvider.overrideWithValue(router),
       playerControllerProvider.overrideWith(_PreviewPlayerController.new),
       homePageControllerProvider.overrideWith(_PreviewHomePageController.new),
+      recommendSongListControllerProvider.overrideWith2(
+        (_) => _PreviewRecommendSongListController(),
+      ),
       onlinePlatformsProvider.overrideWith(
         _PreviewOnlinePlatformsController.new,
       ),
@@ -379,9 +461,7 @@ Future<void> _loadPreviewFonts() async {
     ..addFont(_fontData('test/assets/fonts/Roboto-Medium.ttf'))
     ..addFont(_fontData('test/assets/fonts/Roboto-Bold.ttf'));
   final cjkLoader = FontLoader(_previewCjkFontFamily)
-    ..addFont(
-      _fontData('test/assets/fonts/DroidSansFallback-PreviewSubset.ttf'),
-    );
+    ..addFont(_fontData(_previewCjkFontPath));
   final iconLoader = FontLoader('MaterialIcons')
     ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
   await Future.wait(<Future<void>>[
@@ -449,6 +529,27 @@ class _PreviewPlayerController extends PlayerController {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _PreviewRecommendSongListController extends RecommendSongListController {
+  @override
+  RecommendSongListState build() => RecommendSongListState(
+    loading: false,
+    info: RecommendSongListInfo(
+      id: 'preview',
+      title: '新歌速递',
+      cover: '',
+      description: '城市回声',
+      songs: [
+        _song('track-1', '城市回声', '林诺', '信号房间'),
+        _song('track-2', '玻璃天台', '周河', '城市碎片'),
+        _song('track-3', '低频大厅', '森', '凌晨之后'),
+      ],
+    ),
+  );
+
+  @override
+  Future<void> initialize(RecommendSongListRequest request) async {}
 }
 
 class _PreviewHomePageController extends HomePageController {

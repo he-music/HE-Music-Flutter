@@ -16,7 +16,13 @@ Future<List<Color>> colorsFromImageProvider(
   Size decodeSize = const Size(96, 96),
   bool prioritizeSaturation = true,
 }) async {
-  if (imageProvider == null) return const <Color>[];
+  if (imageProvider == null ||
+      !decodeSize.isFinite ||
+      decodeSize.width < 1 ||
+      decodeSize.height < 1 ||
+      maxColors < 1) {
+    return const <Color>[];
+  }
   final cacheKey = _ImageColorCacheKey(
     provider: imageProvider,
     maxColors: maxColors,
@@ -59,33 +65,41 @@ Future<List<Color>> _extractColors(
   required bool prioritizeSaturation,
 }) async {
   try {
-    final imageStream = imageProvider.resolve(ImageConfiguration.empty);
-    final completer = Completer<ui.Image>();
+    final imageStream = ResizeImage(
+      imageProvider,
+      width: decodeSize.width.toInt(),
+      height: decodeSize.height.toInt(),
+      policy: ResizeImagePolicy.fit,
+    ).resolve(ImageConfiguration.empty);
+    final completer = Completer<ImageInfo>();
     late ImageStreamListener listener;
     listener = ImageStreamListener(
       (info, _) {
-        if (!completer.isCompleted) completer.complete(info.image);
+        if (!completer.isCompleted) {
+          completer.complete(info);
+        } else {
+          info.dispose();
+        }
       },
       onError: (error, _) {
         if (!completer.isCompleted) completer.completeError(error);
       },
     );
     imageStream.addListener(listener);
-    late final ui.Image rawImage;
+    late final ImageInfo imageInfo;
     try {
-      rawImage = await completer.future;
+      imageInfo = await completer.future;
     } finally {
       imageStream.removeListener(listener);
     }
 
-    ui.Image? resized;
     ByteData? byteData;
     try {
-      resized = await _decodeImageSized(rawImage, decodeSize);
-      byteData = await resized.toByteData(format: ui.ImageByteFormat.rawRgba);
+      byteData = await imageInfo.image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
     } finally {
-      rawImage.dispose();
-      resized?.dispose();
+      imageInfo.dispose();
     }
     if (byteData == null) return const <Color>[];
 
@@ -139,21 +153,6 @@ class _ImageColorCacheKey {
     decodeWidth,
     decodeHeight,
     prioritizeSaturation,
-  );
-}
-
-Future<ui.Image> _decodeImageSized(ui.Image source, Size targetSize) {
-  final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder);
-  canvas.drawImageRect(
-    source,
-    Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
-    Rect.fromLTWH(0, 0, targetSize.width, targetSize.height),
-    Paint()..filterQuality = FilterQuality.low,
-  );
-  return recorder.endRecording().toImage(
-    targetSize.width.toInt(),
-    targetSize.height.toInt(),
   );
 }
 

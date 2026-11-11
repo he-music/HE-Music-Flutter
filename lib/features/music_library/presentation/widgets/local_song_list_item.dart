@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/widgets/song_list_item.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/local_song.dart';
+import '../providers/local_song_artwork_provider.dart';
 
 /// Observe only whether this file is playing; playback ticks do not rebuild rows.
 class LocalSongListItem extends ConsumerWidget {
@@ -33,8 +34,14 @@ class LocalSongListItem extends ConsumerWidget {
         (state) => state.displayTrack?.path == song.filePath,
       ),
     );
+    final suppliedBytes = data.coverBytes ?? song.artworkBytes;
+    final artworkBytes =
+        suppliedBytes ??
+        (song.hasArtwork && (data.coverUrl?.trim().isEmpty ?? true)
+            ? ref.watch(localSongArtworkProvider(song.filePath)).value
+            : null);
     return SongListItem(
-      data: data.copyWith(isCurrent: isCurrent),
+      data: data.copyWith(isCurrent: isCurrent, coverBytes: artworkBytes),
       selectable: selectable,
       selected: selected,
       onTap: onTap,

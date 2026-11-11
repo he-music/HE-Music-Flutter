@@ -10,6 +10,7 @@ import '../../../app/router/app_routes.dart';
 import '../../../app/theme/app_ui_theme.dart';
 import '../../../app/theme/skin/app_skin_icon.dart';
 import '../../../app/theme/skin/app_skin_models.dart';
+import '../constants/layout_tokens.dart';
 import '../../../features/player/presentation/widgets/mini_player_bar.dart';
 import 'app_bottom_navigation_bar.dart';
 import 'app_content_width.dart';
@@ -119,6 +120,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     return AppPlayerScaffold(
       body: AppContentWidth(child: widget.child ?? navigationShell!),
       miniPlayer: AppContentWidth(
+        maxWidth: LayoutTokens.miniPlayerMaxWidth,
         child: MiniPlayerBar(
           bottomSafeArea: !showNavigation,
           onOpenFullPlayer: () => openFullPlayer(context),
@@ -135,6 +137,12 @@ class _NavigationIcon extends StatelessWidget {
   final AppSkinIconRole role;
 
   @override
-  Widget build(BuildContext context) =>
-      SizedBox(width: 30, height: 32, child: AppSkinIcon(role: role));
+  Widget build(BuildContext context) {
+    final usesCupertino = AppUiTheme.usesCupertino(context);
+    return SizedBox(
+      width: usesCupertino ? 30 : 24,
+      height: usesCupertino ? 32 : 24,
+      child: AppSkinIcon(role: role),
+    );
+  }
 }

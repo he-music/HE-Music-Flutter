@@ -277,6 +277,7 @@ abstract final class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
+        height: 64,
         backgroundColor: colors.navigationBackground,
         indicatorColor: colors.navigationIndicator,
         elevation: 0,
@@ -289,7 +290,7 @@ abstract final class AppTheme {
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            size: selected ? 26 : 22,
+            size: 24,
             color: selected
                 ? colorScheme.onPrimaryContainer
                 : colorScheme.onSurfaceVariant,

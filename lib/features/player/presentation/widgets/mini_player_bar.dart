@@ -12,7 +12,6 @@ import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
-import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../domain/entities/player_play_mode.dart';
@@ -35,7 +34,7 @@ class MiniPlayerBar extends ConsumerStatefulWidget {
     final title = textTheme.titleSmall;
     final artist = textTheme.bodySmall;
     return math.max(
-      52,
+      60,
       scaler.scale(title?.fontSize ?? 14) * (title?.height ?? 1.5) +
           scaler.scale(artist?.fontSize ?? 12) * (artist?.height ?? 1.5) +
           12,
@@ -201,95 +200,73 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
           .where((image) => image != currentArtwork)
           .toList(growable: false),
     );
-    final usesCupertino = AppUiTheme.usesCupertino(context);
-    final bar = LayoutBuilder(
-      builder: (context, constraints) {
-        return Padding(
-          padding: usesCupertino
-              ? const EdgeInsets.fromLTRB(12, 8, 12, 8)
-              : EdgeInsets.zero,
-          child: AppSkinSurface(
-            role: AppSkinSurfaceRole.miniPlayer,
-            showDecoration: false,
-            borderRadius: usesCupertino
-                ? BorderRadius.circular(16)
-                : const BorderRadius.vertical(top: Radius.circular(12)),
-            child: SizedBox(
-              height:
-                  MiniPlayerBar.heightFor(context) +
-                  (widget.bottomSafeArea && !usesCupertino
-                      ? MediaQuery.viewPaddingOf(context).bottom
-                      : 0),
-              child: SafeArea(
-                top: false,
-                bottom: widget.bottomSafeArea && !usesCupertino,
-                maintainBottomViewPadding: true,
-                child: Row(
-                  children: <Widget>[
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: widget.onOpenFullPlayer,
-                      child: SizedBox.square(
-                        dimension: miniPlayerArtworkSize,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
-                          switchInCurve: Curves.easeOut,
-                          switchOutCurve: Curves.easeIn,
-                          child: _CoverImage(
-                            key: ValueKey<Object>(_coverKeyForTrack(track)),
-                            url: track.artworkUrl,
-                            bytes: track.artworkBytes,
-                          ),
-                        ),
-                      ),
+    final bar = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AppSkinSurface(
+        role: AppSkinSurfaceRole.miniPlayer,
+        showDecoration: false,
+        borderRadius: BorderRadius.circular(16),
+        child: SizedBox(
+          height: MiniPlayerBar.heightFor(context),
+          child: Row(
+            children: <Widget>[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: widget.onOpenFullPlayer,
+                child: SizedBox.square(
+                  dimension: miniPlayerArtworkSize,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: _CoverImage(
+                      key: ValueKey<Object>(_coverKeyForTrack(track)),
+                      url: track.artworkUrl,
+                      bytes: track.artworkBytes,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _TrackPageView(
-                        track: track,
-                        queue: player.queue,
-                        currentIndex: player.currentIndex,
-                        previousTrack: previousTrack,
-                        nextTrack: nextTrack,
-                        usesLinearOrder:
-                            player.playMode != PlayerPlayMode.shuffle,
-                        isRadioMode: player.isRadioMode,
-                        onTap: widget.onOpenFullPlayer,
-                        onPrevious: controller.playPrevious,
-                        onNext: controller.playNext,
-                      ),
-                    ),
-                    AppIconButton(
-                      onPressed: controller.togglePlayPause,
-                      icon: AppSkinIcon(
-                        role: player.isPlaying
-                            ? AppSkinIconRole.miniPlayerPause
-                            : AppSkinIconRole.miniPlayerPlay,
-                      ),
-                      tooltip: AppI18n.tByLocaleCode(
-                        localeCode,
-                        player.isPlaying ? 'player.pause' : 'player.play',
-                      ),
-                    ),
-                    if (!player.isRadioMode)
-                      AppIconButton(
-                        onPressed: () => _openQueueSheet(context),
-                        icon: const AppSkinIcon(
-                          role: AppSkinIconRole.miniPlayerQueue,
-                        ),
-                        tooltip: AppI18n.tByLocaleCode(
-                          localeCode,
-                          'player.queue',
-                        ),
-                      ),
-                    const SizedBox(width: 2),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _TrackPageView(
+                  track: track,
+                  queue: player.queue,
+                  currentIndex: player.currentIndex,
+                  previousTrack: previousTrack,
+                  nextTrack: nextTrack,
+                  usesLinearOrder: player.playMode != PlayerPlayMode.shuffle,
+                  isRadioMode: player.isRadioMode,
+                  onTap: widget.onOpenFullPlayer,
+                  onPrevious: controller.playPrevious,
+                  onNext: controller.playNext,
+                ),
+              ),
+              AppIconButton(
+                onPressed: controller.togglePlayPause,
+                icon: AppSkinIcon(
+                  role: player.isPlaying
+                      ? AppSkinIconRole.miniPlayerPause
+                      : AppSkinIconRole.miniPlayerPlay,
+                ),
+                tooltip: AppI18n.tByLocaleCode(
+                  localeCode,
+                  player.isPlaying ? 'player.pause' : 'player.play',
+                ),
+              ),
+              if (!player.isRadioMode)
+                AppIconButton(
+                  onPressed: () => _openQueueSheet(context),
+                  icon: const AppSkinIcon(
+                    role: AppSkinIconRole.miniPlayerQueue,
+                  ),
+                  tooltip: AppI18n.tByLocaleCode(localeCode, 'player.queue'),
+                ),
+              const SizedBox(width: 4),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
     return Listener(
       onPointerDown: (_) {
@@ -316,9 +293,12 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar> {
           }
           return false;
         },
-        child: widget.bottomSafeArea && usesCupertino
-            ? SafeArea(top: false, maintainBottomViewPadding: true, child: bar)
-            : bar,
+        child: SafeArea(
+          top: false,
+          bottom: widget.bottomSafeArea,
+          maintainBottomViewPadding: true,
+          child: bar,
+        ),
       ),
     );
   }

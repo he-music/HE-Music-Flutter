@@ -58,19 +58,20 @@ class SongListItemData {
     );
   }
 
-  SongListItemData copyWith({bool? isCurrent}) => SongListItemData(
-    title: title,
-    artistAlbumText: artistAlbumText,
-    subtitleText: subtitleText,
-    titleSpans: titleSpans,
-    artistAlbumSpans: artistAlbumSpans,
-    subtitleSpans: subtitleSpans,
-    coverUrl: coverUrl,
-    coverBytes: coverBytes,
-    tags: tags,
-    isCurrent: isCurrent ?? this.isCurrent,
-    showMoreVersionButton: showMoreVersionButton,
-  );
+  SongListItemData copyWith({bool? isCurrent, Uint8List? coverBytes}) =>
+      SongListItemData(
+        title: title,
+        artistAlbumText: artistAlbumText,
+        subtitleText: subtitleText,
+        titleSpans: titleSpans,
+        artistAlbumSpans: artistAlbumSpans,
+        subtitleSpans: subtitleSpans,
+        coverUrl: coverUrl,
+        coverBytes: coverBytes ?? this.coverBytes,
+        tags: tags,
+        isCurrent: isCurrent ?? this.isCurrent,
+        showMoreVersionButton: showMoreVersionButton,
+      );
 
   final String title;
   final String artistAlbumText;

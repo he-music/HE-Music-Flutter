@@ -124,7 +124,7 @@ The replacement dark derivative was inspected at full frame and local detail on 
 - Generator: `make skin-previews`, which runs `flutter test --update-goldens test/app/theme/skin_preview_golden_test.dart`.
 - Render contract: actual `MaterialApp.router`, `AppTheme`, `AppSkinBackgroundLayer`, home route, recommend/discover tabs, recommend song list, mini player, bottom navigation, production wallpapers, and production SVG catalog at a fixed `360x640` logical-pixel viewport.
 - Data contract: deterministic Riverpod overrides provide fixed Chinese UI content; no image model redraws or synthesizes application text.
-- UI revision: Material uses Discover / Library / My navigation with its selection indicator, an adjoining opaque playback bar, and compact recommendation / browse TabBar and secondary platform FilterChips; wallpaper, SVG and Rive assets retain their recorded provenance.
+- UI revision: Material uses Discover / Library / My navigation with a 64 px content height, 24 px icons, and its selection indicator, an independent opaque mini player card with 12 px horizontal margins, 8 px vertical margins, 16 px corner radius and 60 px minimum height, and compact recommendation / browse TabBar and secondary platform FilterChips; wallpaper, SVG and Rive assets retain their recorded provenance.
 - Test fonts: Roboto Regular, Medium, and Bold plus a 14 KB Chinese glyph subset derived from Android Open Source Project's Droid Sans Fallback, all under Apache License 2.0. The files, subset glyph manifest, provenance, and license are retained under `test/assets/fonts/` and are not declared as runtime assets.
 - Material fallback icons: loaded from the Material Icons font already declared by Flutter's `uses-material-design` contract.
 - Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
@@ -135,13 +135,13 @@ The replacement dark derivative was inspected at full frame and local detail on 
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `1c030654fc70acec34c9d0f8fa25f2babb5f0d1c072b7908b0fcd6e7b94ce203`.
+- SHA-256: `111406ba77443cefbdec7e354ce691602e813d452c04bf8c11811867bfcc1a13`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `34e4769cec9d99f1b06be96d3fce968635efbc1499e569d530595f307daa9380`.
+- SHA-256: `510f802849e3041a642088a89885ef6125b162d4782ddd917cf61d4ce5781fb6`.
 
 ## Rive ambient animation
 

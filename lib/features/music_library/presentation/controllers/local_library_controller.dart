@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -85,7 +84,6 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
   StreamSubscription<List<ArtistGroup>>? _artistSubscription;
   StreamSubscription<List<AlbumGroup>>? _albumSubscription;
   StreamSubscription<List<GenreGroup>>? _genreSubscription;
-  int _artworkLoadGeneration = 0;
   int _songWatchGeneration = 0;
   int _visibleSongLimit = songPageSize;
   Future<void>? _scanOperation;
@@ -262,7 +260,6 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
             loadingMore = false;
             loadMoreErrorMessage = null;
             state = AsyncData(visibleSongs);
-            _loadArtworkForSongs(visibleSongs);
           },
           onError: (Object error, StackTrace stackTrace) {
             if (generation != _songWatchGeneration) return;
@@ -281,78 +278,6 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
         );
   }
 
-  /// 从磁盘缓存加载封面字节，回填到歌曲列表
-  Future<void> _loadArtworkForSongs(List<LocalSong> songs) async {
-    final generation = ++_artworkLoadGeneration;
-
-    // 筛选需要加载封面的歌曲
-    final toLoad = songs
-        .where((s) => s.hasArtwork && s.artworkBytes == null)
-        .toList();
-    if (toLoad.isEmpty) return;
-    final extractor = ref.read(localArtworkExtractorProvider);
-
-    // 保留当前 state 中已加载的 artworkBytes，避免被 DB 流数据覆盖
-    final currentArtwork = <String, Uint8List>{};
-    if (state.hasValue) {
-      for (final s in state.value!) {
-        if (s.artworkBytes != null) currentArtwork[s.id] = s.artworkBytes!;
-      }
-    }
-    final enriched = List<LocalSong>.from(
-      songs.map(
-        (s) => currentArtwork.containsKey(s.id)
-            ? s.copyWith(artworkBytes: currentArtwork[s.id])
-            : s,
-      ),
-    );
-    var changed = false;
-    var running = 0;
-    var index = 0;
-    final completer = Completer<void>();
-
-    void processNext() {
-      while (running < 3 && index < toLoad.length) {
-        if (generation != _artworkLoadGeneration) {
-          if (!completer.isCompleted) completer.complete();
-          return;
-        }
-        final song = toLoad[index++];
-        running++;
-        extractor
-            .getArtworkBytes(song.filePath)
-            .then((bytes) {
-              if (bytes != null &&
-                  bytes.isNotEmpty &&
-                  generation == _artworkLoadGeneration) {
-                final idx = enriched.indexWhere((s) => s.id == song.id);
-                if (idx != -1) {
-                  enriched[idx] = song.copyWith(
-                    artworkBytes: Uint8List.fromList(bytes),
-                  );
-                  changed = true;
-                }
-              }
-            })
-            .catchError((_) {})
-            .whenComplete(() {
-              running--;
-              if (index >= toLoad.length && running == 0) {
-                if (!completer.isCompleted) completer.complete();
-              } else {
-                processNext();
-              }
-            });
-      }
-    }
-
-    processNext();
-    await completer.future;
-    if (changed && generation == _artworkLoadGeneration) {
-      state = AsyncData(enriched);
-    }
-  }
-
   Future<void> clearLibrary() async {
     await _scanOperation;
     if (!ref.mounted) return;
@@ -368,7 +293,6 @@ class LocalLibraryController extends AsyncNotifier<List<LocalSong>> {
     _genreSubscription?.cancel();
     // 使取消前已经排队的流回调失效，避免清空后旧快照又写回列表。
     _songWatchGeneration++;
-    _artworkLoadGeneration++;
     artistGroups = const [];
     albumGroups = const [];
     genreGroups = const [];

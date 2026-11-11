@@ -40,6 +40,7 @@ import '../helpers/local_song_share_action.dart';
 import '../helpers/local_song_playback_helper.dart';
 import '../widgets/local_song_list_item.dart';
 import '../providers/local_library_providers.dart';
+import '../providers/local_song_artwork_provider.dart';
 
 enum _LocalLibraryView { songs, artists, albums, genres, folders }
 
@@ -173,8 +174,10 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
               final player = ref.read(playerControllerProvider.notifier);
               selectionController.exitMultiSelect();
               try {
-                for (final song in songs) {
-                  await player.appendTrack(_toPlayerTrack(song));
+                final tracks = await localSongsToTracks(ref, songs);
+                if (!mounted) return;
+                for (final track in tracks) {
+                  await player.appendTrack(track);
                 }
               } catch (_) {
                 AppMessageService.showError(
@@ -259,7 +262,14 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     LocalSong song,
     String localeCode,
     WidgetRef ref,
-  ) {
+  ) async {
+    final artworkBytes =
+        song.artworkBytes ??
+        (song.hasArtwork
+            ? await ref.read(localSongArtworkProvider(song.filePath).future)
+            : null);
+    if (!context.mounted) return;
+    final track = _toPlayerTrack(song.copyWith(artworkBytes: artworkBytes));
     final player = ref.read(playerControllerProvider.notifier);
     Future<void> copy(String value, String key) async {
       await Clipboard.setData(ClipboardData(text: value));
@@ -271,7 +281,7 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     return showSongActionsSheet(
       context: context,
       coverUrl: null,
-      coverBytes: song.artworkBytes,
+      coverBytes: artworkBytes,
       title: song.title,
       subtitle: song.artist,
       duration: song.duration,
@@ -280,9 +290,8 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
       }),
       hasMv: false,
       onPlay: () => _playLocalSong(context, ref, [song], 0),
-      onPlayNext: () => unawaited(player.insertNextTrack(_toPlayerTrack(song))),
-      onAddToPlaylist: () =>
-          unawaited(player.appendTrack(_toPlayerTrack(song))),
+      onPlayNext: () => unawaited(player.insertNextTrack(track)),
+      onAddToPlaylist: () => unawaited(player.appendTrack(track)),
       onShareFile: () =>
           unawaited(_shareLocalSong(context, song, localeCode, ref)),
       onEditMetadata: () =>

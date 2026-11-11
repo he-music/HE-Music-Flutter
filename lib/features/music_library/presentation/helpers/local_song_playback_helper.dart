@@ -6,6 +6,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../player/domain/entities/player_track.dart';
 import '../../../player/presentation/providers/player_providers.dart';
 import '../../domain/entities/local_song.dart';
+import '../../data/datasources/local_artwork_extractor.dart';
 import '../providers/local_library_providers.dart';
 
 PlayerTrack localSongToTrack(LocalSong song, {String? artworkUrl}) =>
@@ -22,6 +23,25 @@ PlayerTrack localSongToTrack(LocalSong song, {String? artworkUrl}) =>
       sampleRate: song.sampleRate,
       platform: 'local',
     );
+
+/// Keep queued artwork on disk; decoding remains the responsibility of its viewer.
+Future<List<PlayerTrack>> localSongsToTracks(
+  WidgetRef ref,
+  List<LocalSong> songs,
+) async {
+  final directory = songs.any((song) => song.hasArtwork)
+      ? await ref.read(localArtworkExtractorProvider).artworkDir
+      : null;
+  return [
+    for (final song in songs)
+      localSongToTrack(
+        song,
+        artworkUrl: song.hasArtwork && directory != null
+            ? LocalArtworkExtractor.artworkPath(directory, song.filePath)
+            : null,
+      ),
+  ];
+}
 
 /// Single-song actions preserve the queue; batch actions play the full selection.
 Future<void> playLocalSongs(
@@ -41,7 +61,8 @@ Future<void> playLocalSongs(
     if (!ref.context.mounted) return;
     final track = localSongToTrack(song, artworkUrl: artwork?.path);
     if (replaceQueue) {
-      final tracks = songs.map(localSongToTrack).toList(growable: false);
+      final tracks = await localSongsToTracks(ref, songs);
+      if (!ref.context.mounted) return;
       tracks[startIndex] = track;
       await player.replaceQueue(tracks, startIndex: startIndex);
     } else {

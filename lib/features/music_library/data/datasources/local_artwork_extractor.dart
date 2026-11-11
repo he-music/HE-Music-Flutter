@@ -105,8 +105,9 @@ class LocalArtworkExtractor {
     try {
       final bytes = await _metadataReader.readArtwork(job.filePath);
       if (operation.isCancelled) return null;
-      final hash = sha256.convert(job.filePath.codeUnits).toString();
-      final artworkFile = File(p.join(artworkDir, '$hash.jpg'));
+      final artworkFile = File(
+        LocalArtworkExtractor.artworkPath(artworkDir, job.filePath),
+      );
       if (bytes == null || bytes.isEmpty) {
         if (await artworkFile.exists()) await artworkFile.delete();
         return LocalArtworkResult(job, LocalArtworkState.absent);
@@ -120,11 +121,16 @@ class LocalArtworkExtractor {
     }
   }
 
+  /// Resolve the cache location without reading the image or checking the file.
+  static String artworkPath(String directory, String filePath) {
+    final hash = sha256.convert(filePath.codeUnits).toString();
+    return p.join(directory, '$hash.jpg');
+  }
+
   /// 根据文件路径获取封面缓存文件
   Future<File?> getArtworkFile(String filePath) async {
-    final hash = sha256.convert(filePath.codeUnits).toString();
     final dir = await artworkDir;
-    final file = File(p.join(dir, '$hash.jpg'));
+    final file = File(artworkPath(dir, filePath));
     if (await file.exists()) {
       return file;
     }

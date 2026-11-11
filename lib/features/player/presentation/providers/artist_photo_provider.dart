@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/utils/in_flight_request_cache.dart';
 import '../../data/providers/artist_photo_providers.dart';
 
 export '../../data/providers/artist_photo_providers.dart';
@@ -36,6 +37,7 @@ class ArtistPhotoCacheEntry {
 class ArtistPhotoCache extends Notifier<ArtistPhotoCacheState> {
   /// 缓存有效期，超过此时间会重新请求。
   static const Duration _ttl = Duration(hours: 2);
+  final _requests = InFlightRequestCache<String, List<String>>();
 
   @override
   ArtistPhotoCacheState build() {
@@ -57,22 +59,24 @@ class ArtistPhotoCache extends Notifier<ArtistPhotoCacheState> {
       return cached.urls;
     }
 
-    final apiClient = ref.read(artistPhotoApiClientProvider);
-    final urls = await apiClient.listPhotos(
-      platform: platform,
-      ids: ids,
-      names: names,
-      isPortrait: isPortrait,
-    );
-
-    state = ArtistPhotoCacheState(
-      cache: <String, ArtistPhotoCacheEntry>{
-        ...state.cache,
-        key: ArtistPhotoCacheEntry(urls: urls, cachedAt: DateTime.now()),
-      },
-      currentIndices: state.currentIndices,
-    );
-    return urls;
+    return _requests.run(key, () async {
+      final apiClient = ref.read(artistPhotoApiClientProvider);
+      final urls = await apiClient.listPhotos(
+        platform: platform,
+        ids: ids,
+        names: names,
+        isPortrait: isPortrait,
+      );
+      if (!ref.mounted) return urls;
+      state = ArtistPhotoCacheState(
+        cache: <String, ArtistPhotoCacheEntry>{
+          ...state.cache,
+          key: ArtistPhotoCacheEntry(urls: urls, cachedAt: DateTime.now()),
+        },
+        currentIndices: state.currentIndices,
+      );
+      return urls;
+    });
   }
 
   /// 返回仍在有效期内的缓存写真；未命中或已过期时返回 null。

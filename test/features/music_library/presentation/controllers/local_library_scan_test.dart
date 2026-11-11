@@ -22,6 +22,7 @@ class _Repository implements LocalMusicRepository {
       duration: const Duration(minutes: 3),
       mimeType: 'audio/mpeg',
       size: 100,
+      hasArtwork: true,
     ),
   );
 
@@ -54,6 +55,14 @@ class _Repository implements LocalMusicRepository {
 class _Artwork implements LocalArtworkExtractor {
   final finished = Completer<int>();
   var cancellations = 0;
+  var reads = 0;
+
+  @override
+  Future<List<int>?> getArtworkBytes(String filePath) async {
+    reads++;
+    return [1, 2, 3];
+  }
+
   @override
   Future<void> cancelAndWait() async {
     cancellations++;
@@ -108,6 +117,7 @@ void main() {
       );
       expect(observedLengths, isNot(contains(120)));
       expect(artwork.finished.isCompleted, isFalse);
+      expect(artwork.reads, 0);
       await controller.loadMore();
       await _flush(container);
       expect(
@@ -115,6 +125,7 @@ void main() {
         hasLength(100),
       );
 
+      expect(artwork.reads, 0);
       artwork.finished.complete(1);
       await _flush(container);
       expect(
