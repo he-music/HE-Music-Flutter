@@ -177,6 +177,18 @@ void main() {
         ),
       );
       await _pumpUntilWallpaperDecoded(tester);
+      final riveFinder = find.byKey(const ValueKey('app-skin-rive-widget'));
+      for (
+        var attempt = 0;
+        attempt < 150 && riveFinder.evaluate().isEmpty;
+        attempt++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(riveFinder, findsOneWidget);
       for (var frame = 0; frame < 240; frame++) {
         await tester.pump(const Duration(microseconds: 33333));
         expect(tester.takeException(), isNull);

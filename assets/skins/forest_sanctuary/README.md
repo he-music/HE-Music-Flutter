@@ -1,73 +1,66 @@
 # 森林秘境 · Forest Sanctuary
 
-这是一套应用全局皮肤。视觉方向为原创手绘动画电影中的森林秘境：树冠形成入口、林间流雾延伸空间，近处枝叶和萤光建立景深。全屏播放器继续由独立的播放器配置控制。
+这是一套应用全局皮肤，视觉方向为原创手绘动画电影中的森林秘境。背景、主题配色、图标、控件材质及环境动画共同组成主题；全屏播放器继续使用独立的播放器配置。
 
-## 组成
+## 视觉组成
 
-- 日夜双场景：同一森林构图，白天为鼠尾草绿与奶油色散射光，夜间为翡翠、青蓝与暖萤光。
-- 远景：森林与溪流保持静止，放在独立 RepaintBoundary 中，不再整张移动或随环境帧重新绘制。
-- 中景：两层流雾以约 18 秒周期移动，稀疏萤光以约 9 秒周期明暗起伏，由原生 Canvas 绘制。
-- 近景：两侧枝叶使用路径绘制，摆动幅度与远景不同，保留前后层次。
-- 组件：纸色/苔绿控制表面、叶脉纹理、柔和圆角、森林配色和焦点反馈。关闭内容背景时，普通列表恢复透明；搜索框和固定控制保留独立材质。弹层保持不透明。
-- 图标：9 个原生 SVG 构成统一的植物线条语言，覆盖三个主导航入口及搜索、播放控制、队列、收藏等角色。角色仍保留经典图标回退。资料库入口已接入共享皮肤图标角色。
-- 首页直接展示搜索、来源与音乐内容，不显示固定开场文案；“在森林里，慢慢听”保留在皮肤介绍中。
-- MiniPlayer 不透明度为夜间 76%、日间 80%，底部 Tab 为夜间 54%、日间 58%，两者都保留现有磨砂模糊。
+- 日夜场景采用同一森林构图：白天为鼠尾草绿与奶油色散射光，夜间为翡翠、青蓝与暖萤光。森林和溪流远景保持静止。
+- 流雾、萤光及近景枝叶全部由 `ambient.riv` 承载，通过共享 `AppSkinRiveAnimation` 播放，与城市声场皮肤使用同一运行入口及 Flutter renderer。
+- 搜索框、播放条及内容表面采用纸色/苔绿、静态叶脉纹理和柔和圆角。静态叶脉仍由共享组件绘制，不创建动画时钟。
+- 关闭内容背景时，普通列表保持透明；搜索框、固定播放控制和底栏保留独立表面，弹层不透明。
+- MiniPlayer 不透明度为夜间 76%、日间 80%；底部 Tab 为夜间 54%、日间 58%。两者保留现有磨砂模糊。
+- 9 个项目原创 SVG 构成植物线条图标语言，覆盖主导航、搜索、播放、队列和收藏等角色；其余角色沿用现有回退。
+- 首页直接展示搜索、来源和音乐内容；“在森林里，慢慢听”保留在皮肤介绍中。
+- Material 与 Cupertino 保留各自 SDK 控件、导航及安全区规则；Cupertino 不新增装饰边框和阴影。
 
-Material 和 Cupertino 保留各自的 SDK 控件、导航与安全区约定。Cupertino 不新增装饰边框和阴影。
+## Rive 资源与制作
 
-## 动画边界与性能
+- 运行资源：`assets/skins/forest_sanctuary/ambient.riv`，38133 字节。
+- SHA-256：`511bc77cd91e395c50cb508385d52d02dce78a76ff5a92477cd46354e2d5a76e`。
+- 两个透明画板：`ForestDay` / `ForestNight`，均为 768×1024，与森林远景同比例。
+- 两个画板均使用 `AmbientLoop` 状态机，无输入；状态机自动进入 `forest_ambient` 循环。
+- 动画时间轴：36 秒、30 fps；流雾以约 18 秒周期移动，萤光以约 9 秒周期起伏，枝叶缓慢摆动。时间轴 fps 不代表运行时被限制为每秒绘制 30 次。
+- 只包含原创矢量形状、渐变及关键帧，不内嵌壁纸、字体、音频或外部文件。
+- 可重建源：`scripts/generate_forest_ambient.mjs`。
+- 制作工具：`rive-mcp-server` **0.3.0**，与城市声场资源记录使用同版本。其 Freeware License 允许个人/商业使用及无限制使用、修改、分发生成的 `.riv`；生成器自身及依赖不打入应用，也不纳入仓库。
+- 二进制 lint 无发现；官方 Rive Web 运行时检查了两个画板、时间轴和状态机，并导出多时刻透明帧。Flutter 集成测试实际加载并推进两个画板。
 
-森林环境使用约 30 Hz 的定时绘制时钟，36 秒为一个完整运动周期；不使用随屏幕 90/120 Hz 持续唤醒的动画 ticker。时钟只通知 `CustomPainter(repaint:)`，静态森林图片保持独立缓存，页面和图片不在每帧重新 build。不监听播放进度，也不创建页面级 Riverpod 监听。
+重建资源：
 
-- 应用内“皮肤动画”只暂停/继续森林环境时钟，静止时仍显示完整场景。
-- 系统“减少动画”优先，打开后暂停，关闭后恢复，不修改全局 MediaQuery。
-- `TickerMode` 禁用或应用退到后台时暂停；销毁组件时释放时钟与生命周期观察器。
-- 专项测试覆盖子组件不随动画重建、开关与系统偏好独立、实时减少动画切换、隐藏与后台暂停。
-- 组件测试不代表功耗、温升或真机帧率。用户反馈发热后，先限制环境绘制频率并取消整张远景位移；仍需在真机比较长时间运行时的温度与耗电。当前没有等效 Rive 素材和功耗对照，不因使用 Dart 或 Rive 就推断哪种更省电。
+```sh
+npm install --prefix .artifacts/rive-tools rive-mcp-server@0.3.0 --ignore-scripts --no-audit --no-fund
+node scripts/generate_forest_ambient.mjs
+```
 
-以下数据来自本轮限制绘制频率之前的版本，不能作为耗电或温升验证。在连接的 Android 设备 `24122RKC7C` 上使用独立包名做了 Profile 采样，渲染器为 Impeller Vulkan，屏幕报告约 120 Hz。测试复用实际场景、主题与磨砂表面，使用静态列表和控制条；每种状态先预热 3 秒，再采样约 6 秒，两轮反向排序。
+可用 `RIVE_GENERATOR_DIR` 指定生成器安装目录。不需要 Rive 云服务或图片生成调用。
 
-动效与磨砂同时开启时，两轮 UI 线程 P99 为 2.621–2.637 ms，raster 线程 P99 为 2.662–2.788 ms。该设备 120 Hz 对应的帧预算约 8.33 ms；这两轮共 1453 个采样帧中，有 3 帧的任一线程耗时超过预算。暂停场景时保留相同的 2×2 前景刷新探针，以维持可比较的帧提交。
+## 动画控制与验证边界
 
-这些数据仅反映这台设备的独立场景，不代表完整业务、滚动、播放或所有机型表现，也没有与等效 Rive 动画比较。raster 耗时不等同于完整 GPU 执行时长。原始指标与测试入口保留在本地 `.artifacts/forest-sanctuary/profile-summary.json` 和 `forest_profile/`；测试包已卸载。
+不再保留森林专用的 Dart Timer、AnimationController、Flow 或环境 CustomPainter。Rive 复用统一加载、控制器缓存与销毁逻辑：
 
-## 素材与成本
+- 应用内“皮肤动画”只控制环境动画，不修改页面收到的系统减少动画设置。
+- 系统“减少动画”、`TickerMode` 禁用或应用退到后台时停止 Rive 控制器；恢复后复用原控制器。
+- 关闭动画、资源失败或解码失败时，静态森林壁纸及主题继续正常显示。
+- Flutter 测试覆盖日夜实际资源、控制器复用、动画开关、系统减少动画、隐藏及后台恢复；旧城市声场 Rive 测试同时回归。
+- 之前原生绘制版的短时 Profile 不适用于本 Rive 版本，也不证明温升或耗电。当前真机已断开，Rive 版本的持续运行功耗与温升仍待真机实测。
 
-森林日夜远景由 Pi `image-gen` 插件一次生成双联图集，返回 provider `openai`、model `gpt-image-2.6`。没有为两张图分别发起生成，也没有逐个生成图标。
+## 背景素材与成本
 
-原始图集保存在本地 `.artifacts/forest-sanctuary/forest-world-day-night-atlas.png`，实际尺寸 1536×1024。按左右两等分裁切为 768×1024 的日、夜远景，去元数据后保存为 JPEG quality 92；原图集不进入 Flutter 运行包。图标、组件叶脉、近景枝叶、雾和萤光均由本地 SVG/代码制作，不增加生成调用。
+森林日夜远景由 Pi `image-gen` 插件一次生成双联图集，返回 provider `openai`、model `gpt-image-2.6`。原始图集为 1536×1024，保存在本地 `.artifacts/forest-sanctuary/forest-world-day-night-atlas.png`；按左右等分裁切为 768×1024 的日夜背景，去元数据后保存为 JPEG quality 92。原始图集不进入 Flutter 运行包。
 
-后续有位图装饰需求时，仍按固定网格整套生成和裁切，不采用逐个图标付费生成。功能性图标优先保持矢量和清晰的操作语义。
-
-生成提示的关键约束：原创手绘动画电影背景；双联图集左右为相同构图的清晨与夜晚；巨大苔藓树木只在边缘，中间保留雾气与远处树木；林间小径与浅溪流入空地；下方蕨类、树根与野花形成前景。禁止人物、建筑、文字、UI、图标和 Logo。完整提示保留在生成会话。
+图标、叶脉及 Rive 形状均由本地矢量/代码制作，没有逐个付费生图。后续位图装饰仍按固定网格整套生成与裁切，功能图标优先使用清晰的矢量轮廓。
 
 ## 真实界面预览
 
-更新皮肤选择页所用的真实首页预览：
+皮肤选择页缩略图由真实 Flutter 首页导出，常规 golden 使用仓库字体。导出用例日常跳过，显式选中并使用 `--run-skipped` 才会写入文件：
 
 ```sh
-flutter test --update-goldens test/app/theme/skin_preview_golden_test.dart \
-  --plain-name 'forest sanctuary previews match the real home scene'
+flutter test test/app/theme/skin_preview_golden_test.dart --run-skipped \
+  --plain-name 'export forest selection previews'
+flutter test test/app/theme/skin_preview_golden_test.dart --run-skipped \
+  --plain-name 'export immersive skin scenes'
+flutter test test/app/theme/skin_preview_golden_test.dart --run-skipped \
+  --plain-name 'export forest ambient motion'
 ```
 
-导出两种界面风格、日夜模式下的首页、歌单、设置及宽屏页面：
-
-```sh
-flutter test --no-pub test/app/theme/skin_preview_golden_test.dart \
-  --plain-name 'export immersive skin scenes' \
-  --dart-define=SKIN_SCENE_PREVIEW_DIR=.artifacts/forest-sanctuary/previews \
-  '--dart-define=MINI_PLAYER_PREVIEW_CJK_FONT=/System/Library/Fonts/STHeiti Light.ttc'
-```
-
-导出 240 帧、每帧间隔约 33.333ms（30fps，约 8 秒）的真实首页动画：
-
-```sh
-flutter test --no-pub test/app/theme/skin_preview_golden_test.dart \
-  --plain-name 'export forest ambient motion' \
-  --dart-define=FOREST_MOTION_PREVIEW_DIR=.artifacts/forest-sanctuary/motion \
-  '--dart-define=MINI_PLAYER_PREVIEW_CJK_FONT=/System/Library/Fonts/STHeiti Light.ttc'
-```
-
-上述导出用例在常规回归中默认跳过；显式选中用例并启用 `--run-skipped` 时，也可使用默认的 `.artifacts/forest-sanctuary/` 输出目录。`export forest selection previews` 用于单独更新森林皮肤的首页缩略图。显式页面导出在未指定字体时可使用本机可用的完整中文字库，常规 golden 始终使用仓库字体。
-
-字体路径可替换为当地可用的完整中文字体。预览使用固定测试数据；日常 golden 使用仓库字体，避免依赖系统中文字体。
+真实页面默认导出至 `.artifacts/forest-sanctuary/previews`；动态导出先等待 Rive 成功加载，再按 30 fps 采样 240 帧至 `.artifacts/forest-sanctuary/motion`，约 8 秒。显式预览可使用本机完整中文字库，或以 `MINI_PLAYER_PREVIEW_CJK_FONT` 指定。所有预览使用固定示例数据，不代表真机帧率。

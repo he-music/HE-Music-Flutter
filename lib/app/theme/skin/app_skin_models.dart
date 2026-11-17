@@ -135,25 +135,8 @@ sealed class AppSkinAnimationDescriptor {
     required double opacity,
   }) = AppSkinRiveAnimationDescriptor;
 
-  const factory AppSkinAnimationDescriptor.woodland() =
-      AppSkinWoodlandAnimationDescriptor;
-
   bool get supportsAnimation => this is! AppSkinNoAnimationDescriptor;
   bool get isValid;
-}
-
-final class AppSkinWoodlandAnimationDescriptor
-    extends AppSkinAnimationDescriptor {
-  const AppSkinWoodlandAnimationDescriptor();
-
-  @override
-  bool get isValid => true;
-
-  @override
-  bool operator ==(Object other) => other is AppSkinWoodlandAnimationDescriptor;
-
-  @override
-  int get hashCode => runtimeType.hashCode;
 }
 
 final class AppSkinNoAnimationDescriptor extends AppSkinAnimationDescriptor {

@@ -171,7 +171,17 @@ AppSkinBrightnessConfig _config(Brightness brightness) {
           type: AppSkinAssetType.rasterImage,
         ),
       ),
-      animation: const AppSkinAnimationDescriptor.woodland(),
+      animation: AppSkinAnimationDescriptor.rive(
+        asset: const AppSkinAssetDescriptor(
+          path: 'assets/skins/forest_sanctuary/ambient.riv',
+          type: AppSkinAssetType.rive,
+        ),
+        artboard: dark ? 'ForestNight' : 'ForestDay',
+        stateMachine: 'AmbientLoop',
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        opacity: dark ? 0.80 : 0.65,
+      ),
       fit: BoxFit.cover,
       alignment: Alignment.center,
       overlayColor: overlay,

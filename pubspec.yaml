@@ -156,6 +156,7 @@ flutter:
     - assets/skins/starlit_melody/preview_dark.png
     - assets/skins/forest_sanctuary/scene-0.jpg
     - assets/skins/forest_sanctuary/scene-1.jpg
+    - assets/skins/forest_sanctuary/ambient.riv
     - assets/skins/forest_sanctuary/icons/
     - assets/skins/forest_sanctuary/preview_light.png
     - assets/skins/forest_sanctuary/preview_dark.png

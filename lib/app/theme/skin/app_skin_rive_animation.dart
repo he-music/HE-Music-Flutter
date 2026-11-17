@@ -29,6 +29,7 @@ class _AppSkinRiveAnimationState extends State<AppSkinRiveAnimation>
   rive.File? _file;
   rive.RiveWidgetController? _controller;
   var _disableAnimations = false;
+  var _tickerEnabled = true;
   var _loadStarted = false;
   var _loadFailed = false;
   var _loadGeneration = 0;
@@ -36,6 +37,7 @@ class _AppSkinRiveAnimationState extends State<AppSkinRiveAnimation>
   bool get _shouldAnimate {
     return widget.enabled &&
         !_disableAnimations &&
+        _tickerEnabled &&
         _lifecycleState == AppLifecycleState.resumed;
   }
 
@@ -120,6 +122,7 @@ class _AppSkinRiveAnimationState extends State<AppSkinRiveAnimation>
   }
 
   void _refreshDisableAnimations() {
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
     final disableAnimations =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     if (_disableAnimations == disableAnimations) {

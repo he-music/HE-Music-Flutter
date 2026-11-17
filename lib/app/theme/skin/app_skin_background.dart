@@ -4,7 +4,6 @@ import 'app_skin_asset_resolver.dart';
 import 'app_skin_models.dart';
 import 'app_skin_rive_animation.dart';
 import 'app_skin_theme.dart';
-import 'app_skin_woodland_scene.dart';
 
 import '../app_ui_theme.dart';
 
@@ -107,14 +106,6 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
                       gaplessPlayback: true,
                       errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     );
-                    if (config.visualStyle == AppSkinVisualStyle.woodland) {
-                      return AppSkinWoodlandScene(
-                        enabled:
-                            widget.enableAnimation &&
-                            animation.supportsAnimation,
-                        child: wallpaper,
-                      );
-                    }
                     return wallpaper;
                   },
                 ),
