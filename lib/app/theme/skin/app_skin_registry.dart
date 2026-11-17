@@ -5,6 +5,7 @@ import '../../config/app_theme_accent.dart';
 import '../skins/city_sound_creator_skin.dart';
 import '../skins/classic_skin.dart';
 import '../skins/custom_image_skin.dart';
+import '../skins/forest_sanctuary_skin.dart';
 import '../skins/starlit_melody_skin.dart';
 import 'app_skin_models.dart';
 
@@ -17,6 +18,7 @@ class AppSkinRegistry {
       classicSkinForAccent(accent),
       citySoundCreatorSkin(),
       starlitMelodySkin(),
+      forestSanctuarySkin(),
     ]);
   }
 
@@ -28,6 +30,7 @@ class AppSkinRegistry {
       classicSkinForAccent(accent),
       citySoundCreatorSkin(),
       starlitMelodySkin(),
+      forestSanctuarySkin(),
       if (customSkin != null) customImageSkin(customSkin),
     ]);
   }
@@ -35,11 +38,13 @@ class AppSkinRegistry {
   static const String classicId = 'classic';
   static const String citySoundCreatorId = 'city_sound_creator';
   static const String starlitMelodyId = 'starlit_melody';
+  static const String forestSanctuaryId = 'forest_sanctuary';
   static const String customImageId = 'custom_image';
   static const Set<String> builtInIds = <String>{
     classicId,
     citySoundCreatorId,
     starlitMelodyId,
+    forestSanctuaryId,
   };
 
   final Map<String, AppSkinPackage> _skins;

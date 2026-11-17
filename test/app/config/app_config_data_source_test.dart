@@ -257,16 +257,16 @@ void main() {
     expect(classic.themeAccent, AppThemeAccent.amber);
   });
 
-  test('load preserves the starlit evaluation skin id', () async {
-    const dataSource = AppConfigDataSource();
-    await dataSource.save(
-      AppConfigState.initial.copyWith(skinId: AppSkinRegistry.starlitMelodyId),
-    );
+  for (final skinId in AppSkinRegistry.builtInIds) {
+    test('load preserves the $skinId skin id', () async {
+      const dataSource = AppConfigDataSource();
+      await dataSource.save(AppConfigState.initial.copyWith(skinId: skinId));
 
-    final state = await dataSource.load();
+      final state = await dataSource.load();
 
-    expect(state.skinId, AppSkinRegistry.starlitMelodyId);
-  });
+      expect(state.skinId, skinId);
+    });
+  }
 
   test(
     'custom skin config and id round trip without changing accent',

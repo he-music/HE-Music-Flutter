@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import 'app_skin_models.dart';
+import 'app_skin_woodland_surfaces.dart';
 import 'app_skin_theme.dart';
 
 import '../app_ui_theme.dart';
@@ -153,7 +155,18 @@ class AppSkinSurface extends StatelessWidget {
                 ),
               ],
       ),
-      child: child,
+      child: CustomPaint(
+        foregroundPainter:
+            config.visualStyle == AppSkinVisualStyle.woodland && opacity > 0
+            ? WoodlandSurfacePainter(
+                color: config.colorScheme.secondary,
+                compact:
+                    role != AppSkinSurfaceRole.scrollingContent &&
+                    role != AppSkinSurfaceRole.bottomSheet,
+              )
+            : null,
+        child: child,
+      ),
     );
     if (!isPlaybackSurface) {
       return ClipRRect(borderRadius: radius, child: content);

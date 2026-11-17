@@ -24,10 +24,15 @@ void main() {
   });
 
   test(
-    'controller switches skins without changing the manual accent',
+    'controller switches skins without changing the manual accent or player style',
     () async {
       final dataSource = _RecordingAppConfigDataSource(
-        AppConfigState.initial.copyWith(themeAccent: AppThemeAccent.rose),
+        AppConfigState.initial.copyWith(
+          themeAccent: AppThemeAccent.rose,
+          playerStageId: AppPlayerStageRegistry.vinylId,
+          playerBackdropId: AppPlayerBackdropRegistry.fluidId,
+          playerLyricsId: AppPlayerLyricsRegistry.cinemaId,
+        ),
       );
       final container = ProviderContainer(
         overrides: [appConfigDataSourceProvider.overrideWithValue(dataSource)],
@@ -36,18 +41,17 @@ void main() {
       final controller = container.read(appConfigProvider.notifier);
       await controller.waitUntilHydrated();
 
-      controller.setSkinId(AppSkinRegistry.citySoundCreatorId);
-      await Future<void>.delayed(Duration.zero);
-      expect(
-        container.read(appConfigProvider).skinId,
-        AppSkinRegistry.citySoundCreatorId,
-      );
-      controller.setSkinId(AppSkinRegistry.starlitMelodyId);
-      await Future<void>.delayed(Duration.zero);
-      expect(
-        container.read(appConfigProvider).skinId,
-        AppSkinRegistry.starlitMelodyId,
-      );
+      for (final skinId in AppSkinRegistry.builtInIds) {
+        controller.setSkinId(skinId);
+        await Future<void>.delayed(Duration.zero);
+        final config = container.read(appConfigProvider);
+        expect(config.skinId, skinId);
+        expect(config.themeAccent, AppThemeAccent.rose);
+        expect(config.playerStageId, AppPlayerStageRegistry.vinylId);
+        expect(config.playerBackdropId, AppPlayerBackdropRegistry.fluidId);
+        expect(config.playerLyricsId, AppPlayerLyricsRegistry.cinemaId);
+        expect(dataSource.saved.skinId, skinId);
+      }
       controller.setSkinId(AppSkinRegistry.classicId);
       await Future<void>.delayed(Duration.zero);
 

@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -95,15 +94,11 @@ class _AppShellState extends ConsumerState<AppShell> {
             label: AppI18n.tByLocaleCode(localeCode, 'tab.home'),
           ),
           NavigationDestination(
-            icon: Icon(
-              AppUiTheme.usesCupertino(context)
-                  ? CupertinoIcons.music_albums
-                  : Icons.library_music_outlined,
+            icon: const _NavigationIcon(
+              role: AppSkinIconRole.navigationLibrary,
             ),
-            selectedIcon: Icon(
-              AppUiTheme.usesCupertino(context)
-                  ? CupertinoIcons.music_albums_fill
-                  : Icons.library_music_rounded,
+            selectedIcon: const _NavigationIcon(
+              role: AppSkinIconRole.navigationLibrarySelected,
             ),
             label: AppI18n.tByLocaleCode(localeCode, 'tab.library'),
           ),

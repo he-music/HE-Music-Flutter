@@ -28,7 +28,7 @@ void main() {
 
     expect(
       find.byKey(const ValueKey<String>('skin-preview-light')),
-      findsNWidgets(3),
+      findsNWidgets(AppSkinRegistry.builtInIds.length),
     );
     expect(
       find.byKey(const ValueKey<String>('skin-preview-dark')),
@@ -41,58 +41,68 @@ void main() {
     );
   });
 
-  testWidgets('detail shows both previews and applies the selected skin', (
-    tester,
-  ) async {
-    final container = ProviderContainer(
-      overrides: [appConfigProvider.overrideWith(_TestAppConfigController.new)],
-    );
-    addTearDown(container.dispose);
+  for (final skinCase in const [
+    (id: AppSkinRegistry.citySoundCreatorId, description: '珊瑚红、青绿与中性工作室声场'),
+    (
+      id: AppSkinRegistry.forestSanctuaryId,
+      description: '在森林里，慢慢听。手绘树影、流雾与萤光，陪你走进林间。',
+    ),
+  ]) {
+    testWidgets('detail shows both previews and applies ${skinCase.id}', (
+      tester,
+    ) async {
+      final container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWith(_TestAppConfigController.new),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    await tester.pumpWidget(_buildApp(container, const SkinSelectionPage()));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('skin-choice-city_sound_creator')),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_buildApp(container, const SkinSelectionPage()));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey<String>('skin-choice-${skinCase.id}')),
+      );
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey<String>('skin-preview-light')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('skin-preview-dark')),
-      findsOneWidget,
-    );
-    expect(find.text('珊瑚红、青绿与中性工作室声场'), findsOneWidget);
-    expect(container.read(appConfigProvider).skinId, AppSkinRegistry.classicId);
+      expect(
+        find.byKey(const ValueKey<String>('skin-preview-light')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('skin-preview-dark')),
+        findsOneWidget,
+      );
+      expect(find.text(skinCase.description), findsOneWidget);
+      expect(
+        container.read(appConfigProvider).skinId,
+        AppSkinRegistry.classicId,
+      );
 
-    await tester.tap(find.byKey(const ValueKey<String>('apply-skin-button')));
-    await tester.pump();
-    expect(
-      container.read(appConfigProvider).skinId,
-      AppSkinRegistry.citySoundCreatorId,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('apply-skin-button')),
-        matching: find.text('当前使用'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<AppButton>(
-            find.byKey(const ValueKey<String>('apply-skin-button')),
-          )
-          .onPressed,
-      isNull,
-    );
+      await tester.tap(find.byKey(const ValueKey<String>('apply-skin-button')));
+      await tester.pump();
+      expect(container.read(appConfigProvider).skinId, skinCase.id);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('apply-skin-button')),
+          matching: find.text('当前使用'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<AppButton>(
+              find.byKey(const ValueKey<String>('apply-skin-button')),
+            )
+            .onPressed,
+        isNull,
+      );
 
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(find.text('当前使用').hitTestable(), findsOneWidget);
-  });
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('当前使用').hitTestable(), findsOneWidget);
+    });
+  }
 
   testWidgets('catalog exposes one create slot and opens the image editor', (
     tester,
@@ -337,11 +347,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    const skinIds = <String>[
-      AppSkinRegistry.classicId,
-      AppSkinRegistry.citySoundCreatorId,
-      AppSkinRegistry.starlitMelodyId,
-    ];
+    const skinIds = AppSkinRegistry.builtInIds;
     for (final skinId in skinIds) {
       expect(
         find.byKey(ValueKey<String>('skin-preview-image-$skinId-light')),
@@ -493,7 +499,7 @@ void main() {
 
     expect(
       find.byKey(const ValueKey<String>('skin-preview-light')),
-      findsNWidgets(3),
+      findsNWidgets(AppSkinRegistry.builtInIds.length),
     );
     expect(
       find.byKey(const ValueKey<String>('skin-preview-dark')),

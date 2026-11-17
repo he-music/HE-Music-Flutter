@@ -4,6 +4,7 @@ import 'app_skin_asset_resolver.dart';
 import 'app_skin_models.dart';
 import 'app_skin_rive_animation.dart';
 import 'app_skin_theme.dart';
+import 'app_skin_woodland_scene.dart';
 
 import '../app_ui_theme.dart';
 
@@ -67,7 +68,7 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
     final descriptor = config.background.wallpaper.descriptor;
     final animation = config.background.animation;
     final hasVisualBackground =
-        descriptor != null || animation is AppSkinRiveAnimationDescriptor;
+        descriptor != null || animation.supportsAnimation;
     final minimumOverlay = Theme.of(context).brightness == Brightness.dark
         ? 0.36
         : 0.30;
@@ -98,7 +99,7 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
                     if (imageProvider == null) {
                       return const SizedBox.shrink();
                     }
-                    return Image(
+                    final wallpaper = Image(
                       image: imageProvider,
                       key: const ValueKey<String>('app-skin-wallpaper'),
                       fit: config.background.fit,
@@ -106,12 +107,35 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
                       gaplessPlayback: true,
                       errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     );
+                    if (config.visualStyle == AppSkinVisualStyle.woodland) {
+                      return AppSkinWoodlandScene(
+                        enabled:
+                            widget.enableAnimation &&
+                            animation.supportsAnimation,
+                        child: wallpaper,
+                      );
+                    }
+                    return wallpaper;
                   },
                 ),
               if (config.background.overlayColor.a > 0)
                 ColoredBox(
                   key: const ValueKey<String>('app-skin-background-overlay'),
                   color: config.background.overlayColor,
+                ),
+              if (config.visualStyle == AppSkinVisualStyle.woodland)
+                DecoratedBox(
+                  key: const ValueKey('woodland-reading-gradient'),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: Theme.of(context).brightness == Brightness.dark
+                          ? const [Color(0x70061F1E), Color(0x00061F1E)]
+                          : const [Color(0xB8F6F1D9), Color(0x00F6F1D9)],
+                      stops: const [0, 0.24],
+                    ),
+                  ),
                 ),
               if (animation case AppSkinRiveAnimationDescriptor())
                 AppSkinRiveAnimation(

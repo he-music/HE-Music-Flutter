@@ -6,6 +6,8 @@ import 'skin/app_skin_models.dart';
 IconData cupertinoIconForRole(AppSkinIconRole role) => switch (role) {
   AppSkinIconRole.navigationHome => CupertinoIcons.house,
   AppSkinIconRole.navigationHomeSelected => CupertinoIcons.house_fill,
+  AppSkinIconRole.navigationLibrary => CupertinoIcons.music_albums,
+  AppSkinIconRole.navigationLibrarySelected => CupertinoIcons.music_albums_fill,
   AppSkinIconRole.navigationMy => CupertinoIcons.person_crop_circle,
   AppSkinIconRole.navigationMySelected =>
     CupertinoIcons.person_crop_circle_fill,

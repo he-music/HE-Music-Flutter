@@ -25,7 +25,6 @@ import '../../../../app/config/app_theme_mode.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_registry.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -240,9 +239,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       config.customSkinConfig,
     ).resolve(config.skinId);
     late final supportsSkinAnimation =
-        currentSkin.light.background.animation
-            is AppSkinRiveAnimationDescriptor ||
-        currentSkin.dark.background.animation is AppSkinRiveAnimationDescriptor;
+        currentSkin.light.background.animation.supportsAnimation ||
+        currentSkin.dark.background.animation.supportsAnimation;
     final tile = switch (item.id) {
       SettingsItemIds.automaticLyricCache => const LyricStorageSettingsTile(
         manual: false,

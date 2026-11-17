@@ -154,6 +154,11 @@ flutter:
     - assets/skins/starlit_melody/wallpaper_dark_evaluation.png
     - assets/skins/starlit_melody/preview_light.png
     - assets/skins/starlit_melody/preview_dark.png
+    - assets/skins/forest_sanctuary/scene-0.jpg
+    - assets/skins/forest_sanctuary/scene-1.jpg
+    - assets/skins/forest_sanctuary/icons/
+    - assets/skins/forest_sanctuary/preview_light.png
+    - assets/skins/forest_sanctuary/preview_dark.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

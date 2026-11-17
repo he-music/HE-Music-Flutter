@@ -9,6 +9,7 @@ import 'app_adaptive_controls.dart';
 import '../../app/theme/skin/app_skin_icon.dart';
 import '../../app/theme/skin/app_skin_models.dart';
 import '../../app/theme/skin/app_skin_theme.dart';
+import '../../app/theme/skin/app_skin_woodland_surfaces.dart';
 import '../constants/layout_tokens.dart';
 
 /// Shared input geometry, focus feedback and clear action across search pages.
@@ -311,7 +312,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
         onPointerDown: (_) => _hideFocusFeedback(),
         child: Stack(
           children: [
-            input,
+            AppSkinControlTexture(child: input),
             if (value.text.isEmpty)
               Positioned.fill(
                 child: IgnorePointer(

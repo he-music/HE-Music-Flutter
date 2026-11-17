@@ -111,15 +111,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      const sdkRoles = 2; // 资料库导航及其选中态沿用 SDK 图标。
+      final themedRoles = AppSkinIconRole.values.length - sdkRoles;
+      expect(find.byIcon(Icons.library_music_outlined), findsNWidgets(2));
+      expect(find.byIcon(Icons.library_music_rounded), findsNWidgets(2));
       final pictures = tester.widgetList<SvgPicture>(find.byType(SvgPicture));
-      expect(pictures, hasLength(AppSkinIconRole.values.length * 2));
+      expect(pictures, hasLength(themedRoles * 2));
       expect(
         pictures.where((picture) => picture.width == 20),
-        hasLength(AppSkinIconRole.values.length),
+        hasLength(themedRoles),
       );
       expect(
         pictures.where((picture) => picture.width == 24),
-        hasLength(AppSkinIconRole.values.length),
+        hasLength(themedRoles),
       );
     }
   });

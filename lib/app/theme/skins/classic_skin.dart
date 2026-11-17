@@ -171,6 +171,8 @@ IconData classicIconForRole(AppSkinIconRole role) {
   return switch (role) {
     AppSkinIconRole.navigationHome => Icons.home_outlined,
     AppSkinIconRole.navigationHomeSelected => Icons.home_rounded,
+    AppSkinIconRole.navigationLibrary => Icons.library_music_outlined,
+    AppSkinIconRole.navigationLibrarySelected => Icons.library_music_rounded,
     AppSkinIconRole.navigationMy => Icons.account_circle_outlined,
     AppSkinIconRole.navigationMySelected => Icons.account_circle_rounded,
     AppSkinIconRole.homeRanking => Icons.leaderboard_rounded,

@@ -111,6 +111,13 @@ void main() {
 
     for (final role in AppSkinIconRole.values) {
       final descriptor = skin.icons[role]!.asset.descriptor;
+      // V2 的 81 个角色不含后续新增的资料库导航，新增角色保留 SDK 回退。
+      if (role == AppSkinIconRole.navigationLibrary ||
+          role == AppSkinIconRole.navigationLibrarySelected) {
+        expect(descriptor, isNull);
+        expect(skin.icons[role]!.asset.kind, AppSkinAssetSlotKind.none);
+        continue;
+      }
       expect(descriptor, isNotNull, reason: '$role must use a themed SVG');
       expect(descriptor!.type, AppSkinAssetType.svg);
       final preservesOriginalColors =

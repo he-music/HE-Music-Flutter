@@ -467,6 +467,9 @@ abstract final class AppI18n {
       'settings.skin.city_sound_creator.description': '珊瑚红、青绿与中性工作室声场',
       'settings.skin.starlit_melody.name': '星轨旋律',
       'settings.skin.starlit_melody.description': '穿行于清晨云海与璀璨星夜之间的旋律列车',
+      'settings.skin.forest_sanctuary.name': '森林秘境',
+      'settings.skin.forest_sanctuary.description':
+          '在森林里，慢慢听。手绘树影、流雾与萤光，陪你走进林间。',
       'settings.skin.custom.name': '自定义皮肤',
       'settings.skin.custom.description': '使用个人图片生成的亮暗背景与主题色',
       'settings.skin.custom.create': '创建自定义皮肤',
@@ -1569,6 +1572,9 @@ abstract final class AppI18n {
       'settings.skin.starlit_melody.description':
           'A melody train traveling between dawn clouds and a brilliant '
           'starlit night',
+      'settings.skin.forest_sanctuary.name': 'Forest Sanctuary',
+      'settings.skin.forest_sanctuary.description':
+          'A little closer to wonder. Hand-painted trees, drifting mist, and fireflies',
       'settings.skin.custom.name': 'Custom Skin',
       'settings.skin.custom.description':
           'Light and dark backgrounds generated from your image',

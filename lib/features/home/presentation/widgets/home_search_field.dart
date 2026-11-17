@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
+import '../../../../app/theme/skin/app_skin_woodland_surfaces.dart';
 import '../../../../shared/constants/layout_tokens.dart';
 import '../../../../shared/widgets/app_search_field.dart';
 
@@ -29,46 +30,48 @@ class HomeSearchField extends StatelessWidget {
     final theme = Theme.of(context);
     final platform = platformLabel?.trim() ?? '';
     final radius = AppSearchField.radiusFor(context);
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: LayoutTokens.controlHorizontalPadding,
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 24,
-            child: AppSkinIcon(
-              role: AppSkinIconRole.search,
-              color: theme.colorScheme.primary,
-              size: LayoutTokens.searchIconSize,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: AppSearchField.placeholder(
-              context,
-              placeholderPrimary,
-              placeholderSecondary,
-            ),
-          ),
-          if (platform.isNotEmpty) ...[
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(999),
+    final content = AppSkinControlTexture(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: LayoutTokens.controlHorizontalPadding,
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: AppSkinIcon(
+                role: AppSkinIconRole.search,
+                color: theme.colorScheme.primary,
+                size: LayoutTokens.searchIconSize,
               ),
-              child: Text(
-                platform,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w500,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: AppSearchField.placeholder(
+                context,
+                placeholderPrimary,
+                placeholderSecondary,
+              ),
+            ),
+            if (platform.isNotEmpty) ...[
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  platform,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
     return SizedBox(

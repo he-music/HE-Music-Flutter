@@ -62,9 +62,8 @@ final Map<String, SettingsItemPresentation> settingsItemPresentations =
             config.customSkinConfig,
           ).resolve(config.skinId);
           final supportsAnimation =
-              skin.light.background.animation
-                  is AppSkinRiveAnimationDescriptor ||
-              skin.dark.background.animation is AppSkinRiveAnimationDescriptor;
+              skin.light.background.animation.supportsAnimation ||
+              skin.dark.background.animation.supportsAnimation;
           return AppI18n.t(
             config,
             supportsAnimation

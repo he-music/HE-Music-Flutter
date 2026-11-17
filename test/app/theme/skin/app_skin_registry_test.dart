@@ -7,7 +7,7 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
 import 'package:he_music_flutter/app/theme/skins/classic_skin.dart';
 
 void main() {
-  test('built-in registry resolves classic, city, and starlit skins', () {
+  test('built-in registry resolves all registered skins', () {
     final registry = AppSkinRegistry.builtIn(AppThemeAccent.cobalt);
 
     expect(
@@ -70,7 +70,7 @@ void main() {
     final custom = withCustom.resolve(AppSkinRegistry.customImageId);
 
     expect(builtIn.contains(AppSkinRegistry.customImageId), isFalse);
-    expect(withCustom.skins, hasLength(4));
+    expect(withCustom.skins, hasLength(AppSkinRegistry.builtInIds.length + 1));
     expect(custom.metadata.source, AppSkinSource.userGenerated);
     expect(custom.metadata.allowsManualAccent, isFalse);
     expect(

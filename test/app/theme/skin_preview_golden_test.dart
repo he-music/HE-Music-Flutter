@@ -67,6 +67,7 @@ void main() {
       for (final skinId in [
         AppSkinRegistry.classicId,
         AppSkinRegistry.starlitMelodyId,
+        AppSkinRegistry.forestSanctuaryId,
       ]) {
         for (final style in AppUiStyle.values) {
           for (final brightness in Brightness.values) {
@@ -130,6 +131,169 @@ void main() {
     },
     skip: miniPlayerPreviewDirectory.isEmpty,
   );
+  testWidgets('export forest selection previews', (tester) async {
+    await tester.runAsync(_loadPreviewFonts);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = _previewSize;
+    addTearDown(tester.view.reset);
+    for (final brightness in Brightness.values) {
+      final router = createAppRouter(AppRoutes.home);
+      await tester.pumpWidget(
+        _buildPreviewApp(router, brightness, AppSkinRegistry.forestSanctuaryId),
+      );
+      await tester.pumpAndSettle();
+      await _pumpUntilWallpaperDecoded(tester);
+      expect(tester.takeException(), isNull);
+      await _saveCupertinoPreview(
+        tester,
+        'preview_${brightness.name}',
+        directory: 'assets/skins/forest_sanctuary',
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      router.dispose();
+    }
+  }, skip: true); // 仅在显式 --run-skipped 导出时写入资源。
+  const motionPreviewDirectory = String.fromEnvironment(
+    'FOREST_MOTION_PREVIEW_DIR',
+    defaultValue: '.artifacts/forest-sanctuary/motion',
+  );
+  testWidgets(
+    'export forest ambient motion',
+    (tester) async {
+      await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+      addTearDown(tester.view.reset);
+      final router = createAppRouter(AppRoutes.home);
+      await tester.pumpWidget(
+        _buildPreviewApp(
+          router,
+          Brightness.dark,
+          AppSkinRegistry.forestSanctuaryId,
+          localeCode: 'zh',
+          enableSkinAnimation: true,
+        ),
+      );
+      await _pumpUntilWallpaperDecoded(tester);
+      for (var frame = 0; frame < 240; frame++) {
+        await tester.pump(const Duration(microseconds: 33333));
+        expect(tester.takeException(), isNull);
+        await _saveCupertinoPreview(
+          tester,
+          'frame-$frame',
+          directory: motionPreviewDirectory,
+        );
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      router.dispose();
+    },
+    skip: !const bool.hasEnvironment('FOREST_MOTION_PREVIEW_DIR'),
+  );
+  const roomPreviewDirectory = String.fromEnvironment(
+    'SKIN_SCENE_PREVIEW_DIR',
+    defaultValue: '.artifacts/forest-sanctuary/previews',
+  );
+  const previewSkinId = String.fromEnvironment(
+    'SCENE_PREVIEW_SKIN',
+    defaultValue: AppSkinRegistry.forestSanctuaryId,
+  );
+  testWidgets(
+    'export immersive skin scenes',
+    (tester) async {
+      await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      for (final style in AppUiStyle.values) {
+        for (final brightness in Brightness.values) {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+          tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+          final router = createAppRouter(AppRoutes.home);
+          await tester.pumpWidget(
+            _buildPreviewApp(
+              router,
+              brightness,
+              previewSkinId,
+              uiStyle: style,
+              localeCode: 'zh',
+            ),
+          );
+          await tester.pumpAndSettle();
+          await _pumpUntilWallpaperDecoded(tester);
+          final prefix = '${style.name}-${brightness.name}';
+          for (final page in ['home', 'playlist', 'settings']) {
+            if (page == 'playlist') {
+              router.push(
+                '${AppRoutes.recommendSongList}?id=preview&platform=platform-1',
+              );
+            } else if (page == 'settings') {
+              router.push(AppRoutes.settingsSectionLocation('appearance'));
+            }
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+            await _saveCupertinoPreview(
+              tester,
+              '$prefix-$page',
+              directory: roomPreviewDirectory,
+            );
+          }
+          // 重新挂载预览 scope，让主题与配置都使用开启内容底色的状态。
+          await tester.pumpWidget(const SizedBox.shrink());
+          router.dispose();
+          final settingsRouter = createAppRouter(
+            AppRoutes.settingsSectionLocation('appearance'),
+          );
+          await tester.pumpWidget(
+            _buildPreviewApp(
+              settingsRouter,
+              brightness,
+              previewSkinId,
+              uiStyle: style,
+              showContentBackground: true,
+              localeCode: 'zh',
+            ),
+          );
+          await tester.pumpAndSettle();
+          await _pumpUntilWallpaperDecoded(tester);
+          expect(tester.takeException(), isNull);
+          await _saveCupertinoPreview(
+            tester,
+            '$prefix-settings-content',
+            directory: roomPreviewDirectory,
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+          settingsRouter.dispose();
+
+          tester.view.physicalSize = const Size(1280, 800);
+          tester.view.padding = FakeViewPadding.zero;
+          tester.view.viewPadding = FakeViewPadding.zero;
+          final wideRouter = createAppRouter(AppRoutes.home);
+          await tester.pumpWidget(
+            _buildPreviewApp(
+              wideRouter,
+              brightness,
+              previewSkinId,
+              uiStyle: style,
+              localeCode: 'zh',
+            ),
+          );
+          await tester.pumpAndSettle();
+          await _pumpUntilWallpaperDecoded(tester);
+          expect(tester.takeException(), isNull);
+          await _saveCupertinoPreview(
+            tester,
+            '$prefix-home-wide',
+            directory: roomPreviewDirectory,
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+          wideRouter.dispose();
+        }
+      }
+    },
+    skip: !const bool.hasEnvironment('SKIN_SCENE_PREVIEW_DIR'),
+  );
   testWidgets(
     'wide home keeps bottom navigation and full width music',
     (tester) async {
@@ -176,6 +340,12 @@ void main() {
           name: 'starlit melody',
           skinId: AppSkinRegistry.starlitMelodyId,
           assetDirectory: 'starlit_melody',
+          hasWallpaper: true,
+        ),
+        (
+          name: 'forest sanctuary',
+          skinId: AppSkinRegistry.forestSanctuaryId,
+          assetDirectory: 'forest_sanctuary',
           hasWallpaper: true,
         ),
       ];
@@ -361,6 +531,8 @@ Widget _buildPreviewApp(
   String skinId, {
   AppUiStyle uiStyle = AppUiStyle.material,
   bool showContentBackground = false,
+  String? localeCode,
+  bool enableSkinAnimation = false,
 }) {
   final skin = AppSkinRegistry.builtIn(
     AppConfigState.initial.themeAccent,
@@ -384,6 +556,14 @@ Widget _buildPreviewApp(
   final theme = baseTheme.copyWith(
     platform: TargetPlatform.android,
     textTheme: textTheme,
+    appBarTheme: localeCode == null
+        ? baseTheme.appBarTheme
+        : baseTheme.appBarTheme.copyWith(
+            titleTextStyle: baseTheme.appBarTheme.titleTextStyle?.copyWith(
+              fontFamily: _previewFontFamily,
+              fontFamilyFallback: _previewFontFallback,
+            ),
+          ),
     cupertinoOverrideTheme: uiStyle == AppUiStyle.cupertino
         ? CupertinoThemeData(
             brightness: brightness,
@@ -429,6 +609,8 @@ Widget _buildPreviewApp(
           skinId,
           uiStyle,
           showContentBackground,
+          localeCode,
+          enableSkinAnimation,
         ),
       ),
       appRouterProvider.overrideWithValue(router),
@@ -447,7 +629,9 @@ Widget _buildPreviewApp(
     child: MaterialApp.router(
       debugShowCheckedModeBanner: false,
       theme: theme,
-      locale: Locale(uiStyle == AppUiStyle.cupertino ? 'en' : 'zh'),
+      locale: Locale(
+        localeCode ?? (uiStyle == AppUiStyle.cupertino ? 'en' : 'zh'),
+      ),
       supportedLocales: const <Locale>[Locale('zh'), Locale('en')],
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
         GlobalMaterialLocalizations.delegate,
@@ -460,7 +644,10 @@ Widget _buildPreviewApp(
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            AppSkinBackgroundLayer(skin: skin, enableAnimation: false),
+            AppSkinBackgroundLayer(
+              skin: skin,
+              enableAnimation: enableSkinAnimation,
+            ),
             child ?? const SizedBox.shrink(),
           ],
         ),
@@ -469,13 +656,21 @@ Widget _buildPreviewApp(
   );
 }
 
-Future<void> _loadPreviewFonts() async {
+Future<void> _loadPreviewFonts({bool useSystemCjk = false}) async {
   final textLoader = FontLoader(_previewFontFamily)
     ..addFont(_fontData('test/assets/fonts/Roboto-Regular.ttf'))
     ..addFont(_fontData('test/assets/fonts/Roboto-Medium.ttf'))
     ..addFont(_fontData('test/assets/fonts/Roboto-Bold.ttf'));
+  // 显式导出可使用本机完整中文字库；常规 golden 固定使用仓库字体。
+  final systemCjk = File('/System/Library/Fonts/STHeiti Light.ttc');
+  final cjkPath =
+      useSystemCjk &&
+          !const bool.hasEnvironment('MINI_PLAYER_PREVIEW_CJK_FONT') &&
+          systemCjk.existsSync()
+      ? systemCjk.path
+      : _previewCjkFontPath;
   final cjkLoader = FontLoader(_previewCjkFontFamily)
-    ..addFont(_fontData(_previewCjkFontPath));
+    ..addFont(_fontData(cjkPath));
   final iconLoader = FontLoader('MaterialIcons')
     ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
   await Future.wait(<Future<void>>[
@@ -500,12 +695,16 @@ class _PreviewAppConfigController extends AppConfigController {
     this.skinId,
     this.uiStyle,
     this.showContentBackground,
+    this.localeCode,
+    this.enableSkinAnimation,
   );
 
   final Brightness brightness;
   final String skinId;
   final AppUiStyle uiStyle;
   final bool showContentBackground;
+  final String? localeCode;
+  final bool enableSkinAnimation;
 
   @override
   AppConfigState build() {
@@ -516,9 +715,9 @@ class _PreviewAppConfigController extends AppConfigController {
       skinId: skinId,
       uiStyle: uiStyle,
       showContentBackground: showContentBackground,
-      enableSkinAnimation: false,
+      enableSkinAnimation: enableSkinAnimation,
       // The bundled CJK subset covers the home fixture, not all settings labels.
-      localeCode: uiStyle == AppUiStyle.cupertino ? 'en' : 'zh',
+      localeCode: localeCode ?? (uiStyle == AppUiStyle.cupertino ? 'en' : 'zh'),
     );
   }
 }

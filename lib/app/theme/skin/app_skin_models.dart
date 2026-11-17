@@ -135,7 +135,25 @@ sealed class AppSkinAnimationDescriptor {
     required double opacity,
   }) = AppSkinRiveAnimationDescriptor;
 
+  const factory AppSkinAnimationDescriptor.woodland() =
+      AppSkinWoodlandAnimationDescriptor;
+
+  bool get supportsAnimation => this is! AppSkinNoAnimationDescriptor;
   bool get isValid;
+}
+
+final class AppSkinWoodlandAnimationDescriptor
+    extends AppSkinAnimationDescriptor {
+  const AppSkinWoodlandAnimationDescriptor();
+
+  @override
+  bool get isValid => true;
+
+  @override
+  bool operator ==(Object other) => other is AppSkinWoodlandAnimationDescriptor;
+
+  @override
+  int get hashCode => runtimeType.hashCode;
 }
 
 final class AppSkinNoAnimationDescriptor extends AppSkinAnimationDescriptor {
@@ -731,6 +749,8 @@ class AppSkinBackgroundConfig {
   }
 }
 
+enum AppSkinVisualStyle { standard, woodland }
+
 @immutable
 class AppSkinBrightnessConfig {
   const AppSkinBrightnessConfig({
@@ -739,6 +759,7 @@ class AppSkinBrightnessConfig {
     required this.surfaces,
     required this.geometry,
     required this.background,
+    this.visualStyle = AppSkinVisualStyle.standard,
   });
 
   final ColorScheme colorScheme;
@@ -746,6 +767,7 @@ class AppSkinBrightnessConfig {
   final AppSkinSurfaces surfaces;
   final AppSkinGeometry geometry;
   final AppSkinBackgroundConfig background;
+  final AppSkinVisualStyle visualStyle;
 
   AppSkinBrightnessConfig copyWith({
     ColorScheme? colorScheme,
@@ -753,6 +775,7 @@ class AppSkinBrightnessConfig {
     AppSkinSurfaces? surfaces,
     AppSkinGeometry? geometry,
     AppSkinBackgroundConfig? background,
+    AppSkinVisualStyle? visualStyle,
   }) {
     return AppSkinBrightnessConfig(
       colorScheme: colorScheme ?? this.colorScheme,
@@ -760,6 +783,7 @@ class AppSkinBrightnessConfig {
       surfaces: surfaces ?? this.surfaces,
       geometry: geometry ?? this.geometry,
       background: background ?? this.background,
+      visualStyle: visualStyle ?? this.visualStyle,
     );
   }
 
@@ -778,6 +802,7 @@ class AppSkinBrightnessConfig {
       surfaces: AppSkinSurfaces.lerp(a.surfaces, b.surfaces, t),
       geometry: AppSkinGeometry.lerp(a.geometry, b.geometry, t),
       background: AppSkinBackgroundConfig.lerp(a.background, b.background, t),
+      visualStyle: t < 0.5 ? a.visualStyle : b.visualStyle,
     );
   }
 
@@ -788,18 +813,28 @@ class AppSkinBrightnessConfig {
         other.colors == colors &&
         other.surfaces == surfaces &&
         other.geometry == geometry &&
-        other.background == background;
+        other.background == background &&
+        other.visualStyle == visualStyle;
   }
 
   @override
   int get hashCode {
-    return Object.hash(colorScheme, colors, surfaces, geometry, background);
+    return Object.hash(
+      colorScheme,
+      colors,
+      surfaces,
+      geometry,
+      background,
+      visualStyle,
+    );
   }
 }
 
 enum AppSkinIconRole {
   navigationHome,
   navigationHomeSelected,
+  navigationLibrary,
+  navigationLibrarySelected,
   navigationMy,
   navigationMySelected,
   homeRanking,
