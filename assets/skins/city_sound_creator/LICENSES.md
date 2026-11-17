@@ -130,18 +130,19 @@ The replacement dark derivative was inspected at full frame and local detail on 
 - Technical inspection: both previews show the decoded production wallpaper, readable Chinese text, production SVGs, Material fallbacks, mini player, and navigation without blank regions or overlaps. The current revision uses a roughly `48%` white readability overlay in light mode; scrolling Items are transparent in both brightness modes and transparent surfaces do not draw shadows.
 - Approval history: the user approved the original real-UI preview stage on 2026-07-17 and the light/dark preview pair with the replacement dark wallpaper on 2026-07-27. The current screenshots reflect the SDK interface-style migration; these historical approvals do not describe a new visual acceptance.
 - Current surface revision: disabling content backgrounds removes decorative outlines as well as fills and shadows. Enabled wallpaper content uses a soft tonal gradient at the skin's configured opacity, with lighter Material edges and shadows; Cupertino retains its undecorated content surface. The bundled preview pair shows the disabled setting; additional enabled-state renders cover both interface styles in the preview test.
+- Shared wallpaper surface revision: MiniPlayer uses 90% of each skin's configured opacity; bottom navigation uses 85%, across Material and Cupertino and custom image skins. Existing blur is retained and solid skins stay opaque. The current pair was re-exported using `export wallpaper skin selection previews`.
 
 ### Light real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_light.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `ca2a5aee25189a80527a46131b006821c980933ead65a0869509ce56f5c7e674`.
+- SHA-256: `8a9de79674549c7239c4d04cb243d663ed834317df40cae9f670637e5dd4b459`.
 
 ### Dark real UI preview
 
 - Path: `assets/skins/city_sound_creator/preview_dark.png`.
 - Actual dimensions: `360x640`.
-- SHA-256: `541c054629446a461e56493953e107e2704fe737b89ea72b2898eb3414a5772b`.
+- SHA-256: `45e24b6abca8a1d364038fba29fe9b8ec38ec89a737782210d6371e75d06f30e`.
 
 ## Rive ambient animation
 

@@ -35,12 +35,13 @@ No generative enhancement, face repair, spatial crop, or composition change was 
 ## Real UI Previews
 
 - Generation: real routed Flutter home scene through `make skin-previews`
+- Shared wallpaper surface revision: MiniPlayer uses 90% of each skin's configured opacity; bottom navigation uses 85%. This applies to Material and Cupertino and custom image skins, with existing blur retained; solid skins stay opaque. The pair was re-exported using `export wallpaper skin selection previews`.
 - Actual dimensions: `360x640` for both previews
-- UI revision: Material uses Discover / Library / My navigation with a 64 px content height, 24 px icons, and its selection indicator, translucent navigation and an independent frosted mini player card (light/dark opacity: card 0.72/0.68, navigation 0.52/0.48) with 12 px horizontal margins, 8 px vertical margins, 16 px corner radius and 60 px minimum height, and compact recommendation / browse TabBar and secondary platform FilterChips; wallpaper and palette provenance is unchanged
+- UI revision: Material uses Discover / Library / My navigation with a 64 px content height, 24 px icons, and its selection indicator, translucent navigation and an independent frosted mini player card (light/dark opacity: card 0.648/0.612, navigation 0.442/0.408) with 12 px horizontal margins, 8 px vertical margins, 16 px corner radius and 60 px minimum height, and compact recommendation / browse TabBar and secondary platform FilterChips; wallpaper and palette provenance is unchanged
 - Light preview: `assets/skins/starlit_melody/preview_light.png`
-- Light preview SHA-256: `b21cee34c58bf5c00f2e294b5faefd754ded680a497980af6208a0625fe3f1c6`
+- Light preview SHA-256: `1c1fcba2dc32f23f9de1cb1ee4dab697b264d9591cc4b62a256ac6d76f7d14cf`
 - Dark preview: `assets/skins/starlit_melody/preview_dark.png`
-- Dark preview SHA-256: `39de21ec2077454f193a7dd6be359d55fd0e5b6d96cf5ef0f3ff68f7ead78561`
+- Dark preview SHA-256: `d0dbc147100d4f4df72c1446d917154e541a9aa2bc121cebb4da1bcd51de53ad`
 - Light tokens: Ice Rail primary `#00677A`, Berry Signal secondary `#B72F5B`, Ink text `#17202A`, transparent scrolling content surface
 - Dark tokens: Ice Rail primary `#78D5E7`, blue-gray fixed surfaces, Mist text `#F0EDF5`, transparent scrolling content surface
 - Approval status: the light preview and current dark evaluation appearance were approved by the user on 2026-07-28. The current preview revision also removes decorative outlines when content backgrounds are disabled; it does not imply renewed visual acceptance

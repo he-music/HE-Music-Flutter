@@ -131,26 +131,30 @@ void main() {
     },
     skip: miniPlayerPreviewDirectory.isEmpty,
   );
-  testWidgets('export forest selection previews', (tester) async {
+  testWidgets('export wallpaper skin selection previews', (tester) async {
     await tester.runAsync(_loadPreviewFonts);
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = _previewSize;
     addTearDown(tester.view.reset);
-    for (final brightness in Brightness.values) {
-      final router = createAppRouter(AppRoutes.home);
-      await tester.pumpWidget(
-        _buildPreviewApp(router, brightness, AppSkinRegistry.forestSanctuaryId),
-      );
-      await tester.pumpAndSettle();
-      await _pumpUntilWallpaperDecoded(tester);
-      expect(tester.takeException(), isNull);
-      await _saveCupertinoPreview(
-        tester,
-        'preview_${brightness.name}',
-        directory: 'assets/skins/forest_sanctuary',
-      );
-      await tester.pumpWidget(const SizedBox.shrink());
-      router.dispose();
+    for (final skinId in [
+      AppSkinRegistry.citySoundCreatorId,
+      AppSkinRegistry.starlitMelodyId,
+      AppSkinRegistry.forestSanctuaryId,
+    ]) {
+      for (final brightness in Brightness.values) {
+        final router = createAppRouter(AppRoutes.home);
+        await tester.pumpWidget(_buildPreviewApp(router, brightness, skinId));
+        await tester.pumpAndSettle();
+        await _pumpUntilWallpaperDecoded(tester);
+        expect(tester.takeException(), isNull);
+        await _saveCupertinoPreview(
+          tester,
+          'preview_${brightness.name}',
+          directory: 'assets/skins/$skinId',
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        router.dispose();
+      }
     }
   }, skip: true); // 仅在显式 --run-skipped 导出时写入资源。
   const motionPreviewDirectory = String.fromEnvironment(

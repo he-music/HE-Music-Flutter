@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
 import 'package:he_music_flutter/app/config/app_theme_accent.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
@@ -86,86 +87,114 @@ void main() {
     });
   }
 
-  testWidgets('wallpaper playback surfaces use tint and one clipped blur', (
-    tester,
-  ) async {
-    final registry = AppSkinRegistry.builtIn(AppThemeAccent.forest);
-    for (final skinId in [
-      AppSkinRegistry.citySoundCreatorId,
-      AppSkinRegistry.starlitMelodyId,
-    ]) {
-      final skin = registry.resolve(skinId);
-      for (final style in AppUiStyle.values) {
-        for (final brightness in Brightness.values) {
-          for (final role in [
-            AppSkinSurfaceRole.miniPlayer,
-            AppSkinSurfaceRole.navigation,
-            AppSkinSurfaceRole.search,
-            AppSkinSurfaceRole.bottomSheet,
-          ]) {
-            for (final showContentBackground in [false, true]) {
-              final config = brightness == Brightness.light
-                  ? skin.light
-                  : skin.dark;
-              final theme = brightness == Brightness.light
-                  ? AppTheme.light(
-                      skin,
-                      uiStyle: style,
-                      showContentBackground: showContentBackground,
-                    )
-                  : AppTheme.dark(
-                      skin,
-                      uiStyle: style,
-                      showContentBackground: showContentBackground,
-                    );
-              await tester.pumpWidget(
-                MaterialApp(
-                  theme: theme,
-                  home: AppSkinSurface(
-                    role: role,
-                    showDecoration: false,
-                    child: const SizedBox(width: 100, height: 40),
+  testWidgets(
+    'all skins preserve playback tint and blur with lighter wallpaper surfaces',
+    (tester) async {
+      final registry = AppSkinRegistry.withCustom(
+        AppThemeAccent.forest,
+        AppCustomSkinConfig(
+          revision: 'surface_test',
+          lightAssetPath: 'skins/custom_image/surface_test/wallpaper_light.jpg',
+          darkAssetPath: 'skins/custom_image/surface_test/wallpaper_dark.jpg',
+          candidateColors: const [0xFF336699],
+          seedColor: 0xFF336699,
+          focalX: 0,
+          focalY: 0,
+          sourceWidth: 1200,
+          sourceHeight: 1600,
+        ),
+      );
+      for (final skin in registry.skins) {
+        for (final style in AppUiStyle.values) {
+          for (final brightness in Brightness.values) {
+            for (final role in [
+              AppSkinSurfaceRole.miniPlayer,
+              AppSkinSurfaceRole.navigation,
+              AppSkinSurfaceRole.search,
+              AppSkinSurfaceRole.bottomSheet,
+            ]) {
+              for (final showContentBackground in [false, true]) {
+                final config = brightness == Brightness.light
+                    ? skin.light
+                    : skin.dark;
+                final theme = brightness == Brightness.light
+                    ? AppTheme.light(
+                        skin,
+                        uiStyle: style,
+                        showContentBackground: showContentBackground,
+                      )
+                    : AppTheme.dark(
+                        skin,
+                        uiStyle: style,
+                        showContentBackground: showContentBackground,
+                      );
+                await tester.pumpWidget(
+                  MaterialApp(
+                    theme: theme,
+                    home: AppSkinSurface(
+                      role: role,
+                      showDecoration: false,
+                      child: const SizedBox(width: 100, height: 40),
+                    ),
                   ),
-                ),
-              );
-              await tester.pumpAndSettle();
-              final expectedOpacity = switch (role) {
-                AppSkinSurfaceRole.miniPlayer =>
-                  config.surfaces.miniPlayerOpacity,
-                AppSkinSurfaceRole.navigation =>
-                  config.surfaces.navigationOpacity,
-                _ => 1.0,
-              };
-              final decorated = tester.widget<DecoratedBox>(
-                find
-                    .descendant(
-                      of: find.byType(AppSkinSurface),
-                      matching: find.byType(DecoratedBox),
-                    )
-                    .first,
-              );
-              expect(
-                (decorated.decoration as BoxDecoration).color!.a,
-                closeTo(expectedOpacity, 0.001),
-              );
-              final filters = find.byType(BackdropFilter);
-              expect(
-                filters,
-                expectedOpacity < 1 ? findsOneWidget : findsNothing,
-              );
-              if (expectedOpacity < 1) {
-                expect(
-                  find.ancestor(of: filters, matching: find.byType(ClipRRect)),
-                  findsOneWidget,
                 );
+                await tester.pumpAndSettle();
+                final hasWallpaper =
+                    config.background.wallpaper.descriptor != null;
+                final expectedOpacity = switch (role) {
+                  AppSkinSurfaceRole.miniPlayer =>
+                    hasWallpaper
+                        ? config.surfaces.miniPlayerOpacity * 0.90
+                        : 1.0,
+                  AppSkinSurfaceRole.navigation =>
+                    hasWallpaper
+                        ? config.surfaces.navigationOpacity * 0.85
+                        : 1.0,
+                  _ => 1.0,
+                };
+                final decorated = tester.widget<DecoratedBox>(
+                  find
+                      .descendant(
+                        of: find.byType(AppSkinSurface),
+                        matching: find.byType(DecoratedBox),
+                      )
+                      .first,
+                );
+                expect(
+                  (decorated.decoration as BoxDecoration).color!.a,
+                  closeTo(expectedOpacity, 0.001),
+                );
+                final filters = find.byType(BackdropFilter);
+                expect(
+                  filters,
+                  role == AppSkinSurfaceRole.miniPlayer ||
+                          role == AppSkinSurfaceRole.navigation
+                      ? findsOneWidget
+                      : findsNothing,
+                );
+                if (filters.evaluate().isNotEmpty) {
+                  expect(
+                    tester.widget<BackdropFilter>(filters).enabled,
+                    expectedOpacity < 1,
+                  );
+                }
+                if (expectedOpacity < 1) {
+                  expect(
+                    find.ancestor(
+                      of: filters,
+                      matching: find.byType(ClipRRect),
+                    ),
+                    findsOneWidget,
+                  );
+                }
+                expect(tester.takeException(), isNull);
               }
-              expect(tester.takeException(), isNull);
             }
           }
         }
       }
-    }
-  });
+    },
+  );
 
   testWidgets('playback skin changes preserve child state and focus', (
     tester,

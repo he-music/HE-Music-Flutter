@@ -19,17 +19,19 @@ class AppSkinTheme extends ThemeExtension<AppSkinTheme> {
       config.background.wallpaper.descriptor != null &&
       config.colors.scaffoldBackground.a == 0;
 
+  // 统一让壁纸从底部控制表面透出；MiniPlayer 仍比导航保留更浓的底色。
+  // 只缩放壁纸皮肤的配置透明度，纯色皮肤继续使用不透明表面。
   Color get miniPlayerBackgroundColor =>
       config.colors.fixedControlSurface.withValues(
         alpha: usesTranslucentPlaybackSurfaces
-            ? config.surfaces.miniPlayerOpacity
+            ? config.surfaces.miniPlayerOpacity * 0.90
             : 1,
       );
 
   Color get navigationBackgroundColor =>
       config.colors.fixedControlSurface.withValues(
         alpha: usesTranslucentPlaybackSurfaces
-            ? config.surfaces.navigationOpacity
+            ? config.surfaces.navigationOpacity * 0.85
             : 1,
       );
 

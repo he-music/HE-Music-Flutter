@@ -61,7 +61,7 @@ function artboard(dark) {
     const y = height * (.49 + i * .24);
     shapes.push({
       id, type: 'ellipse', x, y, width: width * 1.4, height: 150,
-      opacity: dark ? .13 : .15,
+      opacity: dark ? .18 : .20,
       fill: { gradient: {
         type: 'linear', start: { x: 0, y: -75 }, end: { x: 0, y: 75 },
         stops: [
@@ -75,18 +75,19 @@ function artboard(dark) {
     tracks.push(cycle(id, 'y', y, height * .018, 540, i + Math.PI / 2));
   }
 
+  // BoxFit.cover 会裁掉竖屏两侧；把萤光与近景锚点收进手机可见区域。
   const count = dark ? lights.length : 7;
   const lightColor = dark ? '#F5E6A0' : '#FFF4C9';
   for (let i = 0; i < count; i++) {
     const id = `firefly_${i}`;
     const [px, py] = lights[i];
     const seed = i * 2.399;
-    groups.push({ id, x: px * width, y: py * height, opacity: .62 });
+    groups.push({ id, x: (.22 + px * .56) * width, y: py * height, opacity: .62 });
     shapes.push({
       id: `${id}_glow`, parent: id, type: 'ellipse',
-      width: 28, height: 28, opacity: .35,
+      width: 36, height: 36, opacity: .50,
       fill: { gradient: {
-        type: 'radial', start: { x: 0, y: 0 }, end: { x: 14, y: 0 },
+        type: 'radial', start: { x: 0, y: 0 }, end: { x: 18, y: 0 },
         stops: [{ color: lightColor, position: 0 }, { color: '#00F5E6A0', position: 1 }],
       } },
     });
@@ -95,7 +96,7 @@ function artboard(dark) {
       width: i % 2 === 0 ? 4.5 : 3, height: i % 2 === 0 ? 4.5 : 3,
       fill: { color: lightColor },
     });
-    tracks.push(cycle(id, 'x', px * width, 30, 360, seed));
+    tracks.push(cycle(id, 'x', (.22 + px * .56) * width, 34, 360, seed));
     tracks.push(cycle(id, 'y', py * height, 22, 540, seed + Math.PI / 2));
     tracks.push(cycle(id, 'opacity', .62, .34, 270, seed));
   }
@@ -103,13 +104,13 @@ function artboard(dark) {
   for (let i = 0; i < 2; i++) {
     const id = `fern_${i}`;
     groups.push({
-      id, x: i === 0 ? 5 : width - 5, y: height * (i === 0 ? .90 : .96),
+      id, x: width * (i === 0 ? .21 : .79), y: height * (i === 0 ? .90 : .96),
       rotation: i === 0 ? -20 : 24, scaleX: i === 0 ? 1 : -.85,
       scaleY: i === 0 ? 1 : .85,
     });
     shapes.push(...fern(`${id}_leaf_`, dark ? '#0B2928' : '#365D3F')
       .map((shape) => ({ ...shape, parent: id })));
-    tracks.push(cycle(id, 'rotation', i === 0 ? -20 : 24, 1.3, 1080, i));
+    tracks.push(cycle(id, 'rotation', i === 0 ? -20 : 24, 2.0, 1080, i));
   }
 
   return {

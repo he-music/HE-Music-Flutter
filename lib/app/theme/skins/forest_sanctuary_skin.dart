@@ -180,7 +180,7 @@ AppSkinBrightnessConfig _config(Brightness brightness) {
         stateMachine: 'AmbientLoop',
         fit: BoxFit.cover,
         alignment: Alignment.center,
-        opacity: dark ? 0.80 : 0.65,
+        opacity: dark ? 0.96 : 0.85,
       ),
       fit: BoxFit.cover,
       alignment: Alignment.center,
