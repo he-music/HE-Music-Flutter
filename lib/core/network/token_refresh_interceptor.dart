@@ -238,8 +238,9 @@ class TokenRefreshInterceptor extends Interceptor {
               .then((response) {
                 handler.resolve(response);
               })
-              .catchError((Object _) {
-                handler.next(err);
+              .catchError((Object retryError) {
+                // 重放失败应保留实际异常，让页面正确区分超时、服务端错误和最终 401。
+                handler.next(retryError is DioException ? retryError : err);
               });
         })
         .catchError((Object _) {

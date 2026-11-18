@@ -524,46 +524,49 @@ void main() {
     );
   }
 
-  testWidgets('startup network error retries platforms once then shows home', (
-    tester,
-  ) async {
-    final router = _createStartupTestRouter();
-    final apiClient = _RetryOnlineApiClient();
-    addTearDown(router.dispose);
+  testWidgets(
+    'startup network error exhausts automatic retries then manual retry shows home',
+    (tester) async {
+      final router = _createStartupTestRouter();
+      final apiClient = _RetryOnlineApiClient();
+      addTearDown(router.dispose);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWith(_HydratedTestAppConfigController.new),
-          appRouterProvider.overrideWithValue(router),
-          onlineApiClientProvider.overrideWithValue(apiClient),
-          appConfigDataSourceProvider.overrideWithValue(
-            const _TestAppConfigDataSource(autoCheckUpdates: false),
-          ),
-        ],
-        child: const HeMusicApp(enableStartupGateInTests: true),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(
+              _HydratedTestAppConfigController.new,
+            ),
+            appRouterProvider.overrideWithValue(router),
+            onlineApiClientProvider.overrideWithValue(apiClient),
+            appConfigDataSourceProvider.overrideWithValue(
+              const _TestAppConfigDataSource(autoCheckUpdates: false),
+            ),
+          ],
+          child: const HeMusicApp(enableStartupGateInTests: true),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('启动失败'), findsOneWidget);
-    expect(apiClient.fetchPlatformsCallCount, 1);
+      expect(find.text('启动失败'), findsOneWidget);
+      expect(apiClient.fetchPlatformsCallCount, 3);
 
-    await tester.tap(find.text('重试'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('重试'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('正在启动'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('重试'), findsNothing);
-    expect(apiClient.fetchPlatformsCallCount, 2);
+      expect(find.text('正在启动'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('重试'), findsNothing);
+      expect(apiClient.fetchPlatformsCallCount, 4);
 
-    apiClient.retryResult.complete();
-    await tester.pumpAndSettle();
+      apiClient.retryResult.complete();
+      await tester.pumpAndSettle();
 
-    expect(find.text('首页'), findsOneWidget);
-    expect(apiClient.fetchPlatformsCallCount, 2);
-  });
+      expect(find.text('首页'), findsOneWidget);
+      expect(apiClient.fetchPlatformsCallCount, 4);
+    },
+  );
 
   testWidgets('startup transform timeout shows timeout guidance', (
     tester,
@@ -971,7 +974,7 @@ class _RetryOnlineApiClient extends OnlineApiClient {
     bool silentErrorMessage = false,
   }) async {
     fetchPlatformsCallCount += 1;
-    if (fetchPlatformsCallCount == 1) {
+    if (fetchPlatformsCallCount <= 3) {
       throw DioException(
         requestOptions: RequestOptions(path: '/v1/platforms'),
         type: DioExceptionType.connectionError,

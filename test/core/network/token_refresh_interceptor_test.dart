@@ -179,6 +179,61 @@ void main() {
       });
     }
 
+    for (final timeout in [false, true]) {
+      test('刷新成功后保留重放请求的${timeout ? '超时' : '503'}错误，不误报401', () async {
+        final server = await _TokenRefreshTestServer.start(
+          initialRequestTarget: 1,
+          stallRetriedRequest: timeout,
+          retriedResponseStatus: timeout ? 200 : 503,
+        );
+        addTearDown(server.close);
+        final holder = TokenHolder(
+          accessToken: 'expired-token',
+          refreshToken: 'refresh-token',
+        );
+        final dio = _createDio(
+          server.baseUrl,
+          holder,
+          TokenRefreshCoordinator(holder),
+          [],
+        );
+        addTearDown(() => dio.close(force: true));
+        var unauthorizedCount = 0;
+        dio.interceptors.add(
+          UnauthorizedRedirectInterceptor(
+            readCurrentLocation: () => '/',
+            onUnauthorized: (_) => unauthorizedCount++,
+          ),
+        );
+
+        await expectLater(
+          dio.get<dynamic>(
+            '/v1/page/recommend',
+            options: Options(receiveTimeout: const Duration(milliseconds: 100)),
+          ),
+          throwsA(
+            isA<DioException>()
+                .having(
+                  (error) => error.type,
+                  'type',
+                  timeout
+                      ? DioExceptionType.receiveTimeout
+                      : DioExceptionType.badResponse,
+                )
+                .having(
+                  (error) => error.response?.statusCode,
+                  'statusCode',
+                  timeout ? isNull : 503,
+                ),
+          ),
+        );
+        expect(server.refreshRequestCount, 1);
+        expect(server.retriedPaths, ['/v1/page/recommend']);
+        expect(holder.accessToken, 'fresh-token');
+        expect(unauthorizedCount, 0);
+      });
+    }
+
     test('并发 401 应共享一次刷新并都用新 token 重试成功', () async {
       final server = await _TokenRefreshTestServer.start();
       final tokenHolder = TokenHolder(
@@ -391,6 +446,8 @@ class _TokenRefreshTestServer {
     this.stallRefresh = false,
     this.disconnectRefresh = false,
     this.protectedResponseStatus,
+    this.stallRetriedRequest = false,
+    this.retriedResponseStatus = 200,
   });
 
   final HttpServer _server;
@@ -401,6 +458,8 @@ class _TokenRefreshTestServer {
   final bool stallRefresh;
   final bool disconnectRefresh;
   final int? protectedResponseStatus;
+  final bool stallRetriedRequest;
+  final int retriedResponseStatus;
   final Completer<void> _bothInitialRequestsSeen = Completer<void>();
   final List<String> retriedPaths = <String>[];
   final List<String> retryAuthorizations = <String>[];
@@ -420,6 +479,8 @@ class _TokenRefreshTestServer {
     bool stallRefresh = false,
     bool disconnectRefresh = false,
     int? protectedResponseStatus,
+    bool stallRetriedRequest = false,
+    int retriedResponseStatus = 200,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final fixture = _TokenRefreshTestServer._(
@@ -431,6 +492,8 @@ class _TokenRefreshTestServer {
       stallRefresh: stallRefresh,
       disconnectRefresh: disconnectRefresh,
       protectedResponseStatus: protectedResponseStatus,
+      stallRetriedRequest: stallRetriedRequest,
+      retriedResponseStatus: retriedResponseStatus,
     );
     server.listen(fixture._handleRequest);
     return fixture;
@@ -491,7 +554,10 @@ class _TokenRefreshTestServer {
     if (authorization == 'Bearer fresh-token' && !rejectFreshToken) {
       retriedPaths.add(request.uri.path);
       retryAuthorizations.add(authorization ?? '');
-      _writeJson(request.response, <String, dynamic>{'ok': true});
+      if (stallRetriedRequest) return;
+      _writeJson(request.response, <String, dynamic>{
+        'ok': retriedResponseStatus == 200,
+      }, statusCode: retriedResponseStatus);
       return;
     }
 

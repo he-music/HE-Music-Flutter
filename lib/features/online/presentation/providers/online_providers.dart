@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../core/network/unauthorized_redirect_interceptor.dart';
+import '../../../../core/network/transient_network_error.dart';
 import '../../data/datasources/online_platform_cache_data_source.dart';
 import '../../data/providers/online_providers.dart';
 import '../../domain/entities/online_feature_state.dart';
@@ -480,12 +481,9 @@ class OnlinePlatformsController extends AsyncNotifier<List<OnlinePlatform>> {
         }
         return List.unmodifiable(platforms);
       } catch (error) {
-        final isTimeout =
-            error is DioException &&
-            (error.type == DioExceptionType.connectionTimeout ||
-                error.type == DioExceptionType.receiveTimeout ||
-                error.type == DioExceptionType.sendTimeout);
-        if (!_isCurrent(generation) || !isTimeout || attempt == maxAttempts) {
+        if (!_isCurrent(generation) ||
+            !isTransientNetworkError(error) ||
+            attempt == maxAttempts) {
           rethrow;
         }
         await Future<void>.delayed(Duration(milliseconds: 400 * attempt));

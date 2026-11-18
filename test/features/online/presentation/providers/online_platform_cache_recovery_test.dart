@@ -53,7 +53,7 @@ void main() {
           container.read(onlinePlatformSyncProvider).refreshFailed,
           isTrue,
         );
-        expect(api.calls, 1);
+        expect(api.calls, unauthorized ? 1 : 3);
       },
     );
   }

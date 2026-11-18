@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/network/response_parsers.dart';
+import '../../../../core/network/transient_network_error.dart';
 import '../../../../shared/models/he_music_models.dart';
 import '../../../ranking/domain/entities/ranking_info.dart';
 import '../../domain/entities/home_page_result.dart';
@@ -19,7 +20,7 @@ class HomePageApiClient {
     required String platformId,
     required int pageIndex,
   }) async {
-    final response = await _dio.get(
+    final response = await _fetchHomePage(
       '/v1/page/recommend',
       queryParameters: <String, dynamic>{
         'platform': platformId,
@@ -34,7 +35,7 @@ class HomePageApiClient {
   }
 
   Future<HomePageResult> fetchDiscoverPage({required String platformId}) async {
-    final response = await _dio.get(
+    final response = await _fetchHomePage(
       '/v1/page/discover',
       queryParameters: <String, dynamic>{'platform': platformId},
     );
@@ -43,6 +44,31 @@ class HomePageApiClient {
       sections: _parseSections(payload, platformId),
       hasMore: false,
     );
+  }
+
+  Future<Response<dynamic>> _fetchHomePage(
+    String path, {
+    required Map<String, dynamic> queryParameters,
+  }) async {
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await _dio.get<dynamic>(
+          path,
+          queryParameters: queryParameters,
+          // 中间失败不弹全局提示；最终失败由首页的错误状态和重试入口展示。
+          options: Options(
+            extra: <String, dynamic>{'silentErrorMessage': true},
+          ),
+        );
+      } catch (error) {
+        if (!isTransientNetworkError(error) || attempt == maxAttempts) {
+          rethrow;
+        }
+        await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
+      }
+    }
+    throw StateError('Home page request attempts exhausted');
   }
 
   Future<RecommendSongListInfo> fetchRecommendSongList(

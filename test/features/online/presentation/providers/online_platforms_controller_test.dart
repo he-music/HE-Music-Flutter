@@ -64,6 +64,22 @@ void main() {
     expect(apiClient.fetchPlatformsCallCount, 1);
   });
 
+  test('首次平台请求连接失败后可自动重试恢复', () async {
+    final apiClient = _DelayedOnlineApiClient()
+      ..failuresRemaining = 1
+      ..complete();
+    final container = ProviderContainer(
+      overrides: [onlineApiClientProvider.overrideWithValue(apiClient)],
+    );
+    addTearDown(container.dispose);
+
+    final platforms = await container.read(onlinePlatformsProvider.future);
+
+    expect(platforms.single.id, 'qq');
+    expect(apiClient.fetchPlatformsCallCount, 2);
+    expect(container.read(onlinePlatformsProvider).hasError, isFalse);
+  });
+
   test('首次加载失败时并发等待者应共享同一个平台请求和错误', () async {
     final apiClient = _DelayedOnlineApiClient();
     final container = ProviderContainer(
@@ -86,7 +102,7 @@ void main() {
     apiClient.completeError(error);
 
     await Future.wait(<Future<void>>[initialExpectation, ensureExpectation]);
-    expect(apiClient.fetchPlatformsCallCount, 1);
+    expect(apiClient.fetchPlatformsCallCount, 3);
     expect(container.read(onlinePlatformsProvider).error, error);
   });
 }
@@ -108,6 +124,7 @@ class _DelayedOnlineApiClient extends OnlineApiClient {
   final requestStarted = Completer<void>();
   final _response = Completer<List<Map<String, dynamic>>>();
   int fetchPlatformsCallCount = 0;
+  int failuresRemaining = 0;
 
   @override
   Future<List<Map<String, dynamic>>> fetchPlatforms({
@@ -116,6 +133,15 @@ class _DelayedOnlineApiClient extends OnlineApiClient {
     fetchPlatformsCallCount += 1;
     if (!requestStarted.isCompleted) {
       requestStarted.complete();
+    }
+    if (failuresRemaining > 0) {
+      failuresRemaining--;
+      return Future.error(
+        DioException(
+          requestOptions: RequestOptions(path: '/v1/platforms'),
+          type: DioExceptionType.connectionError,
+        ),
+      );
     }
     return _response.future;
   }
