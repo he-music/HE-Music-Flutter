@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_ui_theme.dart';
+import 'app_skin_bottom_sheet_surface.dart';
 import 'app_skin_theme.dart';
 
 Future<T?> showAppThemedBottomSheet<T>({
@@ -28,6 +29,7 @@ Future<T?> showAppThemedBottomSheet<T>({
           )
         : null,
     showDragHandle: showDragHandle,
+    clipBehavior: Clip.antiAlias,
     backgroundColor:
         (config?.colors.bottomSheetBackground ?? theme.colorScheme.surface)
             .withValues(alpha: 1),
@@ -46,12 +48,14 @@ Future<T?> showAppThemedBottomSheet<T>({
       padding: EdgeInsets.only(
         bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
       ),
-      child: fixedHeightFactor == null
-          ? Builder(builder: builder)
-          : FractionallySizedBox(
-              heightFactor: fixedHeightFactor,
-              child: Builder(builder: builder),
-            ),
+      child: AppSkinBottomSheetSurface(
+        child: fixedHeightFactor == null
+            ? Builder(builder: builder)
+            : FractionallySizedBox(
+                heightFactor: fixedHeightFactor,
+                child: Builder(builder: builder),
+              ),
+      ),
     ),
   );
 }

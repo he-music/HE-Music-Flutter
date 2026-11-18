@@ -14,6 +14,13 @@ import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_models.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/config/app_theme_accent.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_bottom_sheet_surface.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_sheet_material.dart';
+import 'package:flutter/rendering.dart';
 
 void main() {
   for (final mode in AppUiStyle.values) {
@@ -381,9 +388,12 @@ void main() {
   );
 
   testWidgets(
-    'nested player sheets retain style marker and follow app brightness',
+    'nested player sheets retain skin material and follow app brightness',
     (tester) async {
       final mode = ValueNotifier(ThemeMode.light);
+      final skin = AppSkinRegistry.builtIn(
+        AppThemeAccent.forest,
+      ).resolve(AppSkinRegistry.forestSanctuaryId);
       addTearDown(mode.dispose);
       int? nestedResult;
       await tester.pumpWidget(
@@ -396,8 +406,8 @@ void main() {
             child: ValueListenableBuilder<ThemeMode>(
               valueListenable: mode,
               builder: (context, current, child) => MaterialApp(
-                theme: ThemeData.light(),
-                darkTheme: ThemeData.dark(),
+                theme: AppTheme.light(skin, uiStyle: AppUiStyle.cupertino),
+                darkTheme: AppTheme.dark(skin, uiStyle: AppUiStyle.cupertino),
                 themeMode: current,
                 home: AppPlayerStyleBoundary(
                   child: Builder(
@@ -445,18 +455,31 @@ void main() {
       final outer = tester.element(find.byType(PlayerSheetSurface));
       final outerRoute = ModalRoute.of(outer);
       expect(Theme.of(outer).extension<AppPlayerStyleTheme>(), isNotNull);
+      expect(Theme.of(outer).extension<AppSkinTheme>()!.config, skin.light);
+      expect(
+        _playerSheetStyle(tester).backgroundColor,
+        skin.light.colors.bottomSheetBackground.withValues(alpha: 1),
+      );
+      expect(find.byType(PlayerSheetMaterial), findsOneWidget);
+      expect(find.byType(AppSkinBottomSheetSurface), findsNothing);
       await tester.tap(find.text('Open nested'));
       await tester.pumpAndSettle();
       expect(find.byType(PlayerSheetSurface), findsNWidgets(2));
       final inner = tester.element(find.byType(PlayerSheetSurface).last);
       expect(Theme.of(inner).extension<AppPlayerStyleTheme>(), isNotNull);
       expect(ModalRoute.of(inner), isA<PopupRoute<dynamic>>());
+      expect(Theme.of(inner).extension<AppSkinTheme>()!.config, skin.light);
       mode.value = ThemeMode.dark;
       await tester.pumpAndSettle();
       for (final element in tester.elementList(
         find.byType(PlayerSheetSurface),
       )) {
         expect(Theme.of(element).brightness, Brightness.dark);
+        expect(Theme.of(element).extension<AppSkinTheme>()!.config, skin.dark);
+        expect(
+          (element.widget as PlayerSheetSurface).style.backgroundColor,
+          skin.dark.colors.bottomSheetBackground.withValues(alpha: 1),
+        );
         expect((element.widget as PlayerSheetSurface).style.topRadius, 16);
         expect(
           Theme.of(element).extension<AppPlayerStyleTheme>()!.sheetBrightness,
@@ -484,6 +507,122 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('open player sheet changes skin without losing draft or focus', (
+    tester,
+  ) async {
+    final skinId = ValueNotifier(AppSkinRegistry.forestSanctuaryId);
+    addTearDown(skinId.dispose);
+    final registry = AppSkinRegistry.builtIn(AppThemeAccent.forest);
+    final editorKey = GlobalKey<_EditableSheetState>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWith(_PlayerConfigController.new),
+        ],
+        child: ValueListenableBuilder<String>(
+          valueListenable: skinId,
+          builder: (context, id, child) => MaterialApp(
+            theme: AppTheme.light(registry.resolve(id)),
+            home: AppPlayerStyleBoundary(
+              child: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () => showPlayerStyledBottomSheet<void>(
+                      context: context,
+                      builder: (_) => _EditableSheet(key: editorKey),
+                    ),
+                    child: const Text('Open skin editor'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open skin editor'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Keep this draft');
+    final state = editorKey.currentState!;
+    final route = ModalRoute.of(
+      tester.element(find.byType(PlayerSheetSurface)),
+    );
+    skinId.value = AppSkinRegistry.starlitMelodyId;
+    await tester.pumpAndSettle();
+    expect(editorKey.currentState, same(state));
+    expect(state.controller.text, 'Keep this draft');
+    expect(state.fieldFocus.hasFocus, isTrue);
+    expect(
+      ModalRoute.of(tester.element(find.byType(PlayerSheetSurface))),
+      same(route),
+    );
+    expect(
+      _playerSheetStyle(tester).backgroundColor,
+      registry
+          .resolve(skinId.value)
+          .light
+          .colors
+          .bottomSheetBackground
+          .withValues(alpha: 1),
+    );
+    expect(find.byType(AppSkinBottomSheetSurface), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('player sheet scrolling reuses its own decoration display list', (
+    tester,
+  ) async {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.forest,
+    ).resolve(AppSkinRegistry.forestSanctuaryId);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(skin),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showPlayerStyledBottomSheet<void>(
+                context: context,
+                fitContent: true,
+                heightFactor: 0.7,
+                builder: (_) => ListView.builder(
+                  itemCount: 80,
+                  itemBuilder: (_, index) =>
+                      ListTile(title: Text('Queue $index')),
+                ),
+              ),
+              child: const Text('Open long player sheet'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open long player sheet'));
+    await tester.pumpAndSettle();
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('player-sheet-decoration')),
+            matching: find.byType(RepaintBoundary),
+          )
+          .first,
+    );
+    final layer = boundary.debugLayer! as OffsetLayer;
+    final picture = (layer.firstChild! as PictureLayer).picture;
+    expect(picture, isNotNull);
+    await tester.scrollUntilVisible(
+      find.text('Queue 79'),
+      400,
+      scrollable: find.descendant(
+        of: find.byType(PlayerSheetMaterial),
+        matching: find.byType(Scrollable),
+      ),
+      maxScrolls: 30,
+    );
+    expect((layer.firstChild! as PictureLayer).picture, same(picture));
+    expect(find.byType(AppSkinBottomSheetSurface), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 AppPlayerSheetStyle _playerSheetStyle(WidgetTester tester) {

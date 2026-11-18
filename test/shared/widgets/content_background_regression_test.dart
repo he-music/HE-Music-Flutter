@@ -100,8 +100,12 @@ void main() {
               expect(
                 Theme.of(
                   tester.element(find.byType(AppCupertinoContentSection).first),
-                ).extension<AppSkinTheme>(),
-                isNull,
+                ).extension<AppSkinTheme>()?.config,
+                _theme(
+                  brightness,
+                  AppUiStyle.cupertino,
+                  false,
+                ).extension<AppSkinTheme>()!.config,
               );
             }
             final scrollable = find

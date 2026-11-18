@@ -166,6 +166,7 @@ AppSkinBrightnessConfig _brightnessConfig({required Brightness brightness}) {
       : const Color(0xFFF4F6F4);
   final overlay = isDark ? const Color(0x42111615) : const Color(0x7AFFFFFF);
   return AppSkinBrightnessConfig(
+    sheetMotif: AppSkinSheetMotif.urban,
     colorScheme: scheme,
     colors: AppSkinColors(
       scaffoldBackground: Colors.transparent,

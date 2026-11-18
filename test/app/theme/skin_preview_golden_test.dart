@@ -35,6 +35,12 @@ import 'package:he_music_flutter/features/player/domain/entities/player_track.da
 import 'package:he_music_flutter/features/player/presentation/controllers/player_controller.dart';
 import 'package:he_music_flutter/features/player/presentation/providers/player_providers.dart';
 import 'package:he_music_flutter/shared/models/he_music_models.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_bottom_sheet.dart';
+import 'package:he_music_flutter/features/my/domain/entities/my_favorite_item.dart';
+import 'package:he_music_flutter/features/my/domain/entities/my_favorite_type.dart';
+import 'package:he_music_flutter/features/my/presentation/providers/my_playlist_shelf_providers.dart';
+import 'package:he_music_flutter/shared/widgets/select_user_playlist_sheet.dart';
+import 'package:he_music_flutter/shared/widgets/song_actions_sheet.dart';
 
 const _previewSize = Size(360, 640);
 const _previewKey = ValueKey<String>('skin-preview-golden-root');
@@ -131,6 +137,101 @@ void main() {
     },
     skip: miniPlayerPreviewDirectory.isEmpty,
   );
+  testWidgets('export themed bottom sheet previews', (tester) async {
+    await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+    addTearDown(tester.view.reset);
+    for (final skinId in [
+      AppSkinRegistry.forestSanctuaryId,
+      AppSkinRegistry.starlitMelodyId,
+      AppSkinRegistry.citySoundCreatorId,
+    ]) {
+      for (final style in AppUiStyle.values) {
+        for (final brightness in Brightness.values) {
+          final router = createAppRouter(AppRoutes.home);
+          await tester.pumpWidget(
+            _buildPreviewApp(
+              router,
+              brightness,
+              skinId,
+              uiStyle: style,
+              localeCode: 'zh',
+            ),
+          );
+          await tester.pumpAndSettle();
+          await _pumpUntilWallpaperDecoded(tester);
+          final context = router.routerDelegate.navigatorKey.currentContext!;
+          final prefix = '$skinId-${style.name}-${brightness.name}';
+          final menu = showSongActionsSheet(
+            context: context,
+            forceBottomSheet: true,
+            coverUrl: null,
+            title: '林间来信',
+            subtitle: '山野集 · 午后漫游',
+            duration: const Duration(minutes: 4, seconds: 32),
+            hasMv: false,
+            sourceLabel: '本地音乐',
+            onPlay: () {},
+            onPlayNext: () {},
+            onAddToPlaylist: () {},
+            onAddToUserPlaylist: () {},
+            onDownload: () {},
+            onCopySongName: () {},
+            onCopySongId: () {},
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          await _saveCupertinoPreview(
+            tester,
+            '$prefix-menu',
+            directory: '.artifacts/skin-sheets',
+          );
+          router.routerDelegate.navigatorKey.currentState!.pop();
+          await tester.pumpAndSettle();
+          await menu;
+          final selection = showAppThemedBottomSheet<SelectedUserPlaylist>(
+            context: context,
+            fitContent: true,
+            isScrollControlled: true,
+            heightFactor: 0.7,
+            builder: (_) => ProviderScope(
+              overrides: [
+                myCreatedPlaylistsProvider.overrideWith(
+                  (ref) async => [
+                    for (var index = 0; index < 24; index++)
+                      MyFavoriteItem(
+                        id: 'preview-$index',
+                        platform: 'user',
+                        type: MyFavoriteType.playlists,
+                        title: ['午后漫游', '山野来信', '雨声与旧唱片', '慢慢走回家'][index % 4],
+                        subtitle: '${12 + index * 3} 首歌曲',
+                        coverUrl: '',
+                      ),
+                  ],
+                ),
+              ],
+              child: const SelectUserPlaylistSheet(),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          await _saveCupertinoPreview(
+            tester,
+            '$prefix-playlists',
+            directory: '.artifacts/skin-sheets',
+          );
+          router.routerDelegate.navigatorKey.currentState!.pop();
+          await tester.pumpAndSettle();
+          await selection;
+          await tester.pumpWidget(const SizedBox.shrink());
+          router.dispose();
+        }
+      }
+    }
+  }, skip: true); // 仅显式导出真实弹窗预览，不更新既有首页基线。
   testWidgets('export wallpaper skin selection previews', (tester) async {
     await tester.runAsync(_loadPreviewFonts);
     tester.view.devicePixelRatio = 1;

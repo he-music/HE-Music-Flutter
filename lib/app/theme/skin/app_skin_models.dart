@@ -732,6 +732,9 @@ class AppSkinBackgroundConfig {
   }
 }
 
+/// Decorative theme data; application and player sheets render it separately.
+enum AppSkinSheetMotif { none, woodland, starlit, urban }
+
 enum AppSkinVisualStyle { standard, woodland }
 
 @immutable
@@ -743,6 +746,7 @@ class AppSkinBrightnessConfig {
     required this.geometry,
     required this.background,
     this.visualStyle = AppSkinVisualStyle.standard,
+    this.sheetMotif = AppSkinSheetMotif.none,
   });
 
   final ColorScheme colorScheme;
@@ -751,6 +755,7 @@ class AppSkinBrightnessConfig {
   final AppSkinGeometry geometry;
   final AppSkinBackgroundConfig background;
   final AppSkinVisualStyle visualStyle;
+  final AppSkinSheetMotif sheetMotif;
 
   AppSkinBrightnessConfig copyWith({
     ColorScheme? colorScheme,
@@ -759,6 +764,7 @@ class AppSkinBrightnessConfig {
     AppSkinGeometry? geometry,
     AppSkinBackgroundConfig? background,
     AppSkinVisualStyle? visualStyle,
+    AppSkinSheetMotif? sheetMotif,
   }) {
     return AppSkinBrightnessConfig(
       colorScheme: colorScheme ?? this.colorScheme,
@@ -767,6 +773,7 @@ class AppSkinBrightnessConfig {
       geometry: geometry ?? this.geometry,
       background: background ?? this.background,
       visualStyle: visualStyle ?? this.visualStyle,
+      sheetMotif: sheetMotif ?? this.sheetMotif,
     );
   }
 
@@ -786,6 +793,7 @@ class AppSkinBrightnessConfig {
       geometry: AppSkinGeometry.lerp(a.geometry, b.geometry, t),
       background: AppSkinBackgroundConfig.lerp(a.background, b.background, t),
       visualStyle: t < 0.5 ? a.visualStyle : b.visualStyle,
+      sheetMotif: t < 0.5 ? a.sheetMotif : b.sheetMotif,
     );
   }
 
@@ -797,7 +805,8 @@ class AppSkinBrightnessConfig {
         other.surfaces == surfaces &&
         other.geometry == geometry &&
         other.background == background &&
-        other.visualStyle == visualStyle;
+        other.visualStyle == visualStyle &&
+        other.sheetMotif == sheetMotif;
   }
 
   @override
@@ -809,6 +818,7 @@ class AppSkinBrightnessConfig {
       geometry,
       background,
       visualStyle,
+      sheetMotif,
     );
   }
 }

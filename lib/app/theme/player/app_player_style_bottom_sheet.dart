@@ -8,6 +8,8 @@ import 'app_player_style_theme.dart';
 
 import '../../config/app_ui_style.dart';
 import '../app_ui_theme.dart';
+import '../skin/app_skin_theme.dart';
+import 'app_player_sheet_material.dart';
 
 Future<T?> showPlayerStyledBottomSheet<T>({
   required BuildContext context,
@@ -125,6 +127,25 @@ Future<T?> showPlayerStyledBottomSheet<T>({
   });
 }
 
+AppPlayerSheetStyle _playerSheetStyleForTheme(
+  ThemeData theme,
+  Brightness brightness,
+  AppUiStyle uiStyle,
+) {
+  final base = AppPlayerSheetStyle.forBrightness(brightness, uiStyle: uiStyle);
+  final skin = theme.extension<AppSkinTheme>()?.config;
+  if (skin == null) return base;
+  final colors = skin.colorScheme;
+  return AppPlayerSheetStyle(
+    backgroundColor: skin.colors.bottomSheetBackground.withValues(alpha: 1),
+    foregroundColor: colors.onSurface,
+    secondaryForegroundColor: colors.onSurfaceVariant,
+    dividerColor: skin.colors.divider,
+    handleColor: colors.onSurfaceVariant.withValues(alpha: 0.48),
+    topRadius: base.topRadius,
+  );
+}
+
 class _PlayerStyledBottomSheetBody extends StatefulWidget {
   const _PlayerStyledBottomSheetBody({
     required this.builder,
@@ -158,9 +179,11 @@ class _PlayerStyledBottomSheetBodyState
     final uiStyle = AppUiTheme.usesCupertino(context)
         ? AppUiStyle.cupertino
         : AppUiStyle.material;
-    final style = AppPlayerSheetStyle.forBrightness(
+    final skinTheme = inheritedTheme.extension<AppSkinTheme>();
+    final style = _playerSheetStyleForTheme(
+      inheritedTheme,
       brightness,
-      uiStyle: uiStyle,
+      uiStyle,
     );
     final sheetTheme = buildAppPlayerSheetTheme(
       style,
@@ -174,17 +197,17 @@ class _PlayerStyledBottomSheetBodyState
           : null,
     );
     return Theme(
-      data: widget.systemOverlayStyle == null
-          ? sheetTheme
-          : sheetTheme.copyWith(
-              extensions: <ThemeExtension<dynamic>>[
-                AppUiTheme(style: uiStyle),
-                AppPlayerStyleTheme(
-                  systemOverlayStyle: widget.systemOverlayStyle!,
-                  sheetBrightness: brightness,
-                ),
-              ],
+      data: sheetTheme.copyWith(
+        extensions: <ThemeExtension<dynamic>>[
+          AppUiTheme(style: uiStyle),
+          if (widget.systemOverlayStyle != null)
+            AppPlayerStyleTheme(
+              systemOverlayStyle: widget.systemOverlayStyle!,
+              sheetBrightness: brightness,
             ),
+          ?skinTheme,
+        ],
+      ),
       child: PlayerSheetSurface(
         style: style,
         showDragHandle: widget.showDragHandle,
@@ -216,8 +239,9 @@ class PlayerSheetSurface extends StatelessWidget {
       borderRadius: BorderRadius.vertical(
         top: Radius.circular(style.topRadius),
       ),
-      child: ColoredBox(
-        color: style.backgroundColor.withValues(alpha: 1),
+      child: PlayerSheetMaterial(
+        backgroundColor: style.backgroundColor,
+        decorationTop: showDragHandle ? kMinInteractiveDimension : 0,
         child: IconTheme(
           data: IconThemeData(color: style.foregroundColor),
           child: DefaultTextStyle.merge(
@@ -298,10 +322,11 @@ Future<T?> showPlayerCupertinoActionSheet<T>({
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   final inheritedTheme = Theme.of(navigator.context);
   final playerStyleTheme = Theme.of(context).extension<AppPlayerStyleTheme>();
+  final skinTheme = inheritedTheme.extension<AppSkinTheme>();
   final brightness =
       playerStyleTheme?.sheetBrightness ?? inheritedTheme.brightness;
   const uiStyle = AppUiStyle.cupertino;
-  final style = AppPlayerSheetStyle.forBrightness(brightness, uiStyle: uiStyle);
+  final style = _playerSheetStyleForTheme(inheritedTheme, brightness, uiStyle);
   final sheetTheme = buildAppPlayerSheetTheme(
     style,
     brightness,
@@ -352,6 +377,7 @@ Future<T?> showPlayerCupertinoActionSheet<T>({
           extensions: <ThemeExtension<dynamic>>[
             AppUiTheme(style: AppUiStyle.cupertino),
             ?playerStyleTheme,
+            ?skinTheme,
           ],
         ),
         child: AppUiStyleScope(

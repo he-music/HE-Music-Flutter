@@ -8,6 +8,7 @@ endif
 .PHONY: help get upgrade run analyze test format fix gen skin-previews player-previews player-cover-previews player-background-previews player-lyric-previews clean build-apk build-aab release-check release
 .PHONY: ios-launch-logo
 .PHONY: player-interface-previews
+.PHONY: skin-sheet-previews
 
 help:
 	@printf "\n常用命令:\n"
@@ -22,6 +23,7 @@ help:
 	@printf "  make ios-launch-logo  从当前 Logo 更新 iOS 原生启动图（macOS）\n"
 	@printf "  make skin-previews  更新内置皮肤真实 UI 预览\n"
 	@printf "  make player-previews  更新播放器封面、背景、歌词预览\n"
+	@printf "  make skin-sheet-previews  导出皮肤底部菜单与歌单选择预览\n"
 	@printf "  make player-interface-previews  导出两种界面风格的播放器弹层预览\n"
 	@printf "  make player-cover-previews / player-background-previews / player-lyric-previews  按类别更新\n"
 	@printf "  make clean          清理构建产物\n"
@@ -59,6 +61,9 @@ ios-launch-logo:
 
 skin-previews:
 	$(FLUTTER) test --update-goldens test/app/theme/skin_preview_golden_test.dart
+
+skin-sheet-previews:
+	$(FLUTTER) test --run-skipped --plain-name "export themed bottom sheet previews" test/app/theme/skin_preview_golden_test.dart
 
 player-previews:
 	$(FLUTTER) test --dart-define=GENERATE_PLAYER_PREVIEWS=true test/app/theme/player_component_preview_test.dart

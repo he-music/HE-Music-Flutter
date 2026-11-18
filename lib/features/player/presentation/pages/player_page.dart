@@ -129,6 +129,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   RealtimeSpectrumController? _spectrumController;
   bool _spectrumSyncScheduled = false;
   List<Color> _classicBackdropColors = const <Color>[];
+  ImageProvider<Object>? _classicPaletteArtwork;
   bool _wideLayoutActive = false;
   bool _wideStageVisible = true;
 
@@ -536,7 +537,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                         widget.artistPhotoImageProviderBuilder,
                     onClassicPaletteChanged: scenePalette == null
                         ? null
-                        : _handleClassicPaletteChanged,
+                        : (colors) => _handleClassicPaletteChanged(
+                            colors,
+                            backdropImageProvider,
+                          ),
                   ),
                 ),
                 if (backdrop.backdropKind.supportsLyricBrightness &&
@@ -655,7 +659,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                       widget.artistPhotoImageProviderBuilder,
                   onClassicPaletteChanged: scenePalette == null
                       ? null
-                      : _handleClassicPaletteChanged,
+                      : (colors) => _handleClassicPaletteChanged(
+                          colors,
+                          backdropImageProvider,
+                        ),
                 ),
               ),
             ),
@@ -776,11 +783,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     );
   }
 
-  void _handleClassicPaletteChanged(List<Color> colors) {
+  void _handleClassicPaletteChanged(
+    List<Color> colors,
+    ImageProvider<Object>? artwork,
+  ) {
     if (!mounted) return;
-    if (listEquals(colors, _classicBackdropColors)) return;
+    final track = ref.read(playerControllerProvider).displayTrack;
+    if (artwork != artworkProvider(track?.artworkUrl, track?.artworkBytes)) {
+      return;
+    }
+    if (listEquals(colors, _classicBackdropColors) &&
+        artwork == _classicPaletteArtwork) {
+      return;
+    }
     setState(() {
       _classicBackdropColors = List<Color>.unmodifiable(colors);
+      _classicPaletteArtwork = artwork;
     });
   }
 
@@ -1007,6 +1025,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   void _openQueueSheet() {
     showPlayerStyledBottomSheet<void>(
       context: context,
+      // Keep the queue material identical to the MiniPlayer entry.
       isScrollControlled: true,
       showDragHandle: true,
       fitContent: true,

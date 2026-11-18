@@ -166,6 +166,40 @@ void main() {
     }
   });
 
+  testWidgets(
+    'pending cover never republishes the previous palette on rebuild',
+    (tester) async {
+      final pending = _PendingPaletteImage();
+      final revision = ValueNotifier(0);
+      addTearDown(revision.dispose);
+      final palettes = <List<Color>>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ValueListenableBuilder<int>(
+            valueListenable: revision,
+            builder: (context, value, _) => PlayerBackdrop(
+              backdropKind: AppPlayerBackdropKind.coverGradient,
+              imageProvider: value == 0 ? null : pending,
+              onClassicPaletteChanged: (colors) => palettes.add(colors),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(palettes, hasLength(1));
+      revision.value = 1;
+      await tester.pump();
+      revision.value =
+          2; // A new callback while the second image is still loading.
+      await tester.pump();
+      expect(palettes, hasLength(1));
+      pending.frame.completeError(StateError('Missing cover'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(palettes, hasLength(2)); // The new cover now has its own fallback.
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('classic reports a new palette after artwork changes', (
     tester,
   ) async {
@@ -1032,4 +1066,19 @@ class _NamedArtistPhotoCache extends ArtistPhotoCache {
     );
     return urls;
   }
+}
+
+class _PendingPaletteImage extends ImageProvider<_PendingPaletteImage> {
+  final frame = Completer<ImageInfo>();
+
+  @override
+  Future<_PendingPaletteImage> obtainKey(
+    ImageConfiguration configuration,
+  ) async => this;
+
+  @override
+  ImageStreamCompleter loadImage(
+    _PendingPaletteImage key,
+    ImageDecoderCallback decode,
+  ) => OneFrameImageStreamCompleter(frame.future);
 }

@@ -124,6 +124,7 @@ AppSkinBrightnessConfig _config(Brightness brightness) {
       : const Color(0xFFF3F1DC).withValues(alpha: 0.30);
   return AppSkinBrightnessConfig(
     visualStyle: AppSkinVisualStyle.woodland,
+    sheetMotif: AppSkinSheetMotif.woodland,
     colorScheme: scheme,
     colors: AppSkinColors(
       scaffoldBackground: Colors.transparent,

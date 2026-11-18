@@ -24,6 +24,13 @@ import 'package:he_music_flutter/shared/widgets/app_button.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_mode.dart';
 import 'package:he_music_flutter/app/router/app_route_observers.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_scene_palette.dart';
+import 'package:he_music_flutter/app/theme/app_theme.dart';
+import 'package:he_music_flutter/app/config/app_theme_accent.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_theme.dart';
+import 'package:he_music_flutter/app/theme/skin/app_skin_bottom_sheet_surface.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_sheet_material.dart';
+import 'package:he_music_flutter/app/theme/player/app_player_style_bottom_sheet.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_registry.dart';
 import 'package:he_music_flutter/app/theme/player/app_player_style_boundary.dart';
 import 'package:he_music_flutter/core/audio/audio_spectrum_frame.dart';
@@ -1916,6 +1923,71 @@ void main() {
     expect(find.textContaining('High Quality'), findsOneWidget);
   });
 
+  for (final skinId in [
+    AppSkinRegistry.forestSanctuaryId,
+    AppSkinRegistry.starlitMelodyId,
+    AppSkinRegistry.citySoundCreatorId,
+  ]) {
+    testWidgets('$skinId player sheets follow skin across backdrop changes', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final skin = AppSkinRegistry.builtIn(
+        AppThemeAccent.forest,
+      ).resolve(skinId);
+      final artwork = await tester.runAsync(
+        () => File('test/assets/player/artist_photo.png').readAsBytes(),
+      );
+      await tester.pumpWidget(
+        _buildPlayerTestApp(
+          controllerFactory: () => _WidePreviewPlayerController(artwork!),
+          theme: AppTheme.light(skin),
+          config: AppConfigState.initial.copyWith(
+            localeCode: 'en',
+            playerStageId: AppPlayerStageRegistry.classicId,
+            playerBackdropId: AppPlayerBackdropRegistry.coverGradientId,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final playerContext = tester.element(find.byType(PlayerPage));
+      final container = ProviderScope.containerOf(playerContext, listen: false);
+      for (final backdrop in [
+        AppPlayerBackdropRegistry.coverGradientId,
+        AppPlayerBackdropRegistry.albumCoverId,
+      ]) {
+        container
+            .read(appConfigProvider.notifier)
+            .setPlayerBackdropId(backdrop);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+        await tester.pumpAndSettle();
+        final surface = tester.widget<PlayerSheetSurface>(
+          find.byType(PlayerSheetSurface),
+        );
+        expect(
+          surface.style.backgroundColor,
+          skin.light.colors.bottomSheetBackground.withValues(alpha: 1),
+        );
+        expect(surface.style.foregroundColor, skin.light.colorScheme.onSurface);
+        final materialContext = tester.element(
+          find.byType(PlayerSheetMaterial),
+        );
+        expect(
+          Theme.of(
+            materialContext,
+          ).extension<AppSkinTheme>()!.config.sheetMotif,
+          skin.light.sheetMotif,
+        );
+        expect(find.byType(AppSkinBottomSheetSurface), findsNothing);
+        Navigator.of(playerContext, rootNavigator: true).pop();
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets(
     'export player interface style previews',
     (tester) async {
@@ -1957,6 +2029,9 @@ void main() {
         return bytes;
       });
       const capture = ValueKey('player-interface-preview');
+      final skin = AppSkinRegistry.builtIn(
+        AppThemeAccent.forest,
+      ).resolve(AppSkinRegistry.forestSanctuaryId);
       for (final style in AppUiStyle.values) {
         for (final brightness in Brightness.values) {
           await tester.pumpWidget(
@@ -1973,22 +2048,15 @@ void main() {
                     uiStyle: style,
                     playerStageId: AppPlayerStageRegistry.classicId,
                   ),
-                  theme: ThemeData(
-                    brightness: brightness,
-                    colorScheme:
-                        ColorScheme.fromSeed(
-                          seedColor: const Color(0xFF007AFF),
-                          brightness: brightness,
-                        ).copyWith(
-                          primary: brightness == Brightness.light
-                              ? const Color(0xFF007AFF)
-                              : const Color(0xFF0A84FF),
-                          onPrimary: Colors.white,
-                        ),
-                    textTheme: ThemeData.dark().textTheme.apply(
-                      fontFamily: 'Roboto',
-                    ),
-                  ),
+                  theme:
+                      (brightness == Brightness.light
+                              ? AppTheme.light(skin, uiStyle: style)
+                              : AppTheme.dark(skin, uiStyle: style))
+                          .copyWith(
+                            textTheme: ThemeData(
+                              brightness: brightness,
+                            ).textTheme.apply(fontFamily: 'Roboto'),
+                          ),
                 ),
               ),
             ),
@@ -2012,6 +2080,18 @@ void main() {
           );
           await tester.tap(find.byIcon(Icons.more_horiz_rounded));
           await tester.pumpAndSettle();
+          final moreSurface = tester.widget<PlayerSheetSurface>(
+            find.byType(PlayerSheetSurface),
+          );
+          final config = brightness == Brightness.light
+              ? skin.light
+              : skin.dark;
+          expect(
+            moreSurface.style.backgroundColor,
+            config.colors.bottomSheetBackground.withValues(alpha: 1),
+          );
+          expect(find.byType(PlayerSheetMaterial), findsOneWidget);
+          expect(find.byType(AppSkinBottomSheetSurface), findsNothing);
           await _saveInterfacePreview(
             tester,
             capture,
@@ -2050,6 +2130,15 @@ void main() {
             await _scrollPlayerMoreSheetTo(tester, action);
             await tester.tap(find.text(action));
             await tester.pumpAndSettle();
+            if (name != 'style') {
+              final surface = tester.widget<PlayerSheetSurface>(
+                find.byType(PlayerSheetSurface),
+              );
+              expect(
+                surface.style.backgroundColor,
+                config.colors.bottomSheetBackground.withValues(alpha: 1),
+              );
+            }
             await _saveInterfacePreview(
               tester,
               capture,

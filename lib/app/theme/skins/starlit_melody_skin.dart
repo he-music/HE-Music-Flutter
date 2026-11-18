@@ -50,6 +50,7 @@ AppSkinBrightnessConfig _lightBrightnessConfig() {
   const overlay = Color(0x24FFFFFF);
   final scheme = _lightColorScheme();
   return AppSkinBrightnessConfig(
+    sheetMotif: AppSkinSheetMotif.starlit,
     colorScheme: scheme,
     colors: AppSkinColors(
       scaffoldBackground: Colors.transparent,
@@ -100,6 +101,7 @@ AppSkinBrightnessConfig _darkBrightnessConfig() {
   const overlay = Color(0x24111521);
   final scheme = _darkColorScheme();
   return AppSkinBrightnessConfig(
+    sheetMotif: AppSkinSheetMotif.starlit,
     colorScheme: scheme,
     colors: AppSkinColors(
       scaffoldBackground: Colors.transparent,

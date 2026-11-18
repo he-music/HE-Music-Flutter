@@ -711,6 +711,7 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
   int _paletteGeneration = 0;
   int _paletteVersion = 0;
   List<Color> _currentPalette = const <Color>[];
+  ImageProvider<Object>? _paletteImageProvider;
   List<Color> _previousPalette = const <Color>[];
 
   @override
@@ -725,9 +726,10 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
     if (oldWidget.imageProvider != widget.imageProvider) {
       _refreshPalette();
     } else if (oldWidget.onPaletteChanged != widget.onPaletteChanged &&
-        _currentPalette.isNotEmpty) {
+        _currentPalette.isNotEmpty &&
+        _paletteImageProvider == widget.imageProvider) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted || _paletteImageProvider != widget.imageProvider) return;
         widget.onPaletteChanged?.call(List<Color>.of(_currentPalette));
       });
     }
@@ -735,7 +737,8 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
 
   Future<void> _refreshPalette() async {
     final generation = ++_paletteGeneration;
-    final resolved = await _loadPalette(widget.imageProvider);
+    final imageProvider = widget.imageProvider;
+    final resolved = await _loadPalette(imageProvider);
     if (!mounted || generation != _paletteGeneration) return;
     final target = resolved.isEmpty
         ? _fallbackClassicColors(Theme.of(context))
@@ -745,6 +748,7 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
           ? target
           : List<Color>.of(_currentPalette);
       _currentPalette = target;
+      _paletteImageProvider = imageProvider;
       _paletteVersion++;
     });
     widget.onPaletteChanged?.call(List<Color>.of(target));
