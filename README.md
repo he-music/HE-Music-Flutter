@@ -90,6 +90,11 @@ update         版本更新检查
 video          视频广场、视频详情与播放状态
 ```
 
+## 开发文档
+
+- [沉浸式皮肤制作指南](docs/immersive-skin-guide.md)：全局主题的视觉设计、日夜 Rive 动效、资源制作、组件材质及验收流程。
+- [界面风格验收](docs/interface-style-acceptance.md)：Material / Cupertino 的布局、交互与性能检查。
+
 ## 部分截图
 
 | 推荐页 | 发现页 | 播放详情页 | 搜索页面 |
