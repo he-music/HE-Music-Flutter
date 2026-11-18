@@ -5,8 +5,8 @@
 ## 视觉组成
 
 - 日夜场景采用同一森林构图：白天为鼠尾草绿与奶油色散射光，夜间为翡翠、青蓝与暖萤光。森林和溪流远景保持静止。
-- 流雾、萤光及近景枝叶全部由 `ambient.riv` 承载，通过共享 `AppSkinRiveAnimation` 播放，与城市声场皮肤使用同一运行入口及 Flutter renderer。
-- 恢复明亮的萤光光晕、较浓的流雾及更明显的枝叶摆动；萤光与近景锚点收进竖屏可见区域，避免 `BoxFit.cover` 的两侧裁切隐藏动效。日间 / 夜间 Rive 叠加不透明度分别为 85% / 96%，萤光光晕直径 36 个画板单位。
+- 日间飘叶、流雾、夜间萤光及近景枝叶全部由 `ambient.riv` 承载，通过共享 `AppSkinRiveAnimation` 播放，与城市声场皮肤使用同一运行入口及 Flutter renderer。
+- 日间移除萤火虫，6 片绿 / 金色落叶错峰下落，随风横移、旋转和翻转叶面，出入场渐隐；近景蕨叶以 18 秒周期、5° 幅度摆动。夜间保留直径 36 个画板单位的萤光光晕与流雾，枝叶以 36 秒周期、2° 幅度微摆。萤光、落叶与近景锚点位于竖屏可见区域。日间 / 夜间 Rive 叠加不透明度分别为 85% / 96%。
 - 底部透明度通过共享 `AppSkinTheme` 调整：所有壁纸皮肤的 MiniPlayer 配置不透明度乘 0.90，底部 Tab 乘 0.85；纯色皮肤保持不透明，磨砂模糊参数沿用原值。
 - 搜索框、播放条及内容表面采用纸色/苔绿、静态叶脉纹理和柔和圆角。静态叶脉仍由共享组件绘制，不创建动画时钟。
 - 关闭内容背景时，普通列表保持透明；搜索框、固定播放控制和底栏保留独立表面，弹层不透明。
@@ -17,15 +17,15 @@
 
 ## Rive 资源与制作
 
-- 运行资源：`assets/skins/forest_sanctuary/ambient.riv`，38133 字节。
-- SHA-256：`aa26cb4eb9b75dac48679185951e248be7cbb332871bd8ccc773ce520b1f6e42`。
+- 运行资源：`assets/skins/forest_sanctuary/ambient.riv`，74265 字节。
+- SHA-256：`6a54c35d808885c02794ba6f0ccdce0791ce0fdf3f43a541129634c9eea7a0cd`。
 - 两个透明画板：`ForestDay` / `ForestNight`，均为 768×1024，与森林远景同比例。
 - 两个画板均使用 `AmbientLoop` 状态机，无输入；状态机自动进入 `forest_ambient` 循环。
 - 动画时间轴：36 秒、30 fps；流雾以约 18 秒周期移动，萤光以约 9 秒周期起伏，枝叶缓慢摆动。时间轴 fps 不代表运行时被限制为每秒绘制 30 次。
 - 只包含原创矢量形状、渐变及关键帧，不内嵌壁纸、字体、音频或外部文件。
 - 可重建源：`scripts/generate_forest_ambient.mjs`。
 - 制作工具：`rive-mcp-server` **0.3.0**，与城市声场资源记录使用同版本。其 Freeware License 允许个人/商业使用及无限制使用、修改、分发生成的 `.riv`；生成器自身及依赖不打入应用，也不纳入仓库。
-- 二进制 lint 无发现；官方 Rive Web 运行时检查了两个画板、时间轴和状态机，并导出多时刻透明帧。Flutter 集成测试实际加载并推进两个画板。
+- 二进制 lint 无错误或警告；6 条 `motion-lopsided-scale` 信息对应落叶仅改变 scaleX 来表现翻转叶面，属于有意设计；官方 Rive Web 运行时检查了两个画板、时间轴和状态机，并导出多时刻透明帧。Flutter 集成测试实际加载并推进两个画板。
 
 重建资源：
 
@@ -65,4 +65,4 @@ flutter test test/app/theme/skin_preview_golden_test.dart --run-skipped \
   --plain-name 'export forest ambient motion'
 ```
 
-真实页面默认导出至 `.artifacts/forest-sanctuary/previews`；动态导出先等待 Rive 成功加载，再按 30 fps 采样 240 帧至 `.artifacts/forest-sanctuary/motion`，约 8 秒。显式预览可使用本机完整中文字库，或以 `MINI_PLAYER_PREVIEW_CJK_FONT` 指定。所有预览使用固定示例数据，不代表真机帧率。
+真实页面默认导出至 `.artifacts/forest-sanctuary/previews`；动态导出先等待 Rive 成功加载，再按 30 fps 为日夜各采样 240 帧，夜间至 `.artifacts/forest-sanctuary/motion`、日间至 `.artifacts/forest-sanctuary/motion-day`，约 8 秒。显式预览可使用本机完整中文字库，或以 `MINI_PLAYER_PREVIEW_CJK_FONT` 指定。所有预览使用固定示例数据，不代表真机帧率。

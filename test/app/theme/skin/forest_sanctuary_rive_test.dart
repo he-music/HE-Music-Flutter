@@ -71,9 +71,11 @@ void main() {
         expect(widget.alignment, Alignment.center);
         expect(controller.active, isTrue);
         expect(resolver.riveLoads, 1);
-        // 官方运行时必须实际推进，不只验证文件能够解码。
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(tester.takeException(), isNull);
+        // 实际跨过落叶的 18 秒循环与完整的 36 秒时间轴，再验证暂停恢复。
+        for (var frame = 0; frame < 74; frame++) {
+          await tester.pump(const Duration(milliseconds: 500));
+          expect(tester.takeException(), isNull);
+        }
 
         await tester.pumpWidget(host(enabled: false));
         await tester.pump();

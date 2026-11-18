@@ -50,6 +50,37 @@ function fern(id, color) {
   return importSvg(svg, { idPrefix: id }).shapes;
 }
 
+function fallingLeaves(groups, shapes, tracks) {
+  const period = duration / 2;
+  for (let i = 0; i < 6; i++) {
+    const id = `falling_leaf_${i}`;
+    const size = 18 + i % 3 * 5;
+    const color = ['#507744', '#728A43', '#AA873C'][i % 3];
+    groups.push({ id });
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="768" height="1024" viewBox="0 0 768 1024"><path d="M${-size / 2} 0 Q0 ${-size * .65} ${size / 2} 0 Q0 ${size * .65} ${-size / 2} 0Z" fill="${color}"/><path d="M${-size / 2} 0 L${size / 2} 0" stroke="#D2D49A" stroke-width=".8"/></svg>`;
+    shapes.push(...importSvg(svg, { idPrefix: `${id}_` }).shapes
+      .map((shape) => ({ ...shape, parent: id })));
+    const properties = ['x', 'y', 'rotation', 'scaleX', 'opacity'];
+    const keyframes = Object.fromEntries(properties.map((property) => [property, []]));
+    for (let frame = 0; frame <= duration; frame += 9) {
+      const progress = ((frame + i * period / 6) % period) / period;
+      const phase = progress * Math.PI * 4 + i * 1.7;
+      const values = {
+        x: width * (.29 + i * .075) + Math.sin(phase) * 48 + progress * 35,
+        y: -40 + progress * (height + 80),
+        rotation: i * 35 + Math.sin(phase) * 65 + progress * 100,
+        scaleX: .3 + .7 * Math.abs(Math.cos(phase / 2)),
+        // 回到树冠前先完全隐去，避免循环重置时看到跳跃。
+        opacity: .80 * Math.min(1, progress / .08, (1 - progress) / .12),
+      };
+      for (const property of properties) {
+        keyframes[property].push({ frame, value: values[property] });
+      }
+    }
+    tracks.push(...properties.map((property) => ({ target: id, property, keyframes: keyframes[property] })));
+  }
+}
+
 function artboard(dark) {
   const groups = [];
   const shapes = [];
@@ -76,8 +107,8 @@ function artboard(dark) {
   }
 
   // BoxFit.cover 会裁掉竖屏两侧；把萤光与近景锚点收进手机可见区域。
-  const count = dark ? lights.length : 7;
-  const lightColor = dark ? '#F5E6A0' : '#FFF4C9';
+  const count = dark ? lights.length : 0;
+  const lightColor = '#F5E6A0';
   for (let i = 0; i < count; i++) {
     const id = `firefly_${i}`;
     const [px, py] = lights[i];
@@ -101,6 +132,8 @@ function artboard(dark) {
     tracks.push(cycle(id, 'opacity', .62, .34, 270, seed));
   }
 
+  if (!dark) fallingLeaves(groups, shapes, tracks);
+
   for (let i = 0; i < 2; i++) {
     const id = `fern_${i}`;
     groups.push({
@@ -110,7 +143,7 @@ function artboard(dark) {
     });
     shapes.push(...fern(`${id}_leaf_`, dark ? '#0B2928' : '#365D3F')
       .map((shape) => ({ ...shape, parent: id })));
-    tracks.push(cycle(id, 'rotation', i === 0 ? -20 : 24, 2.0, 1080, i));
+    tracks.push(cycle(id, 'rotation', i === 0 ? -20 : 24, dark ? 2.0 : 5.0, dark ? 1080 : 540, i));
   }
 
   return {

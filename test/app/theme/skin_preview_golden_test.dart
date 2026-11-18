@@ -170,40 +170,44 @@ void main() {
       tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
       tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
       addTearDown(tester.view.reset);
-      final router = createAppRouter(AppRoutes.home);
-      await tester.pumpWidget(
-        _buildPreviewApp(
-          router,
-          Brightness.dark,
-          AppSkinRegistry.forestSanctuaryId,
-          localeCode: 'zh',
-          enableSkinAnimation: true,
-        ),
-      );
-      await _pumpUntilWallpaperDecoded(tester);
-      final riveFinder = find.byKey(const ValueKey('app-skin-rive-widget'));
-      for (
-        var attempt = 0;
-        attempt < 150 && riveFinder.evaluate().isEmpty;
-        attempt++
-      ) {
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      for (final brightness in Brightness.values) {
+        final router = createAppRouter(AppRoutes.home);
+        await tester.pumpWidget(
+          _buildPreviewApp(
+            router,
+            brightness,
+            AppSkinRegistry.forestSanctuaryId,
+            localeCode: 'zh',
+            enableSkinAnimation: true,
+          ),
         );
-        await tester.pump(const Duration(milliseconds: 16));
+        await _pumpUntilWallpaperDecoded(tester);
+        final riveFinder = find.byKey(const ValueKey('app-skin-rive-widget'));
+        for (
+          var attempt = 0;
+          attempt < 150 && riveFinder.evaluate().isEmpty;
+          attempt++
+        ) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(riveFinder, findsOneWidget);
+        for (var frame = 0; frame < 240; frame++) {
+          await tester.pump(const Duration(microseconds: 33333));
+          expect(tester.takeException(), isNull);
+          await _saveCupertinoPreview(
+            tester,
+            'frame-$frame',
+            directory: brightness == Brightness.dark
+                ? motionPreviewDirectory
+                : '$motionPreviewDirectory-day',
+          );
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        router.dispose();
       }
-      expect(riveFinder, findsOneWidget);
-      for (var frame = 0; frame < 240; frame++) {
-        await tester.pump(const Duration(microseconds: 33333));
-        expect(tester.takeException(), isNull);
-        await _saveCupertinoPreview(
-          tester,
-          'frame-$frame',
-          directory: motionPreviewDirectory,
-        );
-      }
-      await tester.pumpWidget(const SizedBox.shrink());
-      router.dispose();
     },
     skip: !const bool.hasEnvironment('FOREST_MOTION_PREVIEW_DIR'),
   );
