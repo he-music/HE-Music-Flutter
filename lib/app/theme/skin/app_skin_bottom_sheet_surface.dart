@@ -157,6 +157,7 @@ class _SkinSheetDecorationPainter extends CustomPainter {
     }
     if (motif == AppSkinSheetMotif.starlit) _paintStarlit(canvas, size);
     if (motif == AppSkinSheetMotif.urban) _paintUrban(canvas, size);
+    if (motif == AppSkinSheetMotif.tidal) _paintTidal(canvas, size);
     canvas.restore();
   }
 
@@ -221,6 +222,46 @@ class _SkinSheetDecorationPainter extends CustomPainter {
       )
       ..close();
     canvas.drawPath(star, dots);
+  }
+
+  void _paintTidal(Canvas canvas, Size size) {
+    final edge = math.min(size.width * 0.30, 112.0);
+    final ink = Paint()
+      ..color = primary.withValues(alpha: dark ? 0.16 : 0.11)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    // Three quiet currents and pearl rings stay beside the reading area.
+    for (var index = 0; index < 3; index++) {
+      final y = 36.0 + index * 24;
+      canvas.drawPath(
+        Path()
+          ..moveTo(size.width - edge, y)
+          ..cubicTo(
+            size.width - edge * 0.60,
+            y - 20,
+            size.width - edge * 0.32,
+            y + 24,
+            size.width + 8,
+            y - 4,
+          ),
+        ink,
+      );
+    }
+    final pearl = Paint()
+      ..color = secondary.withValues(alpha: dark ? 0.18 : 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    for (final point in const [
+      Offset(0.22, 24),
+      Offset(0.66, 112),
+      Offset(0.38, 90),
+    ]) {
+      canvas.drawCircle(
+        Offset(size.width - edge * point.dx, point.dy),
+        3.5,
+        pearl,
+      );
+    }
   }
 
   void _paintUrban(Canvas canvas, Size size) {

@@ -470,6 +470,9 @@ abstract final class AppI18n {
       'settings.skin.forest_sanctuary.name': '森林秘境',
       'settings.skin.forest_sanctuary.description':
           '在森林里，慢慢听。手绘树影、流雾与萤光，陪你走进林间。',
+      'settings.skin.tidal_sanctuary.name': '潮汐秘境',
+      'settings.skin.tidal_sanctuary.description':
+          '潜入一片安静的蓝。日光、水流与夜光浮游，陪旋律缓缓呼吸。',
       'settings.skin.custom.name': '自定义皮肤',
       'settings.skin.custom.description': '使用个人图片生成的亮暗背景与主题色',
       'settings.skin.custom.create': '创建自定义皮肤',
@@ -1594,6 +1597,9 @@ abstract final class AppI18n {
       'settings.skin.forest_sanctuary.name': 'Forest Sanctuary',
       'settings.skin.forest_sanctuary.description':
           'A little closer to wonder. Hand-painted trees, drifting mist, and fireflies',
+      'settings.skin.tidal_sanctuary.name': 'Tidal Sanctuary',
+      'settings.skin.tidal_sanctuary.description':
+          'Drift into the blue. Sunlit currents and bioluminescent tides breathe with the music.',
       'settings.skin.custom.name': 'Custom Skin',
       'settings.skin.custom.description':
           'Light and dark backgrounds generated from your image',

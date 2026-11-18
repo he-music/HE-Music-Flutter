@@ -74,6 +74,7 @@ void main() {
         AppSkinRegistry.classicId,
         AppSkinRegistry.starlitMelodyId,
         AppSkinRegistry.forestSanctuaryId,
+        AppSkinRegistry.tidalSanctuaryId,
       ]) {
         for (final style in AppUiStyle.values) {
           for (final brightness in Brightness.values) {
@@ -146,6 +147,7 @@ void main() {
     addTearDown(tester.view.reset);
     for (final skinId in [
       AppSkinRegistry.forestSanctuaryId,
+      AppSkinRegistry.tidalSanctuaryId,
       AppSkinRegistry.starlitMelodyId,
       AppSkinRegistry.citySoundCreatorId,
     ]) {
@@ -241,6 +243,7 @@ void main() {
       AppSkinRegistry.citySoundCreatorId,
       AppSkinRegistry.starlitMelodyId,
       AppSkinRegistry.forestSanctuaryId,
+      AppSkinRegistry.tidalSanctuaryId,
     ]) {
       for (final brightness in Brightness.values) {
         final router = createAppRouter(AppRoutes.home);
@@ -258,163 +261,217 @@ void main() {
       }
     }
   }, skip: true); // 仅在显式 --run-skipped 导出时写入资源。
-  const motionPreviewDirectory = String.fromEnvironment(
-    'FOREST_MOTION_PREVIEW_DIR',
-    defaultValue: '.artifacts/forest-sanctuary/motion',
-  );
-  testWidgets(
-    'export forest ambient motion',
-    (tester) async {
-      await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
-      tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
-      addTearDown(tester.view.reset);
-      for (final brightness in Brightness.values) {
-        final router = createAppRouter(AppRoutes.home);
-        await tester.pumpWidget(
-          _buildPreviewApp(
-            router,
-            brightness,
-            AppSkinRegistry.forestSanctuaryId,
-            localeCode: 'zh',
-            enableSkinAnimation: true,
-          ),
-        );
-        await _pumpUntilWallpaperDecoded(tester);
-        final riveFinder = find.byKey(const ValueKey('app-skin-rive-widget'));
-        for (
-          var attempt = 0;
-          attempt < 150 && riveFinder.evaluate().isEmpty;
-          attempt++
-        ) {
-          await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+  for (final motionSkinId in [
+    AppSkinRegistry.forestSanctuaryId,
+    AppSkinRegistry.tidalSanctuaryId,
+  ]) {
+    final forest = motionSkinId == AppSkinRegistry.forestSanctuaryId;
+    final motionPreviewDirectory = forest
+        ? const String.fromEnvironment(
+            'FOREST_MOTION_PREVIEW_DIR',
+            defaultValue: '.artifacts/forest-sanctuary/motion',
+          )
+        : const String.fromEnvironment(
+            'TIDAL_MOTION_PREVIEW_DIR',
+            defaultValue: '.artifacts/tidal-sanctuary/motion',
           );
-          await tester.pump(const Duration(milliseconds: 16));
-        }
-        expect(riveFinder, findsOneWidget);
-        for (var frame = 0; frame < 240; frame++) {
-          await tester.pump(const Duration(microseconds: 33333));
-          expect(tester.takeException(), isNull);
-          await _saveCupertinoPreview(
-            tester,
-            'frame-$frame',
-            directory: brightness == Brightness.dark
-                ? motionPreviewDirectory
-                : '$motionPreviewDirectory-day',
-          );
-        }
-        await tester.pumpWidget(const SizedBox.shrink());
-        router.dispose();
-      }
-    },
-    skip: !const bool.hasEnvironment('FOREST_MOTION_PREVIEW_DIR'),
-  );
-  const roomPreviewDirectory = String.fromEnvironment(
-    'SKIN_SCENE_PREVIEW_DIR',
-    defaultValue: '.artifacts/forest-sanctuary/previews',
-  );
-  const previewSkinId = String.fromEnvironment(
-    'SCENE_PREVIEW_SKIN',
-    defaultValue: AppSkinRegistry.forestSanctuaryId,
-  );
-  testWidgets(
-    'export immersive skin scenes',
-    (tester) async {
-      await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      for (final style in AppUiStyle.values) {
+    testWidgets(
+      'export ${forest ? 'forest' : 'tidal'} ambient motion',
+      (tester) async {
+        await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+        tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+        addTearDown(tester.view.reset);
         for (final brightness in Brightness.values) {
-          tester.view.physicalSize = const Size(390, 844);
-          tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
-          tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
           final router = createAppRouter(AppRoutes.home);
           await tester.pumpWidget(
             _buildPreviewApp(
               router,
               brightness,
-              previewSkinId,
-              uiStyle: style,
+              motionSkinId,
               localeCode: 'zh',
+              enableSkinAnimation: true,
             ),
           );
-          await tester.pumpAndSettle();
           await _pumpUntilWallpaperDecoded(tester);
-          final prefix = '${style.name}-${brightness.name}';
-          for (final page in ['home', 'playlist', 'settings']) {
-            if (page == 'playlist') {
-              router.push(
-                '${AppRoutes.recommendSongList}?id=preview&platform=platform-1',
-              );
-            } else if (page == 'settings') {
-              router.push(AppRoutes.settingsSectionLocation('appearance'));
-            }
-            await tester.pumpAndSettle();
+          final riveFinder = find.byKey(const ValueKey('app-skin-rive-widget'));
+          for (
+            var attempt = 0;
+            attempt < 150 && riveFinder.evaluate().isEmpty;
+            attempt++
+          ) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 20)),
+            );
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          expect(riveFinder, findsOneWidget);
+          for (var frame = 0; frame < 240; frame++) {
+            await tester.pump(const Duration(microseconds: 33333));
             expect(tester.takeException(), isNull);
             await _saveCupertinoPreview(
               tester,
-              '$prefix-$page',
-              directory: roomPreviewDirectory,
+              'frame-$frame',
+              directory: brightness == Brightness.dark
+                  ? motionPreviewDirectory
+                  : '$motionPreviewDirectory-day',
             );
           }
-          // 重新挂载预览 scope，让主题与配置都使用开启内容底色的状态。
           await tester.pumpWidget(const SizedBox.shrink());
           router.dispose();
-          final settingsRouter = createAppRouter(
-            AppRoutes.settingsSectionLocation('appearance'),
-          );
-          await tester.pumpWidget(
-            _buildPreviewApp(
-              settingsRouter,
-              brightness,
-              previewSkinId,
-              uiStyle: style,
-              showContentBackground: true,
-              localeCode: 'zh',
-            ),
-          );
-          await tester.pumpAndSettle();
-          await _pumpUntilWallpaperDecoded(tester);
-          expect(tester.takeException(), isNull);
-          await _saveCupertinoPreview(
-            tester,
-            '$prefix-settings-content',
-            directory: roomPreviewDirectory,
-          );
-          await tester.pumpWidget(const SizedBox.shrink());
-          settingsRouter.dispose();
-
-          tester.view.physicalSize = const Size(1280, 800);
-          tester.view.padding = FakeViewPadding.zero;
-          tester.view.viewPadding = FakeViewPadding.zero;
-          final wideRouter = createAppRouter(AppRoutes.home);
-          await tester.pumpWidget(
-            _buildPreviewApp(
-              wideRouter,
-              brightness,
-              previewSkinId,
-              uiStyle: style,
-              localeCode: 'zh',
-            ),
-          );
-          await tester.pumpAndSettle();
-          await _pumpUntilWallpaperDecoded(tester);
-          expect(tester.takeException(), isNull);
-          await _saveCupertinoPreview(
-            tester,
-            '$prefix-home-wide',
-            directory: roomPreviewDirectory,
-          );
-          await tester.pumpWidget(const SizedBox.shrink());
-          wideRouter.dispose();
         }
-      }
-    },
-    skip: !const bool.hasEnvironment('SKIN_SCENE_PREVIEW_DIR'),
-  );
+      },
+      skip: forest
+          ? !const bool.hasEnvironment('FOREST_MOTION_PREVIEW_DIR')
+          : !const bool.hasEnvironment('TIDAL_MOTION_PREVIEW_DIR'),
+    );
+  }
+  for (final sceneSkinId in [
+    AppSkinRegistry.forestSanctuaryId,
+    AppSkinRegistry.tidalSanctuaryId,
+  ]) {
+    const configuredSkin = String.fromEnvironment('SCENE_PREVIEW_SKIN');
+    if (configuredSkin.isNotEmpty && configuredSkin != sceneSkinId) continue;
+    final previewSkinId = sceneSkinId;
+    const configuredDirectory = String.fromEnvironment(
+      'SKIN_SCENE_PREVIEW_DIR',
+    );
+    final roomPreviewDirectory = configuredDirectory.isNotEmpty
+        ? configuredDirectory
+        : '.artifacts/${sceneSkinId.replaceAll('_', '-')}/previews';
+    testWidgets(
+      'export immersive skin scenes for $previewSkinId',
+      (tester) async {
+        await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        for (final style in AppUiStyle.values) {
+          for (final brightness in Brightness.values) {
+            tester.view.physicalSize = const Size(390, 844);
+            tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+            tester.view.viewPadding = const FakeViewPadding(
+              top: 24,
+              bottom: 24,
+            );
+            final router = createAppRouter(AppRoutes.home);
+            await tester.pumpWidget(
+              _buildPreviewApp(
+                router,
+                brightness,
+                previewSkinId,
+                uiStyle: style,
+                localeCode: 'zh',
+              ),
+            );
+            await tester.pumpAndSettle();
+            await _pumpUntilWallpaperDecoded(tester);
+            final prefix = '${style.name}-${brightness.name}';
+            for (final page in ['home', 'playlist', 'settings']) {
+              if (page == 'playlist') {
+                router.push(
+                  '${AppRoutes.recommendSongList}?id=preview&platform=platform-1',
+                );
+              } else if (page == 'settings') {
+                router.push(AppRoutes.settingsSectionLocation('appearance'));
+              }
+              await tester.pumpAndSettle();
+              expect(tester.takeException(), isNull);
+              await _saveCupertinoPreview(
+                tester,
+                '$prefix-$page',
+                directory: roomPreviewDirectory,
+              );
+            }
+            // 重新挂载预览 scope，让主题与配置都使用开启内容底色的状态。
+            await tester.pumpWidget(const SizedBox.shrink());
+            router.dispose();
+            final settingsRouter = createAppRouter(
+              AppRoutes.settingsSectionLocation('appearance'),
+            );
+            await tester.pumpWidget(
+              _buildPreviewApp(
+                settingsRouter,
+                brightness,
+                previewSkinId,
+                uiStyle: style,
+                showContentBackground: true,
+                localeCode: 'zh',
+              ),
+            );
+            await tester.pumpAndSettle();
+            await _pumpUntilWallpaperDecoded(tester);
+            expect(tester.takeException(), isNull);
+            await _saveCupertinoPreview(
+              tester,
+              '$prefix-settings-content',
+              directory: roomPreviewDirectory,
+            );
+            await tester.pumpWidget(const SizedBox.shrink());
+            settingsRouter.dispose();
+
+            tester.view.physicalSize = const Size(320, 720);
+            final largeTextRouter = createAppRouter(AppRoutes.home);
+            await tester.pumpWidget(
+              _buildPreviewApp(
+                largeTextRouter,
+                brightness,
+                previewSkinId,
+                uiStyle: style,
+                localeCode: 'zh',
+                previewTextScale: 2,
+                showContentBackground: true,
+              ),
+            );
+            await tester.pumpAndSettle();
+            await _pumpUntilWallpaperDecoded(tester);
+            for (final page in ['home', 'settings']) {
+              if (page == 'settings') {
+                largeTextRouter.push(
+                  AppRoutes.settingsSectionLocation('appearance'),
+                );
+                await tester.pumpAndSettle();
+              }
+              expect(tester.takeException(), isNull);
+              await _saveCupertinoPreview(
+                tester,
+                '$prefix-$page-large-text',
+                directory: roomPreviewDirectory,
+              );
+            }
+            await tester.pumpWidget(const SizedBox.shrink());
+            largeTextRouter.dispose();
+
+            tester.view.physicalSize = const Size(1280, 800);
+            tester.view.padding = FakeViewPadding.zero;
+            tester.view.viewPadding = FakeViewPadding.zero;
+            final wideRouter = createAppRouter(AppRoutes.home);
+            await tester.pumpWidget(
+              _buildPreviewApp(
+                wideRouter,
+                brightness,
+                previewSkinId,
+                uiStyle: style,
+                localeCode: 'zh',
+              ),
+            );
+            await tester.pumpAndSettle();
+            await _pumpUntilWallpaperDecoded(tester);
+            expect(tester.takeException(), isNull);
+            await _saveCupertinoPreview(
+              tester,
+              '$prefix-home-wide',
+              directory: roomPreviewDirectory,
+            );
+            await tester.pumpWidget(const SizedBox.shrink());
+            wideRouter.dispose();
+          }
+        }
+      },
+      skip: !const bool.hasEnvironment('SKIN_SCENE_PREVIEW_DIR'),
+    );
+  }
   testWidgets(
     'wide home keeps bottom navigation and full width music',
     (tester) async {
@@ -467,6 +524,12 @@ void main() {
           name: 'forest sanctuary',
           skinId: AppSkinRegistry.forestSanctuaryId,
           assetDirectory: 'forest_sanctuary',
+          hasWallpaper: true,
+        ),
+        (
+          name: 'tidal sanctuary',
+          skinId: AppSkinRegistry.tidalSanctuaryId,
+          assetDirectory: 'tidal_sanctuary',
           hasWallpaper: true,
         ),
       ];
@@ -654,6 +717,7 @@ Widget _buildPreviewApp(
   bool showContentBackground = false,
   String? localeCode,
   bool enableSkinAnimation = false,
+  double previewTextScale = 1,
 }) {
   final skin = AppSkinRegistry.builtIn(
     AppConfigState.initial.themeAccent,
@@ -760,17 +824,22 @@ Widget _buildPreviewApp(
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: router,
-      builder: (context, child) => RepaintBoundary(
-        key: _previewKey,
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            AppSkinBackgroundLayer(
-              skin: skin,
-              enableAnimation: enableSkinAnimation,
-            ),
-            child ?? const SizedBox.shrink(),
-          ],
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(previewTextScale)),
+        child: RepaintBoundary(
+          key: _previewKey,
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              AppSkinBackgroundLayer(
+                skin: skin,
+                enableAnimation: enableSkinAnimation,
+              ),
+              child ?? const SizedBox.shrink(),
+            ],
+          ),
         ),
       ),
     ),

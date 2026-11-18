@@ -164,6 +164,7 @@ class _PlayerSheetDecorationPainter extends CustomPainter {
     }
     if (motif == AppSkinSheetMotif.starlit) _paintStarlit(canvas, size);
     if (motif == AppSkinSheetMotif.urban) _paintUrban(canvas, size);
+    if (motif == AppSkinSheetMotif.tidal) _paintTidal(canvas, size);
     canvas.restore();
   }
 
@@ -228,6 +229,45 @@ class _PlayerSheetDecorationPainter extends CustomPainter {
       )
       ..close();
     canvas.drawPath(star, dots);
+  }
+
+  void _paintTidal(Canvas canvas, Size size) {
+    final edge = math.min(size.width * 0.28, 106.0);
+    final current = Paint()
+      ..color = primary.withValues(alpha: dark ? 0.15 : 0.10)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.85;
+    for (var index = 0; index < 3; index++) {
+      final y = 38.0 + index * 23;
+      canvas.drawPath(
+        Path()
+          ..moveTo(size.width - edge, y)
+          ..cubicTo(
+            size.width - edge * 0.58,
+            y - 18,
+            size.width - edge * 0.28,
+            y + 22,
+            size.width + 6,
+            y - 3,
+          ),
+        current,
+      );
+    }
+    final pearl = Paint()
+      ..color = secondary.withValues(alpha: dark ? 0.17 : 0.11)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    for (final point in const [
+      Offset(0.20, 26),
+      Offset(0.62, 108),
+      Offset(0.36, 88),
+    ]) {
+      canvas.drawCircle(
+        Offset(size.width - edge * point.dx, point.dy),
+        3,
+        pearl,
+      );
+    }
   }
 
   void _paintUrban(Canvas canvas, Size size) {

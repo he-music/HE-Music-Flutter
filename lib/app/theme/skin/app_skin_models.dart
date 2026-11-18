@@ -733,7 +733,7 @@ class AppSkinBackgroundConfig {
 }
 
 /// Decorative theme data; application and player sheets render it separately.
-enum AppSkinSheetMotif { none, woodland, starlit, urban }
+enum AppSkinSheetMotif { none, woodland, starlit, urban, tidal }
 
 enum AppSkinVisualStyle { standard, woodland }
 

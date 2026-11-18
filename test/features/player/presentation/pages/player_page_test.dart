@@ -1926,6 +1926,7 @@ void main() {
 
   for (final skinId in [
     AppSkinRegistry.forestSanctuaryId,
+    AppSkinRegistry.tidalSanctuaryId,
     AppSkinRegistry.starlitMelodyId,
     AppSkinRegistry.citySoundCreatorId,
   ]) {
