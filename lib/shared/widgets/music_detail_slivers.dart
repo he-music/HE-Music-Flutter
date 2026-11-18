@@ -42,12 +42,22 @@ class MusicDetailSliverAppBar extends StatelessWidget {
 
   static const double _defaultExpandedHeight = 290;
 
+  /// Shared by the loaded header and its loading skeleton.
+  static double expandedHeightFor(
+    BuildContext context, {
+    double expandedHeight = _defaultExpandedHeight,
+  }) {
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    return expandedHeight + (textScale - 1).clamp(0.0, 3.0) * 160;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    final resolvedExpandedHeight =
-        expandedHeight + (textScale - 1).clamp(0.0, 3.0) * 160;
+    final resolvedExpandedHeight = expandedHeightFor(
+      context,
+      expandedHeight: expandedHeight,
+    );
     return SliverAppBar(
       pinned: true,
       expandedHeight: resolvedExpandedHeight,

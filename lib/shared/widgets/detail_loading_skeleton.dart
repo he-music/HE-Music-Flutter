@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants/layout_tokens.dart';
 import 'animated_skeleton.dart';
 import 'music_control_surface.dart';
+import 'music_detail_slivers.dart';
 import 'song_list_component.dart';
 
 class GenericDetailLoadingBody extends StatelessWidget {
@@ -15,12 +16,12 @@ class GenericDetailLoadingBody extends StatelessWidget {
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return <Widget>[
-          SliverToBoxAdapter(child: _DetailHeroSkeleton(title: title)),
+          _DetailHeroSkeleton(title: title),
           SliverPersistentHeader(
             pinned: true,
             delegate: _FixedHeaderDelegate(
               child: const _PinnedPlayAllSkeleton(),
-              height: 56,
+              height: MusicDetailPlayAllHeader.heightFor(context),
             ),
           ),
         ];
@@ -174,68 +175,105 @@ class _DetailHeroSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        LayoutTokens.compactPageGutter,
-        MediaQuery.paddingOf(context).top + 10,
-        LayoutTokens.compactPageGutter,
-        12,
+    final textScaler = MediaQuery.textScalerOf(context);
+    return SliverAppBar(
+      pinned: true,
+      expandedHeight: MusicDetailSliverAppBar.expandedHeightFor(context),
+      automaticallyImplyLeading: false,
+      backgroundColor: theme.colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      leading: const Center(
+        child: SkeletonBox(width: 36, height: 36, radius: 18),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              const SkeletonBox(width: 36, height: 36, radius: 18),
-              const Spacer(),
-              const SkeletonBox(width: 28, height: 28, radius: 14),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const SkeletonBox(width: 124, height: 124, radius: 24),
-              const SizedBox(width: 16),
-              Expanded(
+      actions: const <Widget>[
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Center(child: SkeletonBox(width: 28, height: 28, radius: 14)),
+        ),
+      ],
+      flexibleSpace: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            const SkeletonBox(
+              key: ValueKey('detail-hero-skeleton-background'),
+              width: double.infinity,
+              height: double.infinity,
+              radius: 0,
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    Colors.black.withValues(alpha: 0.18),
+                    Colors.transparent,
+                    theme.colorScheme.surface.withValues(alpha: 0.94),
+                  ],
+                  stops: const <double>[0, 0.4, 1],
+                ),
+              ),
+            ),
+            FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: Align(
+                alignment: Alignment.bottomLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 6),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
                   child: Column(
+                    key: const ValueKey('detail-hero-skeleton-meta'),
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      SkeletonBox(
-                        width: title.trim().isEmpty ? 140 : 176,
-                        height: 24,
-                        radius: 10,
+                      FractionallySizedBox(
+                        widthFactor: title.trim().isEmpty ? 0.48 : 0.64,
+                        child: SkeletonBox(
+                          width: double.infinity,
+                          height: textScaler.scale(24),
+                          radius: 10,
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      const SkeletonBox(width: 112, height: 14, radius: 7),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 4),
+                      SkeletonBox(
+                        width: 112,
+                        height: textScaler.scale(14),
+                        radius: 7,
+                      ),
+                      const SizedBox(height: 8),
                       Wrap(
-                        spacing: 8,
+                        spacing: 14,
                         runSpacing: 8,
-                        children: const <Widget>[
-                          SkeletonBox(width: 62, height: 22, radius: 11),
-                          SkeletonBox(width: 74, height: 22, radius: 11),
+                        children: <Widget>[
+                          SkeletonBox(
+                            width: 62,
+                            height: textScaler.scale(14),
+                            radius: 7,
+                          ),
+                          SkeletonBox(
+                            width: 74,
+                            height: textScaler.scale(14),
+                            radius: 7,
+                          ),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: SkeletonBox(
+                          width: double.infinity,
+                          height: textScaler.scale(13),
+                          radius: 7,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const SkeletonBox(width: double.infinity, height: 13, radius: 7),
-          const SizedBox(height: 8),
-          SkeletonBox(
-            width: MediaQuery.sizeOf(context).width * 0.55,
-            height: 13,
-            radius: 7,
-          ),
-          const SizedBox(height: 10),
-          Divider(color: theme.dividerColor.withValues(alpha: 0.3), height: 1),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
