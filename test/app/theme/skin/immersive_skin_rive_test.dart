@@ -8,11 +8,16 @@ import 'package:he_music_flutter/app/theme/skin/app_skin_asset_resolver.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_models.dart';
 import 'package:he_music_flutter/app/theme/skins/forest_sanctuary_skin.dart';
+import 'package:he_music_flutter/app/theme/skins/orbital_observatory_skin.dart';
 import 'package:he_music_flutter/app/theme/skins/tidal_sanctuary_skin.dart';
 import 'package:rive/rive.dart' as rive;
 
 void main() {
-  for (final skin in [forestSanctuarySkin(), tidalSanctuarySkin()]) {
+  for (final skin in [
+    forestSanctuarySkin(),
+    tidalSanctuarySkin(),
+    orbitalObservatorySkin(),
+  ]) {
     for (final brightness in Brightness.values) {
       testWidgets(
         '${skin.metadata.id} $brightness uses bundled Rive and preserves its controller',
@@ -21,9 +26,12 @@ void main() {
             AppLifecycleState.resumed,
           );
           final resolver = _Resolver();
-          final prefix = skin.metadata.id == 'forest_sanctuary'
-              ? 'Forest'
-              : 'Tidal';
+          final prefix = switch (skin.metadata.id) {
+            'forest_sanctuary' => 'Forest',
+            'tidal_sanctuary' => 'Tidal',
+            'orbital_observatory' => 'Orbital',
+            _ => throw StateError('Missing artboard prefix'),
+          };
           final descriptor =
               skin.configFor(brightness).background.animation
                   as AppSkinRiveAnimationDescriptor;
@@ -72,7 +80,7 @@ void main() {
           final widget = tester.widget<rive.RiveWidget>(finder);
           final controller = widget.controller;
           expect(widget.fit, rive.Fit.cover);
-          expect(widget.alignment, Alignment.center);
+          expect(widget.alignment, descriptor.alignment);
           expect(controller.active, isTrue);
           expect(resolver.riveLoads, 1);
           // Cross each skin's full timeline (24s / 36s), then verify resuming.

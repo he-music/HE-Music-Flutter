@@ -75,6 +75,7 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
     final veilOpacity =
         AppUiTheme.usesCupertino(context) &&
             hasVisualBackground &&
+            config.background.readingGradient == null &&
             existingOverlay < minimumOverlay
         ? (minimumOverlay - existingOverlay) / (1 - existingOverlay)
         : 0.0;
@@ -127,6 +128,11 @@ class _AppSkinBackgroundLayerState extends State<AppSkinBackgroundLayer> {
                       stops: const [0, 0.24],
                     ),
                   ),
+                ),
+              if (config.background.readingGradient case final gradient?)
+                DecoratedBox(
+                  key: const ValueKey('app-skin-reading-gradient'),
+                  decoration: BoxDecoration(gradient: gradient),
                 ),
               if (animation case AppSkinRiveAnimationDescriptor())
                 AppSkinRiveAnimation(

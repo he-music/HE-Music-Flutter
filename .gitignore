@@ -72,3 +72,7 @@ app.*.map.json
 !/docs/song-list-pagination.md
 !/docs/chapter-sort.md
 !/docs/local-audio-decryption.md
+
+# Local source atlas and visual exports for the orbital skin trial.
+/.artifacts/orbital-observatory/
+/.artifacts/rive-tools/

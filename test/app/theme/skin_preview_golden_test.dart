@@ -234,6 +234,32 @@ void main() {
       }
     }
   }, skip: true); // 仅显式导出真实弹窗预览，不更新既有首页基线。
+  testWidgets('export orbital skin selection previews', (tester) async {
+    await tester.runAsync(_loadPreviewFonts);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = _previewSize;
+    addTearDown(tester.view.reset);
+    for (final brightness in Brightness.values) {
+      final router = createAppRouter(AppRoutes.home);
+      await tester.pumpWidget(
+        _buildPreviewApp(
+          router,
+          brightness,
+          AppSkinRegistry.orbitalObservatoryId,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _pumpUntilWallpaperDecoded(tester);
+      expect(tester.takeException(), isNull);
+      await _saveCupertinoPreview(
+        tester,
+        'preview_${brightness.name}',
+        directory: 'assets/skins/orbital_observatory',
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      router.dispose();
+    }
+  }, skip: true); // 显式导出试作皮肤的真实缩略图。
   testWidgets('export wallpaper skin selection previews', (tester) async {
     await tester.runAsync(_loadPreviewFonts);
     tester.view.devicePixelRatio = 1;
@@ -264,9 +290,13 @@ void main() {
   for (final motionSkinId in [
     AppSkinRegistry.forestSanctuaryId,
     AppSkinRegistry.tidalSanctuaryId,
+    AppSkinRegistry.orbitalObservatoryId,
   ]) {
     final forest = motionSkinId == AppSkinRegistry.forestSanctuaryId;
-    final motionPreviewDirectory = forest
+    final orbital = motionSkinId == AppSkinRegistry.orbitalObservatoryId;
+    final motionPreviewDirectory = orbital
+        ? '.artifacts/orbital-observatory/motion'
+        : forest
         ? const String.fromEnvironment(
             'FOREST_MOTION_PREVIEW_DIR',
             defaultValue: '.artifacts/forest-sanctuary/motion',
@@ -275,16 +305,20 @@ void main() {
             'TIDAL_MOTION_PREVIEW_DIR',
             defaultValue: '.artifacts/tidal-sanctuary/motion',
           );
-    testWidgets(
-      'export ${forest ? 'forest' : 'tidal'} ambient motion',
-      (tester) async {
-        await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
-        tester.view.devicePixelRatio = 1;
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
-        tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
-        addTearDown(tester.view.reset);
-        for (final brightness in Brightness.values) {
+    for (final brightness in Brightness.values) {
+      testWidgets(
+        'export ${orbital
+            ? 'orbital'
+            : forest
+            ? 'forest'
+            : 'tidal'} ambient motion ${brightness.name}',
+        (tester) async {
+          await tester.runAsync(() => _loadPreviewFonts(useSystemCjk: true));
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+          tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+          addTearDown(tester.view.reset);
           final router = createAppRouter(AppRoutes.home);
           await tester.pumpWidget(
             _buildPreviewApp(
@@ -321,16 +355,19 @@ void main() {
           }
           await tester.pumpWidget(const SizedBox.shrink());
           router.dispose();
-        }
-      },
-      skip: forest
-          ? !const bool.hasEnvironment('FOREST_MOTION_PREVIEW_DIR')
-          : !const bool.hasEnvironment('TIDAL_MOTION_PREVIEW_DIR'),
-    );
+        },
+        skip: orbital
+            ? true
+            : forest
+            ? !const bool.hasEnvironment('FOREST_MOTION_PREVIEW_DIR')
+            : !const bool.hasEnvironment('TIDAL_MOTION_PREVIEW_DIR'),
+      );
+    }
   }
   for (final sceneSkinId in [
     AppSkinRegistry.forestSanctuaryId,
     AppSkinRegistry.tidalSanctuaryId,
+    AppSkinRegistry.orbitalObservatoryId,
   ]) {
     const configuredSkin = String.fromEnvironment('SCENE_PREVIEW_SKIN');
     if (configuredSkin.isNotEmpty && configuredSkin != sceneSkinId) continue;
@@ -530,6 +567,12 @@ void main() {
           name: 'tidal sanctuary',
           skinId: AppSkinRegistry.tidalSanctuaryId,
           assetDirectory: 'tidal_sanctuary',
+          hasWallpaper: true,
+        ),
+        (
+          name: 'orbital observatory',
+          skinId: AppSkinRegistry.orbitalObservatoryId,
+          assetDirectory: 'orbital_observatory',
           hasWallpaper: true,
         ),
       ];

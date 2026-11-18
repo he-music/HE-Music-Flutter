@@ -166,6 +166,12 @@ flutter:
     - assets/skins/tidal_sanctuary/icons/
     - assets/skins/tidal_sanctuary/preview_light.png
     - assets/skins/tidal_sanctuary/preview_dark.png
+    - assets/skins/orbital_observatory/wallpaper_light.jpg
+    - assets/skins/orbital_observatory/wallpaper_dark.jpg
+    - assets/skins/orbital_observatory/preview_light.png
+    - assets/skins/orbital_observatory/preview_dark.png
+    - assets/skins/orbital_observatory/ambient.riv
+    - assets/skins/orbital_observatory/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

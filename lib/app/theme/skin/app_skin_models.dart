@@ -674,6 +674,7 @@ class AppSkinBackgroundConfig {
     required this.fit,
     required this.alignment,
     required this.overlayColor,
+    this.readingGradient,
   });
 
   final AppSkinAssetSlot wallpaper;
@@ -682,12 +683,18 @@ class AppSkinBackgroundConfig {
   final Alignment alignment;
   final Color overlayColor;
 
+  /// A skin-authored reading mask, independent of animation and content cards.
+  /// When present, it replaces the generic Cupertino full-screen reading veil.
+  final LinearGradient? readingGradient;
+
   AppSkinBackgroundConfig copyWith({
     AppSkinAssetSlot? wallpaper,
     AppSkinAnimationDescriptor? animation,
     BoxFit? fit,
     Alignment? alignment,
     Color? overlayColor,
+    LinearGradient? readingGradient,
+    bool clearReadingGradient = false,
   }) {
     return AppSkinBackgroundConfig(
       wallpaper: wallpaper ?? this.wallpaper,
@@ -695,6 +702,9 @@ class AppSkinBackgroundConfig {
       fit: fit ?? this.fit,
       alignment: alignment ?? this.alignment,
       overlayColor: overlayColor ?? this.overlayColor,
+      readingGradient: clearReadingGradient
+          ? null
+          : readingGradient ?? this.readingGradient,
     );
   }
 
@@ -713,6 +723,11 @@ class AppSkinBackgroundConfig {
       fit: t < 0.5 ? a.fit : b.fit,
       alignment: Alignment.lerp(a.alignment, b.alignment, t)!,
       overlayColor: Color.lerp(a.overlayColor, b.overlayColor, t)!,
+      readingGradient: LinearGradient.lerp(
+        a.readingGradient,
+        b.readingGradient,
+        t,
+      ),
     );
   }
 
@@ -723,12 +738,20 @@ class AppSkinBackgroundConfig {
         other.animation == animation &&
         other.fit == fit &&
         other.alignment == alignment &&
-        other.overlayColor == overlayColor;
+        other.overlayColor == overlayColor &&
+        other.readingGradient == readingGradient;
   }
 
   @override
   int get hashCode {
-    return Object.hash(wallpaper, animation, fit, alignment, overlayColor);
+    return Object.hash(
+      wallpaper,
+      animation,
+      fit,
+      alignment,
+      overlayColor,
+      readingGradient,
+    );
   }
 }
 

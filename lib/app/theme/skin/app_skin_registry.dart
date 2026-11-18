@@ -6,6 +6,7 @@ import '../skins/city_sound_creator_skin.dart';
 import '../skins/classic_skin.dart';
 import '../skins/custom_image_skin.dart';
 import '../skins/forest_sanctuary_skin.dart';
+import '../skins/orbital_observatory_skin.dart';
 import '../skins/starlit_melody_skin.dart';
 import '../skins/tidal_sanctuary_skin.dart';
 import 'app_skin_models.dart';
@@ -21,6 +22,7 @@ class AppSkinRegistry {
       starlitMelodySkin(),
       forestSanctuarySkin(),
       tidalSanctuarySkin(),
+      orbitalObservatorySkin(),
     ]);
   }
 
@@ -34,6 +36,7 @@ class AppSkinRegistry {
       starlitMelodySkin(),
       forestSanctuarySkin(),
       tidalSanctuarySkin(),
+      orbitalObservatorySkin(),
       if (customSkin != null) customImageSkin(customSkin),
     ]);
   }
@@ -43,6 +46,7 @@ class AppSkinRegistry {
   static const String starlitMelodyId = 'starlit_melody';
   static const String forestSanctuaryId = 'forest_sanctuary';
   static const String tidalSanctuaryId = 'tidal_sanctuary';
+  static const String orbitalObservatoryId = 'orbital_observatory';
   static const String customImageId = 'custom_image';
   static const Set<String> builtInIds = <String>{
     classicId,
@@ -50,6 +54,7 @@ class AppSkinRegistry {
     starlitMelodyId,
     forestSanctuaryId,
     tidalSanctuaryId,
+    orbitalObservatoryId,
   };
 
   final Map<String, AppSkinPackage> _skins;

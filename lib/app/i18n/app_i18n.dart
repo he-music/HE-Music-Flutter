@@ -473,6 +473,9 @@ abstract final class AppI18n {
       'settings.skin.tidal_sanctuary.name': '潮汐秘境',
       'settings.skin.tidal_sanctuary.description':
           '潜入一片安静的蓝。日光、水流与夜光浮游，陪旋律缓缓呼吸。',
+      'settings.skin.orbital_observatory.name': '近地轨道 · 极光',
+      'settings.skin.orbital_observatory.description':
+          '悬浮于地球上空，俯瞰云海、城市灯火与大气边缘的极光。',
       'settings.skin.custom.name': '自定义皮肤',
       'settings.skin.custom.description': '使用个人图片生成的亮暗背景与主题色',
       'settings.skin.custom.create': '创建自定义皮肤',
@@ -1600,6 +1603,9 @@ abstract final class AppI18n {
       'settings.skin.tidal_sanctuary.name': 'Tidal Sanctuary',
       'settings.skin.tidal_sanctuary.description':
           'Drift into the blue. Sunlit currents and bioluminescent tides breathe with the music.',
+      'settings.skin.orbital_observatory.name': 'Low Earth Orbit · Aurora',
+      'settings.skin.orbital_observatory.description':
+          'Float above Earth, overlooking sculpted clouds, city lights, and aurora along the atmosphere.',
       'settings.skin.custom.name': 'Custom Skin',
       'settings.skin.custom.description':
           'Light and dark backgrounds generated from your image',

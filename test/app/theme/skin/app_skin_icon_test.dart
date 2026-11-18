@@ -128,6 +128,36 @@ void main() {
     }
   });
 
+  testWidgets('orbital icons decode at small sizes in both themes', (
+    tester,
+  ) async {
+    final skin = AppSkinRegistry.builtIn(
+      AppThemeAccent.graphite,
+    ).resolve(AppSkinRegistry.orbitalObservatoryId);
+    final roles = AppSkinIconRole.values
+        .where((role) => skin.icons[role]!.asset.descriptor != null)
+        .toList(growable: false);
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: brightness == Brightness.light
+              ? AppTheme.light(skin)
+              : AppTheme.dark(skin),
+          home: Wrap(
+            children: [
+              for (final role in roles)
+                for (final size in [20.0, 24.0])
+                  AppSkinIcon(role: role, size: size),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(SvgPicture), findsNWidgets(roles.length * 2));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('city icon replaces only the declared coral source color', (
     tester,
   ) async {

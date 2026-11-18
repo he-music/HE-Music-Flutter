@@ -213,6 +213,72 @@ void main() {
     expect(overlayIndex, greaterThanOrEqualTo(0));
     expect(riveIndex, greaterThan(overlayIndex));
   });
+  testWidgets(
+    'authored reading gradients survive animation and UI style changes',
+    (tester) async {
+      final skin = AppSkinRegistry.builtIn(
+        AppThemeAccent.graphite,
+      ).resolve(AppSkinRegistry.orbitalObservatoryId);
+      for (final brightness in Brightness.values) {
+        for (final style in AppUiStyle.values) {
+          for (final enabled in [false, true]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: brightness == Brightness.light
+                    ? AppTheme.light(skin, uiStyle: style)
+                    : AppTheme.dark(skin, uiStyle: style),
+                home: MediaQuery(
+                  data: const MediaQueryData(disableAnimations: true),
+                  child: AppSkinBackgroundLayer(
+                    skin: skin,
+                    enableAnimation: enabled,
+                    assetResolver: const _FailingResolver(),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final gradient = tester.widget<DecoratedBox>(
+              find.byKey(const ValueKey('app-skin-reading-gradient')),
+            );
+            expect(
+              (gradient.decoration as BoxDecoration).gradient,
+              skin.configFor(brightness).background.readingGradient,
+            );
+            expect(
+              find.byKey(const ValueKey('app-skin-reading-veil')),
+              findsNothing,
+            );
+            expect(
+              find.byKey(const ValueKey('app-skin-rive-widget')),
+              findsNothing,
+            );
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    },
+  );
+
+  test(
+    'background transitions retain and interpolate authored reading masks',
+    () {
+      final config = AppSkinRegistry.builtIn(
+        AppThemeAccent.graphite,
+      ).resolve(AppSkinRegistry.orbitalObservatoryId).light.background;
+      final unmasked = config.copyWith(clearReadingGradient: true);
+      expect(config, isNot(unmasked));
+      expect(unmasked.readingGradient, isNull);
+      expect(config.copyWith().readingGradient, config.readingGradient);
+      final halfway = AppSkinBackgroundConfig.lerp(unmasked, config, 0.5);
+      expect(halfway.readingGradient, isNotNull);
+      final originalAlpha = config.readingGradient!.colors.first.a;
+      expect(
+        halfway.readingGradient!.colors.first.a,
+        closeTo(originalAlpha / 2, 0.01),
+      );
+    },
+  );
   for (final brightness in Brightness.values) {
     testWidgets(
       'Cupertino wallpaper readability in $brightness uses one static veil',
