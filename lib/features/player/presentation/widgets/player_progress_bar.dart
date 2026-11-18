@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_ui_theme.dart';
+import '../../../../app/theme/player/app_player_scene_palette.dart';
 import '../../../../shared/widgets/app_slider.dart';
 
 const _defaultSliderMax = 1.0;
@@ -54,6 +55,7 @@ class _PlayerProgressBarState extends State<PlayerProgressBar> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = PlayerScenePalette.maybeOf(context)?.accent ?? Colors.white;
     final maxMillis = _maxDurationMillis(widget.duration);
     final previewPosition = _dragMillis == null
         ? widget.position
@@ -74,8 +76,8 @@ class _PlayerProgressBarState extends State<PlayerProgressBar> {
             min: 0,
             max: maxMillis.toDouble(),
             secondaryTrackValue: bufferedMillis.toDouble(),
-            activeColor: Colors.white,
-            thumbColor: Colors.white,
+            activeColor: accent,
+            thumbColor: accent,
             onChangeStart: widget.enabled
                 ? (value) {
                     _seekRevision++;
@@ -101,11 +103,11 @@ class _PlayerProgressBarState extends State<PlayerProgressBar> {
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-            activeTrackColor: Colors.white,
-            secondaryActiveTrackColor: Colors.white.withValues(alpha: 0.32),
+            activeTrackColor: accent,
+            secondaryActiveTrackColor: accent.withValues(alpha: 0.32),
             inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
-            thumbColor: Colors.white,
-            overlayColor: Colors.white.withValues(alpha: 0.14),
+            thumbColor: accent,
+            overlayColor: accent.withValues(alpha: 0.14),
           ),
           child: Slider(
             key: const ValueKey<String>('player-progress-slider'),

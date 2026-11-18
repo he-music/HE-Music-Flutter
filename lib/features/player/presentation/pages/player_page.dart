@@ -17,6 +17,9 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_route_observers.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/player/app_player_scene_palette.dart';
+import '../../../../app/theme/player/app_player_appearance_palette.dart';
+import '../providers/player_artwork_palette_provider.dart';
+import '../widgets/player_appearance_sheet.dart';
 import '../../../../app/theme/player/app_player_style_bottom_sheet.dart';
 import '../../../../app/theme/app_ui_theme.dart';
 import '../../../../app/theme/player/app_player_style_models.dart';
@@ -129,7 +132,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   RealtimeSpectrumController? _spectrumController;
   bool _spectrumSyncScheduled = false;
   List<Color> _classicBackdropColors = const <Color>[];
-  ImageProvider<Object>? _classicPaletteArtwork;
   bool _wideLayoutActive = false;
   bool _wideStageVisible = true;
 
@@ -301,6 +303,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           backdropId: state.playerBackdropId,
           lyricsId: state.playerLyricsId,
           playerWideView: state.playerWideView,
+          appearance: state.playerAppearance,
           localeCode: state.localeCode,
         ),
       ),
@@ -310,10 +313,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       config.backdropId,
     );
     final lyrics = AppPlayerLyricsRegistry.instance.resolve(config.lyricsId);
-    final scenePalette = _resolvePlayerScenePalette(
-      stage.stageKind,
-      _classicBackdropColors,
-    );
     final controller = ref.read(playerControllerProvider.notifier);
     Future<void> seek(Duration position) {
       _seekRevision.value += 1;
@@ -345,6 +344,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final backdropImageProvider = artworkProvider(
       displayedTrack?.artworkUrl,
       displayedTrack?.artworkBytes,
+    );
+    final loadedColors = ref
+        .watch(playerArtworkPaletteProvider(backdropImageProvider))
+        .value;
+    if (loadedColors != null) _classicBackdropColors = loadedColors;
+    final artworkColors = _classicBackdropColors;
+    final scenePalette = playerAppearanceScenePalette(
+      _resolvePlayerScenePalette(stage.stageKind, artworkColors) ??
+          classicPlayerScenePaletteFallback,
+      artworkColors,
+      config.appearance,
     );
     final usePortraitArtistPhoto = resolvePlayerArtistPhotoPortraitForTest(
       viewportSize,
@@ -530,17 +540,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                           playerControllerProvider.select((s) => s.isPlaying),
                         ),
                     backdropKind: backdrop.backdropKind,
+                    appearance: config.appearance,
                     imageProvider: backdropImageProvider,
                     track: displayedTrack,
                     isPortrait: usePortraitArtistPhoto,
                     artistPhotoImageProviderBuilder:
                         widget.artistPhotoImageProviderBuilder,
-                    onClassicPaletteChanged: scenePalette == null
-                        ? null
-                        : (colors) => _handleClassicPaletteChanged(
-                            colors,
-                            backdropImageProvider,
-                          ),
                   ),
                 ),
                 if (backdrop.backdropKind.supportsLyricBrightness &&
@@ -559,7 +564,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                     stage.stageKind == AppPlayerStageKind.none
                 ? .94
                 : 1,
-            stage: PlayerStyleStage(
+            stage: _PlayerAnimatedStage(
+              scaleOnPlayback: false,
               stageKind: stage.stageKind,
               track: displayedTrack,
               maxWidth: stage.stageMaxWidth,
@@ -652,17 +658,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                         ),
                       ),
                   backdropKind: backdrop.backdropKind,
+                  appearance: config.appearance,
                   imageProvider: backdropImageProvider,
                   track: displayedTrack,
                   isPortrait: usePortraitArtistPhoto,
                   artistPhotoImageProviderBuilder:
                       widget.artistPhotoImageProviderBuilder,
-                  onClassicPaletteChanged: scenePalette == null
-                      ? null
-                      : (colors) => _handleClassicPaletteChanged(
-                          colors,
-                          backdropImageProvider,
-                        ),
                 ),
               ),
             ),
@@ -781,25 +782,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         ),
       ),
     );
-  }
-
-  void _handleClassicPaletteChanged(
-    List<Color> colors,
-    ImageProvider<Object>? artwork,
-  ) {
-    if (!mounted) return;
-    final track = ref.read(playerControllerProvider).displayTrack;
-    if (artwork != artworkProvider(track?.artworkUrl, track?.artworkBytes)) {
-      return;
-    }
-    if (listEquals(colors, _classicBackdropColors) &&
-        artwork == _classicPaletteArtwork) {
-      return;
-    }
-    setState(() {
-      _classicBackdropColors = List<Color>.unmodifiable(colors);
-      _classicPaletteArtwork = artwork;
-    });
   }
 
   Future<void> _openCurrentQualitySheet(
@@ -1302,6 +1284,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             title: label('player.action.style'),
             onTap: () =>
                 unawaited(open(() => _openPlayerStyleSheet(rootContext))),
+          ),
+          PlayerSheetActionTile(
+            icon: Icons.color_lens_outlined,
+            title: label('player.appearance.title'),
+            onTap: () =>
+                unawaited(open(() => showPlayerAppearanceSheet(rootContext))),
           ),
           if (_usesMobileOrientationControls)
             PlayerSheetActionTile(
@@ -1853,6 +1841,40 @@ PlayerScenePalette? _resolvePlayerScenePalette(
   };
 }
 
+/// Playback changes rebuild only the cover stage, never the player page.
+class _PlayerAnimatedStage extends ConsumerWidget {
+  const _PlayerAnimatedStage({
+    required this.stageKind,
+    required this.track,
+    required this.maxWidth,
+    this.cassetteLabel,
+    this.scaleOnPlayback = true,
+  });
+  final AppPlayerStageKind stageKind;
+  final PlayerTrack? track;
+  final double maxWidth;
+  final Widget? cassetteLabel;
+  final bool scaleOnPlayback;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final animate = ref.watch(
+      appConfigProvider.select((s) => s.playerAppearance.animateCover),
+    );
+    final playing = ref.watch(
+      playerControllerProvider.select((s) => s.isPlaying),
+    );
+    return PlayerStyleStage(
+      stageKind: stageKind,
+      track: track,
+      maxWidth: maxWidth,
+      cassetteLabel: cassetteLabel,
+      animateCover: animate,
+      playing: !scaleOnPlayback || playing,
+    );
+  }
+}
+
 class _PlayerScenePaletteScope extends StatelessWidget {
   const _PlayerScenePaletteScope({required this.palette, required this.child});
 
@@ -1869,7 +1891,9 @@ class _PlayerScenePaletteScope extends StatelessWidget {
       extensions.add(palette);
     }
     return AnimatedTheme(
-      duration: const Duration(milliseconds: 900),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 600),
       curve: Curves.easeOutCubic,
       data: base.copyWith(extensions: extensions),
       child: child,
@@ -2039,7 +2063,7 @@ class _PlayerMobileLandscapeLayout extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(bottom: gap),
-                  child: PlayerStyleStage(
+                  child: _PlayerAnimatedStage(
                     stageKind: stageKind,
                     track: track,
                     maxWidth: stageMaxWidth,
@@ -2165,7 +2189,7 @@ class _PlayerMetaControlPage extends StatelessWidget {
                 children: <Widget>[
                   SizedBox(
                     height: stageHeight,
-                    child: PlayerStyleStage(
+                    child: _PlayerAnimatedStage(
                       stageKind: stageKind,
                       track: track,
                       maxWidth: stageMaxWidth,

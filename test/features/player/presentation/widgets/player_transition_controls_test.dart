@@ -118,13 +118,16 @@ void main() {
         matching: find.byType(SliderTheme),
       ),
     );
-    expect(sliderTheme.data.activeTrackColor, Colors.white);
+    expect(sliderTheme.data.activeTrackColor, palette.accent);
     expect(
       sliderTheme.data.inactiveTrackColor,
       Colors.white.withValues(alpha: 0.2),
     );
-    expect(sliderTheme.data.thumbColor, Colors.white);
-    expect(sliderTheme.data.overlayColor, Colors.white.withValues(alpha: 0.14));
+    expect(sliderTheme.data.thumbColor, palette.accent);
+    expect(
+      sliderTheme.data.overlayColor,
+      palette.accent.withValues(alpha: 0.14),
+    );
 
     expect(
       _button(tester, Icons.repeat_rounded).color,
@@ -143,11 +146,11 @@ void main() {
     final playButton = _button(tester, Icons.play_arrow_rounded);
     expect(
       playButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
-      palette.surfaceDeep,
+      palette.onAccent,
     );
     expect(
       playButton.style?.backgroundColor?.resolve(const <WidgetState>{}),
-      palette.foreground,
+      palette.accent,
     );
   });
 

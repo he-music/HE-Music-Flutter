@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../../../app/theme/player/app_player_style_registry.dart';
@@ -201,7 +202,7 @@ const LyricRequest _demoLyricRequest = LyricRequest(
   platform: 'preview',
 );
 
-class _PreviewBackdrop extends StatelessWidget {
+class _PreviewBackdrop extends ConsumerWidget {
   const _PreviewBackdrop({
     required this.backdropKind,
     required this.imageProvider,
@@ -215,7 +216,7 @@ class _PreviewBackdrop extends StatelessWidget {
   final bool demoImageBackdrop;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (demoImageBackdrop && backdropKind.supportsLyricBrightness) {
       final albumCover = backdropKind == AppPlayerBackdropKind.albumCover;
       return Image.asset(
@@ -237,6 +238,9 @@ class _PreviewBackdrop extends StatelessWidget {
     }
     return PlayerBackdrop(
       backdropKind: backdropKind,
+      appearance: ref.watch(
+        appConfigProvider.select((s) => s.playerAppearance),
+      ),
       imageProvider: imageProvider,
       track: track,
       isPortrait: true,

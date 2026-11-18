@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/config/app_config_data_source.dart';
+import 'package:he_music_flutter/app/config/app_player_appearance.dart';
 import 'package:he_music_flutter/app/config/app_custom_skin_config.dart';
 import 'package:he_music_flutter/app/config/app_lyric_font_preset.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
@@ -19,6 +20,39 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  test(
+    'player colors persist independently and restore one automatic channel',
+    () async {
+      const source = AppConfigDataSource();
+      final custom = const AppPlayerAppearance(
+        mood: AppPlayerColorMood.dark,
+        backgroundColor: 0xffab7149,
+        accentColor: 0xffedc968,
+        animateCover: false,
+      );
+      await source.save(
+        AppConfigState.initial.copyWith(playerAppearance: custom),
+      );
+      final loaded = await source.load();
+      expect(loaded.playerAppearance, custom);
+      await source.save(
+        loaded.copyWith(
+          playerAppearance: custom.copyWith(autoBackground: true),
+        ),
+      );
+      final restored = (await source.load()).playerAppearance;
+      expect(restored.backgroundColor, isNull);
+      expect(restored.accentColor, custom.accentColor);
+      expect(restored.animateCover, isFalse);
+      expect(restored.mood, AppPlayerColorMood.dark);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('app_config.player_appearance', '{broken');
+      expect(
+        (await source.load()).playerAppearance,
+        const AppPlayerAppearance(),
+      );
+    },
+  );
   test('Apple blue persists independently of interface style', () async {
     const source = AppConfigDataSource();
     await source.save(

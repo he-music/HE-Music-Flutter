@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:mesh_gradient/mesh_gradient.dart';
 
+import '../../../../app/config/app_player_appearance.dart';
+import '../../../../app/theme/player/app_player_appearance_palette.dart';
 import '../../../../shared/image/image_color_extractor.dart';
 
 /// 使用封面原始色调生成持续流动的播放器背景。
@@ -10,11 +12,13 @@ class FluidPlayerBackdrop extends StatefulWidget {
   const FluidPlayerBackdrop({
     required this.imageProvider,
     this.active = true,
+    this.appearance = const AppPlayerAppearance(),
     super.key,
   });
 
   final ImageProvider<Object>? imageProvider;
   final bool active;
+  final AppPlayerAppearance appearance;
 
   @override
   State<FluidPlayerBackdrop> createState() => _FluidPlayerBackdropState();
@@ -43,10 +47,8 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
   bool _tickerEnabled = true;
 
   int _paletteGeneration = 0;
-  int _paletteVersion = 0;
   bool? _animationsDisabled;
   List<Color> _currentPalette = const <Color>[];
-  List<Color> _previousPalette = const <Color>[];
 
   @override
   void initState() {
@@ -100,7 +102,8 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
   void didUpdateWidget(covariant FluidPlayerBackdrop oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncMotion();
-    if (oldWidget.imageProvider != widget.imageProvider) {
+    if (oldWidget.imageProvider != widget.imageProvider ||
+        oldWidget.appearance != widget.appearance) {
       _refreshPalette();
     }
   }
@@ -119,14 +122,11 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
       widget.imageProvider,
       prioritizeSaturation: false,
     );
-    final resolved = _resolveFluidPalette(candidates);
+    final colors = playerAppearanceColors(candidates, widget.appearance);
+    final resolved = _resolveFluidPalette(colors);
     if (!mounted || generation != _paletteGeneration) return;
     setState(() {
-      _previousPalette = _currentPalette.isEmpty
-          ? resolved
-          : List<Color>.of(_currentPalette);
       _currentPalette = resolved;
-      _paletteVersion++;
     });
   }
 
@@ -135,22 +135,13 @@ class _FluidPlayerBackdropState extends State<FluidPlayerBackdrop>
     final targetPalette = _currentPalette.isEmpty
         ? _fallbackFluidPalette
         : _currentPalette;
-    final previousPalette = _previousPalette.isEmpty
-        ? targetPalette
-        : _previousPalette;
     final animationsDisabled = _animationsDisabled ?? false;
 
-    return TweenAnimationBuilder<double>(
-      key: ValueKey<int>(_paletteVersion),
-      tween: Tween<double>(begin: 0, end: 1),
+    return TweenAnimationBuilder<List<Color>>(
+      tween: PlayerPaletteTween(targetPalette),
       duration: animationsDisabled ? Duration.zero : _paletteTransitionDuration,
       curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        final palette = _blendFluidPalettes(
-          previousPalette,
-          targetPalette,
-          value,
-        );
+      builder: (context, palette, child) {
         return Stack(
           key: const ValueKey<String>('player-backdrop-fluid'),
           fit: StackFit.expand,
@@ -378,20 +369,5 @@ List<MeshGradientPoint> _buildFluidMeshPoints(
       position: position,
       color: palette[index % palette.length],
     );
-  });
-}
-
-List<Color> _blendFluidPalettes(
-  List<Color> from,
-  List<Color> to,
-  double value,
-) {
-  return List<Color>.generate(6, (index) {
-    return Color.lerp(
-          from[index % from.length],
-          to[index % to.length],
-          value,
-        ) ??
-        to[index % to.length];
   });
 }

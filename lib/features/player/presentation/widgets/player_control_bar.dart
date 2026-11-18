@@ -179,8 +179,8 @@ class _PrimaryControlButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = PlayerScenePalette.maybeOf(context);
-    final background = palette?.foreground ?? Colors.white;
-    final foreground = palette?.surfaceDeep ?? Colors.black87;
+    final background = palette?.accent ?? Colors.white;
+    final foreground = palette?.onAccent ?? Colors.black87;
     return AppIconButton(
       onPressed: onPressed,
       tooltip: isTrackTransitioning ? preparingLabel : tooltip,

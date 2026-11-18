@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'app_ui_style.dart';
 import 'app_lyric_auxiliary_mode.dart';
 import 'app_player_wide_view.dart';
+import 'app_player_appearance.dart';
 import '../../core/network/token_refresh_interceptor.dart';
 import '../../core/audio/cache/audio_cache_policy.dart';
 import '../theme/skin/app_custom_skin_store.dart';
@@ -214,6 +215,10 @@ class AppConfigController extends Notifier<AppConfigState> {
     _update(state.copyWith(playerWideView: view));
   }
 
+  void setPlayerAppearance(AppPlayerAppearance appearance) {
+    _update(state.copyWith(playerAppearance: appearance));
+  }
+
   void setLyricHighlightMode(AppLyricHighlightMode mode) {
     _update(state.copyWith(lyricHighlightMode: mode));
   }
@@ -401,6 +406,7 @@ class AppConfigController extends Notifier<AppConfigState> {
       playerBackdropId: loaded.playerBackdropId,
       playerLyricsId: loaded.playerLyricsId,
       playerWideView: loaded.playerWideView,
+      playerAppearance: loaded.playerAppearance,
       lyricHighlightMode: loaded.lyricHighlightMode,
       lyricHighlightPreset: loaded.lyricHighlightPreset,
       lyricHighlightCustomColor: loaded.lyricHighlightCustomColor,

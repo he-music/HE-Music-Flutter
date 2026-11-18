@@ -75,37 +75,38 @@ void main() {
     expect(slider.onChanged, isNull);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('progress keeps the player controls white across scene themes', (
-    tester,
-  ) async {
-    final scene = const PlayerScenePalette(
-      surface: Colors.white,
-      surfaceDeep: Colors.white,
-      surfaceRaised: Colors.white,
-      edge: Colors.black12,
-      accent: Colors.deepPurple,
-      foreground: Colors.black,
-      secondaryForeground: Color(0xFF424242),
-      onAccent: Colors.white,
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(extensions: [scene]),
-        home: Scaffold(
-          body: PlayerProgressBar(
-            position: const Duration(seconds: 10),
-            duration: const Duration(minutes: 3),
-            onSeek: (_) {},
+  testWidgets(
+    'progress uses the scene accent while time labels stay readable',
+    (tester) async {
+      final scene = const PlayerScenePalette(
+        surface: Colors.white,
+        surfaceDeep: Colors.white,
+        surfaceRaised: Colors.white,
+        edge: Colors.black12,
+        accent: Colors.deepPurple,
+        foreground: Colors.black,
+        secondaryForeground: Color(0xFF424242),
+        onAccent: Colors.white,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(extensions: [scene]),
+          home: Scaffold(
+            body: PlayerProgressBar(
+              position: const Duration(seconds: 10),
+              duration: const Duration(minutes: 3),
+              onSeek: (_) {},
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final slider = tester.widget<SliderTheme>(find.byType(SliderTheme));
-    expect(slider.data.activeTrackColor, Colors.white);
-    expect(
-      tester.widget<Text>(find.text('00:10')).style!.color,
-      Colors.white.withValues(alpha: 0.74),
-    );
-  });
+      );
+      await tester.pumpAndSettle();
+      final slider = tester.widget<SliderTheme>(find.byType(SliderTheme));
+      expect(slider.data.activeTrackColor, scene.accent);
+      expect(
+        tester.widget<Text>(find.text('00:10')).style!.color,
+        Colors.white.withValues(alpha: 0.74),
+      );
+    },
+  );
 }

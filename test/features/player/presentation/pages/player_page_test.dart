@@ -17,6 +17,7 @@ import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/app/config/app_lyric_highlight_color.dart';
 import 'package:he_music_flutter/app/config/app_player_wide_view.dart';
+import 'package:he_music_flutter/app/config/app_player_appearance.dart';
 import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_ui_theme.dart';
 import 'package:he_music_flutter/shared/widgets/app_slider.dart';
@@ -2475,7 +2476,7 @@ void main() {
         matching: find.byType(SliderTheme),
       ),
     );
-    expect(sliderTheme.data.activeTrackColor, Colors.white);
+    expect(sliderTheme.data.activeTrackColor, palette!.accent);
     final pageIndicators = tester
         .widgetList<AnimatedContainer>(
           find.descendant(
@@ -3011,6 +3012,7 @@ void main() {
         config: AppConfigState.initial.copyWith(
           localeCode: 'en',
           playerStageId: AppPlayerStageRegistry.vinylId,
+          playerAppearance: const AppPlayerAppearance(accentColor: 0xffedc968),
         ),
       ),
     );
@@ -3030,8 +3032,8 @@ void main() {
         tester.element(
           find.byKey(const ValueKey<String>('vinyl-player-stage')),
         ),
-      ),
-      isNull,
+      )?.accent,
+      const Color(0xffedc968),
     );
 
     await tester.pumpWidget(const SizedBox.shrink());

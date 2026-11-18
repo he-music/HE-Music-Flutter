@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/config/app_player_appearance.dart';
+import '../../../../app/theme/player/app_player_appearance_palette.dart';
 import '../../../../app/theme/player/app_player_style_models.dart';
 import '../../domain/entities/player_track.dart';
 import '../../../../shared/image/image_color_extractor.dart';
@@ -31,6 +33,7 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
     required this.imageProvider,
     this.track,
     this.motionActive = true,
+    this.appearance = const AppPlayerAppearance(),
     this.isPortrait = false,
     this.artistPhotoImageProviderBuilder,
     this.artistPhotoImageReadyChecker,
@@ -45,6 +48,7 @@ class PlayerBackdrop extends ConsumerStatefulWidget {
   /// 竖屏模式标识，用于决定写真请求的方向。
   final bool isPortrait;
   final bool motionActive;
+  final AppPlayerAppearance appearance;
 
   /// 测试可注入固定图片，运行时默认使用网络缓存图片。
   final ArtistPhotoImageProviderBuilder? artistPhotoImageProviderBuilder;
@@ -296,6 +300,7 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
 
   @override
   Widget build(BuildContext context) {
+    final appearance = widget.appearance;
     final cacheKey = _cacheKey;
     final photoIndex = cacheKey != null
         ? ref.watch(
@@ -309,10 +314,12 @@ class _PlayerBackdropState extends ConsumerState<PlayerBackdrop> {
         backdropKey: 'player-backdrop-cover-gradient',
         imageProvider: widget.imageProvider,
         onPaletteChanged: widget.onClassicPaletteChanged,
+        appearance: appearance,
       ),
       AppPlayerBackdropKind.fluid => FluidPlayerBackdrop(
         imageProvider: widget.imageProvider,
         active: widget.motionActive,
+        appearance: appearance,
       ),
       AppPlayerBackdropKind.artistPhoto => _ImageBackdrop(
         backdropKey: 'player-backdrop-artist-photo',
@@ -692,11 +699,13 @@ class _ClassicGradientBackdrop extends StatefulWidget {
     required this.backdropKey,
     required this.imageProvider,
     this.onPaletteChanged,
+    required this.appearance,
   });
 
   final String backdropKey;
   final ImageProvider<Object>? imageProvider;
   final ValueChanged<List<Color>>? onPaletteChanged;
+  final AppPlayerAppearance appearance;
 
   @override
   State<_ClassicGradientBackdrop> createState() =>
@@ -709,10 +718,8 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
   );
 
   int _paletteGeneration = 0;
-  int _paletteVersion = 0;
   List<Color> _currentPalette = const <Color>[];
   ImageProvider<Object>? _paletteImageProvider;
-  List<Color> _previousPalette = const <Color>[];
 
   @override
   void initState() {
@@ -723,7 +730,8 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
   @override
   void didUpdateWidget(covariant _ClassicGradientBackdrop oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageProvider != widget.imageProvider) {
+    if (oldWidget.imageProvider != widget.imageProvider ||
+        oldWidget.appearance != widget.appearance) {
       _refreshPalette();
     } else if (oldWidget.onPaletteChanged != widget.onPaletteChanged &&
         _currentPalette.isNotEmpty &&
@@ -740,16 +748,13 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
     final imageProvider = widget.imageProvider;
     final resolved = await _loadPalette(imageProvider);
     if (!mounted || generation != _paletteGeneration) return;
-    final target = resolved.isEmpty
-        ? _fallbackClassicColors(Theme.of(context))
-        : resolved;
+    final target = playerAppearanceColors(
+      resolved.isEmpty ? _fallbackClassicColors(Theme.of(context)) : resolved,
+      widget.appearance,
+    );
     setState(() {
-      _previousPalette = _currentPalette.isEmpty
-          ? target
-          : List<Color>.of(_currentPalette);
       _currentPalette = target;
       _paletteImageProvider = imageProvider;
-      _paletteVersion++;
     });
     widget.onPaletteChanged?.call(List<Color>.of(target));
   }
@@ -761,17 +766,14 @@ class _ClassicGradientBackdropState extends State<_ClassicGradientBackdrop> {
     final targetColors = _currentPalette.isNotEmpty
         ? _currentPalette
         : fallbackColors;
-    final previousColors = _previousPalette.isNotEmpty
-        ? _previousPalette
-        : targetColors;
 
-    return TweenAnimationBuilder<double>(
-      key: ValueKey<int>(_paletteVersion),
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: _paletteTransitionDuration,
+    return TweenAnimationBuilder<List<Color>>(
+      tween: PlayerPaletteTween(targetColors),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : _paletteTransitionDuration,
       curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        final colors = _blendPalette(previousColors, targetColors, value);
+      builder: (context, colors, child) {
         return Stack(
           key: ValueKey<String>(widget.backdropKey),
           fit: StackFit.expand,
@@ -997,13 +999,4 @@ LinearGradient _buildClassicGradient(List<Color> colors) {
     colors: <Color>[topColor, middleColor, bottomColor],
     stops: const <double>[0, 0.52, 1],
   );
-}
-
-List<Color> _blendPalette(List<Color> from, List<Color> to, double value) {
-  final length = from.length > to.length ? from.length : to.length;
-  return List<Color>.generate(length, (index) {
-    final left = from[index % from.length];
-    final right = to[index % to.length];
-    return Color.lerp(left, right, value) ?? right;
-  });
 }

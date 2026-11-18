@@ -19,6 +19,8 @@ import '../../../../app/theme/player/app_player_style_registry.dart';
 import '../../../../core/device/realtime_spectrum_permission.dart';
 import '../../domain/entities/player_track.dart';
 import 'player_style_live_preview.dart';
+import 'player_appearance_sheet.dart';
+import '../../../../shared/widgets/app_adaptive_controls.dart';
 
 enum _PlayerStyleAxis { stage, backdrop, lyrics }
 
@@ -162,9 +164,20 @@ class _PlayerStyleSelectionSheetState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  AppSheetHeader(
-                    title: label('player.action.style'),
-                    padding: EdgeInsets.zero,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppSheetHeader(
+                          title: label('player.action.style'),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                      AppIconButton(
+                        tooltip: label('player.appearance.title'),
+                        icon: const Icon(Icons.color_lens_outlined),
+                        onPressed: () => showPlayerAppearanceSheet(context),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   if (!compact) ...[preview, const SizedBox(height: 16)],

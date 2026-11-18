@@ -12,6 +12,7 @@ import 'app_online_audio_quality.dart';
 import 'app_theme_accent.dart';
 import 'app_theme_mode.dart';
 import '../theme/player/app_player_style_registry.dart';
+import 'app_player_appearance.dart';
 
 class AppConfigState {
   const AppConfigState({
@@ -34,6 +35,7 @@ class AppConfigState {
     required this.playerBackdropId,
     required this.playerLyricsId,
     this.playerWideView = AppPlayerWideView.split,
+    this.playerAppearance = const AppPlayerAppearance(),
     required this.lyricHighlightMode,
     required this.lyricHighlightPreset,
     this.lyricHighlightCustomColor,
@@ -72,6 +74,7 @@ class AppConfigState {
   final String playerBackdropId;
   final String playerLyricsId;
   final AppPlayerWideView playerWideView;
+  final AppPlayerAppearance playerAppearance;
   final AppLyricHighlightMode lyricHighlightMode;
   final AppLyricHighlightColor lyricHighlightPreset;
   final int? lyricHighlightCustomColor;
@@ -121,6 +124,7 @@ class AppConfigState {
     String? playerBackdropId,
     String? playerLyricsId,
     AppPlayerWideView? playerWideView,
+    AppPlayerAppearance? playerAppearance,
     AppLyricHighlightMode? lyricHighlightMode,
     AppLyricHighlightColor? lyricHighlightPreset,
     int? lyricHighlightCustomColor,
@@ -186,6 +190,7 @@ class AppConfigState {
       playerBackdropId: playerBackdropId ?? this.playerBackdropId,
       playerLyricsId: playerLyricsId ?? this.playerLyricsId,
       playerWideView: playerWideView ?? this.playerWideView,
+      playerAppearance: playerAppearance ?? this.playerAppearance,
       lyricHighlightMode: lyricHighlightMode ?? this.lyricHighlightMode,
       lyricHighlightPreset: lyricHighlightPreset ?? this.lyricHighlightPreset,
       lyricHighlightCustomColor: clearLyricHighlightCustomColor

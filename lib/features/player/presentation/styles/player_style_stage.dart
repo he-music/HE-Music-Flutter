@@ -17,6 +17,8 @@ class PlayerStyleStage extends StatelessWidget {
     required this.track,
     required this.maxWidth,
     this.cassetteLabel,
+    this.animateCover = true,
+    this.playing = true,
     super.key,
   });
 
@@ -24,6 +26,8 @@ class PlayerStyleStage extends StatelessWidget {
   final PlayerTrack? track;
   final double maxWidth;
   final Widget? cassetteLabel;
+  final bool animateCover;
+  final bool playing;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +46,11 @@ class PlayerStyleStage extends StatelessWidget {
             width: width,
             height: height,
             child: switch (stageKind) {
-              AppPlayerStageKind.classic => ClassicPlayerStage(track: track),
+              AppPlayerStageKind.classic => ClassicPlayerStage(
+                track: track,
+                animateCover: animateCover,
+                playing: playing,
+              ),
               AppPlayerStageKind.none => const SizedBox.expand(),
               AppPlayerStageKind.vinyl => VinylPlayerStage(track: track),
               AppPlayerStageKind.cassette => CassettePlayerStage(

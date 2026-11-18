@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_player_appearance.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'app_ui_style.dart';
@@ -43,6 +44,7 @@ const _playerStageIdKey = 'app_config.player_stage_id';
 const _playerBackdropIdKey = 'app_config.player_backdrop_id';
 const _playerLyricsIdKey = 'app_config.player_lyrics_id';
 const _playerWideViewKey = 'app_config.player_wide_view';
+const _playerAppearanceKey = 'app_config.player_appearance';
 const _legacyPlayerStyleIdKey = 'app_config.player_style_id';
 const _legacyLyricHighlightColorKey = 'app_config.lyric_highlight_color';
 const _lyricHighlightModeKey = 'app_config.lyric_highlight_mode';
@@ -170,6 +172,9 @@ class AppConfigDataSource {
       playerWideView: AppPlayerWideView.parse(
         prefs.getString(_playerWideViewKey),
       ),
+      playerAppearance: AppPlayerAppearance.decode(
+        prefs.getString(_playerAppearanceKey),
+      ),
       lyricHighlightMode: lyricHighlightMode,
       lyricHighlightPreset: _readLyricHighlightPreset(prefs),
       lyricHighlightCustomColor: _readLyricHighlightCustomColor(prefs),
@@ -262,6 +267,10 @@ class AppConfigDataSource {
       AppPlayerLyricsRegistry.instance.normalizeId(state.playerLyricsId),
     );
     await prefs.setString(_playerWideViewKey, state.playerWideView.name);
+    await prefs.setString(
+      _playerAppearanceKey,
+      state.playerAppearance.encode(),
+    );
     await prefs.setString(
       _lyricHighlightModeKey,
       state.lyricHighlightMode.value,
