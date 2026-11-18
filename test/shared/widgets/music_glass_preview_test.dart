@@ -11,7 +11,6 @@ import 'package:he_music_flutter/app/config/app_ui_style.dart';
 import 'package:he_music_flutter/app/theme/app_theme.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_background.dart';
 import 'package:he_music_flutter/app/theme/skin/app_skin_registry.dart';
-import 'package:he_music_flutter/shared/image/image_color_extractor.dart';
 import 'package:he_music_flutter/shared/widgets/media_grid_card.dart';
 import 'package:he_music_flutter/shared/widgets/music_detail_slivers.dart';
 import 'package:he_music_flutter/shared/widgets/song_list_item.dart';
@@ -23,7 +22,7 @@ const _artworkUrl = 'https://artwork.test/evening.png';
 
 void main() {
   for (final style in AppUiStyle.values) {
-    testWidgets('detail artwork and actions fit large text in $style', (
+    testWidgets('detail header and actions fit large text in $style', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(320, 844);
@@ -85,32 +84,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(BackdropFilter), findsNothing);
-      final artwork = tester.getRect(
-        find.byKey(const ValueKey('music-detail-artwork')),
-      );
+      final header = _headerRect(tester);
       final heading = tester.getRect(
         find.byKey(const ValueKey('music-detail-expanded-title')),
       );
-      expect(artwork.right, lessThan(heading.left));
+      expect(heading.left, header.left + 16);
+      expect(heading.right, lessThanOrEqualTo(header.right - 16));
+      expect(heading.bottom, lessThan(header.bottom));
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -1500));
       await tester.pumpAndSettle();
-      final readingGradient =
-          tester
-                  .widget<DecoratedBox>(
-                    find.byKey(const ValueKey('music-detail-reading-gradient')),
-                  )
-                  .decoration
-              as BoxDecoration;
-      final topColor =
-          (readingGradient.gradient! as LinearGradient).colors.first;
-      expect(topColor.computeLuminance(), greaterThan(0.6));
-      final title = tester.widget<Text>(
-        find.byKey(const ValueKey('music-detail-collapsed-title')),
+      final titleFinder = find.byKey(
+        const ValueKey('music-detail-collapsed-title'),
       );
-      final contrast =
-          (topColor.computeLuminance() + 0.05) /
-          (title.style!.color!.computeLuminance() + 0.05);
-      expect(contrast, greaterThanOrEqualTo(4.5));
+      final title = tester.widget<Text>(titleFinder);
+      final theme = Theme.of(tester.element(titleFinder));
+      expect(title.style!.color, theme.textTheme.titleMedium!.color);
       await tester.tap(find.byTooltip('Favorite'));
       await tester.tap(find.byTooltip('Back'));
       expect(favoriteCount, 1);
@@ -119,83 +107,91 @@ void main() {
     });
   }
 
-  testWidgets('late artwork colors cannot replace the current detail artwork', (
-    tester,
-  ) async {
-    final red = await tester.runAsync(() => _solidArtwork(Colors.red));
-    final blue = await tester.runAsync(() => _solidArtwork(Colors.blue));
-    final delayed = Completer<Uint8List>();
-    final client = ArtworkHttpClient(
-      (uri) => uri.path.contains('slow')
-          ? delayed.future
-          : blue!.buffer.asUint8List(),
-    );
-    debugNetworkImageHttpClientProvider = () => client;
-    addTearDown(() => debugNetworkImageHttpClientProvider = null);
-    final url = ValueNotifier('https://artwork.test/slow-red.png');
-    addTearDown(url.dispose);
-    try {
-      await tester.runAsync(
-        () => colorsFromImageProvider(
-          ResizeImage(
-            const NetworkImage('https://artwork.test/ready-blue.png'),
-            width: 256,
-            policy: ResizeImagePolicy.fit,
-          ),
-          prioritizeSaturation: false,
-        ),
+  testWidgets(
+    'detail cover fills the header and ignores late previous artwork',
+    (tester) async {
+      final red = await tester.runAsync(() => _solidArtwork(Colors.red));
+      final blue = await tester.runAsync(() => _solidArtwork(Colors.blue));
+      final delayed = Completer<Uint8List>();
+      var previews = 0;
+      final client = ArtworkHttpClient(
+        (uri) => uri.path.contains('slow')
+            ? delayed.future
+            : blue!.buffer.asUint8List(),
       );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark(
-            AppSkinRegistry.builtIn(
-              AppThemeAccent.appleBlue,
-            ).resolve(AppSkinRegistry.starlitMelodyId),
-          ),
-          home: Scaffold(
-            body: ValueListenableBuilder<String>(
-              valueListenable: url,
-              builder: (context, cover, _) => CustomScrollView(
-                slivers: [
-                  MusicDetailSliverAppBar(
-                    title: 'Album',
-                    subtitle: 'Artist',
-                    coverUrl: cover,
-                    description: '',
-                    onBack: () {},
-                    onShowDescription: () {},
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 1200)),
-                ],
+      debugNetworkImageHttpClientProvider = () => client;
+      addTearDown(() => debugNetworkImageHttpClientProvider = null);
+      final url = ValueNotifier('https://artwork.test/slow-red.png');
+      addTearDown(url.dispose);
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark(
+              AppSkinRegistry.builtIn(
+                AppThemeAccent.appleBlue,
+              ).resolve(AppSkinRegistry.starlitMelodyId),
+            ),
+            home: Scaffold(
+              body: ValueListenableBuilder<String>(
+                valueListenable: url,
+                builder: (context, cover, _) => CustomScrollView(
+                  slivers: [
+                    MusicDetailSliverAppBar(
+                      title: 'Album',
+                      subtitle: 'Artist',
+                      coverUrl: cover,
+                      description: '',
+                      onBack: () {},
+                      onShowDescription: () {},
+                      onPreviewCover: () => previews++,
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 1200)),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
-      url.value = 'https://artwork.test/ready-blue.png';
-      await tester.pumpAndSettle();
-      final surface = find.byKey(
-        const ValueKey('music-detail-reading-surface'),
-      );
-      final current = tester.widget<ColoredBox>(surface).color;
-      delayed.complete(red!.buffer.asUint8List());
-      for (var frame = 0; frame < 8; frame++) {
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 20)),
         );
-        await tester.pump(const Duration(milliseconds: 16));
+        await tester.runAsync(
+          () => precacheImage(
+            ResizeImage(
+              const NetworkImage('https://artwork.test/ready-blue.png'),
+              width: 512,
+            ),
+            tester.element(find.byType(Scaffold)),
+          ),
+        );
+        await tester.pump();
+        url.value = 'https://artwork.test/ready-blue.png';
+        await tester.pumpAndSettle();
+        final image = find.byType(Image);
+        expect(image, findsOneWidget);
+        final cover = tester.widget<Image>(image);
+        expect(cover.fit, BoxFit.cover);
+        expect(cover.alignment, Alignment.topCenter);
+        expect(tester.getRect(image), _headerRect(tester));
+        await tester.tapAt(_headerRect(tester).topLeft + const Offset(30, 100));
+        expect(previews, 1);
+        final current = tester.widget<RawImage>(find.byType(RawImage)).image;
+        expect(current, isNotNull);
+        delayed.complete(red!.buffer.asUint8List());
+        for (var frame = 0; frame < 8; frame++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(tester.widget<RawImage>(find.byType(RawImage)).image, current);
+        expect(find.byType(ImageFiltered), findsNothing);
+        expect(find.byType(BackdropFilter), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      } finally {
+        if (!delayed.isCompleted) delayed.complete(red!.buffer.asUint8List());
+        debugNetworkImageHttpClientProvider = null;
       }
-      expect(tester.widget<ColoredBox>(surface).color, current);
-      expect(find.byType(ImageFiltered), findsOneWidget);
-      expect(find.byType(BackdropFilter), findsNothing);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    } finally {
-      if (!delayed.isCompleted) delayed.complete(red!.buffer.asUint8List());
-      debugNetworkImageHttpClientProvider = null;
-    }
-  });
+    },
+  );
 
   testWidgets('export glass music scenes', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -230,17 +226,6 @@ void main() {
     final client = ArtworkHttpClient((_) => bytes!);
     debugNetworkImageHttpClientProvider = () => client;
     addTearDown(() => debugNetworkImageHttpClientProvider = null);
-    final colors = await tester.runAsync(
-      () => colorsFromImageProvider(
-        ResizeImage(
-          const NetworkImage(_artworkUrl),
-          width: 256,
-          policy: ResizeImagePolicy.fit,
-        ),
-        prioritizeSaturation: false,
-      ),
-    );
-    expect(colors, isNotEmpty);
     for (final style in AppUiStyle.values) {
       for (final brightness in Brightness.values) {
         for (final detail in [true, false]) {
@@ -436,6 +421,11 @@ void main() {
     }
     debugNetworkImageHttpClientProvider = null;
   }, skip: _previewDirectory.isEmpty);
+}
+
+Rect _headerRect(WidgetTester tester) {
+  final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
+  return tester.getRect(find.byWidget(appBar.flexibleSpace!));
 }
 
 Future<void> _waitForWallpaper(WidgetTester tester) async {

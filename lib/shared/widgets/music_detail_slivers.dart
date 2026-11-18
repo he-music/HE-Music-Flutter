@@ -1,12 +1,9 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'app_button.dart';
 import 'app_adaptive_controls.dart';
 
-import 'app_artwork_frame.dart';
-import '../image/image_color_extractor.dart';
 import 'app_network_image.dart';
 import 'package:flutter/services.dart';
 
@@ -522,7 +519,7 @@ class _MusicDetailPlayAllHeaderContent extends StatelessWidget {
   }
 }
 
-class _HeroBackground extends StatefulWidget {
+class _HeroBackground extends StatelessWidget {
   const _HeroBackground({
     required this.title,
     required this.subtitle,
@@ -546,111 +543,60 @@ class _HeroBackground extends StatefulWidget {
   final bool compactDescription;
 
   @override
-  State<_HeroBackground> createState() => _HeroBackgroundState();
-}
-
-class _HeroBackgroundState extends State<_HeroBackground> {
-  Color? _artworkColor;
-  Widget _atmosphere = const SizedBox.expand();
-  int _generation = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _resolveArtwork();
-  }
-
-  @override
-  void didUpdateWidget(covariant _HeroBackground oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.coverUrl.trim() != widget.coverUrl.trim()) _resolveArtwork();
-  }
-
-  void _resolveArtwork() {
-    final generation = ++_generation;
-    final url = widget.coverUrl.trim();
-    _artworkColor = null;
-    if (url.isEmpty) {
-      _atmosphere = const SizedBox.expand();
-      return;
-    }
-    final provider = ResizeImage(
-      NetworkImage(url),
-      width: 256,
-      policy: ResizeImagePolicy.fit,
-    );
-    // The filtered artwork is cached independently from scroll-driven metadata.
-    // Decode and blur stay bounded; no list row or pinned control is filtered.
-    _atmosphere = RepaintBoundary(
-      key: const ValueKey('music-detail-atmosphere'),
-      child: ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(
-          sigmaX: 18,
-          sigmaY: 18,
-          tileMode: TileMode.clamp,
-        ),
-        child: Image(
-          image: provider,
-          fit: BoxFit.cover,
-          excludeFromSemantics: true,
-          errorBuilder: (_, _, _) => const SizedBox.expand(),
-        ),
-      ),
-    );
-    colorsFromImageProvider(provider, prioritizeSaturation: false).then((
-      colors,
-    ) {
-      if (!mounted || generation != _generation || colors.isEmpty) return;
-      setState(() => _artworkColor = colors.first);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final fade = widget.fade.clamp(0.0, 1.0);
+    final normalizedFade = fade.clamp(0.0, 1.0);
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final dark = theme.brightness == Brightness.dark;
-    final accent = _artworkColor ?? colors.surfaceContainerHigh;
-    final readingSurface = Color.lerp(
-      colors.surface,
-      accent,
-      dark ? 0.14 : 0.08,
-    )!;
-    final foreground = Color.lerp(colors.onSurface, accent, 0.025)!;
-    final secondary = Color.lerp(colors.onSurfaceVariant, accent, 0.035)!;
+    final bottomPanelColor = theme.colorScheme.surface.withValues(
+      alpha: 0.94 - 0.18 * normalizedFade,
+    );
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
-        ColoredBox(
-          key: const ValueKey('music-detail-reading-surface'),
-          color: readingSurface.withValues(alpha: 0.50),
-        ),
-        Opacity(opacity: 0.55 * (1 - fade), child: _atmosphere),
+        _HeroImage(url: coverUrl),
+        // 顶部保持轻量暗色遮罩，保证返回按钮与折叠标题可读。
         DecoratedBox(
-          key: const ValueKey('music-detail-reading-gradient'),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: <Color>[
-                Color.lerp(
-                  Colors.black.withValues(alpha: 0.62),
-                  readingSurface,
-                  fade,
-                )!,
-                readingSurface.withValues(alpha: 0.64),
-                readingSurface.withValues(alpha: 0.96),
+                Colors.black.withValues(alpha: 0.18 + 0.14 * normalizedFade),
+                Colors.black.withValues(alpha: 0.04 + 0.06 * normalizedFade),
+                Colors.transparent,
               ],
-              stops: const <double>[0, 0.36, 1],
+              stops: const <double>[0, 0.32, 0.62],
             ),
           ),
         ),
-        if (widget.onPreviewCover != null && widget.coverUrl.trim().isNotEmpty)
+        // 底部渐变承载文字，并随大字体扩展，保持封面上的文字可读。
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 166 + (textScale - 1).clamp(0.0, 3.0) * 160,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    bottomPanelColor.withValues(alpha: 0.0),
+                    bottomPanelColor.withValues(alpha: 0.42),
+                    bottomPanelColor,
+                  ],
+                  stops: const <double>[0.0, 0.46, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (onPreviewCover != null && coverUrl.trim().isNotEmpty)
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: widget.onPreviewCover,
+              onTap: onPreviewCover,
             ),
           ),
         OverflowBox(
@@ -658,49 +604,15 @@ class _HeroBackgroundState extends State<_HeroBackground> {
           minHeight: 0,
           maxHeight: double.infinity,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final largeText =
-                    MediaQuery.textScalerOf(context).scale(14) > 20;
-                final coverSize = largeText
-                    ? 80.0
-                    : (constraints.maxWidth * 0.42).clamp(112.0, 176.0);
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: <Widget>[
-                    Opacity(
-                      opacity: (1 - fade * 1.8).clamp(0.0, 1.0),
-                      child: GestureDetector(
-                        onTap: widget.onPreviewCover,
-                        child: SizedBox.square(
-                          key: const ValueKey('music-detail-artwork'),
-                          dimension: coverSize,
-                          child: AppArtworkFrame(
-                            showShadow: true,
-                            borderRadius: BorderRadius.circular(16),
-                            child: _HeroImage(url: widget.coverUrl),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: _HeroMeta(
-                        title: widget.title,
-                        subtitle: widget.subtitle,
-                        metaItems: widget.metaItems,
-                        description: widget.description,
-                        onShowDescription: widget.onShowDescription,
-                        compactDescription: widget.compactDescription,
-                        fade: fade,
-                        foreground: foreground,
-                        secondaryForeground: secondary,
-                      ),
-                    ),
-                  ],
-                );
-              },
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            child: _HeroMeta(
+              title: title,
+              subtitle: subtitle,
+              metaItems: metaItems,
+              description: description,
+              onShowDescription: onShowDescription,
+              compactDescription: compactDescription,
+              fade: normalizedFade,
             ),
           ),
         ),
@@ -718,8 +630,6 @@ class _HeroMeta extends StatelessWidget {
     required this.onShowDescription,
     required this.compactDescription,
     required this.fade,
-    required this.foreground,
-    required this.secondaryForeground,
   });
 
   final String title;
@@ -729,13 +639,11 @@ class _HeroMeta extends StatelessWidget {
   final VoidCallback onShowDescription;
   final bool compactDescription;
   final double fade;
-  final Color foreground;
-  final Color secondaryForeground;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textColor = foreground;
+    final textColor = theme.colorScheme.onSurface;
     final normalizedSubtitle = subtitle.trim();
     final normalizedMetaItems = metaItems
         .where((item) => item.label.trim().isNotEmpty)
@@ -760,11 +668,10 @@ class _HeroMeta extends StatelessWidget {
             child: Text(
               key: const ValueKey<String>('music-detail-expanded-title'),
               title,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+                fontWeight: FontWeight.w500,
                 color: textColor,
               ),
             ),
@@ -778,7 +685,9 @@ class _HeroMeta extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: secondaryForeground.withValues(alpha: 0.92),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.92,
+                  ),
                 ),
               ),
             ),
@@ -792,9 +701,8 @@ class _HeroMeta extends StatelessWidget {
                 runSpacing: 8,
                 children: normalizedMetaItems
                     .map((item) {
-                      final itemColor = secondaryForeground.withValues(
-                        alpha: 0.90,
-                      );
+                      final itemColor = theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.90);
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
@@ -837,9 +745,8 @@ class _HeroMeta extends StatelessWidget {
                             maxLines: compactDescription ? 1 : 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: secondaryForeground.withValues(
-                                alpha: 0.92,
-                              ),
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.92),
                             ),
                           ),
                         ),
@@ -847,7 +754,9 @@ class _HeroMeta extends StatelessWidget {
                         Icon(
                           Icons.keyboard_arrow_right_rounded,
                           size: 18,
-                          color: secondaryForeground.withValues(alpha: 0.80),
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.80,
+                          ),
                         ),
                       ],
                     ),
@@ -882,7 +791,8 @@ class _HeroImage extends StatelessWidget {
       color: theme.colorScheme.surfaceContainerHigh,
       child: AppNetworkImage(
         url: url,
-        fit: BoxFit.contain,
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
         cacheWidth: 512,
         fallback: fallback,
       ),
