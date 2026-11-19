@@ -778,6 +778,8 @@ abstract final class AppI18n {
       'player.style.star_tunnel_lyrics.description': '歌词从星光深处迎面而来，随换句穿梭并聚焦',
       'player.style.kinetic_lyrics': '跃音',
       'player.style.kinetic_lyrics.description': '音符随逐字歌词跳跃，落字泛起同色光晕、涟漪与拖尾',
+      'player.style.52hz': '52Hz',
+      'player.style.52hz.description': '逐字歌词沿字形向外荡开年轮般的波纹',
       'player.style.pendolo_lyrics': '时计',
       'player.style.claddagh_lyrics': '回环',
       'player.style.claddagh_lyrics.description': '文字沿倾斜椭圆回环流动，逐字放大聚焦',
@@ -1964,6 +1966,9 @@ abstract final class AppI18n {
       'player.style.kinetic_lyrics': 'Kinetic Note',
       'player.style.kinetic_lyrics.description':
           'A bouncing note follows timed lyrics with glowing ripples and trails',
+      'player.style.52hz': '52Hz',
+      'player.style.52hz.description':
+          'Rings spread out from the contours of the timed lyrics',
       'player.style.pendolo_lyrics': 'Pendolo',
       'player.style.claddagh_lyrics': 'Claddagh',
       'player.style.claddagh_lyrics.description':

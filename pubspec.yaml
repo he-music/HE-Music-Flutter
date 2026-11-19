@@ -116,6 +116,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  shaders:
+    - shaders/52hz_ripples.frag
+
   assets:
     - gh-proxy.json
     - assets/app_config.json
@@ -141,6 +144,7 @@ flutter:
     - assets/player_styles/pendolo_lyrics/preview.png
     - assets/player_styles/star_tunnel_lyrics/preview.png
     - assets/player_styles/kinetic_lyrics/preview.png
+    - assets/player_styles/lyrics_52hz/preview.png
     - assets/player_styles/claddagh_lyrics/preview.png
     - assets/skins/classic/preview_light.png
     - assets/skins/classic/preview_dark.png

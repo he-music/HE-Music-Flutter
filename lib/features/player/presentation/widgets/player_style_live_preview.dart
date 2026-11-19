@@ -27,6 +27,7 @@ import 'partita_lyric_page.dart';
 import 'tilt_lyric_page.dart';
 import 'star_tunnel_lyric_page.dart';
 import 'kinetic_lyric_page.dart';
+import 'fifty_two_hz_lyric_page.dart';
 import 'pendolo_lyric_page.dart';
 import 'claddagh_lyric_page.dart';
 import 'player_backdrop.dart';
@@ -389,6 +390,7 @@ class _LyricStagePreview extends StatelessWidget {
         onSeek: null,
         palette: null,
       ),
+      AppPlayerLyricsKind.fiftyTwoHz => const FiftyTwoHzLyricPage(),
       AppPlayerLyricsKind.pendolo => PendoloLyricPage(
         emptyText: emptyText,
         onSeek: null,

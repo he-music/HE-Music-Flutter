@@ -100,6 +100,18 @@ void main() {
               ),
             ),
           );
+          if (option.id == AppPlayerLyricsRegistry.fiftyTwoHzId) {
+            await tester.runAsync(() async {
+              final ready = find.byKey(const ValueKey('52hz-ripples-ready'));
+              final deadline = DateTime.now().add(const Duration(seconds: 5));
+              while (ready.evaluate().isEmpty &&
+                  DateTime.now().isBefore(deadline)) {
+                await Future<void>.delayed(const Duration(milliseconds: 20));
+                await tester.pump();
+              }
+              expect(ready, findsOneWidget);
+            });
+          }
           if (artistPhotoImage != null) {
             await tester.runAsync(
               () => precacheImage(

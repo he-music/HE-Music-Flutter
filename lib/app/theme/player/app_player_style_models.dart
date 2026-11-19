@@ -36,6 +36,7 @@ enum AppPlayerLyricsKind {
   claddagh,
   starTunnel,
   kinetic,
+  fiftyTwoHz,
 }
 
 @immutable
