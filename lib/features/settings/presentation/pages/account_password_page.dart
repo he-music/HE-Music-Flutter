@@ -16,9 +16,10 @@ import '../../../../shared/widgets/app_activity_indicator.dart';
 import '../../data/providers/account_settings_providers.dart';
 
 class AccountPasswordPage extends ConsumerStatefulWidget {
-  const AccountPasswordPage({super.key, this.embedded = false});
+  const AccountPasswordPage({super.key, this.embedded = false, this.onSaved});
 
   final bool embedded;
+  final VoidCallback? onSaved;
 
   @override
   ConsumerState<AccountPasswordPage> createState() =>
@@ -283,7 +284,9 @@ class _AccountPasswordPageState extends ConsumerState<AccountPasswordPage> {
       AppMessageService.showSuccess(
         AppI18n.t(config, 'settings.password.saved'),
       );
-      if (context.canPop()) {
+      if (widget.onSaved case final onSaved?) {
+        onSaved();
+      } else if (context.canPop()) {
         context.pop();
       }
     } catch (error) {

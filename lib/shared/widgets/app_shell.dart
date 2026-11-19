@@ -113,7 +113,13 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     );
     return AppPlayerScaffold(
-      body: AppContentWidth(child: widget.child ?? navigationShell!),
+      body: AppContentWidth(
+        maxWidth: switch (Theme.of(context).platform) {
+          TargetPlatform.iOS || TargetPlatform.android => double.infinity,
+          _ => LayoutTokens.maxContentWidth,
+        },
+        child: widget.child ?? navigationShell!,
+      ),
       miniPlayer: AppContentWidth(
         maxWidth: LayoutTokens.miniPlayerMaxWidth,
         child: MiniPlayerBar(

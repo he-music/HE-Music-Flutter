@@ -822,6 +822,30 @@ void main() {
     expect(resolver.loadCount, 1);
   });
 
+  testWidgets('wide profile route from My has the account sidebar', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1376, 1032);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_buildRouterTestApp(initialLocation: AppRoutes.my));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(MyPage));
+    final router = GoRouter.of(context);
+    router.push<void>(AppRoutes.settingsProfile);
+    await tester.pumpAndSettle();
+    final sidebar = find.byKey(const ValueKey('settings-sidebar'));
+    final detail = find.byKey(const ValueKey('settings-detail-pane'));
+    expect(sidebar, findsOneWidget);
+    expect(
+      find.descendant(of: detail, matching: find.byType(AccountProfilePage)),
+      findsOneWidget,
+    );
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(MyPage), findsOneWidget);
+  });
   testWidgets('account profile route builds independent page', (tester) async {
     await tester.pumpWidget(
       _buildRouterTestApp(initialLocation: AppRoutes.settingsProfile),

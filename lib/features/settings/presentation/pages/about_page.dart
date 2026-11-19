@@ -21,9 +21,9 @@ import '../../../update/presentation/providers/update_providers.dart';
 import '../../../update/presentation/widgets/update_available_release_sheet.dart';
 
 class AboutPage extends ConsumerStatefulWidget {
-  const AboutPage({super.key, this.embedded = false});
+  const AboutPage({super.key, this.inline = false});
 
-  final bool embedded;
+  final bool inline;
 
   @override
   ConsumerState<AboutPage> createState() => _AboutPageState();
@@ -84,11 +84,12 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     });
     final config = ref.watch(appConfigProvider);
     final content = AboutContent(
+      inline: widget.inline,
       releaseDescriptionBuilder: _gitHubReleaseDescription,
       releasePageUrl: _releasePageUrl,
       onOpenUrl: _openUrl,
     );
-    if (widget.embedded) {
+    if (widget.inline) {
       return content;
     }
     return Scaffold(
@@ -165,79 +166,102 @@ class AboutContent extends ConsumerWidget {
     required this.releaseDescriptionBuilder,
     required this.releasePageUrl,
     required this.onOpenUrl,
+    this.inline = false,
     super.key,
   });
 
   final String Function(AppConfigState config) releaseDescriptionBuilder;
   final String releasePageUrl;
   final Future<void> Function(String rawUrl) onOpenUrl;
+  final bool inline;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final appInfoAsync = ref.watch(currentAppInfoProvider);
     final updateState = ref.watch(updateControllerProvider);
+    final appName = appInfoAsync.maybeWhen(
+      data: (info) => info.appName.trim().isEmpty ? 'HE Music' : info.appName,
+      orElse: () => 'HE Music',
+    );
+    final version = appInfoAsync.maybeWhen(
+      data: (info) => info.versionLabel,
+      orElse: () => '--',
+    );
+    final versionTitle = AppI18n.t(config, 'settings.about.current_version');
+    final releases = AppListTile(
+      leading: const Icon(Icons.history_rounded),
+      title: Text(AppI18n.t(config, 'update.history.title')),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      enabled: AppEnvironment.hasGitHubReleaseConfig,
+      onTap: AppEnvironment.hasGitHubReleaseConfig
+          ? () => context.push(AppRoutes.releaseHistory)
+          : null,
+    );
+    final github = AppListTile(
+      leading: const Icon(Icons.open_in_new_rounded),
+      title: Text(AppI18n.t(config, 'settings.about.github_release')),
+      subtitle: Text(releaseDescriptionBuilder(config)),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      enabled: AppEnvironment.hasGitHubReleaseConfig,
+      onTap: AppEnvironment.hasGitHubReleaseConfig
+          ? () => onOpenUrl(releasePageUrl)
+          : null,
+    );
+    final checkUpdate = AppButton.filledIcon(
+      onPressed: updateState.status == UpdateStatus.checking
+          ? null
+          : () => ref.read(updateControllerProvider.notifier).checkForUpdates(),
+      icon: updateState.status == UpdateStatus.checking
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: AppActivityIndicator(size: 18, strokeWidth: 2),
+            )
+          : const Icon(Icons.system_update_rounded),
+      label: Text(
+        updateState.status == UpdateStatus.checking
+            ? AppI18n.t(config, 'settings.about.checking')
+            : AppI18n.t(config, 'settings.about.check_update'),
+      ),
+    );
+    if (inline) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppListTile(
+            title: Text(appName),
+            subtitle: Text('$versionTitle $version'),
+            leading: Image.asset(
+              'assets/icons/favicon-512x512.png',
+              width: 26,
+              height: 26,
+            ),
+          ),
+          releases,
+          github,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 12),
+              child: checkUpdate,
+            ),
+          ),
+        ],
+      );
+    }
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: <Widget>[
+      children: [
         _AboutHero(
-          appName: appInfoAsync.maybeWhen(
-            data: (info) =>
-                info.appName.trim().isEmpty ? 'HE Music' : info.appName,
-            orElse: () => 'HE Music',
-          ),
-          versionLabel: appInfoAsync.maybeWhen(
-            data: (info) => info.versionLabel,
-            orElse: () => '--',
-          ),
-          versionTitle: AppI18n.t(config, 'settings.about.current_version'),
+          appName: appName,
+          versionLabel: version,
+          versionTitle: versionTitle,
         ),
         const SizedBox(height: 18),
-        AppPanel(
-          child: Column(
-            children: <Widget>[
-              AppListTile(
-                leading: const Icon(Icons.history_rounded),
-                title: Text(AppI18n.t(config, 'update.history.title')),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                enabled: AppEnvironment.hasGitHubReleaseConfig,
-                onTap: AppEnvironment.hasGitHubReleaseConfig
-                    ? () => context.push(AppRoutes.releaseHistory)
-                    : null,
-              ),
-              AppListTile(
-                leading: const Icon(Icons.open_in_new_rounded),
-                title: Text(AppI18n.t(config, 'settings.about.github_release')),
-                subtitle: Text(releaseDescriptionBuilder(config)),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                enabled: AppEnvironment.hasGitHubReleaseConfig,
-                onTap: AppEnvironment.hasGitHubReleaseConfig
-                    ? () => onOpenUrl(releasePageUrl)
-                    : null,
-              ),
-            ],
-          ),
-        ),
+        AppPanel(child: Column(children: [releases, github])),
         const SizedBox(height: 18),
-        AppButton.filledIcon(
-          onPressed: updateState.status == UpdateStatus.checking
-              ? null
-              : () => ref
-                    .read(updateControllerProvider.notifier)
-                    .checkForUpdates(),
-          icon: updateState.status == UpdateStatus.checking
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: AppActivityIndicator(size: 18, strokeWidth: 2),
-                )
-              : const Icon(Icons.system_update_rounded),
-          label: Text(
-            updateState.status == UpdateStatus.checking
-                ? AppI18n.t(config, 'settings.about.checking')
-                : AppI18n.t(config, 'settings.about.check_update'),
-          ),
-        ),
+        checkUpdate,
       ],
     );
   }

@@ -16,6 +16,7 @@ import 'package:he_music_flutter/features/my/presentation/providers/my_overview_
 import 'package:he_music_flutter/features/settings/data/account_settings_api_client.dart';
 import 'package:he_music_flutter/features/settings/data/providers/account_settings_providers.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/account_profile_page.dart';
+import 'package:he_music_flutter/features/settings/presentation/pages/settings_page.dart';
 import 'package:he_music_flutter/shared/widgets/app_network_image.dart';
 import 'package:toastification/toastification.dart';
 
@@ -212,6 +213,50 @@ void main() {
     await _dismissToasts(tester);
   });
 
+  testWidgets('wide settings saves profile and returns to account in place', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1376, 1032);
+    addTearDown(tester.view.reset);
+    final client = _FakeAccountSettingsApiClient();
+    await _pumpPage(
+      tester,
+      controller: _TestMyOverviewController(initialState: _profileState),
+      client: client,
+      page: const SettingsPage(),
+    );
+    final sidebar = find.byKey(const ValueKey('settings-sidebar'));
+    final detail = find.byKey(const ValueKey('settings-detail-pane'));
+    await tester.tap(find.descendant(of: sidebar, matching: find.text('帐号')));
+    await tester.pumpAndSettle();
+    final profileRow = find.byKey(
+      const ValueKey('settings-item-account-profile'),
+    );
+    await tester.tap(profileRow);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: detail, matching: find.byType(AccountProfilePage)),
+      findsOneWidget,
+    );
+    final nickname = find.byKey(const ValueKey('account-profile-nickname'));
+    await tester.enterText(nickname, 'Draft');
+
+    tester.view.physicalSize = const Size(620, 900);
+    await tester.pumpAndSettle();
+    expect(sidebar, findsNothing);
+    expect(tester.widget<AppTextFormField>(nickname).controller?.text, 'Draft');
+    tester.view.physicalSize = const Size(1376, 1032);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('account-profile-submit')));
+    await _pumpToast(tester);
+    await tester.pumpAndSettle();
+    expect(client.nickname, 'Draft');
+    expect(find.byType(AccountProfilePage), findsNothing);
+    expect(sidebar, findsOneWidget);
+    expect(profileRow, findsOneWidget);
+    await _dismissToasts(tester);
+  });
   testWidgets('failed profile submit keeps form values and shows error', (
     tester,
   ) async {
@@ -247,6 +292,7 @@ Future<ProviderContainer> _pumpPage(
   String? authToken = 'token',
   String localeCode = 'zh',
   ThemeData? theme,
+  Widget page = const AccountProfilePage(),
 }) async {
   final container = ProviderContainer(
     overrides: [
@@ -263,7 +309,7 @@ Future<ProviderContainer> _pumpPage(
   addTearDown(container.dispose);
   final router = GoRouter(
     navigatorKey: rootNavigatorKey,
-    routes: [GoRoute(path: '/', builder: (_, _) => const AccountProfilePage())],
+    routes: [GoRoute(path: '/', builder: (_, _) => page)],
   );
   addTearDown(router.dispose);
   await tester.pumpWidget(

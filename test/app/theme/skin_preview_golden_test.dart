@@ -518,7 +518,12 @@ void main() {
       addTearDown(tester.view.reset);
       final router = createAppRouter(AppRoutes.home);
       await tester.pumpWidget(
-        _buildPreviewApp(router, Brightness.light, AppSkinRegistry.classicId),
+        _buildPreviewApp(
+          router,
+          Brightness.light,
+          AppSkinRegistry.classicId,
+          platform: TargetPlatform.macOS,
+        ),
       );
       await tester.pumpAndSettle();
       expect(find.byType(NavigationRail), findsNothing);
@@ -757,6 +762,7 @@ Widget _buildPreviewApp(
   Brightness brightness,
   String skinId, {
   AppUiStyle uiStyle = AppUiStyle.material,
+  TargetPlatform platform = TargetPlatform.android,
   bool showContentBackground = false,
   String? localeCode,
   bool enableSkinAnimation = false,
@@ -782,7 +788,7 @@ Widget _buildPreviewApp(
   );
   final navigationLabelTextStyle = baseTheme.navigationBarTheme.labelTextStyle;
   final theme = baseTheme.copyWith(
-    platform: TargetPlatform.android,
+    platform: platform,
     textTheme: textTheme,
     appBarTheme: localeCode == null
         ? baseTheme.appBarTheme

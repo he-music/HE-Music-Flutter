@@ -20,9 +20,10 @@ import '../../../my/presentation/providers/my_overview_providers.dart';
 import '../../data/providers/account_settings_providers.dart';
 
 class AccountProfilePage extends ConsumerStatefulWidget {
-  const AccountProfilePage({super.key, this.embedded = false});
+  const AccountProfilePage({super.key, this.embedded = false, this.onSaved});
 
   final bool embedded;
+  final VoidCallback? onSaved;
 
   @override
   ConsumerState<AccountProfilePage> createState() => _AccountProfilePageState();
@@ -317,7 +318,9 @@ class _AccountProfilePageState extends ConsumerState<AccountProfilePage> {
       AppMessageService.showSuccess(
         AppI18n.t(config, 'settings.profile.saved'),
       );
-      if (context.canPop()) {
+      if (widget.onSaved case final onSaved?) {
+        onSaved();
+      } else if (context.canPop()) {
         context.pop();
       }
     } catch (error) {

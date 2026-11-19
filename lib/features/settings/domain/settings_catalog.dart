@@ -378,7 +378,7 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
   SettingsItemNode(
     id: SettingsItemIds.autoCheckUpdates,
     sectionId: SettingsSectionIds.general,
-    groupId: SettingsGroupIds.generalPreferences,
+    groupId: SettingsGroupIds.generalAbout,
     titleKey: 'settings.auto_check_updates',
     kind: SettingsItemKind.toggle,
     icon: Icons.system_update_alt_rounded,
@@ -387,7 +387,7 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
   SettingsItemNode(
     id: SettingsItemIds.githubDownloadAcceleration,
     sectionId: SettingsSectionIds.general,
-    groupId: SettingsGroupIds.generalPreferences,
+    groupId: SettingsGroupIds.generalAbout,
     titleKey: 'settings.github_download_acceleration',
     kind: SettingsItemKind.navigation,
     icon: Icons.speed_rounded,
@@ -398,7 +398,7 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
     sectionId: SettingsSectionIds.general,
     groupId: SettingsGroupIds.generalAbout,
     titleKey: 'settings.about',
-    kind: SettingsItemKind.navigation,
+    kind: SettingsItemKind.inline,
     icon: Icons.info_outline_rounded,
     keywords: <String>['关于', '版本', '更新'],
   ),

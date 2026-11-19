@@ -30,7 +30,10 @@ import 'package:he_music_flutter/features/online/domain/entities/online_feature_
 import 'package:he_music_flutter/features/online/presentation/controllers/online_controller.dart';
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/settings/domain/settings_catalog.dart';
+import 'package:he_music_flutter/features/settings/presentation/pages/about_page.dart';
+import 'package:he_music_flutter/shared/widgets/app_back_button.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_page.dart';
+import 'package:he_music_flutter/features/settings/presentation/pages/skin_selection_page.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_item_presentation_registry.dart';
 import 'package:toastification/toastification.dart';
 
@@ -775,32 +778,77 @@ void main() {
     );
   });
 
-  testWidgets(
-    'wide settings centers content and arranges sections in two columns',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1600, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+  for (final (platform, style) in [
+    (TargetPlatform.iOS, AppUiStyle.cupertino),
+    (TargetPlatform.android, AppUiStyle.material),
+    (TargetPlatform.macOS, AppUiStyle.cupertino),
+  ]) {
+    testWidgets(
+      '$platform wide settings groups About under General and keeps nested detail on resize',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(1376, 1032);
+        addTearDown(tester.view.reset);
+        final theme = AppTheme.light(
+          AppSkinRegistry.withCustom(
+            AppThemeAccent.appleBlue,
+            null,
+          ).resolve(null),
+          uiStyle: style,
+        ).copyWith(platform: platform);
+        await tester.pumpWidget(_buildSettingsApp(theme: theme));
+        await tester.pumpAndSettle();
 
-      await tester.pumpWidget(_buildSettingsApp());
-      await tester.pump();
+        final sidebar = find.byKey(const ValueKey('settings-sidebar'));
+        final detail = find.byKey(const ValueKey('settings-detail-pane'));
+        Finder category(String title) =>
+            find.descendant(of: sidebar, matching: find.text(title));
+        expect(tester.getSize(find.byType(Scaffold)).width, 1376);
+        expect(
+          tester.getRect(sidebar).right,
+          lessThan(tester.getRect(detail).left),
+        );
+        await tester.tap(category('歌词'));
+        await tester.pumpAndSettle();
+        expect(find.text('逐字歌词'), findsOneWidget);
+        expect(category('关于'), findsNothing);
+        await tester.tap(category('通用'));
+        await tester.pumpAndSettle();
+        final about = find.byType(AboutPage);
+        expect(find.descendant(of: detail, matching: about), findsOneWidget);
+        expect(find.text('关于与更新'), findsOneWidget);
+        expect(tester.widget<AboutPage>(about).inline, isTrue);
 
-      expect(find.byType(NavigationRail), findsNothing);
-      expect(find.text('设置'), findsOneWidget);
-      expect(find.text('外观'), findsOneWidget);
-      expect(find.text('歌词'), findsOneWidget);
-      expect(find.text('主题'), findsNothing);
-      expect(tester.getSize(find.byType(Scaffold)).width, 1120);
-      expect(
-        tester.getTopLeft(find.text('外观')).dy,
-        tester.getTopLeft(find.text('播放')).dy,
-      );
-      expect(
-        tester.getTopLeft(find.text('播放')).dx,
-        greaterThan(tester.getTopLeft(find.text('外观')).dx),
-      );
-    },
-  );
+        // Skin selection is the same kind of nested setting as a profile form.
+        final settingsState = tester.state(find.byType(SettingsPage));
+        await tester.tap(category('外观'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('settings-item-skin')));
+        await tester.pumpAndSettle();
+        final skin = find.descendant(
+          of: detail,
+          matching: find.byType(SkinSelectionPage),
+        );
+        expect(skin, findsOneWidget);
+        final skinState = tester.state(skin);
+        expect(tester.state(find.byType(SettingsPage)), same(settingsState));
+        expect(category('外观'), findsOneWidget);
 
+        tester.view.physicalSize = const Size(620, 900);
+        await tester.pumpAndSettle();
+        expect(sidebar, findsNothing);
+        expect(tester.state(skin), same(skinState));
+        await tester.tap(find.byType(AppBackButton));
+        await tester.pumpAndSettle();
+        expect(skin, findsNothing);
+        expect(find.text('外观'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('settings-item-skin')),
+          findsOneWidget,
+        );
+      },
+    );
+  }
   testWidgets('desktop search jumps to lyric font preset item', (tester) async {
     tester.view.physicalSize = const Size(2700, 2700);
     addTearDown(tester.view.resetPhysicalSize);

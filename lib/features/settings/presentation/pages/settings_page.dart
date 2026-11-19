@@ -26,6 +26,7 @@ import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
+import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_registry.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_search_field.dart';
@@ -35,6 +36,7 @@ import '../../../../core/network/network_error_message.dart';
 import '../../../home/presentation/providers/home_page_providers.dart';
 import '../../data/providers/account_settings_providers.dart';
 import '../../domain/settings_models.dart';
+import 'about_page.dart';
 import 'settings_item_presentation_registry.dart';
 import 'settings_navigation_registry.dart';
 import '../widgets/settings_single_choice_sheet.dart';
@@ -44,10 +46,16 @@ import '../widgets/audio_cache_settings_tile.dart';
 import '../../../../core/audio/cache/audio_cache_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({this.sectionId, this.highlightedItemId, super.key});
+  const SettingsPage({
+    this.sectionId,
+    this.highlightedItemId,
+    this.initialDestinationId,
+    super.key,
+  });
 
   final String? sectionId;
   final String? highlightedItemId;
+  final String? initialDestinationId;
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
@@ -59,12 +67,34 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Timer? _highlightResetTimer;
   String? _highlightedItemId;
+  late String? _selectedSectionId = widget.sectionId;
+  late String? _selectedDestinationId = widget.initialDestinationId;
+
+  bool get _usesSplitView {
+    final size = MediaQuery.sizeOf(context);
+    return size.width >= LayoutTokens.desktopBreakpoint && size.height >= 480;
+  }
 
   bool _resettingRecommendationIdentity = false;
   @override
   void initState() {
     super.initState();
     _highlightedItemId = widget.highlightedItemId;
+    _scheduleHighlightReset(_highlightedItemId);
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sectionId == widget.sectionId &&
+        oldWidget.initialDestinationId == widget.initialDestinationId &&
+        oldWidget.highlightedItemId == widget.highlightedItemId) {
+      return;
+    }
+    _selectedSectionId = widget.sectionId;
+    _selectedDestinationId = widget.initialDestinationId;
+    _highlightedItemId = widget.highlightedItemId;
+    _highlightResetTimer?.cancel();
     _scheduleHighlightReset(_highlightedItemId);
   }
 
@@ -82,27 +112,164 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildScaffold(BuildContext context, AppConfigState config) {
-    final sectionId = widget.sectionId;
-    final showingSection = sectionId != null;
-    final title = showingSection
-        ? _sectionTitle(config, sectionId)
-        : AppI18n.t(config, 'settings.title');
-    final key = ValueKey<String>('settings-page-${sectionId ?? 'home'}');
-    final body = showingSection
-        ? AppContentWidth(
-            maxWidth: 720,
-            child: _buildSectionPanel(config: config, sectionId: sectionId),
-          )
-        : _buildHome(config);
-    return AppContentWidth(
-      child: Scaffold(
-        key: key,
-        appBar: AppNavigationBar(
-          leading: const AppBackButton(),
-          title: Text(title),
+    final splitView = _usesSplitView;
+    final destination = settingsNavigationDestinations[_selectedDestinationId];
+    final sectionId =
+        destination?.sectionId ??
+        _selectedSectionId ??
+        (splitView ? SettingsSectionIds.appearance : null);
+    final title =
+        destination?.title(config) ??
+        (sectionId == null
+            ? AppI18n.t(config, 'settings.title')
+            : _sectionTitle(config, sectionId));
+    final showDetail = sectionId != null || destination != null;
+    final hasLocalDestination =
+        destination != null &&
+        destination.itemId != widget.initialDestinationId;
+    final VoidCallback? onBack = hasLocalDestination
+        ? _closeDestination
+        : !splitView &&
+              (_selectedSectionId != widget.sectionId ||
+                  _selectedDestinationId != widget.initialDestinationId)
+        ? _restoreInitialSelection
+        : null;
+
+    return PopScope<Object?>(
+      canPop: onBack == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) onBack?.call();
+      },
+      child: AppContentWidth(
+        maxWidth: splitView ? double.infinity : LayoutTokens.maxContentWidth,
+        child: Scaffold(
+          key: ValueKey<String>('settings-page-${widget.sectionId ?? 'home'}'),
+          appBar: AppNavigationBar(
+            leading: AppBackButton(onPressed: onBack),
+            title: Text(
+              splitView ? AppI18n.t(config, 'settings.title') : title,
+            ),
+          ),
+          body: !showDetail
+              ? _buildHome(config)
+              : SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (splitView) ...[
+                        SizedBox(
+                          width: 280,
+                          child: _buildSidebar(config, sectionId),
+                        ),
+                        const VerticalDivider(width: 1),
+                      ],
+                      Expanded(
+                        key: const ValueKey('settings-detail-pane'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (splitView)
+                              Padding(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
+                                  24,
+                                  16,
+                                  24,
+                                  0,
+                                ),
+                                child: Semantics(
+                                  header: true,
+                                  child: Text(
+                                    title,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
+                                  ),
+                                ),
+                              ),
+                            Expanded(
+                              key: const ValueKey('settings-detail-body'),
+                              child: AppContentWidth(
+                                maxWidth: splitView ? double.infinity : 720,
+                                child: KeyedSubtree(
+                                  key: ValueKey(
+                                    destination?.itemId ?? sectionId,
+                                  ),
+                                  child: destination != null
+                                      ? SafeArea(
+                                          top: false,
+                                          child: destination.detailBuilder(
+                                            hasLocalDestination
+                                                ? _closeDestination
+                                                : null,
+                                          ),
+                                        )
+                                      : _buildSectionPanel(
+                                          config: config,
+                                          sectionId: sectionId!,
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
         ),
-        body: body,
       ),
+    );
+  }
+
+  Widget _buildSidebar(AppConfigState config, String? sectionId) {
+    Widget entry({
+      required String title,
+      required AppSkinIconRole iconRole,
+      required bool selected,
+      required VoidCallback onTap,
+    }) => Semantics(
+      selected: selected,
+      child: AppListTile(
+        title: Text(title),
+        leading: AppSkinIcon(role: iconRole),
+        trailing: selected
+            ? const ExcludeSemantics(child: Icon(Icons.check))
+            : null,
+        onTap: onTap,
+      ),
+    );
+
+    return ListView(
+      key: const ValueKey('settings-sidebar'),
+      primary: false,
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
+      children: [
+        _buildSearchField(config),
+        const SizedBox(height: 16),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _searchController,
+          builder: (context, value, child) {
+            final query = value.text.trim();
+            if (query.isNotEmpty) {
+              return _buildSearchResults(config, query: query);
+            }
+            return child!;
+          },
+          child: AppListSection(
+            children: [
+              for (final section in settingsSections)
+                entry(
+                  title: _sectionTitle(config, section.id),
+                  iconRole: settingsSectionIconRole(section.id),
+                  selected: sectionId == section.id,
+                  onTap: () => _openSection(section.id),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -233,6 +400,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildItemTile(AppConfigState config, SettingsItemNode item) {
+    if (item.id == SettingsItemIds.about) {
+      return AboutPage(key: _anchorKeyForItem(item.id), inline: true);
+    }
     final navigationDestination = settingsNavigationDestinations[item.id];
     late final currentSkin = AppSkinRegistry.withCustom(
       config.themeAccent,
@@ -582,6 +752,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _openSection(String sectionId, {String? highlightItemId}) {
     _clearSearch();
+    if (_usesSplitView) {
+      _highlightResetTimer?.cancel();
+      setState(() {
+        _selectedSectionId = sectionId;
+        _selectedDestinationId = null;
+        _highlightedItemId = highlightItemId;
+      });
+      _scheduleHighlightReset(highlightItemId);
+      return;
+    }
     context.push(
       AppRoutes.settingsSectionLocation(
         sectionId,
@@ -597,6 +777,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       return;
     }
     _openSection(sectionId, highlightItemId: itemId);
+  }
+
+  void _restoreInitialSelection() {
+    _highlightResetTimer?.cancel();
+    setState(() {
+      _selectedSectionId = widget.sectionId;
+      _selectedDestinationId = widget.initialDestinationId;
+      _highlightedItemId = null;
+    });
   }
 
   void _clearSearch() {
@@ -639,9 +828,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return _itemAnchorKeys.putIfAbsent(itemId, GlobalKey.new);
   }
 
+  void _closeDestination() {
+    setState(() => _selectedDestinationId = null);
+  }
+
   void _openNavigationItem(String itemId) {
     final destination = settingsNavigationDestinations[itemId];
     if (destination == null) {
+      return;
+    }
+    if (_usesSplitView) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() {
+        _selectedSectionId = destination.sectionId;
+        _selectedDestinationId = itemId;
+      });
       return;
     }
     context.push(destination.mobileRoute);

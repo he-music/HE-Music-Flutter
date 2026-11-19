@@ -43,15 +43,10 @@ import '../../features/ranking/presentation/pages/ranking_list_page.dart';
 import '../../features/radio/presentation/pages/radio_plaza_page.dart';
 import '../../features/settings/domain/settings_catalog.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
-import '../../features/settings/presentation/pages/skin_selection_page.dart';
+import '../../features/settings/presentation/pages/settings_navigation_registry.dart';
 import '../../features/song/presentation/pages/song_detail_page.dart';
 import '../../features/sheet_music/presentation/pages/sheet_music_page.dart';
 import '../../features/update/presentation/pages/release_history_page.dart';
-import '../../features/settings/presentation/pages/about_page.dart';
-import '../../features/settings/presentation/pages/account_password_page.dart';
-import '../../features/settings/presentation/pages/account_profile_page.dart';
-import '../../features/settings/presentation/pages/device_management_page.dart';
-import '../../features/settings/presentation/pages/github_download_acceleration_page.dart';
 import '../../features/video/presentation/pages/video_detail_page.dart';
 import '../../features/video/presentation/pages/video_plaza_page.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -484,33 +479,18 @@ List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
   GoRoute(
     path: AppRoutes.about,
     parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) => const AboutPage(),
+    builder: (context, state) => const SettingsPage(
+      sectionId: SettingsSectionIds.general,
+      highlightedItemId: SettingsItemIds.about,
+    ),
   ),
-  GoRoute(
-    path: AppRoutes.settingsSkin,
-    parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) => const SkinSelectionPage(),
-  ),
-  GoRoute(
-    path: AppRoutes.settingsGitHubDownloadAcceleration,
-    parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) => const GitHubDownloadAccelerationPage(),
-  ),
-  GoRoute(
-    path: AppRoutes.settingsProfile,
-    parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) => const AccountProfilePage(),
-  ),
-  GoRoute(
-    path: AppRoutes.settingsPassword,
-    parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) => const AccountPasswordPage(),
-  ),
-  GoRoute(
-    path: AppRoutes.settingsDevice,
-    parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) => const DeviceManagementPage(),
-  ),
+  for (final destination in settingsNavigationDestinations.values)
+    GoRoute(
+      path: destination.mobileRoute,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) =>
+          SettingsPage(initialDestinationId: destination.itemId),
+    ),
 ];
 
 /// Fixed root aliases reuse browsing pages above fullscreen root flows.

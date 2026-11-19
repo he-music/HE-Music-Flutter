@@ -57,7 +57,12 @@ void main() {
           UncontrolledProviderScope(
             container: container,
             child: MaterialApp.router(
-              theme: AppTheme.light(citySoundCreatorSkin(), uiStyle: style),
+              theme: AppTheme.light(citySoundCreatorSkin(), uiStyle: style)
+                  .copyWith(
+                    platform: style == AppUiStyle.cupertino
+                        ? TargetPlatform.iOS
+                        : TargetPlatform.android,
+                  ),
               routerConfig: router,
             ),
           ),
@@ -138,6 +143,7 @@ void main() {
         tester.view.physicalSize = const Size(1400, 900);
         await tester.pumpAndSettle();
         expect(scroll.offset, closeTo(500, .1));
+        expect(tester.getSize(find.byType(ListView)).width, 1400);
         final wideMiniRect = tester.getRect(miniSurface);
         expect(wideMiniRect.width, 616);
         expect(wideMiniRect.center.dx, 700);
