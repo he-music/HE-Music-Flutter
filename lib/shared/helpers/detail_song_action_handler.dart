@@ -408,7 +408,6 @@ class DetailSongActionHandler {
     Offset? anchorPosition,
     bool includeViewDetail = true,
     bool forceBottomSheet = false,
-    bool useRootNavigator = false,
   }) {
     final platformId = resolvePlatformId(song);
     if (platformId.isEmpty) {
@@ -454,7 +453,6 @@ class DetailSongActionHandler {
       anchorContext: anchorContext,
       anchorPosition: anchorPosition,
       forceBottomSheet: forceBottomSheet,
-      useRootNavigator: useRootNavigator,
       coverUrl: coverUrl.isEmpty ? null : coverUrl,
       title: song.title,
       subtitle: song.artist,

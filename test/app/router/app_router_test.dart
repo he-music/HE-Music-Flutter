@@ -842,36 +842,64 @@ void main() {
     expect(find.byType(MiniPlayerBar), findsNothing);
   });
 
-  testWidgets('system back closes playlist detail action sheet before route', (
-    tester,
-  ) async {
-    final initialLocation = Uri(
-      path: AppRoutes.playlistDetail,
-      queryParameters: const <String, String>{
-        'id': 'playlist-1',
-        'platform': 'qq',
-        'title': '测试歌单',
+  for (final (style, platform) in [
+    (AppUiStyle.material, TargetPlatform.android),
+    (AppUiStyle.cupertino, TargetPlatform.iOS),
+    (AppUiStyle.material, TargetPlatform.macOS),
+    (AppUiStyle.cupertino, TargetPlatform.macOS),
+  ]) {
+    testWidgets(
+      'playlist song actions cover MiniPlayer and close on back ($style, $platform)',
+      (tester) async {
+        final initialLocation = Uri(
+          path: AppRoutes.playlistDetail,
+          queryParameters: const <String, String>{
+            'id': 'playlist-1',
+            'platform': 'qq',
+            'title': '测试歌单',
+          },
+        ).toString();
+        final skin = AppSkinRegistry.builtIn(
+          AppConfigState.initial.themeAccent,
+        ).resolve(AppSkinRegistry.classicId);
+        final theme = AppTheme.light(skin, uiStyle: style);
+
+        await tester.pumpWidget(
+          _buildRouterTestApp(
+            initialLocation: initialLocation,
+            theme: theme.copyWith(platform: platform),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final miniPlayerTitle = find.descendant(
+          of: find.byType(MiniPlayerBar),
+          matching: find.text('路由测试歌曲'),
+        );
+        expect(miniPlayerTitle.hitTestable(), findsOneWidget);
+
+        await tester.tap(find.byTooltip('More'));
+        await tester.pumpAndSettle();
+        final popup = platform == TargetPlatform.macOS
+            ? find.byType(PopupMenuItem<VoidCallback>)
+            : find.byType(BottomSheet);
+        expect(popup, findsWidgets);
+        expect(miniPlayerTitle.hitTestable(), findsNothing);
+        expect(
+          Navigator.of(tester.element(popup.first)),
+          same(rootNavigatorKey.currentState),
+        );
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(popup, findsNothing);
+        expect(find.byType(PlaylistDetailPage), findsOneWidget);
+        expect(find.text('路由测试歌单歌曲'), findsOneWidget);
+        expect(miniPlayerTitle.hitTestable(), findsOneWidget);
       },
-    ).toString();
-
-    await tester.pumpWidget(
-      _buildRouterTestApp(initialLocation: initialLocation),
     );
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(find.text('路由测试歌单歌曲'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('More'));
-    await tester.pumpAndSettle();
-    expect(find.byType(BottomSheet), findsOneWidget);
-
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-
-    expect(find.byType(BottomSheet), findsNothing);
-    expect(find.text('路由测试歌单歌曲'), findsOneWidget);
-  });
+  }
 }
 
 Widget _buildRouterTestApp({
