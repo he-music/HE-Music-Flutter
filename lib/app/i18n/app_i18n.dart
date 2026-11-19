@@ -341,6 +341,11 @@ abstract final class AppI18n {
       'settings.section.lyrics': '歌词',
       'settings.section.general': '通用',
       'settings.section.account': '帐号',
+      'settings.section.appearance.summary': '选择界面风格、主题色和皮肤，调整背景的显示方式。',
+      'settings.section.playback.summary': '按网络类型设置在线音质，并管理播放缓存。',
+      'settings.section.lyrics.summary': '调整歌词的大小、颜色和逐字显示，管理已缓存的歌词。',
+      'settings.section.general.summary': '设置应用语言，查看当前版本和可用更新。',
+      'settings.section.account.summary': '管理个人资料、密码与已登录的设备。',
       'settings.group.appearance.theme': '主题与配色',
       'settings.group.appearance.display': '显示效果',
       'settings.group.playback.audio': '音频',
@@ -1446,6 +1451,16 @@ abstract final class AppI18n {
       'settings.section.lyrics': 'Lyrics',
       'settings.section.general': 'General',
       'settings.section.account': 'Account',
+      'settings.section.appearance.summary':
+          'Choose an interface style, accent, and skin, and control how backgrounds appear.',
+      'settings.section.playback.summary':
+          'Set streaming quality by connection type and manage the playback cache.',
+      'settings.section.lyrics.summary':
+          'Adjust lyric size, color, and word-by-word display, and manage cached lyrics.',
+      'settings.section.general.summary':
+          'Set the app language, view the current version, and check for updates.',
+      'settings.section.account.summary':
+          'Manage your profile, password, and signed-in devices.',
       'settings.group.appearance.theme': 'Theme & Color',
       'settings.group.appearance.display': 'Display Effects',
       'settings.group.playback.audio': 'Audio',

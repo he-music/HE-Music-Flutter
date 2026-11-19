@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../shared/widgets/app_alert_dialog.dart';
 import '../../../../shared/widgets/app_dialog.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +29,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/skin/app_skin_icon.dart';
 import '../../../../app/theme/skin/app_skin_models.dart';
 import '../../../../app/theme/skin/app_skin_registry.dart';
+import '../../../../app/theme/skin/app_skin_surface.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_search_field.dart';
 import '../../../online/presentation/providers/online_providers.dart';
@@ -113,6 +115,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Widget _buildScaffold(BuildContext context, AppConfigState config) {
     final splitView = _usesSplitView;
+    final cupertinoSplit = splitView && AppUiTheme.usesCupertino(context);
     final destination = settingsNavigationDestinations[_selectedDestinationId];
     final sectionId =
         destination?.sectionId ??
@@ -144,75 +147,107 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         maxWidth: splitView ? double.infinity : LayoutTokens.maxContentWidth,
         child: Scaffold(
           key: ValueKey<String>('settings-page-${widget.sectionId ?? 'home'}'),
-          appBar: AppNavigationBar(
-            leading: AppBackButton(onPressed: onBack),
-            title: Text(
-              splitView ? AppI18n.t(config, 'settings.title') : title,
-            ),
-          ),
+          appBar: cupertinoSplit
+              ? null
+              : AppNavigationBar(
+                  leading: AppBackButton(onPressed: onBack),
+                  title: Text(
+                    splitView ? AppI18n.t(config, 'settings.title') : title,
+                  ),
+                ),
           body: !showDetail
               ? _buildHome(config)
               : SafeArea(
-                  top: false,
+                  top: cupertinoSplit,
                   bottom: false,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (splitView) ...[
                         SizedBox(
-                          width: 280,
-                          child: _buildSidebar(config, sectionId),
+                          width: cupertinoSplit
+                              ? (MediaQuery.sizeOf(context).width * 0.24).clamp(
+                                  256.0,
+                                  316.0,
+                                )
+                              : 280,
+                          child: _buildSidebar(
+                            config,
+                            sectionId,
+                            cupertino: cupertinoSplit,
+                            showBack: !hasLocalDestination,
+                          ),
                         ),
-                        const VerticalDivider(width: 1),
+                        if (cupertinoSplit)
+                          const SizedBox(width: 8)
+                        else
+                          const VerticalDivider(width: 1),
                       ],
                       Expanded(
                         key: const ValueKey('settings-detail-pane'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (splitView)
-                              Padding(
-                                padding: const EdgeInsetsDirectional.fromSTEB(
-                                  24,
-                                  16,
-                                  24,
-                                  0,
-                                ),
-                                child: Semantics(
-                                  header: true,
-                                  child: Text(
-                                    title,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                              ),
-                            Expanded(
-                              key: const ValueKey('settings-detail-body'),
-                              child: AppContentWidth(
-                                maxWidth: splitView ? double.infinity : 720,
-                                child: KeyedSubtree(
-                                  key: ValueKey(
-                                    destination?.itemId ?? sectionId,
-                                  ),
-                                  child: destination != null
-                                      ? SafeArea(
-                                          top: false,
-                                          child: destination.detailBuilder(
-                                            hasLocalDestination
-                                                ? _closeDestination
-                                                : null,
-                                          ),
-                                        )
-                                      : _buildSectionPanel(
-                                          config: config,
-                                          sectionId: sectionId!,
+                        child: AppContentWidth(
+                          maxWidth: cupertinoSplit ? 920 : double.infinity,
+                          child: Padding(
+                            padding: cupertinoSplit
+                                ? const EdgeInsets.symmetric(horizontal: 16)
+                                : EdgeInsets.zero,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (cupertinoSplit)
+                                  _buildCupertinoDetailToolbar(
+                                    title: title,
+                                    onBack: hasLocalDestination
+                                        ? _closeDestination
+                                        : null,
+                                  )
+                                else if (splitView)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsetsDirectional.fromSTEB(
+                                          24,
+                                          16,
+                                          24,
+                                          0,
                                         ),
+                                    child: Semantics(
+                                      header: true,
+                                      child: Text(
+                                        title,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleLarge,
+                                      ),
+                                    ),
+                                  ),
+                                Expanded(
+                                  key: const ValueKey('settings-detail-body'),
+                                  child: AppContentWidth(
+                                    maxWidth: splitView ? double.infinity : 720,
+                                    child: KeyedSubtree(
+                                      key: ValueKey(
+                                        destination?.itemId ?? sectionId,
+                                      ),
+                                      child: destination != null
+                                          ? SafeArea(
+                                              top: false,
+                                              child: destination.detailBuilder(
+                                                hasLocalDestination
+                                                    ? _closeDestination
+                                                    : null,
+                                              ),
+                                            )
+                                          : _buildSectionPanel(
+                                              config: config,
+                                              sectionId: sectionId!,
+                                              showOverview: cupertinoSplit,
+                                            ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ],
@@ -223,28 +258,60 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildSidebar(AppConfigState config, String? sectionId) {
-    Widget entry({
-      required String title,
-      required AppSkinIconRole iconRole,
-      required bool selected,
-      required VoidCallback onTap,
-    }) => Semantics(
-      selected: selected,
-      child: AppListTile(
-        title: Text(title),
-        leading: AppSkinIcon(role: iconRole),
-        trailing: selected
-            ? const ExcludeSemantics(child: Icon(Icons.check))
-            : null,
-        onTap: onTap,
+  Widget _buildCupertinoDetailToolbar({
+    required String title,
+    required VoidCallback? onBack,
+  }) => Padding(
+    key: const ValueKey('settings-detail-toolbar'),
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 52),
+      child: Row(
+        children: [
+          if (onBack != null)
+            AppBackButton(onPressed: onBack)
+          else
+            const SizedBox(width: 44),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: CupertinoTheme.of(context).textTheme.navTitleTextStyle,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 44),
+        ],
       ),
-    );
-
-    return ListView(
+    ),
+  );
+  Widget _buildSidebar(
+    AppConfigState config,
+    String? sectionId, {
+    required bool cupertino,
+    required bool showBack,
+  }) {
+    final entries = [
+      for (final section in settingsSections)
+        _SettingsSidebarEntry(
+          title: _sectionTitle(config, section.id),
+          iconRole: settingsSectionIconRole(section.id),
+          selected: sectionId == section.id,
+          cupertino: cupertino,
+          onTap: () => _openSection(section.id),
+        ),
+    ];
+    final list = ListView(
       key: const ValueKey('settings-sidebar'),
       primary: false,
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
+      padding: cupertino
+          ? const EdgeInsets.fromLTRB(12, 4, 12, 16)
+          : const EdgeInsets.fromLTRB(12, 16, 12, 24),
       children: [
         _buildSearchField(config),
         const SizedBox(height: 16),
@@ -257,19 +324,52 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             }
             return child!;
           },
-          child: AppListSection(
-            children: [
-              for (final section in settingsSections)
-                entry(
-                  title: _sectionTitle(config, section.id),
-                  iconRole: settingsSectionIconRole(section.id),
-                  selected: sectionId == section.id,
-                  onTap: () => _openSection(section.id),
-                ),
-            ],
-          ),
+          child: cupertino
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: entries,
+                )
+              : AppListSection(children: entries),
         ),
       ],
+    );
+    if (!cupertino) return list;
+    return Padding(
+      padding: EdgeInsetsDirectional.fromSTEB(
+        12,
+        8,
+        0,
+        12 + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: AppSkinSurface(
+        key: const ValueKey('settings-sidebar-surface'),
+        role: AppSkinSurfaceRole.scrollingContent,
+        borderRadius: BorderRadius.circular(20),
+        showDecoration: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 14, 4),
+              child: Row(
+                children: [
+                  if (showBack)
+                    const AppBackButton()
+                  else
+                    const SizedBox(width: 12, height: 44),
+                  Expanded(
+                    child: Text(
+                      AppI18n.t(config, 'settings.title'),
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: list),
+          ],
+        ),
+      ),
     );
   }
 
@@ -367,6 +467,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _buildSectionPanel({
     required AppConfigState config,
     required String sectionId,
+    required bool showOverview,
   }) {
     final groups = _visibleGroupsForSection(sectionId, config);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -375,11 +476,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return ListView(
       padding: EdgeInsets.fromLTRB(
         16,
-        16,
+        showOverview ? 8 : 16,
         16,
         24 + MediaQuery.paddingOf(context).bottom,
       ),
       children: <Widget>[
+        if (showOverview) ...[
+          _SettingsSectionOverview(
+            iconRole: settingsSectionIconRole(sectionId),
+            description: AppI18n.t(
+              config,
+              'settings.section.$sectionId.summary',
+            ),
+          ),
+          const SizedBox(height: 22),
+        ],
         for (var index = 0; index < groups.length; index++) ...<Widget>[
           _buildSettingsGroupCard(config, groups[index]),
           if (index < groups.length - 1) const SizedBox(height: 16),
@@ -1177,5 +1288,115 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       AppLyricHighlightMode.preset =>
         'preset:${config.lyricHighlightPreset.value}',
     };
+  }
+}
+
+class _SettingsSectionOverview extends StatelessWidget {
+  const _SettingsSectionOverview({
+    required this.iconRole,
+    required this.description,
+  });
+
+  final AppSkinIconRole iconRole;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return AppSkinSurface(
+      key: const ValueKey('settings-section-overview'),
+      role: AppSkinSurfaceRole.scrollingContent,
+      showDecoration: false,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: AppSkinIcon(role: iconRole, size: 24, color: accent),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                description,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSidebarEntry extends StatelessWidget {
+  const _SettingsSidebarEntry({
+    required this.title,
+    required this.iconRole,
+    required this.selected,
+    required this.cupertino,
+    required this.onTap,
+  });
+
+  final String title;
+  final AppSkinIconRole iconRole;
+  final bool selected;
+  final bool cupertino;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final accent = colors.primary;
+    final tile = AppListTile(
+      title: Text(
+        title,
+        style: cupertino && selected
+            ? TextStyle(color: accent, fontWeight: FontWeight.w600)
+            : null,
+      ),
+      leading: cupertino
+          ? Container(
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: AppSkinIcon(role: iconRole, size: 17, color: accent),
+            )
+          : AppSkinIcon(role: iconRole),
+      contentPadding: cupertino
+          ? const EdgeInsets.symmetric(horizontal: 10, vertical: 8)
+          : null,
+      trailing: !cupertino && selected
+          ? const ExcludeSemantics(child: Icon(Icons.check))
+          : null,
+      onTap: onTap,
+    );
+    return Semantics(
+      selected: selected,
+      child: cupertino
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: ColoredBox(
+                color: selected
+                    ? colors.onSurface.withValues(alpha: 0.09)
+                    : Colors.transparent,
+                child: tile,
+              ),
+            )
+          : tile,
+    );
   }
 }
