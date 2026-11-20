@@ -218,7 +218,7 @@ class _SkinSummaryCard extends StatelessWidget {
                       constraints: const BoxConstraints(maxWidth: 88),
                       child: _SkinPreview(
                         skin: skin,
-                        brightness: Brightness.light,
+                        brightness: colorScheme.brightness,
                         assetResolver: assetResolver,
                       ),
                     ),

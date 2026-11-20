@@ -41,6 +41,72 @@ void main() {
     );
   });
 
+  testWidgets('catalog previews follow the effective app brightness', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWith(_CustomAppConfigController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    final dispatcher = tester.binding.platformDispatcher;
+    addTearDown(dispatcher.clearPlatformBrightnessTestValue);
+    dispatcher.platformBrightnessTestValue = Brightness.dark;
+    final resolver = _PreviewResolver();
+    final catalog = SkinSelectionPage(embedded: true, assetResolver: resolver);
+
+    await tester.pumpWidget(
+      _buildApp(container, catalog, themeMode: ThemeMode.light),
+    );
+    await tester.pumpAndSettle();
+    const skinIds = [
+      ...AppSkinRegistry.builtInIds,
+      AppSkinRegistry.customImageId,
+    ];
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-light')),
+      findsNWidgets(skinIds.length),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-dark')),
+      findsNothing,
+    );
+
+    resolver.paths.clear();
+    await tester.pumpWidget(_buildApp(container, catalog));
+    await tester.pumpAndSettle();
+    for (final skinId in skinIds) {
+      expect(
+        find.byKey(ValueKey<String>('skin-preview-image-$skinId-dark')),
+        findsOneWidget,
+      );
+    }
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-light')),
+      findsNothing,
+    );
+    expect(
+      resolver.paths,
+      unorderedEquals([
+        for (final skinId in AppSkinRegistry.builtInIds)
+          'assets/skins/$skinId/preview_dark.png',
+        'skins/custom_image/revision_1/wallpaper_dark.jpg',
+      ]),
+    );
+
+    dispatcher.platformBrightnessTestValue = Brightness.light;
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-light')),
+      findsNWidgets(skinIds.length),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('skin-preview-dark')),
+      findsNothing,
+    );
+  });
+
   for (final skinCase in const [
     (id: AppSkinRegistry.citySoundCreatorId, description: '珊瑚红、青绿与中性工作室声场'),
     (
@@ -577,10 +643,18 @@ void main() {
   });
 }
 
-Widget _buildApp(ProviderContainer container, Widget home) {
+Widget _buildApp(
+  ProviderContainer container,
+  Widget home, {
+  ThemeMode themeMode = ThemeMode.system,
+}) {
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(home: home),
+    child: MaterialApp(
+      home: home,
+      darkTheme: ThemeData.dark(),
+      themeMode: themeMode,
+    ),
   );
 }
 
