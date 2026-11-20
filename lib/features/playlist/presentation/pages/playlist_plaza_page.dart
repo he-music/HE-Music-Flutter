@@ -198,30 +198,33 @@ class _PlaylistPlazaPageState extends ConsumerState<PlaylistPlazaPage> {
     BuildContext context,
     PlaylistPlazaState state,
     List<OnlinePlatform> platforms,
-  ) {
+  ) async {
     final selectedPlatformId = state.selectedPlatformId?.trim() ?? '';
     final currentPlatform = platforms
         .where((platform) => platform.id == selectedPlatformId)
         .firstOrNull;
-    final totalCategories = state.allCategories.length;
-    final content = _AllCategoriesPanel(
-      currentPlatform: currentPlatform,
-      totalCategories: totalCategories,
-      categoryGroups: state.categoryGroups,
-      selectedCategoryId: state.selectedCategoryId,
-      onClose: null,
-      onSelected: (id) {
-        Navigator.of(context).pop();
-        ref.read(playlistPlazaControllerProvider.notifier).selectCategory(id);
-      },
-    );
-    return showAppThemedBottomSheet<void>(
+    final categoryId = await showAppThemedBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       fixedHeightFactor: 0.82,
       showDragHandle: true,
-      builder: (context) => SafeArea(child: content),
+      builder: (sheetContext) => SafeArea(
+        child: _AllCategoriesPanel(
+          currentPlatform: currentPlatform,
+          totalCategories: state.allCategories.length,
+          categoryGroups: state.categoryGroups,
+          selectedCategoryId: state.selectedCategoryId,
+          onClose: null,
+          onSelected: (id) => Navigator.of(sheetContext).pop(id),
+        ),
+      ),
     );
+    if (categoryId == null || !mounted) {
+      return;
+    }
+    await ref
+        .read(playlistPlazaControllerProvider.notifier)
+        .selectCategory(categoryId);
   }
 }
 

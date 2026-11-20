@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:he_music_flutter/app/config/app_config_controller.dart';
 import 'package:he_music_flutter/app/config/app_config_state.dart';
 import 'package:he_music_flutter/features/online/domain/entities/online_platform.dart';
@@ -128,6 +129,59 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'selecting a category dismisses the root sheet and keeps the plaza open',
+    (tester) async {
+      final router = GoRouter(
+        routes: [
+          ShellRoute(
+            builder: (context, state, child) => child,
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => const Scaffold(body: Text('Home')),
+              ),
+              GoRoute(
+                path: '/playlists',
+                builder: (context, state) => const PlaylistPlazaPage(),
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWith(_TestAppConfigController.new),
+            playerControllerProvider.overrideWith(_TestPlayerController.new),
+            onlinePlatformsProvider.overrideWith(
+              _DelayedOnlinePlatformsController.new,
+            ),
+            playlistPlazaApiClientProvider.overrideWithValue(
+              _FakePlaylistPlazaApiClient(),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      router.push<void>('/playlists');
+      await tester.pumpAndSettle();
+      expect(find.text('今日推荐'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.apps_rounded));
+      await tester.pumpAndSettle();
+      final sheet = find.byType(BottomSheet);
+      expect(sheet, findsOneWidget);
+      await tester.tap(find.descendant(of: sheet, matching: find.text('摇滚')));
+      await tester.pumpAndSettle();
+
+      expect(sheet, findsNothing);
+      expect(find.byType(PlaylistPlazaPage), findsOneWidget);
+      expect(find.text('摇滚歌单'), findsOneWidget);
+    },
+  );
 }
 
 class _TestAppConfigController extends AppConfigController {
@@ -202,7 +256,7 @@ class _FakePlaylistPlazaApiClient extends PlaylistPlazaApiClient {
     return PlaylistPlazaPageResult(
       list: <PlaylistInfo>[
         PlaylistInfo(
-          name: '今日推荐',
+          name: categoryId == 'rock' ? '摇滚歌单' : '今日推荐',
           id: 'playlist-1',
           cover: '',
           creator: '测试账号',
