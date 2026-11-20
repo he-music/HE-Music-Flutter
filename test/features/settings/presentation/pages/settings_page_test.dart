@@ -31,6 +31,7 @@ import 'package:he_music_flutter/features/online/presentation/controllers/online
 import 'package:he_music_flutter/features/online/presentation/providers/online_providers.dart';
 import 'package:he_music_flutter/features/settings/domain/settings_catalog.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/about_page.dart';
+import 'package:he_music_flutter/features/settings/presentation/pages/settings_navigation_registry.dart';
 import 'package:he_music_flutter/shared/widgets/app_back_button.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/settings_page.dart';
 import 'package:he_music_flutter/features/settings/presentation/pages/skin_selection_page.dart';
@@ -704,46 +705,73 @@ void main() {
     expect(find.text('外观 / 显示内容背景'), findsOneWidget);
   });
 
-  testWidgets(
-    'Android general settings show download acceleration after update toggle',
-    (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      addTearDown(() {
-        debugDefaultTargetPlatformOverride = null;
-      });
-      tester.view.physicalSize = const Size(1170, 2532);
-      addTearDown(tester.view.resetPhysicalSize);
+  for (final (platform, style) in [
+    (TargetPlatform.android, AppUiStyle.material),
+    (TargetPlatform.iOS, AppUiStyle.cupertino),
+  ]) {
+    testWidgets(
+      '$platform opens About and Updates from General on a phone',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        final skin = AppSkinRegistry.withCustom(
+          AppThemeAccent.appleBlue,
+          null,
+        ).resolve(null);
 
-      await tester.pumpWidget(_buildSettingsApp());
-      await tester.pump();
-      await tester.tap(find.text('通用'));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          _buildSettingsApp(theme: AppTheme.light(skin, uiStyle: style)),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('通用'));
+        await tester.pumpAndSettle();
 
-      final updateTopLeft = tester.getTopLeft(find.text('自动检查更新'));
-      final accelerationTopLeft = tester.getTopLeft(find.text('安装包下载加速'));
-      expect(accelerationTopLeft.dy, greaterThan(updateTopLeft.dy));
-      debugDefaultTargetPlatformOverride = null;
-    },
-  );
+        expect(find.byType(AboutPage), findsNothing);
+        expect(find.text('自动检查更新'), findsNothing);
+        await tester.tap(find.text('关于与更新'));
+        await tester.pumpAndSettle();
 
-  testWidgets('iOS general settings show download acceleration', (
+        final version = tester.getRect(find.text('当前版本'));
+        final check = tester.getRect(find.text('检查更新'));
+        final autoCheck = tester.getRect(find.text('自动检查更新'));
+        final acceleration = tester.getRect(find.text('安装包下载加速'));
+        final history = tester.getRect(find.text('版本更新记录'));
+        expect(version.bottom, lessThan(check.top));
+        expect(check.bottom, lessThan(autoCheck.top));
+        expect(autoCheck.bottom, lessThan(acceleration.top));
+        expect(acceleration.bottom, lessThan(history.top));
+        expect(find.text('选择加速服务并管理服务列表'), findsOneWidget);
+        expect(find.byKey(const ValueKey('settings-sidebar')), findsNothing);
+
+        await tester.tap(find.byType(AppBackButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(AboutPage), findsNothing);
+        expect(find.text('关于与更新'), findsOneWidget);
+      },
+      variant: TargetPlatformVariant({platform}),
+    );
+  }
+
+  testWidgets('search opens About and scrolls to the auto-update switch', (
     tester,
   ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    addTearDown(() {
-      debugDefaultTargetPlatformOverride = null;
-    });
-    tester.view.physicalSize = const Size(1170, 2532);
-    addTearDown(tester.view.resetPhysicalSize);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 420);
+    addTearDown(tester.view.reset);
 
     await tester.pumpWidget(_buildSettingsApp());
-    await tester.pump();
-    await tester.tap(find.text('通用'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('settings-search-field')),
+      '自动检查更新',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('通用 / 自动检查更新'));
     await tester.pumpAndSettle();
 
-    expect(find.text('安装包下载加速'), findsOneWidget);
-    expect(find.text('选择加速服务并管理服务列表'), findsOneWidget);
-    debugDefaultTargetPlatformOverride = null;
+    expect(find.byType(AboutPage), findsOneWidget);
+    expect(find.text('自动检查更新').hitTestable(), findsOneWidget);
   });
 
   testWidgets('immersive skin disables manual accent and shows skin state', (
@@ -784,7 +812,7 @@ void main() {
     (TargetPlatform.macOS, AppUiStyle.cupertino),
   ]) {
     testWidgets(
-      '$platform wide settings groups About under General and keeps nested detail on resize',
+      '$platform wide settings open About in a constrained detail pane and keep detail on resize',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(1376, 1032);
@@ -814,10 +842,38 @@ void main() {
         expect(category('关于'), findsNothing);
         await tester.tap(category('通用'));
         await tester.pumpAndSettle();
-        final about = find.byType(AboutPage);
-        expect(find.descendant(of: detail, matching: about), findsOneWidget);
+        final about = find.descendant(
+          of: detail,
+          matching: find.byType(AboutPage),
+        );
+        expect(about, findsNothing);
+        await tester.tap(find.text('关于与更新'));
+        await tester.pumpAndSettle();
+        expect(about, findsOneWidget);
+        expect(category('通用'), findsOneWidget);
+        final aboutList = find.descendant(
+          of: about,
+          matching: find.byType(ListView),
+        );
+        expect(tester.getSize(aboutList).width, 600);
+        expect(tester.getCenter(aboutList).dx, tester.getCenter(detail).dx);
+        expect(
+          tester.getTopLeft(find.text('检查更新')).dy,
+          lessThan(tester.getTopLeft(find.text('自动检查更新')).dy),
+        );
+
+        final aboutState = tester.state(about);
+        tester.view.physicalSize = const Size(390, 844);
+        await tester.pumpAndSettle();
+        expect(sidebar, findsNothing);
+        expect(tester.state(about), same(aboutState));
+        await tester.tap(find.byType(AppBackButton));
+        await tester.pumpAndSettle();
+        expect(about, findsNothing);
         expect(find.text('关于与更新'), findsOneWidget);
-        expect(tester.widget<AboutPage>(about).inline, isTrue);
+
+        tester.view.physicalSize = const Size(1376, 1032);
+        await tester.pumpAndSettle();
 
         // Skin selection is the same kind of nested setting as a profile form.
         final settingsState = tester.state(find.byType(SettingsPage));
@@ -1194,6 +1250,14 @@ class _SettingsTestAppState extends State<_SettingsTestApp> {
           highlightedItemId: state.uri.queryParameters['highlight'],
         ),
       ),
+      for (final destination in settingsNavigationDestinations.values)
+        GoRoute(
+          path: destination.mobileRoute,
+          builder: (context, state) => SettingsPage(
+            initialDestinationId: destination.itemId,
+            highlightedItemId: state.uri.queryParameters['highlight'],
+          ),
+        ),
     ],
   );
 

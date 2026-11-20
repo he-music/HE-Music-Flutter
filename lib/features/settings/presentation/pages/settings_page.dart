@@ -38,7 +38,6 @@ import '../../../../core/network/network_error_message.dart';
 import '../../../home/presentation/providers/home_page_providers.dart';
 import '../../data/providers/account_settings_providers.dart';
 import '../../domain/settings_models.dart';
-import 'about_page.dart';
 import 'settings_item_presentation_registry.dart';
 import 'settings_navigation_registry.dart';
 import '../widgets/settings_single_choice_sheet.dart';
@@ -110,6 +109,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
+    if (_highlightedItemId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ensureHighlightedItemVisible();
+      });
+    }
     return _buildScaffold(context, config);
   }
 
@@ -231,8 +235,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                       child: destination != null
                                           ? SafeArea(
                                               top: false,
-                                              child: destination.detailBuilder(
-                                                hasLocalDestination
+                                              child: _buildDestination(
+                                                config,
+                                                destination,
+                                                onSaved: hasLocalDestination
                                                     ? _closeDestination
                                                     : null,
                                               ),
@@ -457,11 +463,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         return SettingsSearchResultTile(
           title: _searchPath(config, item),
           subtitle: _itemSearchSubtitle(config, item),
-          onTap: () =>
-              _openSearchResult(sectionId: item.sectionId, itemId: item.id),
+          onTap: () => _openSearchResult(item),
         );
       },
     );
+  }
+
+  Widget _buildDestination(
+    AppConfigState config,
+    SettingsNavigationDestination destination, {
+    VoidCallback? onSaved,
+  }) {
+    final groups = _visibleGroupsForSection(
+      destination.sectionId,
+      config,
+      destinationId: destination.itemId,
+    );
+    return destination.detailBuilder(onSaved, [
+      for (final group in groups) _buildSettingsGroupCard(config, group),
+    ]);
   }
 
   Widget _buildSectionPanel({
@@ -470,9 +490,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     required bool showOverview,
   }) {
     final groups = _visibleGroupsForSection(sectionId, config);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ensureHighlightedItemVisible();
-    });
     return ListView(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -511,9 +528,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildItemTile(AppConfigState config, SettingsItemNode item) {
-    if (item.id == SettingsItemIds.about) {
-      return AboutPage(key: _anchorKeyForItem(item.id), inline: true);
-    }
     final navigationDestination = settingsNavigationDestinations[item.id];
     late final currentSkin = AppSkinRegistry.withCustom(
       config.themeAccent,
@@ -798,10 +812,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   List<SettingsGroupNode> _visibleGroupsForSection(
     String sectionId,
-    AppConfigState config,
-  ) {
+    AppConfigState config, {
+    String? destinationId,
+  }) {
     return groupsForSection(sectionId)
-        .where((group) => _isGroupVisible(group.id, config))
+        .where(
+          (group) =>
+              group.destinationId == destinationId &&
+              _isGroupVisible(group.id, config),
+        )
         .toList(growable: false);
   }
 
@@ -881,13 +900,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  void _openSearchResult({required String sectionId, required String itemId}) {
-    if (settingsNavigationDestinations.containsKey(itemId)) {
+  void _openSearchResult(SettingsItemNode item) {
+    if (settingsNavigationDestinations.containsKey(item.id)) {
       _clearSearch();
-      _openNavigationItem(itemId);
+      _openNavigationItem(item.id);
       return;
     }
-    _openSection(sectionId, highlightItemId: itemId);
+    for (final group in groupsForSection(item.sectionId)) {
+      final destinationId = group.destinationId;
+      if (group.id == item.groupId && destinationId != null) {
+        _clearSearch();
+        _openNavigationItem(destinationId, highlightItemId: item.id);
+        return;
+      }
+    }
+    _openSection(item.sectionId, highlightItemId: item.id);
   }
 
   void _restoreInitialSelection() {
@@ -940,23 +967,38 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _closeDestination() {
-    setState(() => _selectedDestinationId = null);
+    final destination = settingsNavigationDestinations[_selectedDestinationId];
+    _highlightResetTimer?.cancel();
+    setState(() {
+      _selectedDestinationId = destination?.parentItemId;
+      _highlightedItemId = null;
+    });
   }
 
-  void _openNavigationItem(String itemId) {
+  void _openNavigationItem(String itemId, {String? highlightItemId}) {
     final destination = settingsNavigationDestinations[itemId];
     if (destination == null) {
       return;
     }
     if (_usesSplitView) {
       FocusManager.instance.primaryFocus?.unfocus();
+      _highlightResetTimer?.cancel();
       setState(() {
         _selectedSectionId = destination.sectionId;
         _selectedDestinationId = itemId;
+        _highlightedItemId = highlightItemId;
       });
+      _scheduleHighlightReset(highlightItemId);
       return;
     }
-    context.push(destination.mobileRoute);
+    context.push(
+      highlightItemId == null
+          ? destination.mobileRoute
+          : Uri(
+              path: destination.mobileRoute,
+              queryParameters: {'highlight': highlightItemId},
+            ).toString(),
+    );
   }
 
   void _openLogin() {

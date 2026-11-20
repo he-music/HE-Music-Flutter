@@ -476,20 +476,14 @@ List<RouteBase> _fullscreenRootRoutes() => <RouteBase>[
     builder: (context, state) =>
         ReleaseHistoryPage(latestVersion: state.uri.queryParameters['latest']),
   ),
-  GoRoute(
-    path: AppRoutes.about,
-    parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) => const SettingsPage(
-      sectionId: SettingsSectionIds.general,
-      highlightedItemId: SettingsItemIds.about,
-    ),
-  ),
   for (final destination in settingsNavigationDestinations.values)
     GoRoute(
       path: destination.mobileRoute,
       parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) =>
-          SettingsPage(initialDestinationId: destination.itemId),
+      builder: (context, state) => SettingsPage(
+        initialDestinationId: destination.itemId,
+        highlightedItemId: _readOptionalQuery(state, 'highlight'),
+      ),
     ),
 ];
 

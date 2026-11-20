@@ -56,7 +56,7 @@ Future<void> _pumpAboutPage(WidgetTester tester) async {
       child: MaterialApp(
         navigatorKey: rootNavigatorKey,
         scaffoldMessengerKey: AppMessageService.messengerKey,
-        home: const AboutPage(),
+        home: const Scaffold(body: AboutPage()),
       ),
     ),
   );

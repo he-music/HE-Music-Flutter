@@ -4,6 +4,7 @@ import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../domain/settings_catalog.dart';
+import 'about_page.dart';
 import 'account_password_page.dart';
 import 'account_profile_page.dart';
 import 'device_management_page.dart';
@@ -17,13 +18,16 @@ class SettingsNavigationDestination {
     required this.mobileRoute,
     required this.detailBuilder,
     required this.sectionId,
+    this.parentItemId,
   });
 
   final String itemId;
   final String titleKey;
   final String mobileRoute;
   final String sectionId;
-  final Widget Function(VoidCallback? onSaved) detailBuilder;
+  final String? parentItemId;
+  final Widget Function(VoidCallback? onSaved, List<Widget> groups)
+  detailBuilder;
 
   String title(AppConfigState config) {
     return AppI18n.t(config, titleKey);
@@ -37,28 +41,37 @@ settingsNavigationDestinations = <String, SettingsNavigationDestination>{
     titleKey: 'settings.skin.selection.title',
     mobileRoute: AppRoutes.settingsSkin,
     sectionId: SettingsSectionIds.appearance,
-    detailBuilder: (_) => const SkinSelectionPage(embedded: true),
+    detailBuilder: (_, _) => const SkinSelectionPage(embedded: true),
+  ),
+  SettingsItemIds.about: SettingsNavigationDestination(
+    itemId: SettingsItemIds.about,
+    titleKey: 'settings.about.title',
+    mobileRoute: AppRoutes.about,
+    sectionId: SettingsSectionIds.general,
+    detailBuilder: (_, groups) => AboutPage(updateSettings: groups),
   ),
   SettingsItemIds.githubDownloadAcceleration: SettingsNavigationDestination(
     itemId: SettingsItemIds.githubDownloadAcceleration,
     titleKey: 'settings.github_download_acceleration.title',
     mobileRoute: AppRoutes.settingsGitHubDownloadAcceleration,
     sectionId: SettingsSectionIds.general,
-    detailBuilder: (_) => const GitHubDownloadAccelerationPage(embedded: true),
+    parentItemId: SettingsItemIds.about,
+    detailBuilder: (_, _) =>
+        const GitHubDownloadAccelerationPage(embedded: true),
   ),
   SettingsItemIds.deviceManagement: SettingsNavigationDestination(
     itemId: SettingsItemIds.deviceManagement,
     titleKey: 'settings.device_management.title',
     mobileRoute: AppRoutes.settingsDevice,
     sectionId: SettingsSectionIds.account,
-    detailBuilder: (_) => const DeviceManagementPage(embedded: true),
+    detailBuilder: (_, _) => const DeviceManagementPage(embedded: true),
   ),
   SettingsItemIds.accountProfile: SettingsNavigationDestination(
     itemId: SettingsItemIds.accountProfile,
     titleKey: 'settings.profile.title',
     mobileRoute: AppRoutes.settingsProfile,
     sectionId: SettingsSectionIds.account,
-    detailBuilder: (onSaved) =>
+    detailBuilder: (onSaved, _) =>
         AccountProfilePage(embedded: true, onSaved: onSaved),
   ),
   SettingsItemIds.accountPassword: SettingsNavigationDestination(
@@ -66,7 +79,7 @@ settingsNavigationDestinations = <String, SettingsNavigationDestination>{
     titleKey: 'settings.password.title',
     mobileRoute: AppRoutes.settingsPassword,
     sectionId: SettingsSectionIds.account,
-    detailBuilder: (onSaved) =>
+    detailBuilder: (onSaved, _) =>
         AccountPasswordPage(embedded: true, onSaved: onSaved),
   ),
 };

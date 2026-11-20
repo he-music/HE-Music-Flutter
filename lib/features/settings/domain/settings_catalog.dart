@@ -144,7 +144,8 @@ const List<SettingsGroupNode> settingsGroups = <SettingsGroupNode>[
   SettingsGroupNode(
     id: SettingsGroupIds.generalAbout,
     sectionId: SettingsSectionIds.general,
-    titleKey: 'settings.group.general.about',
+    titleKey: 'settings.about.update_settings',
+    destinationId: SettingsItemIds.about,
   ),
   SettingsGroupNode(
     id: SettingsGroupIds.accountProfile,
@@ -396,9 +397,9 @@ const List<SettingsItemNode> settingsItems = <SettingsItemNode>[
   SettingsItemNode(
     id: SettingsItemIds.about,
     sectionId: SettingsSectionIds.general,
-    groupId: SettingsGroupIds.generalAbout,
-    titleKey: 'settings.about',
-    kind: SettingsItemKind.inline,
+    groupId: SettingsGroupIds.generalPreferences,
+    titleKey: 'settings.about.title',
+    kind: SettingsItemKind.navigation,
     icon: Icons.info_outline_rounded,
     keywords: <String>['关于', '版本', '更新'],
   ),

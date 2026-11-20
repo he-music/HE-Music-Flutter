@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum SettingsItemKind { select, toggle, navigation, inline }
+enum SettingsItemKind { select, toggle, navigation }
 
 class SettingsSectionNode {
   const SettingsSectionNode({
@@ -19,11 +19,13 @@ class SettingsGroupNode {
     required this.id,
     required this.sectionId,
     required this.titleKey,
+    this.destinationId,
   });
 
   final String id;
   final String sectionId;
   final String titleKey;
+  final String? destinationId;
 }
 
 class SettingsItemNode {

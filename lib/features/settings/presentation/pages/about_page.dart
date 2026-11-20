@@ -1,18 +1,17 @@
-import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
-import '../../../../shared/widgets/app_activity_indicator.dart';
-import '../../../../shared/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../../app/router/app_routes.dart';
 import '../../../../app/app_message_service.dart';
 import '../../../../app/config/app_config_controller.dart';
 import '../../../../app/config/app_environment.dart';
 import '../../../../app/config/app_config_state.dart';
 import '../../../../app/i18n/app_i18n.dart';
-import '../../../../shared/widgets/app_back_button.dart';
-import '../../../../shared/widgets/app_adaptive_controls.dart';
+import '../../../../app/router/app_routes.dart';
+import '../../../../shared/widgets/app_activity_indicator.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_content_width.dart';
 import '../../../../shared/widgets/app_list_tile.dart';
 import '../../../../shared/widgets/app_panel.dart';
 import '../../../update/domain/entities/update_release.dart';
@@ -21,9 +20,9 @@ import '../../../update/presentation/providers/update_providers.dart';
 import '../../../update/presentation/widgets/update_available_release_sheet.dart';
 
 class AboutPage extends ConsumerStatefulWidget {
-  const AboutPage({super.key, this.inline = false});
+  const AboutPage({super.key, this.updateSettings = const []});
 
-  final bool inline;
+  final List<Widget> updateSettings;
 
   @override
   ConsumerState<AboutPage> createState() => _AboutPageState();
@@ -82,37 +81,76 @@ class _AboutPageState extends ConsumerState<AboutPage> {
           break;
       }
     });
-    final config = ref.watch(appConfigProvider);
-    final content = AboutContent(
-      inline: widget.inline,
-      releaseDescriptionBuilder: _gitHubReleaseDescription,
-      releasePageUrl: _releasePageUrl,
-      onOpenUrl: _openUrl,
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
     );
-    if (widget.inline) {
-      return content;
-    }
-    return Scaffold(
-      appBar: AppNavigationBar(
-        leading: const AppBackButton(),
-        title: Text(AppI18n.t(config, 'settings.about.title')),
+    final appInfo = ref.watch(currentAppInfoProvider).asData?.value;
+    final appName = appInfo?.appName.trim() ?? '';
+    final releaseConfigured = AppEnvironment.hasGitHubReleaseConfig;
+    final repository =
+        '${AppEnvironment.githubOwner}/${AppEnvironment.githubRepo}';
+
+    return AppContentWidth(
+      maxWidth: 600,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _AboutHero(
+            appName: appName.isEmpty ? 'HE Music' : appName,
+            versionLabel: appInfo?.versionLabel ?? '--',
+            versionTitle: AppI18n.tByLocaleCode(
+              localeCode,
+              'settings.about.current_version',
+            ),
+          ),
+          for (final group in widget.updateSettings) ...[
+            const SizedBox(height: 20),
+            group,
+          ],
+          const SizedBox(height: 20),
+          AppListSection(
+            header: Text(
+              AppI18n.tByLocaleCode(localeCode, 'settings.about.version_links'),
+            ),
+            children: [
+              AppListTile(
+                leading: const Icon(Icons.history_rounded),
+                title: Text(
+                  AppI18n.tByLocaleCode(localeCode, 'update.history.title'),
+                ),
+                showChevron: true,
+                enabled: releaseConfigured,
+                onTap: releaseConfigured
+                    ? () => context.push(AppRoutes.releaseHistory)
+                    : null,
+              ),
+              AppListTile(
+                leading: const Icon(Icons.open_in_new_rounded),
+                title: Text(
+                  AppI18n.tByLocaleCode(
+                    localeCode,
+                    'settings.about.github_release',
+                  ),
+                ),
+                subtitle: Text(
+                  releaseConfigured
+                      ? repository
+                      : AppI18n.tByLocaleCode(
+                          localeCode,
+                          'settings.about.unconfigured',
+                        ),
+                ),
+                showChevron: true,
+                enabled: releaseConfigured,
+                onTap: releaseConfigured
+                    ? () => _openUrl('https://github.com/$repository/releases')
+                    : null,
+              ),
+            ],
+          ),
+        ],
       ),
-      body: content,
     );
-  }
-
-  String get _releasePageUrl {
-    if (!AppEnvironment.hasGitHubReleaseConfig) {
-      return '';
-    }
-    return 'https://github.com/${AppEnvironment.githubOwner}/${AppEnvironment.githubRepo}/releases';
-  }
-
-  String _gitHubReleaseDescription(AppConfigState config) {
-    if (!AppEnvironment.hasGitHubReleaseConfig) {
-      return AppI18n.t(config, 'settings.about.unconfigured');
-    }
-    return '${AppEnvironment.githubOwner}/${AppEnvironment.githubRepo}';
   }
 
   String _failureMessage(AppConfigState config, String? raw) {
@@ -161,58 +199,24 @@ class _AboutPageState extends ConsumerState<AboutPage> {
   }
 }
 
-class AboutContent extends ConsumerWidget {
-  const AboutContent({
-    required this.releaseDescriptionBuilder,
-    required this.releasePageUrl,
-    required this.onOpenUrl,
-    this.inline = false,
-    super.key,
-  });
-
-  final String Function(AppConfigState config) releaseDescriptionBuilder;
-  final String releasePageUrl;
-  final Future<void> Function(String rawUrl) onOpenUrl;
-  final bool inline;
+class _CheckUpdateButton extends ConsumerWidget {
+  const _CheckUpdateButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
-    final appInfoAsync = ref.watch(currentAppInfoProvider);
-    final updateState = ref.watch(updateControllerProvider);
-    final appName = appInfoAsync.maybeWhen(
-      data: (info) => info.appName.trim().isEmpty ? 'HE Music' : info.appName,
-      orElse: () => 'HE Music',
+    final localeCode = ref.watch(
+      appConfigProvider.select((config) => config.localeCode),
     );
-    final version = appInfoAsync.maybeWhen(
-      data: (info) => info.versionLabel,
-      orElse: () => '--',
+    final isChecking = ref.watch(
+      updateControllerProvider.select(
+        (state) => state.status == UpdateStatus.checking,
+      ),
     );
-    final versionTitle = AppI18n.t(config, 'settings.about.current_version');
-    final releases = AppListTile(
-      leading: const Icon(Icons.history_rounded),
-      title: Text(AppI18n.t(config, 'update.history.title')),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      enabled: AppEnvironment.hasGitHubReleaseConfig,
-      onTap: AppEnvironment.hasGitHubReleaseConfig
-          ? () => context.push(AppRoutes.releaseHistory)
-          : null,
-    );
-    final github = AppListTile(
-      leading: const Icon(Icons.open_in_new_rounded),
-      title: Text(AppI18n.t(config, 'settings.about.github_release')),
-      subtitle: Text(releaseDescriptionBuilder(config)),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      enabled: AppEnvironment.hasGitHubReleaseConfig,
-      onTap: AppEnvironment.hasGitHubReleaseConfig
-          ? () => onOpenUrl(releasePageUrl)
-          : null,
-    );
-    final checkUpdate = AppButton.filledIcon(
-      onPressed: updateState.status == UpdateStatus.checking
+    return AppButton.filledIcon(
+      onPressed: isChecking
           ? null
           : () => ref.read(updateControllerProvider.notifier).checkForUpdates(),
-      icon: updateState.status == UpdateStatus.checking
+      icon: isChecking
           ? const SizedBox(
               width: 18,
               height: 18,
@@ -220,49 +224,13 @@ class AboutContent extends ConsumerWidget {
             )
           : const Icon(Icons.system_update_rounded),
       label: Text(
-        updateState.status == UpdateStatus.checking
-            ? AppI18n.t(config, 'settings.about.checking')
-            : AppI18n.t(config, 'settings.about.check_update'),
-      ),
-    );
-    if (inline) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppListTile(
-            title: Text(appName),
-            subtitle: Text('$versionTitle $version'),
-            leading: Image.asset(
-              'assets/icons/favicon-512x512.png',
-              width: 26,
-              height: 26,
-            ),
-          ),
-          releases,
-          github,
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 12),
-              child: checkUpdate,
-            ),
-          ),
-        ],
-      );
-    }
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
-        _AboutHero(
-          appName: appName,
-          versionLabel: version,
-          versionTitle: versionTitle,
+        AppI18n.tByLocaleCode(
+          localeCode,
+          isChecking
+              ? 'settings.about.checking'
+              : 'settings.about.check_update',
         ),
-        const SizedBox(height: 18),
-        AppPanel(child: Column(children: [releases, github])),
-        const SizedBox(height: 18),
-        checkUpdate,
-      ],
+      ),
     );
   }
 }
@@ -317,6 +285,8 @@ class _AboutHero extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            const SizedBox(height: 16),
+            const _CheckUpdateButton(),
           ],
         ),
       ),
